@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
-import { Box, ChevronRight, Package, X } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Box, ChevronRight, MapPin, Package, X } from "lucide-react";
 import { url, type Container, type Item, type Me, type Placement, STATUS_LABELS } from "../api";
 
 // ---------------------------------------------------------------- data hooks
@@ -160,6 +160,7 @@ export function PathView({ placement, link = true }: { placement: Placement | nu
 }
 
 export function ItemRow({ item, right }: { item: Item; right?: ReactNode }) {
+  const nav = useNavigate();
   return (
     <Link to={`/items/${item.id}`}>
       <Thumb src={item.photo?.thumb_url} />
@@ -168,6 +169,21 @@ export function ItemRow({ item, right }: { item: Item; right?: ReactNode }) {
         <div className="s">{item.placement.path}</div>
         <div className="row wrap" style={{ gap: 4, marginTop: 2 }}>
           <StatusBadge item={item} />
+          {/* Map links are buttons, not links: a link inside the row link is invalid HTML. */}
+          {item.maps?.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              className="badge blue maplink"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                nav(`/maps/${m.id}`);
+              }}
+            >
+              <MapPin size={12} /> {m.title}
+            </button>
+          ))}
         </div>
       </div>
       {right ?? <div className="qty">×{item.quantity}</div>}

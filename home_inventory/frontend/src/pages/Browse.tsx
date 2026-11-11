@@ -94,12 +94,7 @@ export function SearchPage() {
                 {r.data.interpretation.by.startsWith("ai") && <div className="muted" style={{ fontSize: ".8rem", marginTop: 4 }}><Sparkles size={12} /> Question interpreted by AI; results come from your inventory.</div>}
               </div>
               <div className="card tight">
-                {r.data.results.length ? <div className="list">{r.data.results.map((i) => (
-                  <div key={i.id}>
-                    <ItemRow item={i} />
-                    {i.maps && i.maps.length > 0 && <div style={{ padding: "0 16px 10px 84px" }}>{i.maps.map((m) => <Link key={m.id} className="badge blue" to={`/maps/${m.id}`} style={{ marginRight: 6 }}><MapPin size={12} /> {m.title}</Link>)}</div>}
-                  </div>
-                ))}</div> : <Empty>No matches.</Empty>}
+                {r.data.results.length ? <div className="list">{r.data.results.map((i) => <ItemRow key={i.id} item={i} />)}</div> : <Empty>No matches.</Empty>}
               </div>
             </>
           )}
