@@ -126,7 +126,7 @@ class Location(TimestampMixin, Base):
     parent_id: Mapped[int | None] = mapped_column(ForeignKey("locations.id", ondelete="RESTRICT"), index=True)
     name: Mapped[str] = mapped_column(String(200))
     # Permanent identifier encoded in the location's QR label.
-    qr_code: Mapped[str | None] = mapped_column(String(16), unique=True)
+    qr_code: Mapped[str | None] = mapped_column(String(16), unique=True, index=True)
     # property, building, room, area, shelf, drawer, cabinet, workbench, ...
     kind: Mapped[str | None] = mapped_column(String(40))
     description: Mapped[str | None] = mapped_column(Text)

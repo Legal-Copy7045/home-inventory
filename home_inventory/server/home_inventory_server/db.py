@@ -63,16 +63,57 @@ def run_migrations(engine: Engine, db_path: Path | None, backup_dir: Path | None
         return
     if db_path and db_path.exists() and current is not None and backup_dir is not None:
         backup_dir.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-        target = backup_dir / f"pre-migration-{current}-{stamp}.sqlite3"
-        snapshot_sqlite(engine, target)
-        _LOGGER.info("Database snapshot before migration written to %s", target)
-        _prune(backup_dir, "pre-migration-", keep=5)
+        existing = sorted(backup_dir.glob(f"pre-migration-{current}-*.sqlite3"))
+        if existing:
+            # Keep the first snapshot taken from this revision: if a previous
+            # attempt failed, later snapshots would not be pristine.
+            _LOGGER.info("Keeping existing pre-migration snapshot %s", existing[0])
+        else:
+            stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+            target = backup_dir / f"pre-migration-{current}-{stamp}.sqlite3"
+            snapshot_sqlite(engine, target)
+            _LOGGER.info("Database snapshot before migration written to %s", target)
+            _prune(backup_dir, "pre-migration-", keep=5)
     _LOGGER.info("Migrating database %s -> %s", current, head)
+    _upgrade_atomically(url)
+
+
+def _upgrade_atomically(url: str) -> None:
+    """Run all pending migrations in ONE transaction with foreign keys off.
+
+    * Python's sqlite3 driver commits before each DDL statement by default,
+      so a failing migration could leave earlier steps applied while the
+      revision stays unchanged.  Taking manual control of BEGIN/COMMIT makes
+      SQLite's DDL fully transactional: a failure rolls everything back.
+    * SQLite rebuilds tables for some schema changes; with foreign keys on,
+      dropping the old table would fire ON DELETE actions or fail.  They are
+      switched off for the migration (the documented SQLite procedure) and
+      the result is verified with ``PRAGMA foreign_key_check``.
+    """
+    mig_engine = create_engine(url, connect_args={"check_same_thread": False, "timeout": 30})
+
+    @event.listens_for(mig_engine, "connect")
+    def _connect(dbapi_conn, _record):  # pragma: no cover - trivial
+        dbapi_conn.isolation_level = None  # driver must not manage transactions
+        cur = dbapi_conn.cursor()
+        cur.execute("PRAGMA foreign_keys=OFF")
+        cur.execute("PRAGMA busy_timeout=30000")
+        cur.close()
+
+    @event.listens_for(mig_engine, "begin")
+    def _begin(conn):  # pragma: no cover - trivial
+        conn.exec_driver_sql("BEGIN")
+
     cfg = alembic_config(url)
-    with engine.begin() as conn:
-        cfg.attributes["connection"] = conn
-        command.upgrade(cfg, "head")
+    try:
+        with mig_engine.begin() as conn:
+            cfg.attributes["connection"] = conn
+            command.upgrade(cfg, "head")
+            problems = conn.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
+            if problems:
+                raise RuntimeError(f"Migration left broken references: {problems[:5]}")
+    finally:
+        mig_engine.dispose()
 
 
 def snapshot_sqlite(engine: Engine, target: Path) -> None:
