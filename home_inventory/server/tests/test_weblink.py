@@ -164,3 +164,11 @@ def test_ai_fallback_when_no_structured_data(ai_env, fake_ai, monkeypatch):
     res = ai_env.admin.ok("post", "/api/v1/link/import", json={"url": "https://shop.example/4471"})
     assert res["details"]["name"] == "Cordless vacuum TurboVac 3000"
     assert res["details"]["manufacturer"] == "Acme" and res["details"]["source"] == "meta+ai"
+
+
+def test_image_failure_returns_fixed_message(env, fake_web):
+    fake_web["https://cdn.example.com/drill.jpg"] = (b"<html>not an image</html>", "text/html")
+    res = env.admin.ok("post", "/api/v1/link/import", json={"url": "https://www.examplehardware.com/p/123"})
+    assert res["photo"] is None
+    assert res["image_error"] == "The product photo could not be downloaded or is not a supported image."
+    assert res["details"]["name"]  # details still returned

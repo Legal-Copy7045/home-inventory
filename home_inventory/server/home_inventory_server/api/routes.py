@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import tempfile
 from datetime import date, timedelta
 from pathlib import Path
@@ -77,6 +78,7 @@ from ..services import weblink
 from ..services.media import MediaError
 from ..services.placement import PlacementError, Resolver
 
+_LOGGER = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1")
 
 
@@ -890,7 +892,9 @@ async def link_import(data: LinkImportIn, request: Request, actor: Actor = Depen
             db.commit()
             photo = inv.attachment_out(att)
         except (weblink.LinkError, MediaError) as err:
-            image_error = str(err)
+            # Details go to the App log; the browser gets a fixed message.
+            _LOGGER.info("Product photo from %s not added: %s", page.image_url, err)
+            image_error = "The product photo could not be downloaded or is not a supported image."
     similar = similar_products(page.name, actor, db) if page.name else []
     existing = inv.find_product_by_barcode(db, page.barcode) if page.barcode else None
     return {
