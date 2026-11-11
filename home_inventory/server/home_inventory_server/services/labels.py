@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 
 import segno
 from reportlab.lib.pagesizes import A4, LETTER
-from reportlab.lib.units import mm
+from reportlab.lib.units import inch, mm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
@@ -111,8 +111,14 @@ TEMPLATES = {
         Template("avery_l7163", "Avery L7163 – 14 per A4 (99.1×38.1 mm)", A4, 2, 7, 99.1 * mm, 38.1 * mm, 4.65 * mm, 15.15 * mm, 2.5 * mm, 0),
         Template("avery_l7165", "Avery L7165 – 8 per A4 (99.1×67.7 mm)", A4, 2, 4, 99.1 * mm, 67.7 * mm, 4.65 * mm, 13.1 * mm, 2.5 * mm, 0),
         # US Letter sheets
-        Template("avery_5160", "Avery 5160 – 30 per Letter (2.625×1 in)", LETTER, 3, 10, 66.7 * mm, 25.4 * mm, 4.8 * mm, 12.7 * mm, 3.2 * mm, 0),
-        Template("avery_5163", "Avery 5163 – 10 per Letter (4×2 in)", LETTER, 2, 5, 101.6 * mm, 50.8 * mm, 4 * mm, 12.7 * mm, 4.8 * mm, 0),
+        # US Letter sheets (Avery's published dimensions).  Product numbers in
+        # each name share one layout, e.g. 5523 WeatherProof = 5163 paper.
+        Template("avery_5160", "Avery 5160 / 5520 WeatherProof / 8160 / 5960 – 30 per sheet (1×2⅝ in)",
+                 LETTER, 3, 10, 2.625 * inch, 1 * inch, 0.1875 * inch, 0.5 * inch, 0.125 * inch, 0),
+        Template("avery_5163", "Avery 5163 / 5523 WeatherProof / 8163 / 5963 – 10 per sheet (2×4 in)",
+                 LETTER, 2, 5, 4 * inch, 2 * inch, 0.15625 * inch, 0.5 * inch, 0.1875 * inch, 0),
+        Template("avery_5164", "Avery 5164 / 5524 WeatherProof / 8164 – 6 per sheet (3⅓×4 in)",
+                 LETTER, 2, 3, 4 * inch, (10 / 3) * inch, 0.15625 * inch, 0.5 * inch, 0.1875 * inch, 0),
         Template("avery_22806", "Avery 22806 – 12 per Letter (2×2 in square)", LETTER, 3, 4, 50.8 * mm, 50.8 * mm, 15.9 * mm, 15.9 * mm, 15.9 * mm, 12.7 * mm),
         # Single label printers (one label per page)
         Template("single_62x29", "Label printer 62×29 mm (Brother DK-11209)", (62 * mm, 29 * mm), 1, 1, 62 * mm, 29 * mm, 0, 0, 0, 0),
