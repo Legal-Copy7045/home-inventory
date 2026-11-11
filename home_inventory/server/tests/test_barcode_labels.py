@@ -163,3 +163,18 @@ def test_settings_address_overrides_browser(env, monkeypatch):
     u.ok("patch", "/api/v1/settings", json={"qr_base_url": "https://inventory.example.org/app"})
     u.get(f"/api/v1/containers/{box['id']}/qr.svg", params={"base": BASE})
     assert seen == [BASE, "https://inventory.example.org/app"]
+
+
+def test_weatherproof_avery_names_and_geometry():
+    from reportlab.lib.units import inch
+
+    t = TEMPLATES["avery_5163"]
+    assert "5523" in t.name  # the WeatherProof 2x4" sheet is listed by its own number
+    assert "5520" in TEMPLATES["avery_5160"].name and "5524" in TEMPLATES["avery_5164"].name
+    for key in ("avery_5160", "avery_5163", "avery_5164"):
+        t = TEMPLATES[key]
+        page_w, page_h = t.page
+        used_w = 2 * t.margin_left + t.cols * t.width + (t.cols - 1) * t.gap_x
+        used_h = 2 * t.margin_top + t.rows * t.height
+        assert abs(used_w - page_w) < 0.01 * inch, key  # symmetric, fills the sheet
+        assert abs(used_h - page_h) < 0.01 * inch, key
