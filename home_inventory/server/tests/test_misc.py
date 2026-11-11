@@ -265,3 +265,20 @@ def test_database_constraints(env):
         db.flush()
     db.rollback()
     db.close()
+
+
+def test_settings_fall_back_to_s6_saved_environment(tmp_path, monkeypatch):
+    """Home Assistant base images (s6-overlay) may start the App with an empty
+    environment; settings must still be found."""
+    from home_inventory_server import config
+
+    s6 = tmp_path / "s6"
+    s6.mkdir()
+    (s6 / "SUPERVISOR_TOKEN").write_text("tok123\n")
+    (s6 / "HINV_DATA_DIR").write_text(str(tmp_path / "d"))
+    monkeypatch.setattr(config, "S6_ENV_DIR", s6)
+    monkeypatch.delenv("SUPERVISOR_TOKEN", raising=False)
+    monkeypatch.delenv("HINV_DATA_DIR", raising=False)
+    s = config.Settings.load()
+    assert s.supervisor_token == "tok123"
+    assert s.data_dir == tmp_path / "d"
