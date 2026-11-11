@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { HashRouter, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { Activity, ArrowLeft, Box, Handshake, Home, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings } from "lucide-react";
-import { api, type Me } from "./api";
-import { MeContext, Sheet, Spinner, ToastHost } from "./components/ui";
+import { api, appBaseUrl, labelRef, type Me, type QrTarget } from "./api";
+import { MeContext, Sheet, Spinner, ToastHost, useToast } from "./components/ui";
 import AddItem from "./pages/AddItem";
 import { DashboardPage, ItemsPage, LocationDetailPage, LocationsPage, SearchBox, SearchPage } from "./pages/Browse";
 import { ContainerDetail, ContainersPage } from "./pages/Containers";
@@ -33,15 +33,50 @@ const TITLES: [RegExp, string][] = [
 ];
 
 /** QR labels can encode `<base>?c=CODE`; open the container when launched that way. */
+/**
+ * Open the container or location a QR label points at.
+ *
+ * Labels encode https://<home assistant>/<app panel>/c/<code> (or /l/ for
+ * locations).  Home Assistant opens the App's panel and passes the
+ * "/c/<code>" tail to the App via its iframe properties message; the page
+ * is same-origin, so the top-level address is also checked directly.
+ */
 function DeepLink() {
   const nav = useNavigate();
+  const toast = useToast();
   useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get("c");
-    if (!code) return;
-    api.post<{ container_id: number }>("qr/resolve", { text: `HINV:C:${code}` })
-      .then((r) => nav(`/containers/${r.container_id}`, { replace: true }))
-      .catch(() => undefined);
-  }, [nav]);
+    let handled = "";
+    const open = async (source: string, fromTop: boolean) => {
+      const ref = labelRef(source);
+      if (!ref || handled === `${ref.kind}${ref.code}`) return;
+      handled = `${ref.kind}${ref.code}`;
+      try {
+        const r = await api.post<QrTarget>("qr/resolve", { text: `HINV:${ref.kind}:${ref.code}` });
+        nav(r.type === "location" ? `/locations/${r.id}` : `/containers/${r.id}`, { replace: true });
+        // Tidy Home Assistant's address bar so a reload doesn't jump back here.
+        const base = appBaseUrl();
+        if (fromTop && base) {
+          window.parent.postMessage({ type: "home-assistant/navigate", path: new URL(base).pathname, options: { replace: true } }, "*");
+        }
+      } catch (e) {
+        toast((e as Error).message, true);
+      }
+    };
+    open(window.location.pathname + window.location.search, false);
+    try {
+      open(window.top!.location.pathname + window.top!.location.search, true);
+    } catch {
+      /* not same-origin */
+    }
+    const onMessage = (ev: MessageEvent) => {
+      if (ev.source !== window.parent || ev.data?.type !== "home-assistant/properties") return;
+      const route = ev.data.route as { path?: string } | undefined;
+      if (route?.path) open(route.path, true);
+    };
+    window.addEventListener("message", onMessage);
+    if (window.parent !== window) window.parent.postMessage({ type: "home-assistant/subscribe-properties" }, "*");
+    return () => window.removeEventListener("message", onMessage);
+  }, [nav, toast]);
   return null;
 }
 

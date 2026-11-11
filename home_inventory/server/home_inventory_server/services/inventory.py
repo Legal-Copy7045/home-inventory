@@ -88,9 +88,13 @@ def now() -> datetime:
 
 
 def new_qr_code(db: Session) -> str:
+    """A code unique across containers and locations, so a bare code typed
+    into the scanner is never ambiguous."""
     while True:
         code = "".join(secrets.choice(QR_ALPHABET) for _ in range(8))
-        if not db.scalar(select(Container.id).where(Container.qr_code == code)):
+        if not db.scalar(select(Container.id).where(Container.qr_code == code)) and not db.scalar(
+            select(Location.id).where(Location.qr_code == code)
+        ):
             return code
 
 
@@ -143,7 +147,7 @@ def item_name(item: Item) -> str:
 
 def create_location(db: Session, actor: Actor, data: LocationIn) -> Location:
     validate_location_parent(db, None, data.parent_id)
-    loc = Location(**data.model_dump())
+    loc = Location(qr_code=new_qr_code(db), **data.model_dump())
     db.add(loc)
     db.flush()
     audit.record(db, actor, "created", "location", loc.id, f"Created location {loc.name}", after=data.model_dump())
@@ -993,6 +997,7 @@ def location_out(loc: Location, r: Resolver, db: Session, detail: bool = False) 
         "description": loc.description,
         "parent_id": loc.parent_id,
         "sort_order": loc.sort_order,
+        "qr_code": loc.qr_code,
         "path": r.location_path(loc.id),
         "path_parts": [{"id": x.id, "name": x.name} for x in r.location_chain(loc.id)],
         "deleted_at": loc.deleted_at.isoformat() if loc.deleted_at else None,
