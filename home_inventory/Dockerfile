@@ -11,7 +11,11 @@ RUN npx tsc --noEmit && npx vite build --outDir /out --emptyOutDir
 
 # ---- app ------------------------------------------------------------------
 FROM ${BUILD_FROM}
-ENV PYTHONDONTWRITEBYTECODE=1 \
+# S6_KEEP_ENV: the Home Assistant base image runs CMD under s6-overlay, which
+# otherwise starts it with an empty environment (losing SUPERVISOR_TOKEN and
+# the HINV_* settings below).
+ENV S6_KEEP_ENV=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \

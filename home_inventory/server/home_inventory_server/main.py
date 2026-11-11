@@ -15,7 +15,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -38,7 +37,17 @@ from .services import stats as stats_svc
 from .services.media import MediaStore
 
 _LOGGER = logging.getLogger("home_inventory")
-FRONTEND_DIR = Path(os.environ.get("HINV_FRONTEND_DIR", Path(__file__).parent / "static"))
+def _frontend_dir() -> Path:
+    from .config import getenv
+
+    candidates = [getenv("HINV_FRONTEND_DIR"), "/app/static", str(Path(__file__).parent / "static")]
+    for c in candidates:
+        if c and (Path(c) / "index.html").exists():
+            return Path(c)
+    return Path(__file__).parent / "static"
+
+
+FRONTEND_DIR = _frontend_dir()
 
 
 @dataclass
@@ -218,9 +227,11 @@ async def _announce_discovery(state: AppState) -> None:
     s = state.settings
     if not s.supervisor_token:
         return
+    import socket
+
     import httpx
 
-    host = os.environ.get("HOSTNAME") or "local-home-inventory"
+    host = socket.gethostname() or "local-home-inventory"
     payload = {"service": "home_inventory", "config": {"host": host, "port": s.api_port, "api_token": state.api_token}}
     for attempt in range(10):
         try:
@@ -258,8 +269,10 @@ async def serve(settings: Settings) -> None:
     state.tasks.append(asyncio.create_task(_periodic(state)))
     state.tasks.append(asyncio.create_task(_announce_discovery(state)))
     _LOGGER.info(
-        "Home Inventory %s started (mode=%s, ingress port %s, API port %s, AI %s)",
-        state.version, settings.mode, settings.ingress_port, settings.api_port, state.ai.describe(),
+        "Home Inventory %s started (mode=%s, ingress port %s, API port %s, UI %s, Supervisor API %s, AI %s)",
+        state.version, settings.mode, settings.ingress_port, settings.api_port,
+        "ok" if (FRONTEND_DIR / "index.html").exists() else f"MISSING in {FRONTEND_DIR}",
+        "available" if settings.supervisor_token else "not available", state.ai.describe(),
     )
     if settings.mode == "standalone":
         _LOGGER.info(

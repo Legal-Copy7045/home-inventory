@@ -21,6 +21,20 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_DATA_DIR = Path("/data")
+# s6-overlay (used by Home Assistant base images) saves the container's
+# original environment here when it resets the environment for services.
+S6_ENV_DIR = Path("/run/s6/container_environment")
+
+
+def getenv(name: str, default: str | None = None) -> str | None:
+    """Read an environment variable, falling back to s6-overlay's saved copy."""
+    value = os.environ.get(name)
+    if value is not None:
+        return value
+    try:
+        return (S6_ENV_DIR / name).read_text().strip() or default
+    except OSError:
+        return default
 
 # Supervisor's Ingress proxy always connects from this address.
 SUPERVISOR_INGRESS_IP = "172.30.32.2"
@@ -119,9 +133,8 @@ class Settings:
 
     @classmethod
     def load(cls, options_path: Path | None = None) -> Settings:
-        env = os.environ
-        data_dir = Path(env.get("HINV_DATA_DIR", str(DEFAULT_DATA_DIR)))
-        options_file = options_path or Path(env.get("HINV_OPTIONS_FILE", str(data_dir / "options.json")))
+        data_dir = Path(getenv("HINV_DATA_DIR") or str(DEFAULT_DATA_DIR))
+        options_file = options_path or Path(getenv("HINV_OPTIONS_FILE") or str(data_dir / "options.json"))
         options: dict[str, Any] = {}
         if options_file.exists():
             try:
@@ -132,9 +145,9 @@ class Settings:
         s = cls(data_dir=data_dir)
 
         def pick(name: str) -> Any:
-            env_name = f"HINV_{name.upper()}"
-            if env_name in env:
-                return env[env_name]
+            value = getenv(f"HINV_{name.upper()}")
+            if value is not None:
+                return value
             return options.get(name)
 
         conv = {
@@ -176,7 +189,7 @@ class Settings:
             except (TypeError, ValueError):
                 pass
 
-        s.supervisor_token = env.get("SUPERVISOR_TOKEN", "")
+        s.supervisor_token = getenv("SUPERVISOR_TOKEN") or getenv("HASSIO_TOKEN") or ""
         if s.default_role not in ("member", "read_only", "admin"):
             s.default_role = "member"
         s.ai_provider = s.ai_provider.lower()
