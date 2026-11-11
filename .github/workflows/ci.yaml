@@ -79,7 +79,9 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          ignore: brands
+          # "topics" only matters for listing in the default HACS store; this
+          # repository is added to HACS as a custom repository.
+          ignore: brands topics
 
   app-lint:
     runs-on: ubuntu-latest
