@@ -52,6 +52,7 @@ from ..schemas import (
     ItemCreate,
     ItemPatch,
     LabelRequest,
+    LinkImportIn,
     LoanIn,
     LocationIn,
     LocationPatch,
@@ -72,6 +73,7 @@ from ..services import labels as labels_svc
 from ..services import scans as scans_svc
 from ..services import search as search_svc
 from ..services import stats as stats_svc
+from ..services import weblink
 from ..services.media import MediaError
 from ..services.placement import PlacementError, Resolver
 
@@ -834,6 +836,43 @@ def discard_scan(scan_id: int, actor: Actor = Depends(require_member), db: Sessi
 # ---------------------------------------------------------------------------
 # barcode, search
 # ---------------------------------------------------------------------------
+
+
+@router.post("/link/import")
+async def link_import(data: LinkImportIn, request: Request, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Read product details (and the main photo) from a web page for review.
+
+    Nothing is saved to the inventory; the photo is stored as an unattached
+    upload (removed automatically if never used).
+    """
+    st = _state(request)
+    ai = st.ai if st.ai.enabled else None
+    try:
+        page = await asyncio.to_thread(weblink.import_from_url, data.url, ai)
+    except weblink.LinkError as err:
+        raise HTTPException(422, str(err)) from err
+    photo = None
+    image_error = None
+    if data.download_image and page.image_url:
+        try:
+            raw = await asyncio.to_thread(weblink.download_image, page.image_url)
+            stored = await asyncio.to_thread(st.media.save, raw, False)
+            att = Attachment(kind=AttachmentKind.photo, original_name="web-image", caption="From product page",
+                             created_by_id=actor.user_id, **stored.__dict__)
+            db.add(att)
+            db.commit()
+            photo = inv.attachment_out(att)
+        except (weblink.LinkError, MediaError) as err:
+            image_error = str(err)
+    similar = similar_products(page.name, actor, db) if page.name else []
+    existing = inv.find_product_by_barcode(db, page.barcode) if page.barcode else None
+    return {
+        "details": page.as_dict(),
+        "photo": photo,
+        "image_error": image_error,
+        "similar": similar,
+        "existing_product": inv.product_out(existing) if existing else None,
+    }
 
 
 @router.post("/barcode/lookup")

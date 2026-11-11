@@ -143,6 +143,7 @@ export interface Product {
   gtin: string | null;
   sku: string | null;
   tags: string | null;
+  url: string | null;
   min_quantity: number | null;
   identification_status: string;
   catalog_metadata: Record<string, unknown> | null;
@@ -159,6 +160,7 @@ export interface Item {
   manufacturer: string | null;
   model_number: string | null;
   barcode: string | null;
+  product_url: string | null;
   quantity: number;
   status: ItemStatus;
   status_note: string | null;
@@ -338,6 +340,30 @@ export interface BarcodeResult {
   owned_quantity: number;
   catalog: { name?: string; description?: string; manufacturer?: string; model_number?: string; category?: string; image_url?: string; source?: string; url?: string } | null;
   message: string | null;
+}
+
+export interface LinkDetails {
+  url: string;
+  name: string | null;
+  description: string | null;
+  manufacturer: string | null;
+  model_number: string | null;
+  barcode: string | null;
+  sku: string | null;
+  category: string | null;
+  image_url: string | null;
+  price: string | null;
+  currency: string | null;
+  retailer: string | null;
+  source: string;
+}
+
+export interface LinkImport {
+  details: LinkDetails;
+  photo: Attachment | null;
+  image_error: string | null;
+  similar: SimilarProduct[];
+  existing_product: Product | null;
 }
 
 export interface SearchResult {

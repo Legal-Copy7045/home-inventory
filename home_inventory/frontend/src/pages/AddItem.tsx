@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Camera, ImagePlus, MapPin, Sparkles, Trash2 } from "lucide-react";
 import { api, uploadPhoto, type AISuggestion, type Attachment, type BarcodeResult, type Item, type SimilarProduct } from "../api";
-import { ItemFields, emptyItem, toPayload, type ItemFormValue } from "../components/ItemFields";
+import { ItemFields, applyLinkDetails, emptyItem, toPayload, type ItemFormValue } from "../components/ItemFields";
+import { LinkImport } from "../components/LinkImport";
 import { PlacementPicker, type PlacementValue } from "../components/PlacementPicker";
 import { useAction, useMe, useToast } from "../components/ui";
 
@@ -148,6 +149,26 @@ export default function AddItem() {
   return (
     <div className="page">
       <h1>Add item</h1>
+
+      <div className="card">
+        <div className="card-title">
+          <h2>From a web link</h2>
+        </div>
+        <LinkImport
+          initialUrl={params.get("url") || ""}
+          onImported={(r) => {
+            setValue((v) => applyLinkDetails(v, r.details, !v.name.trim()));
+            if (r.photo) setPhotos((p) => [...p, r.photo!]);
+            const d = r.details;
+            setCatalog({
+              name: d.name ?? undefined, description: d.description ?? undefined, manufacturer: d.manufacturer ?? undefined,
+              model_number: d.model_number ?? undefined, category: d.category ?? undefined, image_url: d.image_url ?? undefined,
+              url: d.url, source: d.retailer || new URL(d.url).hostname,
+            });
+            if (r.existing_product) setProductId(r.existing_product.id);
+          }}
+        />
+      </div>
 
       <div className="card">
         <div className="card-title">

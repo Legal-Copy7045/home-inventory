@@ -189,6 +189,8 @@ class Product(TimestampMixin, Base):
     barcode: Mapped[str | None] = mapped_column(String(64), index=True)
     sku: Mapped[str | None] = mapped_column(String(120), index=True)
     tags: Mapped[str | None] = mapped_column(Text)
+    # Product web page (retailer or manufacturer), used to import details.
+    url: Mapped[str | None] = mapped_column(String(2000))
     # Consumables: warn when the total quantity across all holdings drops
     # below this number (NULL = not tracked).
     min_quantity: Mapped[int | None] = mapped_column(Integer)

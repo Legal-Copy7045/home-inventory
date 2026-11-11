@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowRightLeft, Camera, FileText, Handshake, Home, Map as MapIcon, Minus, Pencil, Plus, Star, Trash2, Undo2 } from "lucide-react";
 import { api, uploadPhoto, url, type HistoryEvent, type Item, type ItemStatus, STATUS_LABELS } from "../api";
-import { ItemFields, toPayload, type ItemFormValue } from "../components/ItemFields";
+import { ItemFields, applyLinkDetails, toPayload, type ItemFormValue } from "../components/ItemFields";
+import { LinkImport } from "../components/LinkImport";
 import { PlacementPicker, type PlacementValue } from "../components/PlacementPicker";
 import { ErrorBox, PathView, Section, Sheet, Spinner, StatusBadge, Stepper, Thumb, fmtDate, fmtWhen, money, useAction, useApi, useMe, useToast } from "../components/ui";
 
@@ -18,6 +19,7 @@ function toForm(it: Item): ItemFormValue {
     barcode_format: "",
     sku: p.sku || "",
     tags: p.tags || "",
+    url: p.url || "",
     label: it.label || "",
     notes: it.notes || "",
     quantity: it.quantity,
@@ -157,6 +159,7 @@ export default function ItemDetail() {
           {it.model_number && (<><dt>Model</dt><dd>{it.model_number}</dd></>)}
           {it.serial_number && (<><dt>Serial</dt><dd className="mono">{it.serial_number}</dd></>)}
           {it.barcode && (<><dt>Barcode</dt><dd className="mono">{it.barcode}</dd></>)}
+          {it.product_url && (<><dt>Product page</dt><dd><a href={it.product_url} target="_blank" rel="noopener noreferrer">{(() => { try { return new URL(it.product_url).hostname.replace(/^www\./, ""); } catch { return it.product_url; } })()} ↗</a></dd></>)}
           {it.expires_on && (<><dt>Expires</dt><dd>{fmtDate(it.expires_on)}{it.expired ? " (expired)" : ""}</dd></>)}
           {it.purchase_price && (<><dt>Price</dt><dd>{money(it.purchase_price, it.currency || me.app.currency)}</dd></>)}
           {it.purchase_date && (<><dt>Bought</dt><dd>{fmtDate(it.purchase_date)}{it.retailer ? ` at ${it.retailer}` : ""}</dd></>)}
@@ -256,6 +259,11 @@ function EditSheet({ item, onClose, onSaved }: { item: Item; onClose: () => void
   const { busy, run } = useAction();
   return (
     <Sheet title="Edit item" onClose={onClose}>
+      <div className="card" style={{ marginBottom: 12 }}>
+        <h3>Fill from a web link</h3>
+        <p className="muted" style={{ marginTop: 0 }}>Only empty fields are filled; nothing you have entered is replaced.</p>
+        <LinkImport initialUrl={v.url} downloadImage={false} buttonLabel="Fill" onImported={(r) => setV((cur) => applyLinkDetails(cur, r.details, false))} />
+      </div>
       <form onSubmit={async (e) => { e.preventDefault(); if (await run(() => api.patch(`items/${item.id}`, { ...toPayload(v), identification_status: "confirmed" }), "Saved")) onSaved(); }}>
         <ItemFields value={v} onChange={setV} sharedCount={item.siblings?.length || 0} />
         <button className="btn primary block" style={{ marginTop: 14 }} disabled={busy}>Save</button>

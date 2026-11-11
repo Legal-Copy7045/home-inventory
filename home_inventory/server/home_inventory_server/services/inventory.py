@@ -59,7 +59,7 @@ class Conflict(ValueError):
 
 
 QR_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O/1/I
-PRODUCT_FIELDS = ("name", "description", "manufacturer", "model_number", "barcode", "sku", "tags", "min_quantity")
+PRODUCT_FIELDS = ("name", "description", "manufacturer", "model_number", "barcode", "sku", "tags", "min_quantity", "url")
 PURCHASE_FIELDS = (
     "purchase_price",
     "currency",
@@ -824,6 +824,7 @@ def product_out(p: Product) -> dict[str, Any]:
         "gtin": p.gtin,
         "sku": p.sku,
         "tags": p.tags,
+        "url": p.url,
         "min_quantity": p.min_quantity,
         "identification_status": p.identification_status.value,
         "catalog_metadata": p.catalog_metadata,
@@ -867,6 +868,7 @@ def item_out(item: Item, r: Resolver, db: Session | None = None, detail: bool = 
         "manufacturer": item.product.manufacturer,
         "model_number": item.product.model_number,
         "barcode": item.product.barcode,
+        "product_url": item.product.url,
         "quantity": item.quantity,
         "status": item.status.value,
         "status_note": item.status_note,
