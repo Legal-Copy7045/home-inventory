@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3
+
+- **Import locations from Excel**: *Locations → Import from Excel* creates your whole location hierarchy from a spreadsheet. Download the template in the app (blank, or pre-filled with your current locations), fill in one row per place (`Level 1 | Level 2 | … | Kind | Description`), upload, check the preview and confirm. Parents are created automatically, existing places are reused (safe to import again), outline-style sheets and CSV files work too, and problem rows are listed instead of stopping the import.
+- Phone layout fixes on the Locations page header and in pop-up panels with long text.
+
 ## 0.1.2
 
 - **QR labels open in your phone's camera**: labels now carry a link to the item's page in Home Assistant (built from the address you use to open Home Assistant, or the *QR label link* setting). Scanning one shows the container's contents. Labels printed with earlier versions only work in the in-app Scan screen, so reprint them.
