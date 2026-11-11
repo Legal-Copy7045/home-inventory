@@ -68,6 +68,7 @@ class IdentificationStatus(str, enum.Enum):
     ai_suggested = "ai_suggested"  # AI proposed, not yet confirmed
     catalog = "catalog"  # filled from a barcode catalog, confirmed
     confirmed = "confirmed"  # user reviewed and confirmed
+    pending = "pending"  # quick-captured photo; details still to be added
 
 
 class AttachmentKind(str, enum.Enum):

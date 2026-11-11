@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowRightLeft, Camera, Home, Pencil, Plus, Printer, QrCode, ScanLine, Sparkles, Trash2 } from "lucide-react";
+import { ArrowRightLeft, Camera, Home, Images, Pencil, Plus, Printer, QrCode, ScanLine, Sparkles, Trash2 } from "lucide-react";
 import { api, qrImageUrl, url, type Container, type HistoryEvent, type Scan } from "../api";
 import { PlacementPicker, type PlacementValue } from "../components/PlacementPicker";
 import { ContainerRow, Empty, ErrorBox, ItemRow, PathView, Section, Sheet, Spinner, Stepper, fmtWhen, useAction, useApi, useMe, useToast } from "../components/ui";
@@ -126,6 +126,7 @@ export function ContainerDetail() {
             <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) analyse(f); }} />
           </label>}
           <button onClick={() => setSheet("move")}><span className="ico"><ArrowRightLeft size={20} /></span>Move</button>
+          <Link to={`/capture?container_id=${ct.id}`}><span className="ico"><Images size={20} /></span>Quick photos</Link>
           <Link to={`/scan?container=${ct.id}`}><span className="ico"><ScanLine size={20} /></span>Scan mode</Link>
         </div>
       )}
