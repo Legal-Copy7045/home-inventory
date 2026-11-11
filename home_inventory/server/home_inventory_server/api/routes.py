@@ -31,6 +31,7 @@ from ..models import (
     Container,
     ContainerScan,
     HistoryEvent,
+    IdentificationStatus,
     Item,
     ItemStatus,
     Loan,
@@ -69,6 +70,7 @@ from ..schemas import (
 )
 from ..services import backup as backup_svc
 from ..services import barcode as barcode_svc
+from ..services import capture as capture_svc
 from ..services import inventory as inv
 from ..services import labels as labels_svc
 from ..services import location_import, weblink
@@ -421,6 +423,7 @@ def list_items(
     container_id: int | None = None,
     location_id: int | None = None,
     loose: bool = False,
+    needs_details: bool = False,
     sort: str = "name",
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -458,10 +461,13 @@ def list_items(
         stmt = stmt.where(Item.container_id.in_(within))
     if loose:
         stmt = stmt.where(Item.container_id.is_(None), Item.location_id.is_not(None))
+    if needs_details:
+        stmt = stmt.where(Product.identification_status == IdentificationStatus.pending)
     order = {
         "name": [func.lower(Product.name), Item.id],
         "recent": [Item.updated_at.desc()],
         "created": [Item.created_at.desc()],
+        "oldest": [Item.id],
         "value": [Item.purchase_price.desc().nulls_last()],
         "expiry": [Item.expires_on.asc().nulls_last()],
         "warranty": [Item.warranty_expires.asc().nulls_last()],
@@ -573,6 +579,37 @@ def restore_item(item_id: int, actor: Actor = Depends(require_member), db: Sessi
     inv.restore_item(db, actor, item)
     db.commit()
     return inv.item_out(item, _resolver(db), db, detail=True)
+
+
+@router.post("/capture", status_code=201)
+async def quick_capture(
+    request: Request,
+    file: UploadFile = File(...),
+    container_id: int | None = Form(None),
+    location_id: int | None = Form(None),
+    actor: Actor = Depends(require_member),
+    db: Session = Depends(get_db),
+):
+    """Quick photo: store the photo as a new item in the given place, flagged
+    as needing details, and queue an AI suggestion in the background."""
+    st = _state(request)
+    if container_id is None and location_id is None:
+        raise HTTPException(422, "Choose a container or location for quick photos")
+    data = await file.read(st.media.max_bytes + 1)
+    if len(data) > st.media.max_bytes:
+        raise HTTPException(413, "File too large")
+    try:
+        stored = await asyncio.to_thread(st.media.save, data, False)
+    except MediaError as err:
+        raise HTTPException(415, str(err)) from err
+    photo = Attachment(kind=AttachmentKind.photo, original_name=file.filename, created_by_id=actor.user_id, **stored.__dict__)
+    db.add(photo)
+    db.flush()
+    item = _err(capture_svc.capture, db, actor, photo, container_id, location_id, st.ai.enabled)
+    db.commit()
+    if st.ai.enabled:
+        st.capture_queue.put_nowait(item.id)
+    return inv.item_out(item, _resolver(db), db)
 
 
 @router.get("/products/similar")

@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowRightLeft, Camera, FileText, Handshake, Home, Map as MapIcon, Minus, Pencil, Plus, Star, Trash2, Undo2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { ArrowRightLeft, Camera, FileText, Handshake, Home, Map as MapIcon, Minus, Pencil, Plus, Sparkles, Star, Trash2, Undo2 } from "lucide-react";
 import { api, uploadPhoto, url, type HistoryEvent, type Item, type ItemStatus, STATUS_LABELS } from "../api";
 import { ItemFields, applyLinkDetails, toPayload, type ItemFormValue } from "../components/ItemFields";
 import { LinkImport } from "../components/LinkImport";
@@ -9,12 +9,13 @@ import { ErrorBox, PathView, Section, Sheet, Spinner, StatusBadge, Stepper, Thum
 
 function toForm(it: Item): ItemFormValue {
   const p = it.product!;
+  const s = it.needs_details ? it.capture?.suggestion : null;
   return {
-    name: p.name,
-    description: p.description || "",
-    category: p.category || "",
-    manufacturer: p.manufacturer || "",
-    model_number: p.model_number || "",
+    name: it.needs_details ? s?.name || "" : p.name,
+    description: p.description || s?.description || "",
+    category: p.category || s?.category || "",
+    manufacturer: p.manufacturer || s?.manufacturer || "",
+    model_number: p.model_number || s?.model_number || "",
     barcode: p.barcode || "",
     barcode_format: "",
     sku: p.sku || "",
@@ -41,7 +42,9 @@ export default function ItemDetail() {
   const nav = useNavigate();
   const item = useApi(() => api.get<Item>(`items/${id}`), [id]);
   const hist = useApi(() => api.get<{ events: HistoryEvent[] }>("history", { entity_type: "item", entity_id: id, limit: 30 }), [id]);
-  const [sheet, setSheet] = useState<null | "edit" | "move" | "lend" | "status" | "docs">(null);
+  const [params] = useSearchParams();
+  const [sheet, setSheet] = useState<null | "edit" | "move" | "lend" | "status" | "docs">(params.get("finish") ? "edit" : null);
+  useEffect(() => { if (params.get("finish")) setSheet("edit"); }, [id, params]);
   const { busy, run } = useAction();
   const toast = useToast();
 
@@ -64,6 +67,12 @@ export default function ItemDetail() {
 
   return (
     <div className="page">
+      {it.needs_details && !it.deleted_at && (
+        <div className="notice row between">
+          <span>Added with Quick photos — details still to add{it.capture?.suggestion ? `. AI thinks it's: ${it.capture.suggestion.name}` : ""}.</span>
+          {me.can_edit && <button className="btn small primary" onClick={() => setSheet("edit")}>Add details</button>}
+        </div>
+      )}
       {it.deleted_at && (
         <div className="notice row between">
           <span>This item was deleted {fmtWhen(it.deleted_at)}.</span>
@@ -245,7 +254,18 @@ export default function ItemDetail() {
         </button>
       )}
 
-      {sheet === "edit" && <EditSheet item={it} onClose={() => setSheet(null)} onSaved={() => { setSheet(null); refresh(); }} />}
+      {sheet === "edit" && (
+        <EditSheet
+          item={it}
+          onClose={() => setSheet(null)}
+          onSaved={() => { setSheet(null); refresh(); }}
+          onSavedNext={async () => {
+            setSheet(null);
+            const next = await api.get<{ items: Item[] }>("items", { needs_details: true, sort: "oldest", limit: 1 });
+            nav(next.items[0] ? `/items/${next.items[0].id}?finish=1` : "/to-finish", { replace: true });
+          }}
+        />
+      )}
       {sheet === "move" && <MoveSheet item={it} onClose={() => setSheet(null)} onDone={(newId) => { setSheet(null); if (newId !== it.id) nav(`/items/${newId}`); else refresh(); }} />}
       {sheet === "lend" && <LendSheet item={it} onClose={() => setSheet(null)} onDone={(newId) => { setSheet(null); if (newId !== it.id) nav(`/items/${newId}`); else refresh(); }} />}
       {sheet === "status" && <StatusSheet item={it} onClose={() => setSheet(null)} onDone={() => { setSheet(null); refresh(); }} />}
@@ -254,19 +274,32 @@ export default function ItemDetail() {
   );
 }
 
-function EditSheet({ item, onClose, onSaved }: { item: Item; onClose: () => void; onSaved: () => void }) {
+function EditSheet({ item, onClose, onSaved, onSavedNext }: { item: Item; onClose: () => void; onSaved: () => void; onSavedNext?: () => void }) {
   const [v, setV] = useState(toForm(item));
   const { busy, run } = useAction();
+  const save = async (next: boolean) => {
+    if (await run(() => api.patch(`items/${item.id}`, { ...toPayload(v), identification_status: "confirmed" }), "Saved")) (next && onSavedNext ? onSavedNext : onSaved)();
+  };
+  const suggestion = item.needs_details ? item.capture?.suggestion : null;
   return (
-    <Sheet title="Edit item" onClose={onClose}>
+    <Sheet title={item.needs_details ? "Add details" : "Edit item"} onClose={onClose}>
+      {item.needs_details && item.photo && <img src={url(item.photo.thumb_url || item.photo.url)} alt="" style={{ width: "100%", maxHeight: 220, objectFit: "contain", borderRadius: 12, background: "var(--surface-2)", marginBottom: 10 }} />}
+      {suggestion && <p style={{ marginTop: 0 }}><Sparkles size={14} /> Pre-filled from the AI suggestion ({suggestion.confidence_label || "unknown"} confidence). Check it before saving.</p>}
       <div className="card" style={{ marginBottom: 12 }}>
         <h3>Fill from a web link</h3>
         <p className="muted" style={{ marginTop: 0 }}>Only empty fields are filled; nothing you have entered is replaced.</p>
         <LinkImport initialUrl={v.url} downloadImage={false} buttonLabel="Fill" onImported={(r) => setV((cur) => applyLinkDetails(cur, r.details, false))} />
       </div>
-      <form onSubmit={async (e) => { e.preventDefault(); if (await run(() => api.patch(`items/${item.id}`, { ...toPayload(v), identification_status: "confirmed" }), "Saved")) onSaved(); }}>
+      <form onSubmit={(e) => { e.preventDefault(); save(false); }}>
         <ItemFields value={v} onChange={setV} sharedCount={item.siblings?.length || 0} />
-        <button className="btn primary block" style={{ marginTop: 14 }} disabled={busy}>Save</button>
+        {item.needs_details && onSavedNext ? (
+          <div className="row" style={{ marginTop: 14 }}>
+            <button className="btn" style={{ flex: 1 }} disabled={busy} type="submit">Save</button>
+            <button className="btn primary" style={{ flex: 1 }} disabled={busy} type="button" onClick={() => save(true)}>Save &amp; next</button>
+          </div>
+        ) : (
+          <button className="btn primary block" style={{ marginTop: 14 }} disabled={busy}>Save</button>
+        )}
       </form>
     </Sheet>
   );
