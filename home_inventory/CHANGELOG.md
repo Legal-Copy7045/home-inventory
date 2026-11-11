@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.6
+
+- **Quick photos**: open a container or location and tap **Quick photos**, then photograph item after item. Each photo becomes an item in that box straight away. Uploads queue in the background, so you can keep shooting, and a failed upload can be retried.
+- **To finish** list (sidebar, and a card on the dashboard) gathers everything captured this way. Open one to get the photo next to an **Add details** form, then use **Save & next** to work through the rest.
+- When AI is set up, it looks at each quick photo in the background and pre-fills a suggested name, category and description for you to confirm.
+
 ## 0.1.5
 
 - Security clean-up (GitHub code scanning): the app's web files are now served by the framework's built-in static file handler, and a failed AI search interpretation no longer returns the provider's error text to the browser (details go to the App log).

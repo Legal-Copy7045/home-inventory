@@ -70,8 +70,33 @@ await page.goto(BASE + "#/labels?ids=" + box.id);
 await page.getByText("1 label selected").waitFor();
 await shot("06-labels");
 
+// Quick photos: queue two photos into the box, then finish one later
+const png = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAGUlEQVR4nGM8EaDBQApgIkn1qIZRDUNKAwAGbAFge9OrNwAAAABJRU5ErkJggg==",
+  "base64",
+);
+await page.goto(BASE + "#/capture?container_id=" + box.id);
+await page.locator('input[type="file"]').setInputFiles([
+  { name: "a.png", mimeType: "image/png", buffer: png },
+  { name: "b.png", mimeType: "image/png", buffer: png },
+]);
+await page.getByRole("link", { name: /Add details now/ }).waitFor();
+await page.getByText("2 added", { exact: true }).waitFor();
+await shot("07-quick-photos");
+await page.getByRole("link", { name: /Add details now/ }).click();
+await page.locator(".list a").first().click();
+await page.getByRole("button", { name: "Save & next" }).waitFor();
+await page.getByLabel("Name", { exact: true }).fill("Hammer");
+await page.getByRole("button", { name: "Save & next" }).click();
+await page.getByText("Saved").first().waitFor();
+await page.getByRole("button", { name: "Save & next" }).waitFor();
+const pending = await api("items?needs_details=true");
+const pendingItems = pending.items ?? pending;
+if (pendingItems.length !== 1) throw new Error(`expected 1 item still to finish, got ${pendingItems.length}`);
+
 const after = await api(`containers/${box.id}`);
 const cord = after.items.find((i) => i.name === "Extension cord");
+if (!after.items.some((i) => i.name === "Hammer")) throw new Error("finished quick photo missing from box");
 if (cord.quantity !== 3) throw new Error(`expected 3 cords in box after scan, got ${cord.quantity}`);
 if (errors.length) throw new Error("Browser errors:\n" + errors.join("\n"));
 await browser.close();

@@ -178,6 +178,8 @@ export interface Item {
   purchase_price: string | null;
   currency: string | null;
   identification_status: string;
+  needs_details: boolean;
+  capture: { ai_status: "queued" | "ready" | "failed" | "none"; suggestion: AISuggestion | null } | null;
   deleted_at: string | null;
   maps?: MapLink[];
   // detail
@@ -281,6 +283,7 @@ export interface Stats {
   expired: number;
   low_stock: number;
   missing: number;
+  needs_details: number;
 }
 
 export interface LowStock {

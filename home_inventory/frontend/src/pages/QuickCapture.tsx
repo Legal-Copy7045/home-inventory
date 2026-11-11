@@ -1,0 +1,162 @@
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Check, ImagePlus, Loader2, RotateCcw } from "lucide-react";
+import { api, url, type Item } from "../api";
+import { cameraAvailable } from "../components/Scanner";
+import { useApi } from "../components/ui";
+
+type Shot = { key: number; preview: string; state: "uploading" | "done" | "error"; item?: Item; error?: string; blob: Blob };
+
+/**
+ * Quick photos: snap item after item into one container or location; each
+ * photo becomes an item flagged "needs details" (finish them later from the
+ * To finish list).  Uploads run one at a time in the background so the
+ * shutter never waits.
+ */
+export default function QuickCapture() {
+  const [params] = useSearchParams();
+  const nav = useNavigate();
+  const containerId = params.get("container_id");
+  const locationId = params.get("location_id");
+  const target = useApi(
+    () => (containerId ? api.get<{ path: string; name: string }>(`containers/${containerId}`) : api.get<{ path: string; name: string }>(`locations/${locationId}`)),
+    [containerId, locationId],
+  );
+  const back = containerId ? `/containers/${containerId}` : `/locations/${locationId}`;
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [live, setLive] = useState(false);
+  const [camError, setCamError] = useState<string | null>(null);
+  const [shots, setShots] = useState<Shot[]>([]);
+  const [flash, setFlash] = useState(false);
+  const queue = useRef<Shot[]>([]);
+  const busy = useRef(false);
+
+  useEffect(() => {
+    if (!cameraAvailable()) return;
+    let stream: MediaStream | null = null;
+    let stopped = false;
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
+      .then(async (s) => {
+        if (stopped) return s.getTracks().forEach((t) => t.stop());
+        stream = s;
+        const v = videoRef.current!;
+        v.srcObject = s;
+        v.setAttribute("playsinline", "true");
+        await v.play();
+        setLive(true);
+      })
+      .catch((e) => setCamError((e as Error).name === "NotAllowedError" ? "Camera permission was denied." : "Camera unavailable."));
+    return () => {
+      stopped = true;
+      stream?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
+  function update(key: number, patch: Partial<Shot>) {
+    setShots((all) => all.map((s) => (s.key === key ? { ...s, ...patch } : s)));
+  }
+
+  async function pump() {
+    if (busy.current) return;
+    busy.current = true;
+    while (queue.current.length) {
+      const shot = queue.current.shift()!;
+      const fd = new FormData();
+      fd.append("file", shot.blob, "photo.jpg");
+      if (containerId) fd.append("container_id", containerId);
+      else if (locationId) fd.append("location_id", locationId);
+      try {
+        const item = await api.upload<Item>("capture", fd);
+        update(shot.key, { state: "done", item });
+      } catch (e) {
+        update(shot.key, { state: "error", error: (e as Error).message });
+      }
+    }
+    busy.current = false;
+  }
+
+  function add(blob: Blob) {
+    const shot: Shot = { key: Date.now() + Math.random(), preview: URL.createObjectURL(blob), state: "uploading", blob };
+    setShots((all) => [shot, ...all]);
+    queue.current.push(shot);
+    pump();
+  }
+
+  function snap() {
+    const v = videoRef.current;
+    if (!v || !v.videoWidth) return;
+    const c = document.createElement("canvas");
+    c.width = v.videoWidth;
+    c.height = v.videoHeight;
+    c.getContext("2d")!.drawImage(v, 0, 0);
+    setFlash(true);
+    window.setTimeout(() => setFlash(false), 120);
+    if (navigator.vibrate) navigator.vibrate(30);
+    c.toBlob((b) => b && add(b), "image/jpeg", 0.9);
+  }
+
+  function retry(shot: Shot) {
+    update(shot.key, { state: "uploading", error: undefined });
+    queue.current.push(shot);
+    pump();
+  }
+
+  const done = shots.filter((s) => s.state === "done").length;
+  const pending = shots.filter((s) => s.state === "uploading").length;
+
+  return (
+    <div className="page">
+      <div className="scanbar">
+        <div className="t">
+          Quick photos → {target.data?.name || "…"}
+          <div style={{ fontWeight: 500, fontSize: ".8rem", opacity: 0.9 }}>{target.data?.path}</div>
+        </div>
+        <button className="btn small" onClick={() => nav(back)} aria-label="Done"><Check size={16} /> Done</button>
+      </div>
+      <p className="muted" style={{ marginTop: 0 }}>One photo per item. Add the details later from <b>To finish</b>{" "}— nothing else to do now.</p>
+
+      {cameraAvailable() && !camError ? (
+        <div className="camera" style={{ aspectRatio: "3/4" }}>
+          <video ref={videoRef} muted playsInline />
+          {flash && <div style={{ position: "absolute", inset: 0, background: "#fff", opacity: 0.6 }} />}
+          {live && (
+            <button className="shutter" onClick={snap} aria-label="Take photo">
+              <span />
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="notice">{camError || "Live camera needs Home Assistant opened over https."} Use the button below to take photos with your camera app instead.</div>
+      )}
+
+      <div className="row wrap" style={{ margin: "12px 0" }}>
+        <label className="btn" style={{ flex: 1 }}>
+          <ImagePlus size={18} /> {cameraAvailable() && !camError ? "From gallery" : "Take / choose photos"}
+          <input type="file" accept="image/*" multiple {...(cameraAvailable() && !camError ? {} : { capture: "environment" as const })} hidden
+            onChange={(e) => { Array.from(e.target.files || []).forEach(add); e.target.value = ""; }} />
+        </label>
+      </div>
+
+      <div className="row between">
+        <b>{done} added{pending ? ` · ${pending} uploading` : ""}</b>
+        {done > 0 && <Link to="/to-finish">Add details now →</Link>}
+      </div>
+      <div className="photos" style={{ marginTop: 8 }}>
+        {shots.map((s) => (
+          <div key={s.key} className="ph">
+            <img src={s.item?.photo?.thumb_url ? url(s.item.photo.thumb_url) : s.preview} alt="" />
+            <span className="star">
+              {s.state === "uploading" && <span className="badge"><Loader2 size={12} className="spin" /></span>}
+              {s.state === "done" && <span className="badge ok"><Check size={12} /></span>}
+              {s.state === "error" && (
+                <button className="badge danger" style={{ border: 0 }} onClick={() => retry(s)} title={s.error}><RotateCcw size={12} /> Retry</button>
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+      {!shots.length && <div className="empty">No photos yet.</div>}
+    </div>
+  );
+}

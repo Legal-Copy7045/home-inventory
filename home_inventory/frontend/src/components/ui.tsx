@@ -119,8 +119,9 @@ export function Thumb({ src, size = "", icon }: { src?: string | null; size?: st
   return <div className={`thumb ${size}`}>{src ? <img src={url(src)} alt="" loading="lazy" /> : icon || <Package size={24} />}</div>;
 }
 
-export function StatusBadge({ item }: { item: Pick<Item, "status" | "loan" | "expired" | "days_to_expiry" | "low_stock"> }) {
+export function StatusBadge({ item }: { item: Pick<Item, "status" | "loan" | "expired" | "days_to_expiry" | "low_stock"> & { needs_details?: boolean } }) {
   const out: ReactNode[] = [];
+  if (item.needs_details) out.push(<span key="n" className="badge blue">Needs details</span>);
   if (item.status !== "stored") {
     const cls = item.status === "missing" ? "danger" : item.status === "on_loan" ? (item.loan?.overdue ? "danger" : "warn") : "blue";
     const label = item.status === "on_loan" && item.loan ? `Lent to ${item.loan.borrower}${item.loan.overdue ? " · overdue" : ""}` : STATUS_LABELS[item.status];

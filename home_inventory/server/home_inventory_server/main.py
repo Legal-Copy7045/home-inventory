@@ -33,6 +33,7 @@ from .config import Settings
 from .db import Database, run_migrations
 from .events import EventBus, install_session_hooks
 from .models import Attachment, LocationMap
+from .services import capture as capture_svc
 from .services import stats as stats_svc
 from .services.media import MediaStore
 
@@ -63,6 +64,7 @@ class AppState:
     barcode_providers: list | None = None
     write_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     tasks: list[asyncio.Task] = field(default_factory=list)
+    capture_queue: asyncio.Queue = field(default_factory=asyncio.Queue)
 
     def reopen_database(self) -> None:
         self.db.dispose()
@@ -112,7 +114,7 @@ def create_app(state: AppState, channel: str) -> FastAPI:
     )
     app.state.channel = channel
     # Share attributes with the AppState instance.
-    for name in ("settings", "bus", "media", "ai", "admin_directory", "api_token", "version", "barcode_providers"):
+    for name in ("settings", "bus", "media", "ai", "admin_directory", "api_token", "version", "barcode_providers", "capture_queue"):
         setattr(app.state, name, getattr(state, name))
     app.state._app_state = state
 
@@ -265,6 +267,7 @@ async def serve(settings: Settings) -> None:
     ]
     state.tasks.append(asyncio.create_task(_periodic(state)))
     state.tasks.append(asyncio.create_task(_announce_discovery(state)))
+    state.tasks.append(asyncio.create_task(capture_svc.worker(state)))
     _LOGGER.info(
         "Home Inventory %s started (mode=%s, ingress port %s, API port %s, UI %s, Supervisor API %s, AI %s)",
         state.version, settings.mode, settings.ingress_port, settings.api_port,

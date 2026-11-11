@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..events import queue_event
-from ..models import Container, HistoryEvent, Item, ItemStatus, Loan, Location, Product, Setting
+from ..models import Container, HistoryEvent, IdentificationStatus, Item, ItemStatus, Loan, Location, Product, Setting
 from .inventory import item_out, loan_out
 from .placement import Resolver
 
@@ -52,6 +52,7 @@ def stats(db: Session, warranty_days: int = 30, expiry_days: int = 14) -> dict[s
         "expiring_soon": sum(1 for i in items if i.quantity > 0 and i.expires_on and today <= i.expires_on <= today + timedelta(days=expiry_days)),
         "expired": sum(1 for i in items if i.quantity > 0 and i.expires_on and i.expires_on < today),
         "expiry_window_days": expiry_days,
+        "needs_details": sum(1 for i in items if i.product.identification_status is IdentificationStatus.pending),
         "low_stock": db.scalar(select(func.count()).select_from(Product).where(Product.deleted_at.is_(None), Product.low_stock_notified_at.is_not(None))) or 0,
         "warranty_window_days": warranty_days,
         "last_activity": (db.scalar(select(func.max(HistoryEvent.ts))) or None),

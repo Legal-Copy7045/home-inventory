@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { AlertTriangle, Box, ChevronDown, ChevronRight, Clock, FileSpreadsheet, Map as MapIcon, MapPin, Package, Pencil, Plus, Printer, QrCode, ScanBarcode, Search as SearchIcon, Sparkles, Trash2 } from "lucide-react";
+import { AlertTriangle, Box, ChevronDown, ChevronRight, Clock, FileSpreadsheet, Images, Map as MapIcon, MapPin, Package, Pencil, Plus, Printer, QrCode, ScanBarcode, Search as SearchIcon, Sparkles, Trash2 } from "lucide-react";
 import { api, qrImageUrl, type Dashboard, type Item, type LocationDetail, type LocationNode, type SearchResult } from "../api";
 import { LocationImportSheet } from "../components/LocationImport";
 import { PlacementPicker } from "../components/PlacementPicker";
@@ -40,6 +40,7 @@ export function DashboardPage() {
             <Link className="stat" to="/containers"><div className="v">{s.containers}</div><div className="l">Containers</div></Link>
             <Link className={`stat ${s.loans_overdue ? "alert" : ""}`} to="/loans"><div className="v">{s.on_loan}</div><div className="l">On loan{s.loans_overdue ? ` · ${s.loans_overdue} overdue` : ""}</div></Link>
             <Link className={`stat ${s.expired ? "alert" : ""}`} to="/loans?tab=expiry"><div className="v">{s.expiring_soon + s.expired}</div><div className="l">Expiring / expired</div></Link>
+            {s.needs_details > 0 && <Link className="stat" to="/to-finish"><div className="v" style={{ color: "var(--primary)" }}>{s.needs_details}</div><div className="l">To finish (quick photos)</div></Link>}
             {s.low_stock > 0 && <Link className="stat alert" to="/loans?tab=stock"><div className="v">{s.low_stock}</div><div className="l">Running low</div></Link>}
             {s.total_value > 0 && <div className="stat"><div className="v" style={{ fontSize: "1.2rem" }}>{money(s.total_value, s.currency)}</div><div className="l">Recorded value</div></div>}
           </div>
@@ -226,6 +227,7 @@ export function LocationDetailPage() {
       {me.can_edit && (
         <div className="quick" style={{ marginBottom: 14 }}>
           <Link to={`/add?location_id=${l.id}&return=/locations/${l.id}`}><span className="ico"><Package size={20} /></span>Add loose item</Link>
+          <Link to={`/capture?location_id=${l.id}`}><span className="ico"><Images size={20} /></span>Quick photos</Link>
           <button onClick={() => setSheet("container")}><span className="ico"><Box size={20} /></span>Add container</button>
           <button onClick={() => setSheet("child")}><span className="ico"><MapPin size={20} /></span>Add sub-location</button>
           <Link to={`/maps?location=${l.id}`}><span className="ico"><MapIcon size={20} /></span>Visual maps</Link>

@@ -890,6 +890,8 @@ def item_out(item: Item, r: Resolver, db: Session | None = None, detail: bool = 
         "purchase_price": str(item.purchase_price) if item.purchase_price is not None else None,
         "currency": item.currency,
         "identification_status": item.product.identification_status.value,
+        "needs_details": item.product.identification_status is IdentificationStatus.pending,
+        "capture": _capture_info(item.product),
         "deleted_at": item.deleted_at.isoformat() if item.deleted_at else None,
         "updated_at": item.updated_at.isoformat() if item.updated_at else None,
     }
@@ -913,6 +915,14 @@ def item_out(item: Item, r: Resolver, db: Session | None = None, detail: bool = 
             }
         )
     return out
+
+
+def _capture_info(p: Product) -> dict[str, Any] | None:
+    if p.identification_status is not IdentificationStatus.pending:
+        return None
+    meta = p.ai_metadata or {}
+    status = (meta.get("capture") or {}).get("status", "none")
+    return {"ai_status": status, "suggestion": meta.get("suggestion") if status == "ready" else None}
 
 
 def product_holdings(db: Session, product_id: int, r: Resolver, exclude_item_id: int | None = None) -> list[dict[str, Any]]:
