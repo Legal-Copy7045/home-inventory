@@ -254,8 +254,11 @@ export default function ItemDetail() {
         </button>
       )}
 
-      {sheet === "edit" && (
+      {/* Only open the form once the item for this address has loaded (Save & next
+          changes the address before the next item arrives); key resets the form. */}
+      {sheet === "edit" && String(it.id) === id && (
         <EditSheet
+          key={it.id}
           item={it}
           onClose={() => setSheet(null)}
           onSaved={() => { setSheet(null); refresh(); }}

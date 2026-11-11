@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7
+
+- **Fix: Save & next showed the previous item's details.** When moving to the next quick photo, the form could open before the next item had loaded and keep the last item's name and category (for example, a photo of funnels pre-filled as "carburettor"). The form now waits for the right item.
+
 ## 0.1.6
 
 - **Quick photos**: open a container or location and tap **Quick photos**, then photograph item after item. Each photo becomes an item in that box straight away. Uploads queue in the background, so you can keep shooting, and a failed upload can be retried.
