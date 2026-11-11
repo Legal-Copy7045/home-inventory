@@ -67,7 +67,7 @@ await page.getByText("+1 in Box").waitFor();
 await page.goto(BASE + "#/locations");
 await page.getByRole("link", { name: "Shed" }).waitFor();
 await page.goto(BASE + "#/labels?ids=" + box.id);
-await page.getByText("1 selected").waitFor();
+await page.getByText("1 label selected").waitFor();
 await shot("06-labels");
 
 const after = await api(`containers/${box.id}`);
