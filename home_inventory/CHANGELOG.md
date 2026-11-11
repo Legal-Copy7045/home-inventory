@@ -2,6 +2,7 @@
 
 ## 0.1.2
 
+- **Import from a web link**: paste a shop or manufacturer link when adding an item and the App fills in name, brand, model, barcode, description, category, price, currency, retailer and the product photo (from the page's structured product data, falling back to AI). Everything is shown for review before saving. The link is kept on the item ("Product page"), and *Edit → Fill from a web link* fills any empty fields later. Links to local/private network addresses are refused.
 - Search results: fix the broken row layout (photo, name and quantity stacked instead of side by side); map links now sit inside each result.
 - Long item names wrap onto two lines instead of being cut off on phones.
 - Clearer answer when several different items match ("Found 5 items matching "hose" in 2 places: ...").

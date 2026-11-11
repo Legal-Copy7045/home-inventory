@@ -202,6 +202,17 @@ class AIService:
         res.data = {"items": items[:200], "notes": res.data.get("notes")}
         return res
 
+    def extract_product_from_text(self, text: str, url: str) -> AIResult:
+        prompt = (
+            "This is the visible text of a shop or manufacturer web page. Identify the single product it is about. "
+            "Return JSON only; use null for anything not stated on the page, never guess model numbers. "
+            '"name" is a short everyday name including size/capacity if stated. "confidence" is 0..1.'
+            f"\nURL: {url[:300]}\nPage text:\n{text[:6000]}"
+        )
+        res = self._call(prompt, ITEM_SCHEMA, None)
+        res.data = _clean_item(res.data)
+        return res
+
     def interpret_query(self, query: str) -> AIResult:
         res = self._call(SEARCH_PROMPT.format(query=query[:500]), SEARCH_SCHEMA, None)
         d = res.data

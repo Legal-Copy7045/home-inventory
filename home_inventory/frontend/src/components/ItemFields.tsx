@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { api } from "../api";
+import { api, type LinkDetails } from "../api";
 import { useApi, useMe } from "./ui";
 
 export interface ItemFormValue {
@@ -13,6 +13,7 @@ export interface ItemFormValue {
   barcode_format: string;
   sku: string;
   tags: string;
+  url: string;
   label: string;
   notes: string;
   quantity: number;
@@ -37,6 +38,7 @@ export const emptyItem = (currency: string): ItemFormValue => ({
   barcode_format: "",
   sku: "",
   tags: "",
+  url: "",
   label: "",
   notes: "",
   quantity: 1,
@@ -63,6 +65,7 @@ export function toPayload(v: ItemFormValue, opts: { includeQuantity?: boolean } 
     barcode: n(v.barcode),
     sku: n(v.sku),
     tags: n(v.tags),
+    url: n(v.url),
     label: n(v.label),
     notes: n(v.notes),
     min_quantity: v.min_quantity.trim() === "" ? null : parseInt(v.min_quantity, 10),
@@ -127,6 +130,11 @@ export function ItemFields({
           <input inputMode="numeric" value={value.barcode} onChange={set("barcode")} />
         </label>
       </div>
+      <label className="field">
+        Product link
+        <span className="hint">Shop or manufacturer page for this product</span>
+        <input type="url" inputMode="url" value={value.url} onChange={set("url")} placeholder="https://…" />
+      </label>
       <label className="field">
         Description
         <textarea value={value.description} onChange={set("description")} rows={2} />
@@ -205,4 +213,25 @@ export function ItemFields({
       )}
     </div>
   );
+}
+
+/** Merge details read from a product web page into the form.  With
+ * ``overwrite`` false only empty fields are filled, so nothing typed by the
+ * user is lost. */
+export function applyLinkDetails(v: ItemFormValue, d: LinkDetails, overwrite: boolean): ItemFormValue {
+  const pick = (cur: string, next: string | null | undefined) => (next && (overwrite || !cur.trim()) ? next : cur);
+  return {
+    ...v,
+    url: d.url || v.url,
+    name: pick(v.name, d.name),
+    description: pick(v.description, d.description),
+    category: pick(v.category, d.category),
+    manufacturer: pick(v.manufacturer, d.manufacturer),
+    model_number: pick(v.model_number, d.model_number),
+    barcode: pick(v.barcode, d.barcode),
+    sku: pick(v.sku, d.sku),
+    purchase_price: pick(v.purchase_price, d.price),
+    currency: d.price && d.currency && (overwrite || !v.purchase_price.trim()) ? d.currency : v.currency,
+    retailer: pick(v.retailer, d.retailer),
+  };
 }

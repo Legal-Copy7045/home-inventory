@@ -72,10 +72,19 @@ class ProductFields(_In):
     sku: str | None = Field(default=None, max_length=120)
     tags: str | None = Field(default=None, max_length=1000)
     min_quantity: int | None = Field(default=None, ge=0, le=100000)
+    url: str | None = Field(default=None, max_length=2000)
 
     _blank = field_validator(
-        "description", "category", "manufacturer", "model_number", "barcode", "sku", "tags", "min_quantity", mode="before"
+        "description", "category", "manufacturer", "model_number", "barcode", "sku", "tags", "min_quantity", "url",
+        mode="before",
     )(_blank_to_none)
+
+    @field_validator("url")
+    @classmethod
+    def _http_url(cls, v: str | None) -> str | None:
+        if v is not None and not v.lower().startswith(("http://", "https://")):
+            raise ValueError("The product link must start with http:// or https://")
+        return v
 
 
 class PurchaseFields(_In):
@@ -261,6 +270,11 @@ class BarcodeLookupIn(_In):
     code: str = Field(min_length=1, max_length=64)
     format: str | None = Field(default=None, max_length=20)
     external: bool = True
+
+
+class LinkImportIn(_In):
+    url: str = Field(min_length=8, max_length=2000)
+    download_image: bool = True
 
 
 class SearchIn(_In):
