@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4
+
+- **Fix: App would not start after updating to 0.1.2 or 0.1.3** on installations with nested locations ("duplicate column name: url" in the log). The database upgrade stopped half way and could not be retried. This version completes the upgrade automatically on start; no data is lost and nothing needs to be done by hand.
+- Database upgrades now run as a single all-or-nothing step, so a failure can never leave a half-upgraded database again, and the first pre-upgrade snapshot in `/data/backups` is kept instead of being replaced on every restart.
+
 ## 0.1.3
 
 - **Import locations from Excel**: *Locations → Import from Excel* creates your whole location hierarchy from a spreadsheet. Download the template in the app (blank, or pre-filled with your current locations), fill in one row per place (`Level 1 | Level 2 | … | Kind | Description`), upload, check the preview and confirm. Parents are created automatically, existing places are reused (safe to import again), outline-style sheets and CSV files work too, and problem rows are listed instead of stopping the import.
