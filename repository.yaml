@@ -1,0 +1,6 @@
+# Home Assistant App (add-on) repository.
+# Add https://github.com/Legal-Copy7045/home-inventory in
+# Settings → Apps → App store → ⋮ → Repositories.
+name: Home Inventory
+url: https://github.com/Legal-Copy7045/home-inventory
+maintainer: Legal-Copy7045

@@ -1,0 +1,86 @@
+search:
+  fields:
+    query:
+      required: true
+      example: "Where are my axle stands?"
+      selector:
+        text:
+    limit:
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 100
+get_item_location:
+  fields:
+    name:
+      required: true
+      example: "impact wrench"
+      selector:
+        text:
+get_container_contents:
+  fields:
+    container:
+      required: true
+      example: "15"
+      selector:
+        text:
+move_item:
+  fields:
+    item_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    container:
+      example: "15"
+      selector:
+        text:
+    location:
+      example: "Property › House › Garage"
+      selector:
+        text:
+    quantity:
+      selector:
+        number:
+          min: 1
+          mode: box
+    temporary:
+      default: false
+      selector:
+        boolean:
+move_container:
+  fields:
+    container:
+      required: true
+      example: "15"
+      selector:
+        text:
+    into_container:
+      selector:
+        text:
+    location:
+      selector:
+        text:
+    temporary:
+      default: false
+      selector:
+        boolean:
+adjust_quantity:
+  fields:
+    item_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    delta:
+      required: true
+      example: -1
+      selector:
+        number:
+          min: -10000
+          max: 10000
+          mode: box
+refresh:

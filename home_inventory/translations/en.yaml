@@ -1,0 +1,47 @@
+configuration:
+  ai_provider:
+    name: AI provider
+    description: >-
+      "home_assistant" (recommended) uses an AI Task entity you already set up in
+      Home Assistant, e.g. Google Gemini (free tier available). Other choices call
+      a provider directly with an API key. "none" disables AI features.
+  ai_task_entity:
+    name: AI Task entity
+    description: Optional, e.g. ai_task.google_ai_task. Leave empty to pick one automatically.
+  ai_api_key:
+    name: AI API key
+    description: Only for gemini, anthropic or openai providers. Stored by the Supervisor, never in Git.
+  ai_model:
+    name: AI model
+    description: Optional model name override for direct providers.
+  ai_base_url:
+    name: AI base URL
+    description: Optional, for OpenAI-compatible gateways or a local Ollama server.
+  barcode_open_facts:
+    name: Open Food/Products/Beauty Facts lookups
+    description: Free, open product databases (no key). Best for groceries and household consumables.
+  barcode_upcitemdb:
+    name: UPCitemdb lookups
+    description: Free trial API, 100 lookups per day. Good for tools and electronics.
+  barcode_lookup_api_key:
+    name: Barcode Lookup API key
+    description: Optional key for the commercial barcodelookup.com service.
+  admin_users:
+    name: Extra administrators
+    description: Home Assistant usernames or display names. HA administrators are always administrators here.
+  read_only_users:
+    name: Read-only users
+    description: Home Assistant usernames or display names who may only view the inventory.
+  default_role:
+    name: Default role
+    description: Role for other household members.
+  warranty_notice_days:
+    name: Warranty notice (days)
+    description: Fire a warranty event this many days before a warranty ends.
+  expiry_notice_days:
+    name: Expiry notice (days)
+    description: Fire an expiry event this many days before an item's use-by date.
+  max_upload_mb:
+    name: Maximum upload size (MB)
+  log_level:
+    name: Log level
