@@ -28,5 +28,9 @@ COPY server/home_inventory_server /app/server/home_inventory_server
 RUN pip install /app/server && rm -rf /root/.cache
 COPY --from=frontend /out /app/static
 
+# Used by Docker and the Supervisor watchdog.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD wget -q -O /dev/null http://127.0.0.1:8099/api/health || exit 1
+
 # Runs under the base image's s6-overlay init as PID 1.
 CMD ["python3", "-m", "home_inventory_server"]
