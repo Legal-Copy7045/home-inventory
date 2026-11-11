@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { AlertTriangle, Box, ChevronDown, ChevronRight, Clock, Map as MapIcon, MapPin, Package, Pencil, Plus, QrCode, ScanBarcode, Search as SearchIcon, Sparkles, Trash2 } from "lucide-react";
-import { api, type Dashboard, type Item, type LocationDetail, type LocationNode, type SearchResult } from "../api";
+import { AlertTriangle, Box, ChevronDown, ChevronRight, Clock, Map as MapIcon, MapPin, Package, Pencil, Plus, Printer, QrCode, ScanBarcode, Search as SearchIcon, Sparkles, Trash2 } from "lucide-react";
+import { api, qrImageUrl, type Dashboard, type Item, type LocationDetail, type LocationNode, type SearchResult } from "../api";
 import { PlacementPicker } from "../components/PlacementPicker";
 import { ContainerFormSheet } from "./Containers";
 import { ContainerRow, Empty, ErrorBox, ItemRow, Section, Sheet, Spinner, fmtDate, fmtWhen, money, useAction, useApi, useMe } from "../components/ui";
@@ -199,7 +199,7 @@ export function LocationDetailPage() {
   const me = useMe();
   const nav = useNavigate();
   const d = useApi(() => api.get<LocationDetail>(`locations/${id}`), [id]);
-  const [sheet, setSheet] = useState<null | "child" | "edit" | "move" | "container">(null);
+  const [sheet, setSheet] = useState<null | "child" | "edit" | "move" | "container" | "qr">(null);
   const { run } = useAction();
   if (d.loading && !d.data) return <Spinner />;
   if (!d.data) return <div className="page"><ErrorBox error={d.error} /></div>;
@@ -207,7 +207,10 @@ export function LocationDetailPage() {
   return (
     <div className="page">
       <div className="path" style={{ marginBottom: 4 }}>{l.path_parts.slice(0, -1).map((p) => <span key={p.id} className="row" style={{ gap: 4 }}><Link to={`/locations/${p.id}`}>{p.name}</Link><ChevronRight size={12} /></span>)}</div>
-      <h1>{l.name} {l.kind && <span className="badge">{l.kind}</span>}</h1>
+      <div className="row" style={{ alignItems: "flex-start" }}>
+        <h1 style={{ flex: 1 }}>{l.name} {l.kind && <span className="badge">{l.kind}</span>}</h1>
+        <button className="iconbtn" onClick={() => setSheet("qr")} aria-label="Show QR label"><QrCode size={26} /></button>
+      </div>
       {l.description && <p>{l.description}</p>}
       {me.can_edit && (
         <div className="quick" style={{ marginBottom: 14 }}>
@@ -228,6 +231,16 @@ export function LocationDetailPage() {
           <span className="spacer" />
           <button className="btn danger" onClick={async () => { if (window.confirm(`Delete ${l.name}? It must be empty.`) && (await run(() => api.del(`locations/${l.id}`).then(() => true), "Deleted"))) nav("/locations"); }}><Trash2 size={18} /> Delete</button>
         </div>
+      )}
+      {sheet === "qr" && (
+        <Sheet title="QR label" onClose={() => setSheet(null)}>
+          <div className="stack" style={{ alignItems: "center" }}>
+            <img src={qrImageUrl("locations", l.id)} alt={`QR code ${l.qr_code}`} style={{ width: 240, background: "#fff", borderRadius: 12, padding: 8 }} />
+            <div className="mono" style={{ fontSize: "1.2rem", fontWeight: 700 }}>{l.qr_code}</div>
+            <p className="muted" style={{ textAlign: "center" }}>Stick this on the shelf, cabinet or drawer. Scanning it with your phone's camera shows everything stored here, including the containers.</p>
+            <Link className="btn primary block" to={`/labels?locs=${l.id}`}><Printer size={18} /> Print label</Link>
+          </div>
+        </Sheet>
       )}
       {sheet === "child" && <LocationFormSheet parentId={l.id} onClose={() => setSheet(null)} onSaved={(nid) => nav(`/locations/${nid}`)} />}
       {sheet === "edit" && <LocationFormSheet loc={l} onClose={() => setSheet(null)} onSaved={() => { setSheet(null); d.reload(); }} />}

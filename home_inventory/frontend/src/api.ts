@@ -234,6 +234,7 @@ export interface LocationDetail {
   description: string | null;
   parent_id: number | null;
   path: string;
+  qr_code: string | null;
   path_parts: Ref[];
   children?: { id: number; name: string; kind: string | null }[];
   items?: Item[];
@@ -247,6 +248,7 @@ export interface FlatLocation {
   name: string;
   kind: string | null;
   parent_id: number | null;
+  qr_code: string | null;
   path: string;
 }
 
@@ -418,3 +420,37 @@ export const STATUS_LABELS: Record<ItemStatus, string> = {
   awaiting_return: "Awaiting return",
   missing: "Missing",
 };
+
+// ---------------------------------------------------------------- QR label links
+
+const CODE_RE = "([A-HJ-NP-Z2-9]{6,16})";
+
+/** Address of this App as the user opened it in Home Assistant, e.g.
+ * https://ha.example.com/b1a256fc_home_inventory.  Used in QR label links so a
+ * phone camera opens the right page.  Null when it can't be determined. */
+export function appBaseUrl(): string | null {
+  try {
+    const top = window.top!.location;
+    const first = top.pathname.split("/").filter(Boolean)[0];
+    if (!first || first === "api" || first === "local") return null;
+    return `${top.origin}/${first}`;
+  } catch {
+    return null; // not same-origin (shouldn't happen under Ingress)
+  }
+}
+
+/** Find a label reference (/c/CODE, /l/CODE, ?c=CODE) in a URL path/query. */
+export function labelRef(s: string): { kind: "C" | "L"; code: string } | null {
+  const m = new RegExp(`/([cl])/${CODE_RE}(?=$|[/?#])`, "i").exec(s) || new RegExp(`[?&]([cl])=${CODE_RE}`, "i").exec(s);
+  return m ? { kind: m[1].toUpperCase() as "C" | "L", code: m[2].toUpperCase() } : null;
+}
+
+export function qrImageUrl(kind: "containers" | "locations", id: number): string {
+  const base = appBaseUrl();
+  return url(`api/v1/${kind}/${id}/qr.svg${base ? `?base=${encodeURIComponent(base)}` : ""}`);
+}
+
+export interface QrTarget {
+  type: "container" | "location";
+  id: number;
+}

@@ -44,7 +44,13 @@ Live scanning needs Home Assistant to be opened over **HTTPS** (Home Assistant C
 
 ## QR labels
 
-Each container has a permanent 8-character code, and its label keeps working after renaming, renumbering or moving it. Labels can be read with the in-app scanner. If you set *QR label link* in Settings to your Home Assistant address for this App, a phone's normal camera can open them too.
+Every container and every location (shelf, cabinet, drawer…) has a permanent 8-character code. Its label keeps working after renaming, renumbering or moving.
+
+Scan a label with your **phone's normal camera**. It opens Home Assistant (log in the first time) and shows that container's contents, or everything stored at that location, including the containers on it.
+
+The link printed on the label is the address you used to open Home Assistant when you printed it, e.g. `https://ha.example.com/b1a256fc_home_inventory/c/ABCD2345`. Print labels while using the address your phone can reach. To always print a specific address (for example your external one), set *QR label link* in Settings.
+
+The in-app **Scan** screen reads every label format, including labels printed before version 0.1.2.
 
 ## Backups
 
