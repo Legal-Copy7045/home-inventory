@@ -136,22 +136,25 @@ def create_app(state: AppState, channel: str) -> FastAPI:
     def health():
         return {"status": "ok", "version": state.version}
 
-    if channel == "ingress":
-        index = FRONTEND_DIR / "index.html"
-        assets = FRONTEND_DIR / "assets"
-        if assets.exists():
-            app.mount("/assets", StaticFiles(directory=assets), name="assets")
+    # The UI (static files only) is served on both listeners: through Ingress,
+    # and on the API port for the companion integration's sidebar proxy used
+    # on Home Assistant Container/Core installs.  Data endpoints always
+    # require authentication.
+    index = FRONTEND_DIR / "index.html"
+    assets = FRONTEND_DIR / "assets"
+    if assets.exists():
+        app.mount("/assets", StaticFiles(directory=assets), name="assets")
 
-        @app.get("/{path:path}", include_in_schema=False)
-        def spa(path: str):
-            if path.startswith("api/"):
-                return JSONResponse({"detail": "Not found"}, status_code=404)
-            candidate = (FRONTEND_DIR / path).resolve()
-            if path and FRONTEND_DIR.resolve() in candidate.parents and candidate.is_file():
-                return FileResponse(candidate)
-            if index.exists():
-                return FileResponse(index, headers={"Cache-Control": "no-cache"})
-            return JSONResponse({"detail": "Frontend not built"}, status_code=503)
+    @app.get("/{path:path}", include_in_schema=False)
+    def spa(path: str):
+        if path.startswith("api/"):
+            return JSONResponse({"detail": "Not found"}, status_code=404)
+        candidate = (FRONTEND_DIR / path).resolve()
+        if path and FRONTEND_DIR.resolve() in candidate.parents and candidate.is_file():
+            return FileResponse(candidate)
+        if index.exists():
+            return FileResponse(index, headers={"Cache-Control": "no-cache"})
+        return JSONResponse({"detail": "Frontend not built"}, status_code=503)
 
     return app
 
@@ -258,6 +261,13 @@ async def serve(settings: Settings) -> None:
         "Home Inventory %s started (mode=%s, ingress port %s, API port %s, AI %s)",
         state.version, settings.mode, settings.ingress_port, settings.api_port, state.ai.describe(),
     )
+    if settings.mode == "standalone":
+        _LOGGER.info(
+            "Standalone mode: configure the Home Inventory integration in Home Assistant with this "
+            "server's API URL (port %s) and the token stored in %s",
+            settings.api_port,
+            settings.token_path,
+        )
     try:
         await asyncio.gather(*(s.serve() for s in servers))
     finally:

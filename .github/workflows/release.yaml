@@ -1,0 +1,36 @@
+# Optional: publish prebuilt App images to GHCR when a release is published,
+# so Home Assistant downloads an image instead of building on the device.
+# After the first successful run, add to home_inventory/config.yaml:
+#   image: "ghcr.io/legal-copy7045/{arch}-home-inventory"
+name: Release images
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [aarch64, amd64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: home-assistant/builder@master
+        with:
+          args: |
+            --${{ matrix.arch }}
+            --target /data/home_inventory
+            --image "${{ matrix.arch }}-home-inventory"
+            --docker-hub "ghcr.io/legal-copy7045"
+            --addon

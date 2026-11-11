@@ -1,0 +1,14 @@
+{
+  "domain": "home_inventory",
+  "name": "Home Inventory",
+  "after_dependencies": ["hassio"],
+  "codeowners": ["@Legal-Copy7045"],
+  "config_flow": true,
+  "dependencies": ["http", "frontend", "panel_custom", "websocket_api"],
+  "documentation": "https://github.com/Legal-Copy7045/home-inventory",
+  "integration_type": "service",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/Legal-Copy7045/home-inventory/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
