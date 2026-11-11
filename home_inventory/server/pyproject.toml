@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "home-inventory-server"
+version = "0.1.0"
+description = "Backend for the Home Inventory Home Assistant App"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.30",
+  "sqlalchemy>=2.0.30,<2.2",
+  "alembic>=1.13",
+  "pydantic>=2.7",
+  "httpx>=0.27",
+  "pillow>=10.4",
+  "segno>=1.6",
+  "reportlab>=4.2",
+  "python-multipart>=0.0.9",
+  "websockets>=12",
+  "anthropic>=2.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.5"]
+
+[tool.setuptools.packages.find]
+include = ["home_inventory_server*"]
+
+[tool.setuptools.package-data]
+home_inventory_server = ["migrations/*.py", "migrations/versions/*.py", "alembic.ini", "data/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["B008", "E501", "UP042", "B905"]
+exclude = ["home_inventory_server/migrations/versions"]

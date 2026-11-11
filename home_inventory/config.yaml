@@ -1,0 +1,69 @@
+# Home Assistant App manifest
+# https://developers.home-assistant.io/docs/add-ons/configuration
+name: Home Inventory
+version: "0.1.0"
+slug: home_inventory
+description: >-
+  Household inventory with AI photo identification, barcode and QR scanning,
+  storage locations, labels, loans and natural-language search.
+url: https://github.com/Legal-Copy7045/home-inventory
+arch:
+  - aarch64
+  - amd64
+init: false
+startup: application
+boot: auto
+# Web UI through Home Assistant Ingress only; no host ports are published.
+ingress: true
+ingress_port: 8099
+ingress_stream: false
+panel_icon: mdi:package-variant-closed
+panel_title: Inventory
+panel_admin: false
+# Home Assistant API: AI Task (Gemini etc.) and the list of HA administrators.
+homeassistant_api: true
+# Announce the internal API to the companion integration.
+discovery:
+  - home_inventory
+# Shared /media is used only for short-lived image hand-off to AI Task.
+map:
+  - type: media
+    read_only: false
+# The App is stopped briefly during backups so the SQLite database and
+# photos are captured consistently.
+backup: cold
+watchdog: http://[HOST]:[PORT:8099]/api/health
+options:
+  ai_provider: home_assistant
+  ai_task_entity: ""
+  ai_api_key: ""
+  ai_model: ""
+  ai_base_url: ""
+  barcode_open_facts: true
+  barcode_upcitemdb: true
+  barcode_lookup_api_key: ""
+  admin_users: []
+  read_only_users: []
+  default_role: member
+  warranty_notice_days: 30
+  expiry_notice_days: 14
+  max_upload_mb: 25
+  log_level: info
+schema:
+  ai_provider: list(home_assistant|gemini|anthropic|openai|ollama|none)
+  ai_task_entity: str?
+  ai_api_key: password?
+  ai_model: str?
+  ai_base_url: str?
+  barcode_open_facts: bool
+  barcode_upcitemdb: bool
+  barcode_lookup_api_key: password?
+  admin_users:
+    - str?
+  read_only_users:
+    - str?
+  default_role: list(member|read_only)
+  warranty_notice_days: int(1,365)
+  expiry_notice_days: int(1,365)
+  max_upload_mb: int(1,100)
+  log_level: list(debug|info|warning|error)

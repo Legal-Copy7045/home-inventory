@@ -1,0 +1,36 @@
+# Home Inventory companion container for Home Assistant *Container* or *Core*
+# installations (no Supervisor).  Home Assistant OS / Supervised users should
+# install the App from the Apps store instead.
+#
+#   docker compose up -d --build
+#   docker compose exec home-inventory cat /data/integration_token
+#
+# Then in Home Assistant: Settings → Devices & services → Add integration →
+# "Home Inventory", URL http://<this host>:8100, paste the token, and keep
+# "Add Inventory to the sidebar" ticked.
+services:
+  home-inventory:
+    build:
+      context: ../../home_inventory
+      args:
+        BUILD_FROM: python:3.13-alpine
+    container_name: home-inventory
+    restart: unless-stopped
+    environment:
+      HINV_MODE: standalone
+      # Optional AI via Home Assistant's AI Task (e.g. Google Gemini):
+      # HINV_AI_PROVIDER: home_assistant
+      # HINV_HA_URL: http://homeassistant.local:8123
+      # HINV_HA_TOKEN: ${HA_LONG_LIVED_TOKEN}
+      # Or call a provider directly:
+      # HINV_AI_PROVIDER: gemini
+      # HINV_AI_API_KEY: ${GEMINI_API_KEY}
+      HINV_AI_PROVIDER: none
+    volumes:
+      - ./data:/data
+      # For AI Task image hand-off, share Home Assistant's media folder:
+      # - /path/to/homeassistant/media:/media
+    ports:
+      # Only the token-protected API port is published, and only to the
+      # local network interface you choose.  Do not expose it to the internet.
+      - "8100:8100"
