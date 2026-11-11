@@ -72,10 +72,19 @@ class ProductFields(_In):
     sku: str | None = Field(default=None, max_length=120)
     tags: str | None = Field(default=None, max_length=1000)
     min_quantity: int | None = Field(default=None, ge=0, le=100000)
+    url: str | None = Field(default=None, max_length=2000)
 
     _blank = field_validator(
-        "description", "category", "manufacturer", "model_number", "barcode", "sku", "tags", "min_quantity", mode="before"
+        "description", "category", "manufacturer", "model_number", "barcode", "sku", "tags", "min_quantity", "url",
+        mode="before",
     )(_blank_to_none)
+
+    @field_validator("url")
+    @classmethod
+    def _http_url(cls, v: str | None) -> str | None:
+        if v is not None and not v.lower().startswith(("http://", "https://")):
+            raise ValueError("The product link must start with http:// or https://")
+        return v
 
 
 class PurchaseFields(_In):
@@ -234,12 +243,23 @@ class MarkersIn(_In):
 
 
 class LabelRequest(_In):
-    container_ids: list[int] = Field(min_length=1, max_length=500)
+    container_ids: list[int] = Field(default_factory=list, max_length=500)
+    location_ids: list[int] = Field(default_factory=list, max_length=500)
+    # Address the browser used to open the App (e.g.
+    # https://ha.example.com/abcd1234_home_inventory); used for QR links when
+    # no address is set in Settings.
+    base_url: str | None = Field(default=None, max_length=500)
     template: str = "avery_l7160"
     include_contents: bool = False
     include_location: bool = True
     copies: int = Field(default=1, ge=1, le=20)
     start_position: int = Field(default=1, ge=1, le=200)
+
+    @model_validator(mode="after")
+    def _something(self):
+        if not self.container_ids and not self.location_ids:
+            raise ValueError("Choose at least one container or location")
+        return self
 
 
 class UserRoleIn(_In):
@@ -261,6 +281,11 @@ class BarcodeLookupIn(_In):
     code: str = Field(min_length=1, max_length=64)
     format: str | None = Field(default=None, max_length=20)
     external: bool = True
+
+
+class LinkImportIn(_In):
+    url: str = Field(min_length=8, max_length=2000)
+    download_image: bool = True
 
 
 class SearchIn(_In):

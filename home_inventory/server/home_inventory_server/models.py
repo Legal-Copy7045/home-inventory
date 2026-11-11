@@ -125,6 +125,8 @@ class Location(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     parent_id: Mapped[int | None] = mapped_column(ForeignKey("locations.id", ondelete="RESTRICT"), index=True)
     name: Mapped[str] = mapped_column(String(200))
+    # Permanent identifier encoded in the location's QR label.
+    qr_code: Mapped[str | None] = mapped_column(String(16), unique=True)
     # property, building, room, area, shelf, drawer, cabinet, workbench, ...
     kind: Mapped[str | None] = mapped_column(String(40))
     description: Mapped[str | None] = mapped_column(Text)
@@ -189,6 +191,8 @@ class Product(TimestampMixin, Base):
     barcode: Mapped[str | None] = mapped_column(String(64), index=True)
     sku: Mapped[str | None] = mapped_column(String(120), index=True)
     tags: Mapped[str | None] = mapped_column(Text)
+    # Product web page (retailer or manufacturer), used to import details.
+    url: Mapped[str | None] = mapped_column(String(2000))
     # Consumables: warn when the total quantity across all holdings drops
     # below this number (NULL = not tracked).
     min_quantity: Mapped[int | None] = mapped_column(Integer)

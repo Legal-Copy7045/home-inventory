@@ -282,3 +282,27 @@ def test_settings_fall_back_to_s6_saved_environment(tmp_path, monkeypatch):
     s = config.Settings.load()
     assert s.supervisor_token == "tok123"
     assert s.data_dir == tmp_path / "d"
+
+
+def test_upgrade_gives_existing_locations_qr_codes(tmp_path):
+    """Databases from 0.1.0/0.1.1 get location label codes when upgraded."""
+    from alembic import command
+    from sqlalchemy import text
+
+    from home_inventory_server.db import alembic_config
+
+    url = f"sqlite:///{tmp_path}/old.sqlite3"
+    db = Database(url)
+    cfg = alembic_config(url)
+    with db.engine.begin() as conn:
+        cfg.attributes["connection"] = conn
+        command.upgrade(cfg, "0001")
+    with db.engine.begin() as conn:
+        now = "2026-01-01 00:00:00"
+        for name in ("Shed", "Garage"):
+            conn.execute(text("INSERT INTO locations (name, sort_order, created_at, updated_at) VALUES (:n, 0, :t, :t)"), {"n": name, "t": now})
+    run_migrations(db.engine, tmp_path / "old.sqlite3", tmp_path / "b")
+    with db.engine.connect() as conn:
+        codes = [r[0] for r in conn.execute(text("SELECT qr_code FROM locations"))]
+    assert len(codes) == 2 and all(c and len(c) == 8 for c in codes) and codes[0] != codes[1]
+    db.dispose()

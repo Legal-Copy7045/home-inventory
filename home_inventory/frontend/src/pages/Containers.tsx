@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowRightLeft, Camera, Home, Pencil, Plus, Printer, QrCode, ScanLine, Sparkles, Trash2 } from "lucide-react";
-import { api, url, type Container, type HistoryEvent, type Scan } from "../api";
+import { api, qrImageUrl, url, type Container, type HistoryEvent, type Scan } from "../api";
 import { PlacementPicker, type PlacementValue } from "../components/PlacementPicker";
 import { ContainerRow, Empty, ErrorBox, ItemRow, PathView, Section, Sheet, Spinner, Stepper, fmtWhen, useAction, useApi, useMe, useToast } from "../components/ui";
 
@@ -204,9 +204,9 @@ function QrSheet({ c, onClose }: { c: Container; onClose: () => void }) {
   return (
     <Sheet title="QR label" onClose={onClose}>
       <div className="stack" style={{ alignItems: "center" }}>
-        <img src={url(`api/v1/containers/${c.id}/qr.svg`)} alt={`QR code ${c.qr_code}`} style={{ width: 240, background: "#fff", borderRadius: 12, padding: 8 }} />
+        <img src={qrImageUrl("containers", c.id)} alt={`QR code ${c.qr_code}`} style={{ width: 240, background: "#fff", borderRadius: 12, padding: 8 }} />
         <div className="mono" style={{ fontSize: "1.2rem", fontWeight: 700 }}>{c.qr_code}</div>
-        <p className="muted" style={{ textAlign: "center" }}>This code is permanent. It keeps working if you rename, renumber or move the container.</p>
+        <p className="muted" style={{ textAlign: "center" }}>Scan it with your phone's camera to open this container's contents. The code is permanent: it keeps working if you rename, renumber or move the container.</p>
         <Link className="btn primary block" to={`/labels?ids=${c.id}`}><Printer size={18} /> Print label</Link>
       </div>
     </Sheet>
