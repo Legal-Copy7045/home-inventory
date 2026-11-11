@@ -1,0 +1,110 @@
+{
+  "config": {
+    "step": {
+      "hassio_confirm": {
+        "title": "Home Inventory",
+        "description": "Connect Home Assistant to the Home Inventory App? This adds inventory sensors, actions and automation events."
+      },
+      "user": {
+        "title": "Connect to Home Inventory",
+        "description": "For Home Assistant Container/Core installs running the Home Inventory companion container. The API token is shown in the container log and stored in its data folder (integration_token).",
+        "data": {
+          "url": "Inventory API URL",
+          "api_token": "API token",
+          "sidebar_panel": "Add Inventory to the sidebar"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Home Inventory",
+        "data": { "api_token": "API token" }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach the Home Inventory App. Check that it is running.",
+      "invalid_auth": "The API token was rejected."
+    },
+    "abort": {
+      "already_configured": "Home Inventory is already set up.",
+      "single_instance_allowed": "Home Inventory is already set up.",
+      "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "sidebar_panel": "Add an Inventory sidebar panel (not needed with the App, which has its own)",
+          "scan_interval": "Statistics refresh interval (seconds)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "total_items": { "name": "Total items" },
+      "containers": { "name": "Containers" },
+      "locations": { "name": "Locations" },
+      "total_value": { "name": "Recorded value" },
+      "on_loan": { "name": "Items on loan" },
+      "loans_overdue": { "name": "Overdue loans" },
+      "temporarily_relocated": { "name": "Temporarily relocated" },
+      "warranties_expiring": { "name": "Warranties expiring" },
+      "expiring_soon": { "name": "Items expiring soon" },
+      "expired": { "name": "Expired items" },
+      "low_stock": { "name": "Products running low" }
+    },
+    "binary_sensor": {
+      "app_available": { "name": "Inventory app" }
+    }
+  },
+  "services": {
+    "search": {
+      "name": "Search inventory",
+      "description": "Searches the inventory (natural language allowed) and returns matching items with their locations.",
+      "fields": {
+        "query": { "name": "Query", "description": "What to look for, e.g. \"Where are my DeWalt batteries?\"" },
+        "limit": { "name": "Limit", "description": "Maximum number of items to return." }
+      }
+    },
+    "get_item_location": {
+      "name": "Get item location",
+      "description": "Returns where an item is, including its status and loans.",
+      "fields": { "name": { "name": "Item", "description": "Item name." } }
+    },
+    "get_container_contents": {
+      "name": "Get container contents",
+      "description": "Returns what is inside a container.",
+      "fields": { "container": { "name": "Container", "description": "Container number, name or label code." } }
+    },
+    "move_item": {
+      "name": "Move item",
+      "description": "Moves an item into a container or to a location.",
+      "fields": {
+        "item_id": { "name": "Item ID", "description": "The item's ID (from search results)." },
+        "container": { "name": "Container", "description": "Destination container number, name or label code." },
+        "location": { "name": "Location", "description": "Destination location name, full path or ID." },
+        "quantity": { "name": "Quantity", "description": "Move only part of the quantity." },
+        "temporary": { "name": "Temporary", "description": "Remember the normal storage place." }
+      }
+    },
+    "move_container": {
+      "name": "Move container",
+      "description": "Moves a container (and everything in it).",
+      "fields": {
+        "container": { "name": "Container", "description": "Container number, name or label code." },
+        "into_container": { "name": "Into container", "description": "Put it inside another container." },
+        "location": { "name": "Location", "description": "Destination location name, full path or ID." },
+        "temporary": { "name": "Temporary", "description": "Remember the normal storage place." }
+      }
+    },
+    "adjust_quantity": {
+      "name": "Adjust quantity",
+      "description": "Adds to or subtracts from an item's quantity, e.g. -1 when one is used.",
+      "fields": {
+        "item_id": { "name": "Item ID", "description": "The item's ID." },
+        "delta": { "name": "Change", "description": "Positive to add, negative to use up." }
+      }
+    },
+    "refresh": { "name": "Refresh statistics", "description": "Refreshes the inventory sensors now." }
+  }
+}

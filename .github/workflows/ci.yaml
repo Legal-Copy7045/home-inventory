@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: home_inventory/server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e '.[test]'
+      - run: ruff check home_inventory_server tests
+      - run: pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: home_inventory/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: home_inventory/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Build UI (served by the App under test)
+        run: cd home_inventory/frontend && npm ci && npm run build
+      - name: Install Home Assistant test harness and the App backend
+        run: |
+          pip install pytest-homeassistant-custom-component
+          pip install "$(grep -o 'home-assistant-frontend==[0-9.]*' $(python -c 'import homeassistant,os;print(os.path.dirname(homeassistant.__file__))')/components/frontend/manifest.json)"
+          pip install -e home_inventory/server
+      - run: pytest -q -p no:logging
+      - name: Browser end-to-end smoke test
+        run: |
+          npx --yes playwright@1 install --with-deps chromium
+          npm init -y >/dev/null && npm install playwright@1 >/dev/null
+          mkdir -p /tmp/e2e
+          (cd home_inventory/server && HINV_DATA_DIR=/tmp/e2e HINV_TRUSTED_PROXIES=127.0.0.1 HINV_AI_PROVIDER=none \
+             HINV_INGRESS_PORT=18099 HINV_API_PORT=18100 HINV_BARCODE_OPEN_FACTS=false HINV_BARCODE_UPCITEMDB=false \
+             python -m home_inventory_server &)
+          sleep 5
+          node tests/e2e/smoke.mjs
+
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hacs/action@main
+        with:
+          category: integration
+          ignore: brands
+
+  app-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: frenck/action-addon-linter@v2
+        with:
+          path: ./home_inventory
+
+  app-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the App image (amd64)
+        run: docker build --build-arg BUILD_FROM=ghcr.io/home-assistant/amd64-base-python:3.13-alpine3.22 -t home-inventory:ci home_inventory
+      - name: Start, check health, stop
+        run: |
+          docker run -d --name hinv -p 8099:8099 home-inventory:ci
+          for i in $(seq 1 30); do curl -sf localhost:8099/api/health && break; sleep 1; done
+          docker stop hinv
+          docker logs hinv | tail -5

@@ -1,0 +1,9 @@
+# Lint settings for the integration and repository-level tests.
+# The App backend has its own settings in home_inventory/server/pyproject.toml.
+line-length = 120
+target-version = "py313"
+extend-exclude = ["home_inventory"]
+
+[lint]
+select = ["E", "F", "W", "I", "B"]
+ignore = ["E501"]
