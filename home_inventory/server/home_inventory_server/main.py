@@ -21,7 +21,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
@@ -130,6 +130,8 @@ def create_app(state: AppState, channel: str) -> FastAPI:
         response: Response = await call_next(request)
         for k, v in SECURITY_HEADERS.items():
             response.headers.setdefault(k, v)
+        if response.headers.get("content-type", "").startswith("text/html"):
+            response.headers["Cache-Control"] = "no-cache"
         return response
 
     @app.exception_handler(RequestValidationError)
@@ -149,21 +151,16 @@ def create_app(state: AppState, channel: str) -> FastAPI:
     # and on the API port for the companion integration's sidebar proxy used
     # on Home Assistant Container/Core installs.  Data endpoints always
     # require authentication.
-    index = FRONTEND_DIR / "index.html"
-    assets = FRONTEND_DIR / "assets"
-    if assets.exists():
-        app.mount("/assets", StaticFiles(directory=assets), name="assets")
+    if (FRONTEND_DIR / "index.html").exists():
+        # Starlette's StaticFiles resolves and confines paths itself; the UI
+        # uses hash routing, so only real files and "/" (index.html) are
+        # requested.  Registered last, so API routes take precedence.
+        app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="ui")
+    else:
 
-    @app.get("/{path:path}", include_in_schema=False)
-    def spa(path: str):
-        if path.startswith("api/"):
-            return JSONResponse({"detail": "Not found"}, status_code=404)
-        candidate = (FRONTEND_DIR / path).resolve()
-        if path and FRONTEND_DIR.resolve() in candidate.parents and candidate.is_file():
-            return FileResponse(candidate)
-        if index.exists():
-            return FileResponse(index, headers={"Cache-Control": "no-cache"})
-        return JSONResponse({"detail": "Frontend not built"}, status_code=503)
+        @app.get("/", include_in_schema=False)
+        def no_ui():
+            return JSONResponse({"detail": "Frontend not built"}, status_code=503)
 
     return app
 

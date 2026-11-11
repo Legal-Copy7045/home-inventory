@@ -110,3 +110,29 @@ def test_security_headers(env):
 
 def test_role_enum_values():
     assert {r.value for r in Role} == {"admin", "member", "read_only"}
+
+
+def test_ui_static_files_are_confined(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from home_inventory_server import main
+    from tests.conftest import Env
+
+    ui = tmp_path / "ui"
+    (ui / "assets").mkdir(parents=True)
+    (ui / "index.html").write_text("<!doctype html><title>Home Inventory</title>")
+    (ui / "assets" / "app.js").write_text("console.log(1)")
+    (tmp_path / "secret.txt").write_text("top secret")
+    monkeypatch.setattr(main, "FRONTEND_DIR", ui)
+    e = Env(tmp_path / "env")
+    client = TestClient(main.create_app(e.state, "ingress"))
+    r = client.get("/")
+    assert r.status_code == 200 and "Home Inventory" in r.text
+    assert r.headers["cache-control"] == "no-cache"  # updates are picked up
+    assert client.get("/assets/app.js").text == "console.log(1)"
+    for evil in ("/../secret.txt", "/%2e%2e/secret.txt", "/assets/../../secret.txt", "/..%2fsecret.txt"):
+        r = client.get(evil)
+        assert "top secret" not in r.text, evil
+    # API routes still win over the UI mount
+    assert client.get("/api/health").json()["status"] == "ok"
+    e.state.db.dispose()

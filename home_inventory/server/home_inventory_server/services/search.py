@@ -8,6 +8,7 @@ built from database rows: the AI never supplies locations or quantities.
 
 from __future__ import annotations
 
+import logging
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -21,6 +22,8 @@ from ..models import Category, Item, ItemStatus, Product, Setting
 from . import gtin as gtin_mod
 from .inventory import active_loan, item_out
 from .placement import Resolver
+
+_LOGGER = logging.getLogger(__name__)
 
 STOPWORDS = {
     "a", "about", "all", "am", "an", "and", "any", "anyone", "anybody", "are", "at", "borrowed", "can", "could",
@@ -396,7 +399,9 @@ def search(db: Session, raw: str, ai=None, limit: int = 50) -> dict[str, Any]:
                 return result
             # AI filters were too strict; fall back to rule-based parsing.
         except Exception as err:  # noqa: BLE001 - AI failures must never break search
-            ai_error = str(err)
+            # Details go to the App log; the browser gets a fixed message.
+            _LOGGER.warning("AI could not interpret search %r: %s", raw[:100], err)
+            ai_error = "AI couldn't interpret the question, so these are keyword results."
     result = run_search(db, query, limit)
     if ai_error:
         result["ai_error"] = ai_error
