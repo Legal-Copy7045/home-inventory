@@ -71,10 +71,10 @@ from ..services import backup as backup_svc
 from ..services import barcode as barcode_svc
 from ..services import inventory as inv
 from ..services import labels as labels_svc
+from ..services import location_import, weblink
 from ..services import scans as scans_svc
 from ..services import search as search_svc
 from ..services import stats as stats_svc
-from ..services import weblink
 from ..services.media import MediaError
 from ..services.placement import PlacementError, Resolver
 
@@ -170,6 +170,52 @@ def locations_flat(actor: Actor = Depends(current_actor), db: Session = Depends(
     out = [{"id": loc.id, "name": loc.name, "kind": loc.kind, "parent_id": loc.parent_id, "qr_code": loc.qr_code,
             "path": r.location_path(loc.id)} for loc in locs]
     return sorted(out, key=lambda x: x["path"].lower())
+
+
+@router.get("/locations/template.xlsx")
+def locations_template(existing: bool = False, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    """Excel template for bulk location import (optionally pre-filled with
+    the current hierarchy)."""
+    data = location_import.build_template(db, include_existing=existing)
+    name = "home-inventory-locations.xlsx" if existing else "home-inventory-locations-template.xlsx"
+    return Response(
+        data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
+
+
+@router.post("/locations/import")
+async def locations_import(
+    request: Request,
+    file: UploadFile = File(...),
+    confirm: bool = Form(False),
+    actor: Actor = Depends(require_member),
+    db: Session = Depends(get_db),
+):
+    """Preview (``confirm`` false) or apply a location spreadsheet."""
+    limit = 5 * 1024 * 1024
+    data = await file.read(limit + 1)
+    if len(data) > limit:
+        raise HTTPException(413, "The file is larger than 5 MB")
+    try:
+        rows, errors = await asyncio.to_thread(location_import.read_rows, data, file.filename)
+    except location_import.ImportFileError as err:
+        raise HTTPException(422, str(err)) from err
+    plan = location_import.plan(db, rows, errors)
+    summary = {
+        "rows": len(rows),
+        "errors": plan.errors,
+        "to_create": plan.to_create,
+        "create_count": len(plan.to_create),
+        "existing_count": plan.existing,
+        "update_count": plan.updates,
+    }
+    if not confirm:
+        return {**summary, "applied": False}
+    result = location_import.apply(db, actor, rows)
+    db.commit()
+    return {**summary, "applied": True, "created": result["created"], "updated": result["updated"]}
 
 
 @router.post("/locations", status_code=201)

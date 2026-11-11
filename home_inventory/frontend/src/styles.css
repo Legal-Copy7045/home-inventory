@@ -297,3 +297,5 @@ input[type="checkbox"] { width: 20px; min-height: 20px; height: 20px; }
 .scanbar .btn { background: rgba(255,255,255,.16); border-color: transparent; color: #fff; }
 .hide-sm { display: none; } @media (min-width: 640px) { .hide-sm { display: block; } }
 .badge.maplink { border: 0; cursor: pointer; font-family: inherit; }
+.sheet { overflow-x: hidden; overflow-wrap: anywhere; }
+.sheet-actions { position: sticky; bottom: calc(-16px - var(--safe-bottom)); margin: 0 -16px calc(-16px - var(--safe-bottom)); padding: 10px 16px calc(16px + var(--safe-bottom)); background: var(--surface); border-top: 1px solid var(--border); z-index: 1; }

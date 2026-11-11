@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { AlertTriangle, Box, ChevronDown, ChevronRight, Clock, Map as MapIcon, MapPin, Package, Pencil, Plus, Printer, QrCode, ScanBarcode, Search as SearchIcon, Sparkles, Trash2 } from "lucide-react";
+import { AlertTriangle, Box, ChevronDown, ChevronRight, Clock, FileSpreadsheet, Map as MapIcon, MapPin, Package, Pencil, Plus, Printer, QrCode, ScanBarcode, Search as SearchIcon, Sparkles, Trash2 } from "lucide-react";
 import { api, qrImageUrl, type Dashboard, type Item, type LocationDetail, type LocationNode, type SearchResult } from "../api";
+import { LocationImportSheet } from "../components/LocationImport";
 import { PlacementPicker } from "../components/PlacementPicker";
 import { ContainerFormSheet } from "./Containers";
 import { ContainerRow, Empty, ErrorBox, ItemRow, Section, Sheet, Spinner, fmtDate, fmtWhen, money, useAction, useApi, useMe } from "../components/ui";
@@ -158,14 +159,24 @@ export function LocationsPage() {
   const me = useMe();
   const tree = useApi(() => api.get<LocationNode[]>("locations/tree"), []);
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
   return (
     <div className="page">
-      <div className="row between"><h1>Locations</h1>{me.can_edit && <button className="btn primary" onClick={() => setAdding(true)}><Plus size={18} /> New</button>}</div>
+      <div className="row between wrap" style={{ marginBottom: 6 }}>
+        <h1 style={{ margin: 0 }}>Locations</h1>
+        {me.can_edit && (
+          <div className="row wrap">
+            <button className="btn" onClick={() => setImporting(true)}><FileSpreadsheet size={18} /> Import from Excel</button>
+            <button className="btn primary" onClick={() => setAdding(true)}><Plus size={18} /> New</button>
+          </div>
+        )}
+      </div>
       <p className="muted">Nest places as deep as you like: Property › Shed › Right side › Ground level. Items can live directly in a location (shelves, drawers, workbenches) or in containers.</p>
       <div className="card">
-        {tree.loading && !tree.data ? <Spinner /> : tree.data?.length ? <ul className="tree">{tree.data.map((n) => <TreeNode key={n.id} n={n} />)}</ul> : <Empty>No locations yet.</Empty>}
+        {tree.loading && !tree.data ? <Spinner /> : tree.data?.length ? <ul className="tree">{tree.data.map((n) => <TreeNode key={n.id} n={n} />)}</ul> : <Empty>No locations yet. Add them one by one, or use <b>Import from Excel</b> to create your whole hierarchy at once.</Empty>}
       </div>
       {adding && <LocationFormSheet onClose={() => setAdding(false)} onSaved={() => { setAdding(false); tree.reload(); }} />}
+      {importing && <LocationImportSheet onClose={() => setImporting(false)} onDone={() => { setImporting(false); tree.reload(); }} />}
     </div>
   );
 }
