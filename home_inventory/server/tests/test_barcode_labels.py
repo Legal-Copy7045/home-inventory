@@ -112,3 +112,54 @@ def test_labels_endpoint_bulk(env):
     assert r.status_code == 200 and r.headers["content-type"] == "application/pdf"
     assert r.content.count(b"/Type /Page") >= 1
     assert u.post("/api/v1/labels/pdf", json={"container_ids": []}).status_code == 422
+
+
+BASE = "https://ha.example.com/b1a256fc_home_inventory"
+
+
+def test_label_links_open_the_app():
+    from home_inventory_server.services.labels import parse_qr_ref
+
+    assert qr_payload("ABCD2345", BASE) == f"{BASE}/c/ABCD2345"
+    assert qr_payload("ABCD2345", BASE + "/", "L") == f"{BASE}/l/ABCD2345"
+    assert qr_payload("ABCD2345", "javascript:alert(1)") == "HINV:C:ABCD2345"  # unsafe base ignored
+    assert parse_qr_ref(f"{BASE}/c/ABCD2345") == ("C", "ABCD2345")
+    assert parse_qr_ref(f"{BASE}/l/ABCD2345?x=1") == ("L", "ABCD2345")
+    assert parse_qr_ref("HINV:L:ABCD2345") == ("L", "ABCD2345")
+    assert parse_qr_ref("https://old.example/app?c=ABCD2345") == ("C", "ABCD2345")  # earlier format
+    assert parse_qr_ref("abcd2345") == (None, "ABCD2345")
+    assert parse_qr_ref(f"{BASE}/c/") is None
+
+
+def test_location_labels_and_resolve(env):
+    u = env.admin
+    shed = u.location("Shed")
+    shelf = u.location("Middle shelf", shed["id"])
+    assert len(shelf["qr_code"]) == 8
+    box = u.container("Hoses", "1", location_id=shelf["id"])
+    u.item("Hose reel", location_id=shelf["id"])
+    r = u.ok("post", "/api/v1/qr/resolve", json={"text": f"{BASE}/l/{shelf['qr_code']}"})
+    assert r == {"type": "location", "id": shelf["id"], "location_id": shelf["id"], "qr_code": shelf["qr_code"]}
+    r = u.ok("post", "/api/v1/qr/resolve", json={"text": f"{BASE}/c/{box['qr_code']}"})
+    assert r["type"] == "container" and r["container_id"] == box["id"]
+    assert u.ok("post", "/api/v1/qr/resolve", json={"text": shelf["qr_code"]})["type"] == "location"  # bare code
+    # The QR image uses the browser's address when Settings has none
+    svg = u.get(f"/api/v1/locations/{shelf['id']}/qr.svg", params={"base": BASE})
+    assert svg.status_code == 200
+    r = u.post("/api/v1/labels/pdf", json={"location_ids": [shelf["id"]], "container_ids": [box["id"]],
+                                           "include_contents": True, "base_url": BASE})
+    assert r.status_code == 200 and r.content.startswith(b"%PDF")
+
+
+def test_settings_address_overrides_browser(env, monkeypatch):
+    from home_inventory_server.services import labels
+
+    seen = []
+    real = labels.qr_payload
+    monkeypatch.setattr(labels, "qr_payload", lambda code, base, kind="C": seen.append(base) or real(code, base, kind))
+    u = env.admin
+    box = u.container("Box")
+    u.get(f"/api/v1/containers/{box['id']}/qr.svg", params={"base": BASE})
+    u.ok("patch", "/api/v1/settings", json={"qr_base_url": "https://inventory.example.org/app"})
+    u.get(f"/api/v1/containers/{box['id']}/qr.svg", params={"base": BASE})
+    assert seen == [BASE, "https://inventory.example.org/app"]

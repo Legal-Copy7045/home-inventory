@@ -1,22 +1,28 @@
 """QR codes and printable PDF labels.
 
-Each container has a permanent ``qr_code`` (8 characters, unambiguous
-alphabet).  The QR payload is either:
+Every container and location has a permanent ``qr_code`` (8 characters,
+unambiguous alphabet).  The QR payload is a link when the Home Assistant
+address is known:
 
-* ``<qr_base_url>?c=<code>`` when a base URL is configured, so a phone's
-  camera app opens the container page directly, or
-* ``HINV:C:<code>`` otherwise, which the app's built-in scanner understands.
+    https://<home assistant>/<app panel>/c/<code>   (container)
+    https://<home assistant>/<app panel>/l/<code>   (location)
 
-The scanner accepts both forms, so labels stay valid if the base URL is
-added or changed later.  The payload never contains names, numbers or
-locations, which may change.
+Scanning it with a phone's camera opens Home Assistant, which passes the
+``/c/<code>`` tail to the App, and the App shows that container or location.
+The base address comes from Settings, or else from the address the person
+printing the label used to open Home Assistant.  Without either, the payload
+is ``HINV:C:<code>`` / ``HINV:L:<code>``, which only the in-app scanner reads.
+
+The scanner accepts all forms (including the older ``?c=<code>`` links), so
+labels stay valid if the address changes.  The payload never contains names,
+numbers or locations, which may change.
 """
 
 from __future__ import annotations
 
 import io
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import segno
 from reportlab.lib.pagesizes import A4, LETTER
@@ -24,28 +30,49 @@ from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
+_CODE = r"([A-HJ-NP-Z2-9]{6,16})"
 QR_PATTERNS = [
-    re.compile(r"HINV[:/\-]C[:/\-]([A-Z2-9]{6,16})", re.I),
-    re.compile(r"[?&#]c=([A-Z2-9]{6,16})\b", re.I),
-    re.compile(r"/c/([A-Z2-9]{6,16})\b", re.I),
+    re.compile(r"HINV[:/\-]([CL])[:/\-]" + _CODE, re.I),
+    re.compile(r"/([cl])/" + _CODE + r"(?=$|[/?#])", re.I),
+    re.compile(r"[?&#]([cl])=" + _CODE + r"\b", re.I),
 ]
+KIND_NAMES = {"C": "container", "L": "location"}
 
 
-def qr_payload(code: str, base_url: str | None) -> str:
-    if base_url:
-        sep = "&" if "?" in base_url else "?"
-        return f"{base_url}{sep}c={code}"
-    return f"HINV:C:{code}"
+def clean_base_url(base: str | None) -> str | None:
+    if not base:
+        return None
+    base = base.strip().rstrip("/")
+    if not re.match(r"^https?://[^\s/?#]+(/[^\s?#]*)?$", base, re.I) or len(base) > 500:
+        return None
+    return base
 
 
-def parse_qr(text: str) -> str | None:
+def qr_payload(code: str, base_url: str | None, kind: str = "C") -> str:
+    kind = kind.upper()
+    base = clean_base_url(base_url)
+    if base:
+        return f"{base}/{kind.lower()}/{code}"
+    return f"HINV:{kind}:{code}"
+
+
+def parse_qr_ref(text: str) -> tuple[str | None, str] | None:
+    """Return (kind, code) where kind is "C", "L" or None (bare code)."""
     text = (text or "").strip()
     for pat in QR_PATTERNS:
         m = pat.search(text)
         if m:
-            return m.group(1).upper()
-    if re.fullmatch(r"[A-Z2-9]{8}", text.upper()):
-        return text.upper()
+            return m.group(1).upper(), m.group(2).upper()
+    if re.fullmatch(r"[A-HJ-NP-Z2-9]{8}", text.upper()):
+        return None, text.upper()
+    return None
+
+
+def parse_qr(text: str) -> str | None:
+    """Container code from a label payload (or a bare code)."""
+    ref = parse_qr_ref(text)
+    if ref and ref[0] in (None, "C"):
+        return ref[1]
     return None
 
 
@@ -102,7 +129,7 @@ class LabelData:
     title: str
     number: str | None
     location: str | None
-    contents: list[str]
+    contents: list[str] = field(default_factory=list)
 
 
 def _fit(c: canvas.Canvas, text: str, font: str, size: float, max_width: float) -> tuple[str, float]:

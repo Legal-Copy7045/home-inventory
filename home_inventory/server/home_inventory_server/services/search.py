@@ -362,7 +362,8 @@ def build_answer(query: Query, items: list[Item], r: Resolver) -> str:
     if len(products) == 1:
         p = items[0].product
         return f"I found {p.name} in your inventory. You own {total}: {place_lines}."
-    return f"Found {total} {what} ({len(items)} record{'s' if len(items) != 1 else ''}): {place_lines}."
+    n = len(places)
+    return f"Found {total} item{'s' if total != 1 else ''} matching \"{what}\" in {n} place{'s' if n != 1 else ''}: {place_lines}."
 
 
 def known_manufacturers(db: Session) -> set[str]:

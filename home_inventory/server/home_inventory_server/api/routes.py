@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import tempfile
 from datetime import date, timedelta
 from pathlib import Path
@@ -52,6 +53,7 @@ from ..schemas import (
     ItemCreate,
     ItemPatch,
     LabelRequest,
+    LinkImportIn,
     LoanIn,
     LocationIn,
     LocationPatch,
@@ -72,9 +74,11 @@ from ..services import labels as labels_svc
 from ..services import scans as scans_svc
 from ..services import search as search_svc
 from ..services import stats as stats_svc
+from ..services import weblink
 from ..services.media import MediaError
 from ..services.placement import PlacementError, Resolver
 
+_LOGGER = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1")
 
 
@@ -163,7 +167,8 @@ def locations_tree(actor: Actor = Depends(current_actor), db: Session = Depends(
 def locations_flat(actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
     r = _resolver(db)
     locs = [loc for loc in r.locations.values() if loc.deleted_at is None]
-    out = [{"id": loc.id, "name": loc.name, "kind": loc.kind, "parent_id": loc.parent_id, "path": r.location_path(loc.id)} for loc in locs]
+    out = [{"id": loc.id, "name": loc.name, "kind": loc.kind, "parent_id": loc.parent_id, "qr_code": loc.qr_code,
+            "path": r.location_path(loc.id)} for loc in locs]
     return sorted(out, key=lambda x: x["path"].lower())
 
 
@@ -263,15 +268,24 @@ def lookup_container(ref: str, actor: Actor = Depends(current_actor), db: Sessio
 
 @router.post("/qr/resolve")
 def resolve_qr(body: dict[str, str], actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
-    code = labels_svc.parse_qr(body.get("text", ""))
-    if not code:
+    """Turn any label payload (link, HINV:… code or bare code) into a record."""
+    ref = labels_svc.parse_qr_ref(body.get("text", ""))
+    if not ref:
         raise HTTPException(404, "Not a Home Inventory label")
-    c = db.scalar(select(Container).where(Container.qr_code == code))
-    if c is None:
-        raise HTTPException(404, "No container has this label")
-    if c.deleted_at is not None:
-        raise HTTPException(410, "This container was deleted (see Trash)")
-    return {"container_id": c.id, "qr_code": code}
+    kind, code = ref
+    if kind in (None, "C"):
+        c = db.scalar(select(Container).where(Container.qr_code == code))
+        if c is not None:
+            if c.deleted_at is not None:
+                raise HTTPException(410, "This container was deleted (see Trash)")
+            return {"type": "container", "id": c.id, "container_id": c.id, "qr_code": code}
+    if kind in (None, "L"):
+        loc = db.scalar(select(Location).where(Location.qr_code == code))
+        if loc is not None:
+            if loc.deleted_at is not None:
+                raise HTTPException(410, "This location was deleted (see Trash)")
+            return {"type": "location", "id": loc.id, "location_id": loc.id, "qr_code": code}
+    raise HTTPException(404, "Nothing has this label")
 
 
 @router.get("/containers/{container_id}")
@@ -319,16 +333,33 @@ def restore_container(container_id: int, actor: Actor = Depends(require_member),
     return {"ok": True}
 
 
-def _qr_base(db: Session, st) -> str:
+def _qr_base(db: Session, st, from_browser: str | None = None) -> str:
+    """Address used in QR links: Settings, else App config, else the address
+    the browser used to open the App."""
     s = db.get(Setting, "qr_base_url")
-    return (s.value if s and s.value else None) or st.settings.qr_base_url or ""
+    return (
+        (s.value if s and s.value else None)
+        or st.settings.qr_base_url
+        or labels_svc.clean_base_url(from_browser)
+        or ""
+    )
 
 
 @router.get("/containers/{container_id}/qr.svg")
-def container_qr(container_id: int, request: Request, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+def container_qr(container_id: int, request: Request, base: str | None = None, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
     c = _get_or_404(db, Container, container_id)
-    payload = labels_svc.qr_payload(c.qr_code, _qr_base(db, _state(request)))
-    return Response(labels_svc.qr_svg(payload), media_type="image/svg+xml", headers={"Cache-Control": "private, max-age=3600"})
+    payload = labels_svc.qr_payload(c.qr_code, _qr_base(db, _state(request), base), "C")
+    return Response(labels_svc.qr_svg(payload), media_type="image/svg+xml", headers={"Cache-Control": "private, no-cache"})
+
+
+@router.get("/locations/{location_id}/qr.svg")
+def location_qr(location_id: int, request: Request, base: str | None = None, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    loc = _get_or_404(db, Location, location_id)
+    if not loc.qr_code:
+        loc.qr_code = inv.new_qr_code(db)
+        db.commit()
+    payload = labels_svc.qr_payload(loc.qr_code, _qr_base(db, _state(request), base), "L")
+    return Response(labels_svc.qr_svg(payload), media_type="image/svg+xml", headers={"Cache-Control": "private, no-cache"})
 
 
 # ---------------------------------------------------------------------------
@@ -836,6 +867,45 @@ def discard_scan(scan_id: int, actor: Actor = Depends(require_member), db: Sessi
 # ---------------------------------------------------------------------------
 
 
+@router.post("/link/import")
+async def link_import(data: LinkImportIn, request: Request, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Read product details (and the main photo) from a web page for review.
+
+    Nothing is saved to the inventory; the photo is stored as an unattached
+    upload (removed automatically if never used).
+    """
+    st = _state(request)
+    ai = st.ai if st.ai.enabled else None
+    try:
+        page = await asyncio.to_thread(weblink.import_from_url, data.url, ai)
+    except weblink.LinkError as err:
+        raise HTTPException(422, str(err)) from err
+    photo = None
+    image_error = None
+    if data.download_image and page.image_url:
+        try:
+            raw = await asyncio.to_thread(weblink.download_image, page.image_url)
+            stored = await asyncio.to_thread(st.media.save, raw, False)
+            att = Attachment(kind=AttachmentKind.photo, original_name="web-image", caption="From product page",
+                             created_by_id=actor.user_id, **stored.__dict__)
+            db.add(att)
+            db.commit()
+            photo = inv.attachment_out(att)
+        except (weblink.LinkError, MediaError) as err:
+            # Details go to the App log; the browser gets a fixed message.
+            _LOGGER.info("Product photo from %s not added: %s", page.image_url, err)
+            image_error = "The product photo could not be downloaded or is not a supported image."
+    similar = similar_products(page.name, actor, db) if page.name else []
+    existing = inv.find_product_by_barcode(db, page.barcode) if page.barcode else None
+    return {
+        "details": page.as_dict(),
+        "photo": photo,
+        "image_error": image_error,
+        "similar": similar,
+        "existing_product": inv.product_out(existing) if existing else None,
+    }
+
+
 @router.post("/barcode/lookup")
 def barcode_lookup(data: BarcodeLookupIn, request: Request, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
     st = _state(request)
@@ -874,7 +944,7 @@ def label_templates(actor: Actor = Depends(current_actor)):
 @router.post("/labels/pdf")
 def labels_pdf(data: LabelRequest, request: Request, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
     r = _resolver(db)
-    base = _qr_base(db, _state(request))
+    base = _qr_base(db, _state(request), data.base_url)
     out = []
     for cid in data.container_ids:
         c = _get_or_404(db, Container, cid)
@@ -886,10 +956,32 @@ def labels_pdf(data: LabelRequest, request: Request, actor: Actor = Depends(curr
         out.append(
             labels_svc.LabelData(
                 code=c.qr_code,
-                payload=labels_svc.qr_payload(c.qr_code, base),
+                payload=labels_svc.qr_payload(c.qr_code, base, "C"),
                 title=c.name,
                 number=c.number,
                 location=place["path"] if data.include_location and (c.location_id or c.parent_container_id) else None,
+                contents=contents,
+            )
+        )
+    for lid in data.location_ids:
+        loc = _get_or_404(db, Location, lid)
+        if not loc.qr_code:
+            loc.qr_code = inv.new_qr_code(db)
+            db.commit()
+        contents = []
+        if data.include_contents:
+            for c in db.scalars(select(Container).where(Container.location_id == loc.id, Container.deleted_at.is_(None)).order_by(Container.number, Container.name)):
+                contents.append(f"#{c.number} {c.name}" if c.number else c.name)
+            for it in db.scalars(select(Item).where(Item.location_id == loc.id, Item.deleted_at.is_(None)).order_by(Item.id)):
+                contents.append(f"{it.quantity} × {it.product.name}" if it.quantity != 1 else it.product.name)
+        parent = r.location_path(loc.parent_id) if loc.parent_id else None
+        out.append(
+            labels_svc.LabelData(
+                code=loc.qr_code,
+                payload=labels_svc.qr_payload(loc.qr_code, base, "L"),
+                title=loc.name,
+                number=None,
+                location=parent if data.include_location else None,
                 contents=contents,
             )
         )

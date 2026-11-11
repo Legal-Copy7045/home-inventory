@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { AlertTriangle, Download, Printer, RotateCcw, Upload } from "lucide-react";
-import { api, url, type Container, type HistoryEvent, type Item, type Loan, type LowStock } from "../api";
+import { api, appBaseUrl, url, type Container, type FlatLocation, type HistoryEvent, type Item, type Loan, type LowStock } from "../api";
 import { ContainerRow, Empty, ErrorBox, ItemRow, Section, Spinner, fmtDate, fmtWhen, useAction, useApi, useMe, useToast } from "../components/ui";
 
 // ---------------------------------------------------------------- labels
@@ -10,7 +10,11 @@ export function LabelsPage() {
   const me = useMe();
   const [params] = useSearchParams();
   const all = useApi(() => api.get<Container[]>("containers"), []);
-  const [sel, setSel] = useState<Set<number>>(new Set((params.get("ids") || "").split(",").filter(Boolean).map(Number)));
+  const locs = useApi(() => api.get<FlatLocation[]>("locations"), []);
+  const ids = (k: string) => new Set((params.get(k) || "").split(",").filter(Boolean).map(Number));
+  const [sel, setSel] = useState<Set<number>>(ids("ids"));
+  const [locSel, setLocSel] = useState<Set<number>>(ids("locs"));
+  const [tab, setTab] = useState<"containers" | "locations">(params.get("locs") && !params.get("ids") ? "locations" : "containers");
   const [template, setTemplate] = useState(() => localStorageGet("labelTemplate") || me.app.label_templates[0]?.key || "avery_l7160");
   const [contents, setContents] = useState(false);
   const [location, setLocation] = useState(true);
@@ -18,10 +22,11 @@ export function LabelsPage() {
   const [start, setStart] = useState(1);
   const { busy, run } = useAction();
   useEffect(() => localStorageSet("labelTemplate", template), [template]);
-  const toggle = (id: number) => { const s = new Set(sel); if (s.has(id)) s.delete(id); else s.add(id); setSel(s); };
+  const toggleIn = (set: Set<number>, apply: (s: Set<number>) => void, id: number) => { const s = new Set(set); if (s.has(id)) s.delete(id); else s.add(id); apply(s); };
+  const total = sel.size + locSel.size;
 
   async function print() {
-    const blob = await run(() => api.blob("POST", "labels/pdf", { container_ids: [...sel], template, include_contents: contents, include_location: location, copies, start_position: start }));
+    const blob = await run(() => api.blob("POST", "labels/pdf", { container_ids: [...sel], location_ids: [...locSel], base_url: appBaseUrl(), template, include_contents: contents, include_location: location, copies, start_position: start }));
     if (!blob) return;
     const href = URL.createObjectURL(blob);
     const w = window.open(href, "_blank");
@@ -48,25 +53,45 @@ export function LabelsPage() {
         <label className="check"><input type="checkbox" checked={location} onChange={(e) => setLocation(e.target.checked)} /> Print location</label>
         <label className="check"><input type="checkbox" checked={contents} onChange={(e) => setContents(e.target.checked)} /> Print contents list</label>
       </div>
+      <div className="tabs">
+        <button className={tab === "containers" ? "active" : ""} onClick={() => setTab("containers")}>Containers{sel.size ? ` (${sel.size})` : ""}</button>
+        <button className={tab === "locations" ? "active" : ""} onClick={() => setTab("locations")}>Locations{locSel.size ? ` (${locSel.size})` : ""}</button>
+      </div>
       <div className="row between" style={{ margin: "8px 0" }}>
-        <b>{sel.size} selected</b>
-        <div className="row"><button className="btn small" onClick={() => setSel(new Set(all.data?.map((c) => c.id)))}>All</button><button className="btn small" onClick={() => setSel(new Set())}>None</button></div>
+        <b>{total} label{total === 1 ? "" : "s"} selected</b>
+        <div className="row">
+          <button className="btn small" onClick={() => (tab === "containers" ? setSel(new Set(all.data?.map((c) => c.id))) : setLocSel(new Set(locs.data?.map((l) => l.id))))}>All</button>
+          <button className="btn small" onClick={() => (tab === "containers" ? setSel(new Set()) : setLocSel(new Set()))}>None</button>
+        </div>
       </div>
       <div className="card tight">
-        {all.loading ? <Spinner /> : (
+        {tab === "containers" && (all.loading ? <Spinner /> : (
           <div className="list">
             {all.data?.map((c) => (
               <label key={c.id} className="row" style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
-                <input type="checkbox" checked={sel.has(c.id)} onChange={() => toggle(c.id)} />
+                <input type="checkbox" checked={sel.has(c.id)} onChange={() => toggleIn(sel, setSel, c.id)} />
                 <div className="grow" style={{ flex: 1 }}><b>{c.number ? `#${c.number} ` : ""}{c.name}</b><div className="muted" style={{ fontSize: ".85rem" }}>{c.placement?.path || "Unassigned"}</div></div>
                 <span className="mono muted">{c.qr_code}</span>
               </label>
             ))}
             {!all.data?.length && <Empty>Create containers first.</Empty>}
           </div>
-        )}
+        ))}
+        {tab === "locations" && (locs.loading ? <Spinner /> : (
+          <div className="list">
+            {locs.data?.map((l) => (
+              <label key={l.id} className="row" style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
+                <input type="checkbox" checked={locSel.has(l.id)} onChange={() => toggleIn(locSel, setLocSel, l.id)} />
+                <div className="grow" style={{ flex: 1 }}><b>{l.name}</b><div className="muted" style={{ fontSize: ".85rem" }}>{l.path}</div></div>
+                <span className="mono muted">{l.qr_code}</span>
+              </label>
+            ))}
+            {!locs.data?.length && <Empty>Create locations first.</Empty>}
+          </div>
+        ))}
       </div>
-      <button className="btn primary big block" disabled={!sel.size || busy} onClick={print}><Printer size={20} /> Create PDF</button>
+      {!appBaseUrl() && !me.app.qr_base_url && <div className="notice" style={{ marginTop: 10 }}>Open this page from the Home Assistant sidebar (or set the QR label link in Settings) so labels open in your phone's camera app.</div>}
+      <button className="btn primary big block" disabled={!total || busy} onClick={print}><Printer size={20} /> Create PDF</button>
     </div>
   );
 }
@@ -218,8 +243,8 @@ export function SettingsPage() {
           <div className="stack">
             <label className="field">Currency<input maxLength={3} value={currency} onChange={(e) => setCurrency(e.target.value)} style={{ width: 100 }} /></label>
             <label className="field">QR label link (optional)
-              <span className="hint">Your Home Assistant address for this app, e.g. https://ha.example.com/hassio/ingress/xxxx_home_inventory — lets a phone camera open labels directly. Labels always work with the in-app scanner.</span>
-              <input value={qrBase} onChange={(e) => setQrBase(e.target.value)} placeholder="https://…" />
+              <span className="hint">Leave empty to use the address you opened Home Assistant with{appBaseUrl() ? ` (${appBaseUrl()})` : ""}. Set it if labels should open a different address, e.g. your external one.</span>
+              <input value={qrBase} onChange={(e) => setQrBase(e.target.value)} placeholder={appBaseUrl() || "https://…"} />
             </label>
             <label className="field">Search synonyms
               <span className="hint">One per line: word: alternative, alternative</span>
