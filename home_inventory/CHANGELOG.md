@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+
+- Search results: fix the broken row layout (photo, name and quantity stacked instead of side by side); map links now sit inside each result.
+- Long item names wrap onto two lines instead of being cut off on phones.
+- Clearer answer when several different items match ("Found 5 items matching "hose" in 2 places: ...").
+- Packaging: Docker HEALTHCHECK replaces the obsolete watchdog URL; manifest tidied for the App linter.
+
 ## 0.1.1
 
 - Fix "Frontend not built" on Home Assistant OS: the base image's s6-overlay started the App with an empty environment. The environment is now kept, and settings, the Supervisor token and the UI folder are also found without it. This also restores AI Task (Gemini), automatic discovery of the companion integration and detection of Home Assistant administrators.
