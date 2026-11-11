@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { HashRouter, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Activity, ArrowLeft, Box, Handshake, Home, LayoutGrid, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings } from "lucide-react";
+import { Activity, ArrowLeft, Box, Handshake, Home, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings } from "lucide-react";
 import { api, type Me } from "./api";
 import { MeContext, Sheet, Spinner, ToastHost } from "./components/ui";
 import AddItem from "./pages/AddItem";
@@ -56,7 +56,7 @@ function Shell({ me }: { me: Me }) {
   return (
     <div className="app">
       <nav className="sidebar" aria-label="Main">
-        <div className="brand"><LayoutGrid size={22} color="var(--primary)" /> Home Inventory</div>
+        <div className="brand"><img src="./favicon.svg" alt="" width={30} height={30} /> Home Inventory</div>
         {items.map((n) => (
           <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => (isActive ? "active" : "")}><n.icon size={20} /> {n.label}</NavLink>
         ))}
