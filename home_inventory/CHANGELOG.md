@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.5
+
+- Label sheets are listed by every compatible Avery number: **5163 / 5523 WeatherProof / 8163 / 5963** (2×4 in, 10 per sheet) and **5160 / 5520 WeatherProof / 8160 / 5960** (1×2⅝ in, 30 per sheet). New: **5164 / 5524 WeatherProof / 8164** (3⅓×4 in, 6 per sheet) for large totes. US Letter layouts now use Avery's exact published dimensions.
+
 ## 0.1.4
 
 - **Fix: App would not start after updating to 0.1.2 or 0.1.3** on installations with nested locations ("duplicate column name: url" in the log). The database upgrade stopped half way and could not be retried. This version completes the upgrade automatically on start; no data is lost and nothing needs to be done by hand.
