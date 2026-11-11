@@ -1,7 +1,7 @@
 # Home Assistant App manifest
 # https://developers.home-assistant.io/docs/add-ons/configuration
 name: Home Inventory
-version: "0.1.6"
+version: "0.1.7"
 slug: home_inventory
 description: >-
   Household inventory with AI photo identification, barcode and QR scanning,
