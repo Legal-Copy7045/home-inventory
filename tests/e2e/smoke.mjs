@@ -83,13 +83,31 @@ await page.locator('input[type="file"]').setInputFiles([
 await page.getByRole("link", { name: /Add details now/ }).waitFor();
 await page.getByText("2 added", { exact: true }).waitFor();
 await shot("07-quick-photos");
+// Pretend the AI has suggested a name for the first photo, and make loading
+// the next item slow (like a phone) to catch the form showing stale details.
+const queued = (await api("items?needs_details=true&sort=oldest")).items;
+await page.route(new RegExp(`/api/v1/items/${queued[0].id}$`), async (route) => {
+  const res = await route.fetch();
+  const body = await res.json();
+  body.capture = { ai_status: "ready", suggestion: { name: "Carburettor", confidence: 0.9 } };
+  await route.fulfill({ response: res, json: body });
+});
+await page.route(new RegExp(`/api/v1/items/${queued[1].id}$`), async (route) => {
+  await new Promise((r) => setTimeout(r, 1200));
+  await route.continue();
+});
 await page.getByRole("link", { name: /Add details now/ }).click();
 await page.locator(".list a").first().click();
+await page.getByLabel("Name", { exact: true }).waitFor();
+if ((await page.getByLabel("Name", { exact: true }).inputValue()) !== "Carburettor") throw new Error("AI suggestion not pre-filled");
 await page.getByRole("button", { name: "Save & next" }).waitFor();
 await page.getByLabel("Name", { exact: true }).fill("Hammer");
 await page.getByRole("button", { name: "Save & next" }).click();
 await page.getByText("Saved").first().waitFor();
 await page.getByRole("button", { name: "Save & next" }).waitFor();
+// The next item's form must not carry over the previous item's details.
+const nextName = await page.getByLabel("Name", { exact: true }).inputValue();
+if (nextName === "Hammer" || nextName === "Carburettor") throw new Error("Save & next carried the previous item's details into the next item");
 const pending = await api("items?needs_details=true");
 const pendingItems = pending.items ?? pending;
 if (pendingItems.length !== 1) throw new Error(`expected 1 item still to finish, got ${pendingItems.length}`);
