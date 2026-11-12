@@ -172,8 +172,20 @@ await page.getByRole("button", { name: "Select", exact: true }).click();
 await page.getByRole("checkbox", { name: /Trowel/ }).click();
 await page.getByRole("toolbar").getByRole("button", { name: "Delete" }).click();
 await page.getByRole("button", { name: "Delete 1 item" }).click();
-await page.getByText("Deleted 1 item").waitFor();
+await page.locator(".selection-bar[role=status]", { hasText: "Deleted 1 item" }).waitFor();
 if (!(await api(`items/${trowel.id}`)).deleted_at) throw new Error("bulk delete failed");
+await page.locator(".selection-bar[role=status]").getByRole("button", { name: "Undo" }).click();
+await page.getByText("Restored 1 item").first().waitFor();
+if ((await api(`items/${trowel.id}`)).deleted_at) throw new Error("undo failed");
+// Lend two at once
+await page.getByRole("button", { name: "Select", exact: true }).click();
+await page.getByRole("checkbox", { name: /Trowel/ }).click();
+await page.getByRole("checkbox", { name: /Hoe/ }).click();
+await page.getByRole("toolbar").getByRole("button", { name: "Lend" }).click();
+await page.getByLabel("Lent to").fill("Pat");
+await page.getByRole("button", { name: "Lend 2 items" }).click();
+await page.getByText("Lent 2 items to Pat").first().waitFor();
+if ((await api(`items/${hoe.id}`)).status !== "on_loan") throw new Error("bulk lend failed");
 
 // Maintenance: track a mower, log hours, record the overdue oil change
 const mower = (await api("items", { method: "POST", data: { name: "Lawn mower", location_id: garage.id } })).items[0];

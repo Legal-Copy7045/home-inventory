@@ -47,10 +47,13 @@ from ..models import (
     User,
 )
 from ..schemas import (
+    BULK_MAX,
     AdjustIn,
     BarcodeLookupIn,
     BulkDeleteIn,
     BulkEditIn,
+    BulkItemsIn,
+    BulkLendIn,
     CategoryIn,
     ContainerIn,
     ContainerMoveIn,
@@ -466,6 +469,65 @@ def location_qr(location_id: int, request: Request, base: str | None = None, act
 # ---------------------------------------------------------------------------
 
 
+def _item_filters(
+    r: Resolver, q: str | None, status: ItemStatus | None, category: str | None, container_id: int | None,
+    location_id: int | None, loose: bool, needs_details: bool,
+):
+    """WHERE conditions shared by the Items list and "select all matching"."""
+    conds = [Item.deleted_at.is_(None)]
+    if q:
+        like = f"%{q.strip()}%"
+        conds.append(or_(
+            Product.name.ilike(like), Product.manufacturer.ilike(like), Product.model_number.ilike(like),
+            Product.barcode.ilike(like), Product.description.ilike(like), Item.label.ilike(like),
+            Item.serial_number.ilike(like), Category.name.ilike(like),
+        ))
+    if status:
+        conds.append(Item.status == status)
+    if category:
+        conds.append(func.lower(Category.name) == category.lower())
+    if container_id:
+        conds.append(Item.container_id.in_(r.descendant_container_ids(container_id)))
+    if location_id:
+        locs, conts = r.descendant_location_ids(location_id), r.containers_in_location_tree(location_id)
+        conds.append(or_(Item.location_id.in_(locs), Item.container_id.in_(conts)))
+    if loose:
+        conds.extend([Item.container_id.is_(None), Item.location_id.is_not(None)])
+    if needs_details:
+        conds.append(Product.identification_status == IdentificationStatus.pending)
+    return conds
+
+
+def _item_base(*cols):
+    return select(*cols).join(Product, Item.product_id == Product.id).outerjoin(Category, Product.category_id == Category.id)
+
+
+_ITEM_ORDER = {
+    "name": [func.lower(Product.name), Item.id],
+    "recent": [Item.updated_at.desc(), Item.id.desc()],
+    "created": [Item.created_at.desc(), Item.id.desc()],
+    "oldest": [Item.id],
+    "value": [Item.purchase_price.desc().nulls_last(), Item.id],
+    "expiry": [Item.expires_on.asc().nulls_last(), Item.id],
+    "warranty": [Item.warranty_expires.asc().nulls_last(), Item.id],
+}
+
+
+def _ordered_item_ids(db: Session, r: Resolver, conds, sort: str) -> list[int]:
+    if sort == "location":
+        # Grouped by where things are: place path, then name; unplaced last.
+        rows = db.execute(_item_base(Item.id, Item.container_id, Item.location_id, Product.name).where(*conds)).all()
+
+        def where(row) -> tuple:
+            unplaced = row.container_id is None and row.location_id is None
+            path = "" if unplaced else r.describe(row.container_id, row.location_id)["path"].lower()
+            return (unplaced, path, (row.name or "").lower(), row.id)
+
+        return [row.id for row in sorted(rows, key=where)]
+    order = _ITEM_ORDER.get(sort, _ITEM_ORDER["name"])
+    return list(db.scalars(_item_base(Item.id).where(*conds).order_by(*order)))
+
+
 @router.get("/items")
 def list_items(
     q: str | None = None,
@@ -482,63 +544,42 @@ def list_items(
     db: Session = Depends(get_db),
 ):
     r = _resolver(db)
-    stmt = (
-        select(Item)
-        .options(selectinload(Item.product).selectinload(Product.category), selectinload(Item.loans))
-        .join(Product)
-        .outerjoin(Category, Product.category_id == Category.id)
-        .where(Item.deleted_at.is_(None))
-    )
-    if q:
-        like = f"%{q.strip()}%"
-        stmt = stmt.where(
-            or_(
-                Product.name.ilike(like),
-                Product.manufacturer.ilike(like),
-                Product.model_number.ilike(like),
-                Product.barcode.ilike(like),
-                Product.description.ilike(like),
-                Item.label.ilike(like),
-                Item.serial_number.ilike(like),
-                Category.name.ilike(like),
-            )
-        )
-    if status:
-        stmt = stmt.where(Item.status == status)
-    if category:
-        stmt = stmt.where(func.lower(Category.name) == category.lower())
-    if container_id:
-        within = r.descendant_container_ids(container_id)
-        stmt = stmt.where(Item.container_id.in_(within))
-    if loose:
-        stmt = stmt.where(Item.container_id.is_(None), Item.location_id.is_not(None))
-    if needs_details:
-        stmt = stmt.where(Product.identification_status == IdentificationStatus.pending)
-    order = {
-        "name": [func.lower(Product.name), Item.id],
-        "recent": [Item.updated_at.desc()],
-        "created": [Item.created_at.desc()],
-        "oldest": [Item.id],
-        "value": [Item.purchase_price.desc().nulls_last()],
-        "expiry": [Item.expires_on.asc().nulls_last()],
-        "warranty": [Item.warranty_expires.asc().nulls_last()],
-        "location": [func.lower(Product.name), Item.id],
-    }.get(sort, [func.lower(Product.name)])
-    items = db.scalars(stmt.order_by(*order)).all()
+    conds = _item_filters(r, q, status, category, container_id, location_id, loose, needs_details)
     if sort == "location":
-        # Grouped by where things are: place path, then name; unplaced last.
-        def where(i: Item) -> tuple:
-            unplaced = i.container_id is None and i.location_id is None
-            return (unplaced, "" if unplaced else r.describe_item(i)["path"].lower(), (i.product.name or "").lower(), i.id)
+        ids = _ordered_item_ids(db, r, conds, sort)
+        total, page_ids = len(ids), ids[offset : offset + limit]
+    else:
+        total = db.scalar(_item_base(func.count(Item.id)).where(*conds)) or 0
+        order = _ITEM_ORDER.get(sort, _ITEM_ORDER["name"])
+        page_ids = list(db.scalars(_item_base(Item.id).where(*conds).order_by(*order).limit(limit).offset(offset)))
+    loaded = {
+        i.id: i
+        for i in db.scalars(
+            select(Item).options(selectinload(Item.product).selectinload(Product.category), selectinload(Item.loans))
+            .where(Item.id.in_(page_ids))
+        )
+    }
+    page = [loaded[i] for i in page_ids if i in loaded]
+    return {"total": total, "offset": offset, "items": [inv.item_out(i, r, db) for i in page]}
 
-        items = sorted(items, key=where)
-    if location_id:
-        locs = r.descendant_location_ids(location_id)
-        conts = r.containers_in_location_tree(location_id)
-        items = [i for i in items if i.location_id in locs or i.container_id in conts]
-    total = len(items)
-    page = items[offset : offset + limit]
-    return {"total": total, "items": [inv.item_out(i, r, db) for i in page]}
+
+@router.get("/items/ids")
+def list_item_ids(
+    q: str | None = None,
+    status: ItemStatus | None = None,
+    category: str | None = None,
+    container_id: int | None = None,
+    location_id: int | None = None,
+    loose: bool = False,
+    needs_details: bool = False,
+    sort: str = "name",
+    actor: Actor = Depends(current_actor),
+    db: Session = Depends(get_db),
+):
+    """Every item id matching the Items filters, for "select all N"."""
+    r = _resolver(db)
+    ids = _ordered_item_ids(db, r, _item_filters(r, q, status, category, container_id, location_id, loose, needs_details), sort)
+    return {"total": len(ids), "ids": ids[:BULK_MAX]}
 
 
 @router.post("/items", status_code=201)
@@ -718,6 +759,41 @@ def bulk_edit_items(data: BulkEditIn, actor: Actor = Depends(require_member), db
     db.commit()
     r = _resolver(db)
     return {"items": [inv.item_out(i, r, db) for i in items]}
+
+
+@router.post("/items/bulk-lend")
+def bulk_lend_items(data: BulkLendIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Lend several items to the same person (whole quantities).  All or nothing."""
+    items = _bulk_items(db, data.item_ids)
+    loan = LoanIn(borrower=data.borrower, expected_return=data.expected_return, notes=data.notes)
+    loans = [_err(inv.lend_item, db, actor, item, loan) for item in items]
+    db.commit()
+    r = _resolver(db)
+    return {"items": [inv.item_out(lo.item, r, db) for lo in loans]}
+
+
+@router.get("/deleted-items")
+def deleted_items(limit: int = Query(200, ge=1, le=500), actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    """Recently deleted items, newest first, for undo / restore."""
+    r = _resolver(db)
+    items = db.scalars(
+        select(Item).options(selectinload(Item.product), selectinload(Item.loans))
+        .where(Item.deleted_at.is_not(None)).order_by(Item.deleted_at.desc(), Item.id.desc()).limit(limit)
+    ).all()
+    return {"items": [inv.item_out(i, r, db) for i in items]}
+
+
+@router.post("/items/bulk-restore")
+def bulk_restore_items(data: BulkItemsIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Undo a (bulk) delete.  Items that are not deleted are left alone."""
+    items = [_get_or_404(db, Item, i, include_deleted=True) for i in dict.fromkeys(data.item_ids)]
+    restored = []
+    for item in items:
+        if item.deleted_at is not None:
+            inv.restore_item(db, actor, item)
+            restored.append(item.id)
+    db.commit()
+    return {"restored": restored}
 
 
 @router.post("/items/bulk-delete")

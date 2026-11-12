@@ -668,6 +668,9 @@ def return_item_home(db: Session, actor: Actor, item: Item) -> Item:
 def set_status(db: Session, actor: Actor, item: Item, status: ItemStatus, note: str | None) -> Item:
     if status is ItemStatus.on_loan:
         raise Conflict("Use the loan action to lend an item")
+    if item.status is ItemStatus.on_loan and status is not ItemStatus.on_loan:
+        # Changing the status by hand would leave the loan open.
+        raise Conflict(f"{item.product.name} is lent out; mark the loan returned instead")
     before = item.status
     item.status = status
     item.status_note = note

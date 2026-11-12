@@ -5,7 +5,8 @@ import { ArrowRightLeft, Camera, Home, Images, Pencil, Plus, Printer, QrCode, Sc
 import { api, qrImageUrl, url, type Container, type HistoryEvent, type Scan } from "../api";
 import { PlacementPicker, type PlacementValue } from "../components/PlacementPicker";
 import { ScanReview, scanPlaceholder } from "../components/PhotoInventory";
-import { ContainerRow, Empty, ErrorBox, ItemRow, PathView, Section, Sheet, Spinner, fmtWhen, useAction, useApi, useMe, useToast } from "../components/ui";
+import { SelectableItems } from "../components/BulkActions";
+import { ContainerRow, Empty, ErrorBox, PathView, Section, Sheet, Spinner, fmtWhen, useAction, useApi, useMe, useToast } from "../components/ui";
 
 export function ContainersPage() {
   const me = useMe();
@@ -142,10 +143,10 @@ export function ContainerDetail() {
 
       <Section title={`Contents (${ct.items?.reduce((a, i) => a + i.quantity, 0) || 0})`} tight>
         {ct.items?.length || ct.containers?.length ? (
-          <div className="list">
-            {ct.containers?.map((cc) => <ContainerRow key={`c${cc.id}`} c={cc} />)}
-            {ct.items?.map((i) => <ItemRow key={i.id} item={i} />)}
-          </div>
+          <>
+            {ct.containers?.length ? <div className="list">{ct.containers.map((cc) => <ContainerRow key={`c${cc.id}`} c={cc} />)}</div> : null}
+            <SelectableItems bare items={ct.items || []} onChanged={refresh} />
+          </>
         ) : <Empty>Empty. Add items, or photograph the open container and let AI suggest what's inside.</Empty>}
       </Section>
 
