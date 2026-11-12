@@ -152,6 +152,30 @@ class PlaceItemsIn(_In):
         return self
 
 
+class BulkItemsIn(_In):
+    item_ids: list[int] = Field(min_length=1, max_length=500)
+
+
+class BulkDeleteIn(BulkItemsIn):
+    reason: str | None = Field(default=None, max_length=1000)
+
+
+class BulkEditIn(BulkItemsIn):
+    """Fields to set on every selected item; fields left out are unchanged."""
+
+    category: str | None = Field(default=None, max_length=120)
+    manufacturer: str | None = Field(default=None, max_length=200)
+    retailer: str | None = Field(default=None, max_length=200)
+    purchase_date: date | None = None
+    status: ItemStatus | None = None
+
+    @model_validator(mode="after")
+    def _something(self):
+        if not (self.model_fields_set - {"item_ids"}):
+            raise ValueError("Choose at least one thing to change")
+        return self
+
+
 class MoveIn(_In):
     container_id: int | None = None
     location_id: int | None = None
@@ -219,11 +243,12 @@ class ScanItemIn(_In):
     model_number: str | None = Field(default=None, max_length=120)
     quantity: int = Field(default=1, ge=1, le=10000)
     confidence: float | None = None
+    notes: str | None = Field(default=None, max_length=5000)  # e.g. "top shelf, left"
 
 
 class ScanConfirmIn(_In):
     items: list[ScanItemIn] = Field(max_length=500)
-    # Optionally remove items that are no longer in the container.
+    # Optionally remove items that are no longer in the container / on the shelf.
     remove_item_ids: list[int] = Field(default_factory=list)
 
 

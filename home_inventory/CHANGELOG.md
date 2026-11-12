@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.9.0
+
+- **Photo inventory for shelves.** Open a location (a shelf, racking bay, bench or wall) and tap **Photo inventory**. The AI lists every kind of item in the one photo, with quantities and where each is ("top shelf, left").
+  - Review everything before saving: edit the name and quantity, and tap **Details** for category, maker, model and notes.
+  - Remove wrong suggestions and add anything the AI missed.
+  - Confirmed items become loose items on that shelf, with the photo attached.
+  - Re-photographing a shelf matches what's already recorded instead of duplicating it, and offers to remove things that have gone.
+  - Container photo inventory gets the same fuller editing.
+- **Fixed:** the photo inventory review could open empty after the AI finished. It now shows the results.
+- **Select several items** on the Items page: tap **Select**, tick items (or **Select all**), then **Move**, **Edit** (category, maker, shop, purchase date, status) or **Delete** them together.
+  - Each action applies to all the selected items or none.
+  - Deleted items can still be restored one by one.
+- **Sort by location** on the Items page groups items under their place.
+- Read-only users no longer see names of customer equipment in photo inventory suggestions.
+- Database: photo inventories can belong to a location (an automatic, additive migration with a snapshot first).
+
 ## 0.8.0
 
 - **Quick photos on their own.** Quick photos is now in the main menu and on the dashboard, not only inside a container or location.

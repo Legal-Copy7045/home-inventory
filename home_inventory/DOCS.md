@@ -47,6 +47,14 @@ To inventory a box fast, open the container (or location) and tap **Quick photos
 
 To photograph a whole room first and sort later, tap **Quick photos** in the menu or on the dashboard. Photos taken this way have no place yet. Tap **Next shelf** each time you move to another shelf, box or drawer. Afterwards, open **To sort**: the photos are grouped shelf by shelf. Tap **Put all in…** and choose the shelf (a location) or box (a container). Untick any photo in the group that belongs somewhere else and put it away separately.
 
+## Photo inventory (AI, several items in one photo)
+
+With an AI provider set up, one photo can add many items. Open a **location** (a shelf, bay, bench or wall) or a **container** and tap **Photo inventory**. Take one photo of the whole shelf or the open box. The AI lists every kind of item it can see, with a quantity and, for shelves, where it is ("top shelf, left"). Nothing is saved yet: edit names and quantities, tap **Details** for category, maker, model and notes, remove anything wrong and **Add something it missed**. Then tap **Confirm inventory**. Items on a shelf become loose items in that location. Photographing the same shelf again later matches what's already there and lets you tick off anything that has gone. The AI's guesses can be wrong, so check counts and brands.
+
+## Working with several items
+
+On **Items**, tap **Select**, tick the items you want (or **Select all**), then use **Move**, **Edit** or **Delete** in the bar at the bottom. **Edit** changes only the fields you fill in. Choose **Sort: Location** to see items grouped by where they are.
+
 ## Maintenance
 
 For mowers, trimmers, saws, generators, pressure washers, snow blowers or anything else that needs servicing:

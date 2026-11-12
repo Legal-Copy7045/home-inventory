@@ -4,7 +4,8 @@ import { TagsSection } from "./Tags";
 import { ArrowRightLeft, Camera, Home, Images, Pencil, Plus, Printer, QrCode, ScanLine, Sparkles, Trash2 } from "lucide-react";
 import { api, qrImageUrl, url, type Container, type HistoryEvent, type Scan } from "../api";
 import { PlacementPicker, type PlacementValue } from "../components/PlacementPicker";
-import { ContainerRow, Empty, ErrorBox, ItemRow, PathView, Section, Sheet, Spinner, Stepper, fmtWhen, useAction, useApi, useMe, useToast } from "../components/ui";
+import { ScanReview, scanPlaceholder } from "../components/PhotoInventory";
+import { ContainerRow, Empty, ErrorBox, ItemRow, PathView, Section, Sheet, Spinner, fmtWhen, useAction, useApi, useMe, useToast } from "../components/ui";
 
 export function ContainersPage() {
   const me = useMe();
@@ -89,7 +90,7 @@ export function ContainerDetail() {
 
   async function analyse(file: File) {
     setSheet("scan");
-    setScan({ id: 0, container_id: ct.id, status: "analysing", provider: null, model: null, error: null, photo: null, suggestions: [], created_at: "" });
+    setScan(scanPlaceholder("container", ct.id));
     const f = new FormData();
     f.append("file", file);
     try {
@@ -178,7 +179,7 @@ export function ContainerDetail() {
       {sheet === "edit" && <ContainerFormSheet container={ct} onClose={() => setSheet(null)} onSaved={() => { setSheet(null); refresh(); }} />}
       {sheet === "move" && <MoveContainerSheet c={ct} onClose={() => setSheet(null)} onDone={() => { setSheet(null); refresh(); }} />}
       {sheet === "qr" && <QrSheet c={ct} onClose={() => setSheet(null)} />}
-      {sheet === "scan" && scan && <ScanReview scan={scan} container={ct} onClose={() => { setSheet(null); setScan(null); refresh(); }} />}
+      {sheet === "scan" && scan && <ScanReview scan={scan} target={{ kind: "container", id: ct.id, name: ct.name, items: ct.items || [] }} onClose={() => { setSheet(null); setScan(null); refresh(); }} />}
     </div>
   );
 }
@@ -211,85 +212,6 @@ function QrSheet({ c, onClose }: { c: Container; onClose: () => void }) {
         <div className="mono" style={{ fontSize: "1.2rem", fontWeight: 700 }}>{c.qr_code}</div>
         <p className="muted" style={{ textAlign: "center" }}>Scan it with your phone's camera to open this container's contents. The code is permanent: it keeps working if you rename, renumber or move the container.</p>
         <Link className="btn primary block" to={`/labels?ids=${c.id}`}><Printer size={18} /> Print label</Link>
-      </div>
-    </Sheet>
-  );
-}
-
-type Row = { key: number; action: "add" | "increase" | "skip"; name: string; category: string; manufacturer: string; model_number: string; quantity: number; confidence: number | null; existing_item_id: number | null; match: string | null };
-
-export function ScanReview({ scan, container, onClose }: { scan: Scan; container: Container; onClose: () => void }) {
-  const [rows, setRows] = useState<Row[]>(() =>
-    scan.suggestions.map((s, i) => ({
-      key: i, action: s.proposed_action, name: s.name, category: s.category || "", manufacturer: s.manufacturer || "", model_number: s.model_number || "",
-      quantity: s.quantity || 1, confidence: s.confidence, existing_item_id: s.match?.item_id || null, match: s.match ? `${s.match.name} (have ${s.match.quantity})` : null,
-    })),
-  );
-  const [removeIds, setRemoveIds] = useState<number[]>([]);
-  const { busy, run } = useAction();
-  if (scan.status === "analysing" || scan.status === "pending") {
-    return <Sheet title="Analysing photo…" onClose={onClose}><div className="center"><div className="spinner" /></div><p className="muted" style={{ textAlign: "center" }}>Looking for items in {container.name}. This can take up to a minute.</p></Sheet>;
-  }
-  if (scan.status === "failed") {
-    return (
-      <Sheet title="Photo inventory" onClose={onClose}>
-        <div className="error">{scan.error}</div>
-        <p>The photo was kept with the container. You can retry or add items manually.</p>
-        <div className="row"><button className="btn primary" onClick={() => run(() => api.post(`scans/${scan.id}/retry`)).then(onClose)} disabled={busy}>Retry</button><Link className="btn" to={`/add?container_id=${container.id}`}>Add manually</Link></div>
-      </Sheet>
-    );
-  }
-  const matchedIds = new Set(rows.filter((r) => r.existing_item_id).map((r) => r.existing_item_id));
-  const notSeen = (container.items || []).filter((i) => !matchedIds.has(i.id));
-  const upd = (k: number, patch: Partial<Row>) => setRows(rows.map((r) => (r.key === k ? { ...r, ...patch } : r)));
-  const conf = (c: number | null) => (c === null ? "unknown" : c >= 0.8 ? "high" : c >= 0.5 ? "medium" : "low");
-  return (
-    <Sheet title={`Review: ${container.name}`} onClose={onClose}>
-      {scan.photo && <img src={url(scan.photo.thumb_url || scan.photo.url)} alt="" style={{ borderRadius: 12, marginBottom: 12, maxHeight: 220, objectFit: "cover", width: "100%" }} />}
-      <p className="muted">Check each suggestion. Nothing is saved until you confirm.</p>
-      <div className="stack">
-        {rows.map((r) => (
-          <div key={r.key} className="card" style={{ marginBottom: 0, opacity: r.action === "skip" ? 0.55 : 1 }}>
-            <div className="row" style={{ alignItems: "flex-start" }}>
-              <input value={r.name} onChange={(e) => upd(r.key, { name: e.target.value })} style={{ fontWeight: 600 }} />
-              <button className="iconbtn" onClick={() => upd(r.key, { action: r.action === "skip" ? (r.existing_item_id ? "increase" : "add") : "skip" })} aria-label={r.action === "skip" ? "Include" : "Remove suggestion"}>{r.action === "skip" ? <Plus size={18} /> : <Trash2 size={18} />}</button>
-            </div>
-            <div className="row wrap" style={{ marginTop: 8 }}>
-              <Stepper value={r.quantity} min={1} onChange={(n) => upd(r.key, { quantity: n })} />
-              <span className={`badge conf-${conf(r.confidence)}`}>{conf(r.confidence)} confidence</span>
-              {r.match && (
-                <select value={r.action} onChange={(e) => upd(r.key, { action: e.target.value as Row["action"] })} style={{ width: "auto" }}>
-                  <option value="increase">Update existing quantity</option>
-                  <option value="add">Add as new item</option>
-                  <option value="skip">Already recorded — skip</option>
-                </select>
-              )}
-            </div>
-            {r.match && <div className="muted" style={{ fontSize: ".85rem", marginTop: 6 }}>Matches: {r.match}</div>}
-          </div>
-        ))}
-        <button className="btn" onClick={() => setRows([...rows, { key: Date.now(), action: "add", name: "", category: "", manufacturer: "", model_number: "", quantity: 1, confidence: null, existing_item_id: null, match: null }])}><Plus size={18} /> Add something it missed</button>
-        {notSeen.length > 0 && (
-          <div className="card" style={{ marginBottom: 0 }}>
-            <h3>Not seen in this photo</h3>
-            <p className="muted">Tick anything that is no longer in the container.</p>
-            {notSeen.map((i) => (
-              <label key={i.id} className="check" style={{ padding: "6px 0" }}>
-                <input type="checkbox" checked={removeIds.includes(i.id)} onChange={(e) => setRemoveIds(e.target.checked ? [...removeIds, i.id] : removeIds.filter((x) => x !== i.id))} />
-                {i.quantity} × {i.display_name}
-              </label>
-            ))}
-          </div>
-        )}
-        <button className="btn primary block big" disabled={busy} onClick={async () => {
-          const items = rows.filter((r) => r.name.trim() || r.action === "increase").map((r) => ({
-            action: r.action, existing_item_id: r.action === "increase" ? r.existing_item_id : null, name: r.name.trim() || null,
-            category: r.category || null, manufacturer: r.manufacturer || null, model_number: r.model_number || null, quantity: r.quantity, confidence: r.confidence,
-          }));
-          const res = await run(() => api.post<{ created: number[]; increased: number[]; removed: number[] }>(`scans/${scan.id}/confirm`, { items, remove_item_ids: removeIds }));
-          if (res) onClose();
-        }}>Confirm inventory</button>
-        <button className="btn ghost block" onClick={() => run(() => api.post(`scans/${scan.id}/discard`)).then(onClose)}>Discard suggestions</button>
       </div>
     </Sheet>
   );
