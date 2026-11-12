@@ -41,7 +41,7 @@ Releases publish themselves.
 
    If a release for that version already exists, it does nothing.
 
-To publish by hand instead (for example, to re-release), create the release on GitHub with tag `<version>` on `main`. That also builds the images. **Actions → Release → Run workflow** rebuilds the images for the version on `main`.
+To publish by hand instead (for example, to re-release), create the release on GitHub with tag `<version>` on `main`. That also builds the images. **Actions → Release → Run workflow** publishes the release for the version on `main` if it's missing, and rebuilds the images.
 
 HACS shows the integration update from the release. Home Assistant shows the App update from `config.yaml` on `main`.
 

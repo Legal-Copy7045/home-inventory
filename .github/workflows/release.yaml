@@ -41,8 +41,8 @@ jobs:
         run: echo "version=$(python3 .github/scripts/check_versions.py "$TAG")" >> "$GITHUB_OUTPUT"
 
   publish:
-    # Only for merges; a release that already exists is left alone.
-    if: github.event_name == 'push'
+    # Merges and manual runs; a release that already exists is left alone.
+    if: github.event_name != 'release'
     needs: version
     runs-on: ubuntu-latest
     permissions:
