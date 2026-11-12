@@ -162,6 +162,11 @@ export default function ScanPage() {
             {me.can_edit && !container && (
               <Link className="btn primary big block" to={`/add?barcode=${encodeURIComponent(barcode.result.barcode.raw)}&format=${barcode.format}`}><Plus size={20} /> {barcode.result.owned_quantity ? "Add another" : "Add to inventory"}</Link>
             )}
+            {me.can_edit && barcode.result.inventory_matches[0] && (
+              <button className="btn block" disabled={busy} onClick={() => run(() => api.post("shopping-list", { product_id: barcode.result.inventory_matches[0].product.id }), "Added to the shopping list")}>
+                Add to shopping list
+              </button>
+            )}
             {barcode.result.inventory_matches[0]?.holdings[0] && <Link className="btn block" to={`/items/${barcode.result.inventory_matches[0].holdings[0].item_id}`}>View item</Link>}
             <button className="btn ghost block" onClick={() => setBarcode(null)}>Keep scanning</button>
           </div>

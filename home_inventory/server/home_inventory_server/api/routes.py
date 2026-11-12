@@ -182,6 +182,9 @@ def stats(request: Request, actor: Actor = Depends(current_actor), db: Session =
     st = stats_svc.stats(db, s.warranty_notice_days, s.expiry_notice_days)
     st.update(maintenance_svc.counts(db))
     st.update(customers_svc.counts(db))
+    from ..services import replenishment as repl_svc
+
+    st.update(repl_svc.counts(db))
     if st["last_activity"]:
         st["last_activity"] = st["last_activity"].isoformat()
     return st
@@ -1378,6 +1381,7 @@ def get_settings(request: Request, actor: Actor = Depends(current_actor), db: Se
         "currency": stats_svc.currency(db),
         "qr_base_url": _qr_base(db, st),
         "synonyms": syn.value if syn else {},
+        **{k: (db.get(Setting, k).value if db.get(Setting, k) else None) for k in ("amazon_domain", "amazon_associate_tag")},
         "ai": st.ai.describe(),
         "barcode_providers": [name for name, _ in (st.barcode_providers if st.barcode_providers is not None else barcode_svc.providers(st.settings))],
         "warranty_notice_days": st.settings.warranty_notice_days,

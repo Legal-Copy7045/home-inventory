@@ -1,6 +1,6 @@
 # Plan: security remediation and equipment management
 
-Status: **Phases 1–5 complete (0.2.0–0.6.0).** Phase 6 to follow. This document records verified findings, design decisions and the phase plan. Each phase ships as its own pull request with tests, and gets its own section below once it lands.
+Status: **All phases complete (0.2.0–0.7.0).** The final summary is at the end. This document records verified findings, design decisions and the phase plan. Each phase ships as its own pull request with tests, and gets its own section below once it lands.
 
 ## Ground rules
 
@@ -184,7 +184,21 @@ UI:
 - A management page lists tags, lets you reassign, deactivate or mark lost, and replace a tag (deactivates the old one and issues a new ref). It also prints a QR fallback.
 - Home Assistant event: `home_inventory_tag_scanned`.
 
-## Phase 6: replenishment
+## Phase 6: replenishment (done, 0.7.0)
+
+**As built:**
+- **Migration `0007`** adds `replenishment_profiles`, `product_sources` and `shopping_list_items`. The minimum reuses `products.min_quantity`.
+- **Retailers:** the research and capability matrix are in `docs/replenishment.md`.
+  - `services/retailers.py` has providers for Amazon (cart hand-off via the Add to Cart form), Lowe's, Tractor Supply and "other", each declaring its capabilities.
+  - There is no scraping, no stored credentials and no browser automation.
+  - Statuses: `listed` → `handed_off` (a link was opened) → `in_cart` (user confirmed only) → `purchased`, plus `deferred` and `cancelled`.
+- **Endpoints** (`api/replenishment.py`):
+  - `GET /retailers`, `GET /replenishment`
+  - `GET|PUT /products/{id}/restock`, `POST /products/{id}/sources`, `PATCH|DELETE /sources/{id}`
+  - `GET|POST /shopping-list`, `PATCH /shopping-list/{id}`, `POST /shopping-list/handoff`, `POST /shopping-list/{id}/purchased`
+  - Settings gain `amazon_domain` and `amazon_associate_tag`.
+- **Tests:** `tests/test_replenishment.py` (17), the route walk, and the e2e flow (settings → source → list → hand-off → confirm → buy → stock).
+
 
 - `replenishment_profiles` (one per product, because stock is summed across holdings): enabled, `min_stock` (reuses `products.min_quantity`), `target_stock`, `reorder_quantity`, `unit`, notes, plus the last purchase date and price.
 - `product_sources` (several per product): `retailer` key, `url`, `retailer_product_id` (ASIN, Lowe's item number, Tractor Supply SKU), GTIN, `preferred`, pack size, estimated price.
@@ -208,3 +222,81 @@ UI:
 - The setup code is in the App log rather than a UI-only claim. Only Home Assistant admins can read App logs.
 - Money uses the existing `currency` setting. Part quantities are decimals.
 - Operating-hour readings from Home Assistant sensors are left for later. The `source=sensor` value exists so it can be added without a migration.
+
+
+---
+
+# Final summary
+
+## 1–2. Security findings and fixes
+See *Phase 1* above: the four reported findings were all confirmed and fixed, and two more gaps were found and fixed. Further issues were found and fixed along the way:
+- Read-only users couldn't scan QR labels (0.6.0).
+- A button inside a form label had the wrong accessible name (0.5.0).
+- A sheet stayed open when moving between items (0.3.0).
+
+## 3. Database schema and migrations
+| Revision | Version | Change | Existing tables touched |
+|---|---|---|---|
+| 0003 | 0.3.0 | equipment_profiles, maintenance_tasks, meter_readings, service_events, service_parts | `attachments` gains a nullable `service_event_id` (batch rebuild, atomic) |
+| 0004 | 0.4.0 | customers, customer_contacts, item_owners, repair_jobs, repair_job_events | `attachments` and `service_events` gain a nullable `repair_job_id` |
+| 0005 | 0.5.0 | item_relations, kits, kit_members | none |
+| 0006 | 0.6.0 | tags | none |
+| 0007 | 0.7.0 | replenishment_profiles, product_sources, shopping_list_items | none |
+
+How migrations run:
+- Each one runs in a single transaction with foreign keys off. `foreign_key_check` is verified before commit.
+- A snapshot of the database is written to `/data/backups/pre-migration-<rev>-*.sqlite3` first.
+- Migrations are additive: no existing column is changed or dropped, and no data is rewritten. The ones that add columns check what already exists, so they can be re-run.
+- **Rollback:** stop the App, copy the pre-migration snapshot over `/data/inventory.sqlite3`, and install the previous App version. A Home Assistant backup taken before updating restores everything. Alembic `downgrade()` functions exist but aren't used at runtime.
+
+## 4. API endpoints
+Listed in each phase section above. All routes are covered by `tests/test_authz_routes.py`:
+- writes need the member role;
+- customer and repair routes need member even to read;
+- the API port needs the token.
+
+## 5. Frontend
+New pages:
+- Maintenance, Customers / Customer, Repairs / Repair job / Work order
+- Kits / Kit, NFC tags / Tag scan, Restock & shopping
+
+New item-page sections:
+- Owner banner and repair jobs
+- Maintenance (hours, tasks, service history)
+- Related items, NFC tags, Restock
+
+Elsewhere:
+- Customer badges in all lists, related-item chips in search, and dashboard cards.
+- Settings gain the Amazon store and Associates tag.
+
+## 6. Home Assistant
+- Sensors (aggregate only): maintenance overdue and due soon, repairs in progress and awaiting pickup, supplies below minimum, shopping list items.
+- Events: `maintenance_completed`, `repair_job_status`, `tag_scanned`, `shopping_list_updated`.
+
+These events carry no customer details and no tag references.
+
+## 7. Retailer capability matrix
+See `docs/replenishment.md`.
+
+## 8. Test results at 0.7.0
+- **Backend:** 255 tests passed. Ruff, including the security rules, is clean.
+- **Integration:** 11 tests passed, against a real Home Assistant, including the media API contract tests.
+- **Browser e2e:** passed. Flows covered: dashboard, search, scan, quick photos, maintenance, repair job with work order, relationships and kits, NFC assign and scan, and replenishment.
+- **CI:** green on every phase PR, including dependency audits, gitleaks, Trivy, CodeQL, hassfest, HACS and the App linter.
+
+## 9. Known limitations
+- **Web NFC** works only in Chrome on Android, in the App's own tab. It isn't available inside the Home Assistant frame or on iOS, where tags are written with an NFC app. It wasn't tested on a physical phone; headless browsers have no NFC.
+- **Retailer carts:** no retailer offers cart APIs. Amazon gets a confirm-to-add link, the other shops get product links. Prices aren't fetched automatically.
+- **Operating-hour sensors** from Home Assistant aren't connected yet. Readings are entered by hand (`source=sensor` is reserved for this).
+- **Work orders** use browser printing. There is no PDF export or invoicing, by design.
+- **Tag reassignment** to another record is in the API (`PATCH /tags/{id}`), but the management page doesn't offer it.
+- **Customer data:** visible to all members and administrators. There is no per-member restriction.
+
+## 10. Installation and upgrade
+- **Before updating**, take a Home Assistant backup. Every database change is also preceded by an automatic snapshot.
+- **Updating from 0.1.x:** install the update and start the App.
+  - The migrations add tables only; existing items, photos and roles are kept.
+  - Existing administrators stay administrators.
+  - If nobody can be identified as administrator (rare: only when Home Assistant's user list can't be read and `admin_users` is empty), the App log shows a setup code to enter in the app.
+- **Permissions:** 0.2.0 removes the `/media` mount. Home Assistant may show the App's permissions as changed; that's expected.
+- **Integration:** update it through HACS, then restart Home Assistant, to get the new sensors and events.

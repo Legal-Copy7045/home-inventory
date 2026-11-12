@@ -275,6 +275,10 @@ class SettingsIn(_In):
     currency: str | None = Field(default=None, min_length=3, max_length=3)
     qr_base_url: str | None = Field(default=None, max_length=500)
     synonyms: dict[str, list[str]] | None = None
+    # Amazon store for product links and the Add to Cart form, e.g. amazon.com
+    amazon_domain: str | None = Field(default=None, max_length=30, pattern=r"^(www\.)?amazon\.[a-z.]{2,8}$")
+    # Optional: your own Amazon Associates tag (only sent in links you open).
+    amazon_associate_tag: str | None = Field(default=None, max_length=40, pattern=r"^[A-Za-z0-9-]*$")
 
 
 class BarcodeLookupIn(_In):
@@ -515,3 +519,68 @@ class KitMemberPatch(_In):
     quantity: int | None = Field(default=None, ge=1, le=10000)
     optional: bool | None = None
     note: str | None = Field(default=None, max_length=300)
+
+
+# ---------------------------------------------------------------------------
+# Replenishment
+# ---------------------------------------------------------------------------
+
+
+class RestockIn(_In):
+    enabled: bool | None = None
+    min_quantity: int | None = Field(default=None, ge=0, le=1_000_000)
+    target_stock: int | None = Field(default=None, ge=0, le=1_000_000)
+    reorder_quantity: int | None = Field(default=None, ge=1, le=1_000_000)
+    unit: str | None = Field(default=None, max_length=30)
+    preferred_name: str | None = Field(default=None, max_length=300)
+    notes: str | None = Field(default=None, max_length=5000)
+
+    _blank = field_validator("unit", "preferred_name", "notes", mode="before")(_blank_to_none)
+
+
+class SourceIn(_In):
+    retailer: Literal["amazon", "lowes", "tractor_supply", "other"] = "other"
+    retailer_name: str | None = Field(default=None, max_length=100)
+    url: str | None = Field(default=None, max_length=2000)
+    retailer_product_id: str | None = Field(default=None, max_length=60)
+    gtin: str | None = Field(default=None, max_length=14)
+    product_name: str | None = Field(default=None, max_length=300)
+    brand_model: str | None = Field(default=None, max_length=200)
+    pack_size: int = Field(default=1, ge=1, le=10000)
+    estimated_price: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    preferred: bool | None = None
+    notes: str | None = Field(default=None, max_length=2000)
+
+    _blank = field_validator("retailer_name", "url", "retailer_product_id", "gtin", "product_name", "brand_model", "notes",
+                             mode="before")(_blank_to_none)
+
+
+class SourcePatch(SourceIn):
+    retailer: Literal["amazon", "lowes", "tractor_supply", "other"] | None = None
+    pack_size: int | None = Field(default=None, ge=1, le=10000)
+
+
+class ShoppingAddIn(_In):
+    product_id: int
+    quantity: int | None = Field(default=None, ge=1, le=100000)
+    source_id: int | None = None
+    note: str | None = Field(default=None, max_length=500)
+
+
+class ShoppingPatch(_In):
+    quantity: int | None = Field(default=None, ge=1, le=100000)
+    source_id: int | None = None
+    status: Literal["listed", "handed_off", "in_cart", "deferred", "cancelled"] | None = None
+    deferred_until: date | None = None
+    note: str | None = Field(default=None, max_length=500)
+
+
+class HandoffIn(_In):
+    entry_ids: list[int] = Field(min_length=1, max_length=100)
+
+
+class PurchasedIn(_In):
+    quantity: int | None = Field(default=None, ge=1, le=100000)
+    unit_price: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    add_to_stock: bool = True
+    item_id: int | None = None

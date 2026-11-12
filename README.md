@@ -55,6 +55,7 @@ On **Home Assistant Container or Core** there is no Supervisor. See [docs/instal
 | Home Assistant entities, actions and events | [docs/home-assistant.md](docs/home-assistant.md) |
 | Container/Core installation | [docs/install-container-core.md](docs/install-container-core.md) |
 | NFC tags (phones, writing, security) | [docs/nfc.md](docs/nfc.md) |
+| Restocking, shopping list and retailers | [docs/replenishment.md](docs/replenishment.md) |
 | Development, testing and releasing | [docs/development.md](docs/development.md) |
 | Publishing releases and the HACS listing | [docs/publishing.md](docs/publishing.md) |
 
