@@ -755,3 +755,45 @@ class KitMember(Base):
     note: Mapped[str | None] = mapped_column(String(300))
 
     kit: Mapped[Kit] = relationship(back_populates="members")
+
+
+# ---------------------------------------------------------------------------
+# NFC tags
+# ---------------------------------------------------------------------------
+
+TAG_TARGETS = ("item", "container", "location", "kit")
+TAG_STATUSES = ("active", "inactive", "lost")
+
+
+class Tag(Base):
+    """An NFC sticker (or any other physical tag) pointing at a record.
+
+    ``ref`` is a random, opaque reference written to the tag inside a link
+    to the app; it reveals nothing (no database ids) and grants nothing -
+    opening it still needs a Home Assistant login.  ``hardware_id`` is the
+    chip's serial number when the phone can read it (Android Web NFC); it is
+    optional because iOS and many apps don't expose it.  The tag points at
+    the record, not a place, so links keep working when things move.
+    """
+
+    __tablename__ = "tags"
+    __table_args__ = (
+        CheckConstraint("target_type IN ('item', 'container', 'location', 'kit')", name="ck_tag_target_type"),
+        CheckConstraint("status IN ('active', 'inactive', 'lost')", name="ck_tag_status"),
+        Index("ix_tags_target", "target_type", "target_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ref: Mapped[str] = mapped_column(String(40), unique=True)
+    target_type: Mapped[str] = mapped_column(String(20))
+    target_id: Mapped[int] = mapped_column(Integer)
+    label: Mapped[str | None] = mapped_column(String(120))
+    status: Mapped[str] = mapped_column(String(10), default="active", index=True)
+    hardware_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    # What to show when scanned: view, move, adjust, service, meter, repair, return.
+    default_action: Mapped[str] = mapped_column(String(20), default="view")
+    replaces_tag_id: Mapped[int | None] = mapped_column(ForeignKey("tags.id", ondelete="SET NULL"))
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    scan_count: Mapped[int] = mapped_column(Integer, default=0)

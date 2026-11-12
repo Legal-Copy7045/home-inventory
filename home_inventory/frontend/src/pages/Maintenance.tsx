@@ -87,10 +87,10 @@ function ServiceRow({ e, currency, showItem }: { e: ServiceEntry; currency: stri
 
 // ---------------------------------------------------------------- item page section
 
-export function EquipmentSection({ itemId, edit, onChanged }: { itemId: number; edit: boolean; onChanged?: () => void }) {
+export function EquipmentSection({ itemId, edit, onChanged, initial }: { itemId: number; edit: boolean; onChanged?: () => void; initial?: "meter" | "service" }) {
   const me = useMe();
   const s = useApi(() => api.get<MaintenanceSummary>(`items/${itemId}/maintenance`), [itemId]);
-  const [sheet, setSheet] = useState<null | { kind: "setup" | "profile" | "meter" | "service" | "task"; task?: MaintTask }>(null);
+  const [sheet, setSheet] = useState<null | { kind: "setup" | "profile" | "meter" | "service" | "task"; task?: MaintTask }>(edit && initial ? { kind: initial } : null);
   const close = () => setSheet(null);
   const done = (data?: MaintenanceSummary) => {
     if (data) s.setData(data);
