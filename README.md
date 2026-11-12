@@ -54,6 +54,7 @@ On **Home Assistant Container or Core** there is no Supervisor. See [docs/instal
 | Barcode lookup providers | [docs/barcode-providers.md](docs/barcode-providers.md) |
 | Home Assistant entities, actions and events | [docs/home-assistant.md](docs/home-assistant.md) |
 | Container/Core installation | [docs/install-container-core.md](docs/install-container-core.md) |
+| NFC tags (phones, writing, security) | [docs/nfc.md](docs/nfc.md) |
 | Development, testing and releasing | [docs/development.md](docs/development.md) |
 | Publishing releases and the HACS listing | [docs/publishing.md](docs/publishing.md) |
 

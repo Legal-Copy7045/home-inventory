@@ -7,6 +7,7 @@ import { LinkImport } from "../components/LinkImport";
 import { PlacementPicker, type PlacementValue } from "../components/PlacementPicker";
 import { CustomerItemSection } from "./Customers";
 import { RelatedSection } from "./Kits";
+import { TagsSection } from "./Tags";
 import { EquipmentSection } from "./Maintenance";
 import { ErrorBox, PathView, Section, Sheet, Spinner, StatusBadge, Stepper, Thumb, fmtDate, fmtWhen, money, useAction, useApi, useMe, useToast } from "../components/ui";
 
@@ -48,7 +49,9 @@ export default function ItemDetail() {
   const [params] = useSearchParams();
   const [sheet, setSheet] = useState<null | "edit" | "move" | "lend" | "status" | "docs">(params.get("finish") ? "edit" : null);
   // Moving to another item reuses this page: close any sheet from the previous one.
-  useEffect(() => { setSheet(params.get("finish") ? "edit" : null); }, [id, params]);
+  // ?do=move (e.g. from an NFC tag) opens that action straight away.
+  const doAction = params.get("do");
+  useEffect(() => { setSheet(params.get("finish") ? "edit" : doAction === "move" ? "move" : null); }, [id, params, doAction]);
   const { busy, run } = useAction();
   const toast = useToast();
 
@@ -183,9 +186,10 @@ export default function ItemDetail() {
         </dl>
       </Section>
 
-      {me.can_edit && <CustomerItemSection item={it} edit={edit} onChanged={refresh} />}
-      <EquipmentSection itemId={it.id} edit={edit} onChanged={() => hist.reload()} />
+      {me.can_edit && <CustomerItemSection item={it} edit={edit} onChanged={refresh} startRepair={doAction === "repair"} />}
+      <EquipmentSection itemId={it.id} edit={edit} onChanged={() => hist.reload()} initial={doAction === "meter" || doAction === "service" ? doAction : undefined} />
       <RelatedSection itemId={it.id} edit={edit} />
+      {!it.deleted_at && <TagsSection targetType="item" targetId={it.id} name={it.display_name} />}
 
       <Section title="Receipts & documents" action={edit && <button className="btn small" onClick={() => setSheet("docs")}><Plus size={16} /> Add</button>}>
         {docs.length ? (

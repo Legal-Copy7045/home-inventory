@@ -567,10 +567,10 @@ export function WorkOrderPage() {
 
 // ---------------------------------------------------------------- on the item page
 
-export function CustomerItemSection({ item, edit, onChanged }: { item: Item; edit: boolean; onChanged: () => void }) {
+export function CustomerItemSection({ item, edit, onChanged, startRepair }: { item: Item; edit: boolean; onChanged: () => void; startRepair?: boolean }) {
   const me = useMe();
   const jobs = useApi(() => (item.owner && me.can_edit ? api.get<RepairJob[]>(`items/${item.id}/repair-jobs`) : Promise.resolve([] as RepairJob[])), [item.id, item.owner?.customer_id]);
-  const [sheet, setSheet] = useState<null | "job" | "owner">(null);
+  const [sheet, setSheet] = useState<null | "job" | "owner">(startRepair && edit && item.owner ? "job" : null);
   const nav = useNavigate();
   return (
     <>

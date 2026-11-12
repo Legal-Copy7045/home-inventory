@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { HashRouter, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Activity, ArrowLeft, Box, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings, Users, Wrench, ClipboardList, Boxes } from "lucide-react";
+import { Activity, ArrowLeft, Box, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings, Users, Wrench, ClipboardList, Boxes, Nfc } from "lucide-react";
 import { api, appBaseUrl, labelRef, type Me, type QrTarget } from "./api";
 import { MeContext, Sheet, Spinner, ToastHost, useToast } from "./components/ui";
 import AddItem from "./pages/AddItem";
@@ -11,6 +11,7 @@ import { MapView, MapsPage } from "./pages/Maps";
 import { ActivityPage, LabelsPage, LoansPage, SettingsPage } from "./pages/Other";
 import { CustomerDetailPage, CustomersPage, RepairJobPage, RepairsPage, WorkOrderPage } from "./pages/Customers";
 import { KitPage, KitsPage } from "./pages/Kits";
+import { TagScanPage, TagsPage } from "./pages/Tags";
 import { MaintenancePage } from "./pages/Maintenance";
 import QuickCapture from "./pages/QuickCapture";
 import ScanPage from "./pages/ScanPage";
@@ -31,6 +32,7 @@ const NAV = [
   { to: "/locations", label: "Locations", icon: MapPin },
   { to: "/maps", label: "Visual Maps", icon: MapIcon },
   { to: "/labels", label: "Print Labels", icon: Printer },
+  { to: "/tags", label: "NFC Tags", icon: Nfc, edit: true },
   { to: "/activity", label: "Activity History", icon: Activity },
   { to: "/loans", label: "Loans & Temporary", icon: Handshake },
   { to: "/settings", label: "Settings", icon: Settings },
@@ -39,7 +41,7 @@ const NAV = [
 const TITLES: [RegExp, string][] = [
   [/^\/$/, "Home Inventory"], [/^\/search/, "Search"], [/^\/add/, "Add item"], [/^\/scan/, "Scan"], [/^\/items\/\d+/, "Item"], [/^\/items/, "Items"],
   [/^\/containers\/\d+/, "Container"], [/^\/containers/, "Containers"], [/^\/locations/, "Locations"], [/^\/maps/, "Visual maps"], [/^\/labels/, "Labels"],
-  [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/maintenance/, "Maintenance"], [/^\/kits\/\d+/, "Kit"], [/^\/kits/, "Kits"], [/^\/customers\/\d+/, "Customer"], [/^\/customers/, "Customers"], [/^\/repairs\/\d+\/print/, "Work order"], [/^\/repairs\/\d+/, "Repair job"], [/^\/repairs/, "Repairs"], [/^\/activity/, "Activity"], [/^\/loans/, "Loans & temporary"], [/^\/settings/, "Settings"],
+  [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/maintenance/, "Maintenance"], [/^\/kits\/\d+/, "Kit"], [/^\/tags/, "NFC tags"], [/^\/tag\//, "Tag"], [/^\/kits/, "Kits"], [/^\/customers\/\d+/, "Customer"], [/^\/customers/, "Customers"], [/^\/repairs\/\d+\/print/, "Work order"], [/^\/repairs\/\d+/, "Repair job"], [/^\/repairs/, "Repairs"], [/^\/activity/, "Activity"], [/^\/loans/, "Loans & temporary"], [/^\/settings/, "Settings"],
 ];
 
 /** QR labels can encode `<base>?c=CODE`; open the container when launched that way. */
@@ -60,6 +62,13 @@ function DeepLink() {
       const ref = labelRef(source);
       if (!ref || handled === `${ref.kind}${ref.code}`) return;
       handled = `${ref.kind}${ref.code}`;
+      if (ref.kind === "N") {
+        // NFC tag: the tag page resolves it (login still required) and offers actions.
+        nav(`/tag/${ref.code}`, { replace: true });
+        const base = appBaseUrl();
+        if (fromTop && base) window.parent.postMessage({ type: "home-assistant/navigate", path: new URL(base).pathname, options: { replace: true } }, "*");
+        return;
+      }
       try {
         const r = await api.post<QrTarget>("qr/resolve", { text: `HINV:${ref.kind}:${ref.code}` });
         nav(r.type === "location" ? `/locations/${r.id}` : `/containers/${r.id}`, { replace: true });
@@ -140,7 +149,7 @@ function Shell({ me }: { me: Me }) {
   const [more, setMore] = useState(false);
   useEffect(() => { setMore(false); window.scrollTo(0, 0); }, [loc.pathname]);
   const title = TITLES.find(([re]) => re.test(loc.pathname))?.[1] || "Home Inventory";
-  const isRoot = ["/", "/search", "/scan", "/items", "/to-finish", "/maintenance", "/kits", "/repairs", "/customers", "/containers", "/locations", "/maps", "/labels", "/activity", "/loans", "/settings"].includes(loc.pathname);
+  const isRoot = ["/", "/search", "/scan", "/items", "/to-finish", "/maintenance", "/kits", "/tags", "/repairs", "/customers", "/containers", "/locations", "/maps", "/labels", "/activity", "/loans", "/settings"].includes(loc.pathname);
   const items = NAV.filter((n) => !n.edit || me.can_edit);
   return (
     <div className="app">
@@ -167,6 +176,8 @@ function Shell({ me }: { me: Me }) {
           <Route path="/to-finish" element={<ToFinish />} />
           <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/kits" element={<KitsPage />} />
+          <Route path="/tags" element={<TagsPage />} />
+          <Route path="/tag/:ref" element={<TagScanPage />} />
           <Route path="/kits/:id" element={<KitPage />} />
           <Route path="/customers" element={<CustomersPage />} />
           <Route path="/customers/:id" element={<CustomerDetailPage />} />
