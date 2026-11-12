@@ -12,6 +12,9 @@
 - **Multi-select everywhere:** container contents, a location's loose items, search results and To finish, as well as Items.
 - **Bulk Lend** (several items to one person) and **Add to kit** (an existing kit or a new one), next to Move, Edit and Delete.
 - **NFC tags: Move to…** points an existing tag at a different item, container, location or kit.
+- **Quick photos are saved on the phone first.** If the signal drops or the app is closed mid-way, they upload the next time Home Inventory is opened. A banner shows how many are waiting; refused uploads can be retried or discarded.
+- **Scan → Take one out:** in this mode every barcode scanned uses one from stock (from the open container when there is one; you're asked which if it's ambiguous). Restock alerts update straight away.
+- **Installable web app (PWA):** a manifest, icons and a service worker that caches the app itself (never your inventory data) for faster, flaky-signal loading. See the docs for where installing works.
 
 ## 0.9.0
 

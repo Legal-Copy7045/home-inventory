@@ -379,3 +379,6 @@ button.linkish { background: none; border: 0; padding: 0; color: var(--primary);
   .selection-bar > .spacer { display: block; }
   .selection-bar > .btn { flex: none; }
 }
+
+/* Quick photos saved on the phone but not uploaded yet */
+.upload-indicator { display: block; margin: 8px 16px 0; padding: 8px 12px; border-radius: 10px; background: var(--warn-soft, #fff4e5); color: var(--text); font-weight: 600; font-size: .9rem; }
