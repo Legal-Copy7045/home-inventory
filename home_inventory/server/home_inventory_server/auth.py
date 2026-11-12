@@ -284,8 +284,12 @@ class AdminBootstrap:
             if admin_known(db, settings, directory):
                 self._code = None
                 raise HTTPException(status_code=409, detail="This app already has an administrator")
-            if _listed(user, settings.read_only_users):
-                raise HTTPException(status_code=403, detail="Your account is configured as read-only")
+            # Someone explicitly made read-only - in the configuration or by an
+            # administrator in the app - can't promote themselves.  (A read-only
+            # *default* role doesn't count: the first administrator must be
+            # able to claim when everyone defaults to read-only.)
+            if _listed(user, settings.read_only_users) or user.role_override is Role.read_only:
+                raise HTTPException(status_code=403, detail="Your account is set to read-only")
             if self._code is None:
                 self._issue()
                 raise HTTPException(status_code=403, detail="A new setup code has been written to the App log")

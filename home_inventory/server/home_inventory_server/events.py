@@ -89,6 +89,20 @@ class EventBus:
                 _LOGGER.warning("Dropping event for slow subscriber")
 
 
+def _without_customer_names(db: Session, data: dict[str, Any]) -> dict[str, Any]:
+    """Home Assistant's event bus is visible to every Home Assistant user, so
+    events about customer equipment never carry its name."""
+    ids = list(data.get("item_ids") or []) + ([data["item_id"]] if data.get("item_id") else [])
+    if not ids or "name" not in data:
+        return data
+    from .models import ItemOwner
+
+    db.flush()
+    if any(db.get(ItemOwner, i) is not None for i in ids):
+        return {**data, "name": "Customer equipment", "customer_equipment": True}
+    return data
+
+
 def queue_event(db: Session, event_type: str, data: dict[str, Any]) -> None:
     if event_type not in EVENT_TYPES:  # programming error, not user input
         raise ValueError(f"Unknown event type {event_type}")
@@ -96,6 +110,14 @@ def queue_event(db: Session, event_type: str, data: dict[str, Any]) -> None:
 
 
 def install_session_hooks(factory: sessionmaker, bus: EventBus) -> None:
+    @sa_event.listens_for(factory, "before_commit")
+    def _before_commit(session: Session) -> None:
+        # Ownership is final now (customer equipment gets its owner after the
+        # "item added" event was queued), so check names here.
+        pending = session.info.get("pending_events")
+        if pending:
+            session.info["pending_events"] = [(t, _without_customer_names(session, d)) for t, d in pending]
+
     @sa_event.listens_for(factory, "after_commit")
     def _after_commit(session: Session) -> None:
         pending = session.info.pop("pending_events", [])

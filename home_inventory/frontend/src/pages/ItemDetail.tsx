@@ -10,7 +10,8 @@ import { RelatedSection } from "./Kits";
 import { RestockSection } from "./Shopping";
 import { TagsSection } from "./Tags";
 import { EquipmentSection } from "./Maintenance";
-import { ErrorBox, PathView, Section, Sheet, Spinner, StatusBadge, Stepper, Thumb, fmtDate, fmtWhen, money, useAction, useApi, useMe, useToast } from "../components/ui";
+import { PhotoViewer } from "../components/PhotoViewer";
+import { ErrorBox, PathView, Section, Sheet, Spinner, StatusBadge, Stepper, fmtDate, fmtWhen, money, useAction, useApi, useMe, useToast } from "../components/ui";
 
 function toForm(it: Item): ItemFormValue {
   const p = it.product!;
@@ -89,19 +90,7 @@ export default function ItemDetail() {
       )}
       <div className="grid two">
         <div>
-          <Thumb src={it.photo?.url} size="lg" />
-          {photos.length > 1 && (
-            <div className="photos" style={{ marginTop: 8 }}>
-              {photos.map((p) => (
-                <a key={p.id} className="ph" href={url(p.url)} target="_blank" rel="noreferrer">
-                  <img src={url(p.thumb_url || p.url)} alt="" />
-                  {p.id === it.photo?.id ? <span className="badge blue star">Main</span> : edit ? (
-                    <button className="iconbtn star" style={{ color: "#fff" }} onClick={(e) => { e.preventDefault(); act(() => api.patch(`items/${it.id}`, { primary_photo_id: p.id }), "Main photo set"); }} aria-label="Make main photo"><Star size={16} /></button>
-                  ) : null}
-                </a>
-              ))}
-            </div>
-          )}
+          <PhotoViewer photos={photos} mainId={it.photo?.id} onMakeMain={edit ? (id) => act(() => api.patch(`items/${it.id}`, { primary_photo_id: id }), "Main photo set") : undefined} />
           {edit && (
             <label className="btn block" style={{ marginTop: 8 }}>
               <Camera size={18} /> Add photo

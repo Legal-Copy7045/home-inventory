@@ -86,6 +86,16 @@ def target_name(db: Session, target_type: str, target_id: int) -> str | None:
     return obj.name
 
 
+def _audit_target(db: Session, target_type: str, target_id: int) -> str:
+    """Target name for history; never names customer equipment (see customers.audit_name)."""
+    if target_type == "item":
+        from .customers import audit_name
+
+        item = db.get(Item, target_id)
+        return audit_name(db, item) if item is not None and item.deleted_at is None else "a deleted record"
+    return target_name(db, target_type, target_id) or "a deleted record"
+
+
 def duplicate_of(db: Session, hardware_id: str | None, exclude_id: int | None = None) -> Tag | None:
     hw = normalise_hardware_id(hardware_id)
     if not hw:
@@ -127,11 +137,11 @@ def update(db: Session, actor: Actor, tag: Tag, data: dict[str, Any]) -> Tag:
         tid = data.get("target_id", tag.target_id)
         _target(db, ttype, tid)
         if (ttype, tid) != (tag.target_type, tag.target_id):
-            before = target_name(db, tag.target_type, tag.target_id) or "a deleted record"
+            before = _audit_target(db, tag.target_type, tag.target_id)
             tag.target_type, tag.target_id = ttype, tid
             if tag.default_action not in ACTIONS[ttype]:
                 tag.default_action = "view"
-            audit.record(db, actor, "tag_reassigned", ttype, tid, f"NFC tag moved from {before} to {target_name(db, ttype, tid)}")
+            audit.record(db, actor, "tag_reassigned", ttype, tid, f"NFC tag moved from {before} to {_audit_target(db, ttype, tid)}")
     if "status" in data and data["status"] != tag.status:
         if data["status"] == "active" and duplicate_of(db, tag.hardware_id, exclude_id=tag.id):
             raise TagError("Another active tag has the same chip")
