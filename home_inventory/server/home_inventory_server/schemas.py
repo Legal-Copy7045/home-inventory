@@ -138,6 +138,20 @@ class ItemPatch(ProductFields, PurchaseFields):
     primary_photo_id: int | None = None
 
 
+class PlaceItemsIn(_In):
+    """Put several items in one place (sorting quick photos onto shelves)."""
+
+    item_ids: list[int] = Field(min_length=1, max_length=500)
+    container_id: int | None = None
+    location_id: int | None = None
+
+    @model_validator(mode="after")
+    def _one_place(self):
+        if self.container_id is not None and self.location_id is not None:
+            raise ValueError("Choose either a container or a location")
+        return self
+
+
 class MoveIn(_In):
     container_id: int | None = None
     location_id: int | None = None

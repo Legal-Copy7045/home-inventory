@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.0
+
+- **Quick photos on their own.** Quick photos is now in the main menu and on the dashboard, not only inside a container or location.
+  - Take photos with no place yet. Tap **Next shelf** when you move to another shelf, box or drawer.
+  - **To sort** (new) shows the photos grouped shelf by shelf. Choose where a group is and every photo in it moves there at once. Untick any that belong somewhere else first.
+  - Sorting is recorded in history as a normal move. Details are still added from **To finish**, before or after sorting.
+  - Quick photos from inside a container or location work as before.
+- The dashboard shows how many photos are waiting to be sorted (`unsorted_photos` in the stats API).
+
 ## 0.7.1
 
 Security and data-integrity fixes. Update recommended; nothing to do afterwards.

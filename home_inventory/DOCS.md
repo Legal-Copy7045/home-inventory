@@ -45,6 +45,8 @@ People are identified by their Home Assistant login, and the history records who
 
 To inventory a box fast, open the container (or location) and tap **Quick photos**. Take one photo per item; each is saved into that box at once as "Item to identify". Come back later via **To finish** in the menu, which shows the photo beside the details form. **Save & next** moves on to the next one. If AI is configured, a suggested name and category is already filled in. The live shutter needs Home Assistant over https; otherwise the button opens your phone's camera app.
 
+To photograph a whole room first and sort later, tap **Quick photos** in the menu or on the dashboard. Photos taken this way have no place yet. Tap **Next shelf** each time you move to another shelf, box or drawer. Afterwards, open **To sort**: the photos are grouped shelf by shelf. Tap **Put all in…** and choose the shelf (a location) or box (a container). Untick any photo in the group that belongs somewhere else and put it away separately.
+
 ## Maintenance
 
 For mowers, trimmers, saws, generators, pressure washers, snow blowers or anything else that needs servicing:

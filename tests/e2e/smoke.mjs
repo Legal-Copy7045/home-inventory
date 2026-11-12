@@ -112,6 +112,39 @@ const pending = await api("items?needs_details=true");
 const pendingItems = pending.items ?? pending;
 if (pendingItems.length !== 1) throw new Error(`expected 1 item still to finish, got ${pendingItems.length}`);
 
+// Quick photos with no place: two shelves' worth, then say which shelf is which
+await page.goto(BASE);
+await page.getByRole("link", { name: /Quick photos/ }).first().click();
+await page.getByText("Quick photos · Shelf 1").waitFor();
+const files = page.locator('input[type="file"]');
+await files.setInputFiles([
+  { name: "c.png", mimeType: "image/png", buffer: png },
+  { name: "d.png", mimeType: "image/png", buffer: png },
+]);
+await page.getByText("2 added", { exact: true }).waitFor();
+await page.getByRole("button", { name: "Next shelf" }).click();
+await page.getByText("Quick photos · Shelf 2").waitFor();
+await files.setInputFiles([{ name: "e.png", mimeType: "image/png", buffer: png }]);
+await page.getByText("3 added", { exact: true }).waitFor();
+await shot("07b-quick-photos-unsorted");
+await page.getByRole("link", { name: /Say where they are/ }).click();
+await page.getByRole("heading", { name: "To sort" }).waitFor();
+const shelf1 = page.locator(".card", { hasText: "Shelf 1" });
+await shelf1.getByText("2 of 2 selected").waitFor();
+await shot("07c-to-sort");
+await shelf1.getByRole("button", { name: /Put all 2 in/ }).click();
+await page.getByRole("button", { name: /Locations/ }).click();
+await page.getByRole("dialog").getByText("Shed", { exact: true }).click();
+await page.getByText("2 items put in").waitFor();
+const shelf2 = page.locator(".card", { hasText: "Shelf 2" });
+await shelf2.getByRole("button", { name: /Put it in/ }).click();
+await page.getByRole("dialog").getByText("#15 Box").click();
+await page.getByText("Nothing to sort").waitFor();
+const unsortedLeft = await api("capture/unsorted");
+if (unsortedLeft.total !== 0) throw new Error("photos still unsorted");
+const inShed = (await api(`items?location_id=${shed.id}&needs_details=true`)).items;
+if (inShed.length < 3) throw new Error(`expected the shelf photos in the shed, got ${inShed.length}`);
+
 // Maintenance: track a mower, log hours, record the overdue oil change
 const mower = (await api("items", { method: "POST", data: { name: "Lawn mower", location_id: garage.id } })).items[0];
 await page.goto(BASE + "#/items/" + mower.id);

@@ -289,6 +289,7 @@ export interface Stats {
   low_stock: number;
   missing: number;
   needs_details: number;
+  unsorted_photos?: number;
   maintenance_overdue?: number;
   repairs_in_progress?: number;
   repairs_awaiting_pickup?: number;
