@@ -6,7 +6,10 @@
         {
           "name": "HomeInventoryWhereIs",
           "slots": [
-            { "name": "item", "type": "AMAZON.SearchQuery" }
+            {
+              "name": "item",
+              "type": "AMAZON.SearchQuery"
+            }
           ],
           "samples": [
             "where {item} is",
@@ -28,11 +31,45 @@
             "where I left my {item}"
           ]
         },
-        { "name": "AMAZON.HelpIntent", "samples": [] },
-        { "name": "AMAZON.StopIntent", "samples": [] },
-        { "name": "AMAZON.CancelIntent", "samples": [] },
-        { "name": "AMAZON.FallbackIntent", "samples": [] },
-        { "name": "AMAZON.NavigateHomeIntent", "samples": [] }
+        {
+          "name": "HomeInventoryChoose",
+          "slots": [
+            {
+              "name": "choice",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "the {choice}",
+            "the {choice} one",
+            "I meant the {choice}",
+            "I meant {choice}",
+            "it's the {choice}",
+            "it is the {choice}",
+            "the one called {choice}",
+            "the {choice} please"
+          ]
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        }
       ],
       "types": []
     }

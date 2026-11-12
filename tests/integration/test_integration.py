@@ -208,15 +208,63 @@ async def test_voice_where_is_intent(hass: HomeAssistant, inventory_app, hass_ad
 
 
 def test_spoken_answer_wording():
-    from custom_components.home_inventory.intent import spoken_answer
+    from custom_components.home_inventory.intent import pick, spoken_answer
 
     item = lambda name, path, **kw: {"display_name": name, "placement": {"path": path}, "status": kw.pop("status", "stored"), **kw}  # noqa: E731
-    assert spoken_answer("drill", [item("Drill", "Shed › Box #3")]) == "Drill is in Shed, Box #3."
-    assert spoken_answer("ladder", [item("Ladder", "Garage", status="on_loan", loan={"borrower": "Sam"})]) == "Ladder is lent to Sam."
+    assert spoken_answer("drill", [item("Drill", "Shed › Box #3")]) == ("Drill is in Shed, Box #3.", None)
+    assert spoken_answer("ladder", [item("Ladder", "Garage", status="on_loan", loan={"borrower": "Sam"})])[0] == "Ladder is lent to Sam."
     moved = item("Saw", "Garage", status="temporarily_relocated", home_placement={"path": "Shed"})
-    assert spoken_answer("saw", [moved]) == "Saw is in Garage for now, normally Shed."
-    many = [item(f"Battery {i}", "Shed") for i in range(5)]
-    assert spoken_answer("battery", many).endswith("and 2 more places.")
+    assert spoken_answer("saw", [moved])[0] == "Saw is in Garage for now, normally Shed."
+    # Same thing in several places: one answer, not a question
+    same = [item("Battery", f"Shed › Bin {i}") for i in range(5)]
+    text, choices = spoken_answer("battery", same)
+    assert choices is None and text == "Battery is in Shed, Bin 0, and in Shed, Bin 1, and in Shed, Bin 2, and 2 more places."
+    # Different things: ask which
+    hoses = [item("Kink Control Plus Water Hose 50ft", "Shed › Rear Right Shelving"),
+             item("Siphon pump hose", "Shed › Small Engine Maintenance #2"),
+             item("Siphon pump with hose and funnel", "Shed › Small Engine Maintenance #2")]
+    text, choices = spoken_answer("hose", hoses)
+    assert text == ("I found 3 things for hose: Kink Control Plus Water Hose 50ft, Siphon pump hose and "
+                    "Siphon pump with hose and funnel. Which one did you mean?")
+    assert pick("the water hose one", choices)["name"].startswith("Kink")
+    assert pick("the kink control one", choices)["name"].startswith("Kink")
+    assert pick("the second one", choices)["name"] == "Siphon pump hose"
+    assert pick("the last one", choices)["name"] == "Siphon pump with hose and funnel"
+    assert pick("the one with the funnel", choices)["name"] == "Siphon pump with hose and funnel"
+    assert pick("the lawn mower", choices) is None
+    # An exact name among several answers directly
+    assert spoken_answer("siphon pump hose", hoses)[1] is None
+    many = [item(f"Thing {c}", "Shed") for c in "abcdefgh"]
+    text, choices = spoken_answer("thing", many)
+    assert text.startswith("I found 8 things for thing, including Thing a, Thing b, Thing c and Thing d.") and len(choices) == 6
+
+
+async def test_voice_asks_which_one_and_understands_the_reply(hass: HomeAssistant, inventory_app):
+    from homeassistant.helpers import intent
+
+    shed = inventory_app.seed["shed"]
+    for name in ("Kink Control Plus Water Hose 50ft", "Siphon pump hose", "Siphon pump with hose and funnel"):
+        inventory_app.ui("POST", "items", {"name": name, "location_id": shed["id"]})
+    await _setup_via_user_flow(hass, inventory_app)
+    ask = await intent.async_handle(hass, "alexa", "HomeInventoryWhereIs", {"item": {"value": "hose"}})
+    assert ask.speech["plain"]["speech"].endswith("Which one did you mean?")
+    assert "Which one:" in ask.reprompt["plain"]["reprompt"]  # keeps the Alexa session open
+    unclear = await intent.async_handle(hass, "alexa", "HomeInventoryChoose", {"choice": {"value": "the lawn mower"}})
+    assert unclear.speech["plain"]["speech"].startswith("Sorry, which one:")
+    answer = await intent.async_handle(hass, "alexa", "HomeInventoryChoose", {"choice": {"value": "the water hose one"}})
+    assert answer.speech["plain"]["speech"] == "Kink Control Plus Water Hose 50ft is in Shed."
+    assert not answer.reprompt
+    # The question has been answered: another reply has nothing to refer to
+    again = await intent.async_handle(hass, "alexa", "HomeInventoryChoose", {"choice": {"value": "the second one"}})
+    assert again.speech["plain"]["speech"].startswith("I'm not sure what you mean")
+    # Questions are per device: an Assist satellite's reply doesn't answer Alexa's question
+    q = await intent.async_handle(hass, "alexa", "HomeInventoryWhereIs", {"item": {"value": "hose"}})
+    listed = q.speech["plain"]["speech"].split(": ", 1)[1].removesuffix(". Which one did you mean?")
+    second = listed.split(", ")[1].split(" and ")[0]  # order as spoken
+    other = await intent.async_handle(hass, "conversation", "HomeInventoryChoose", {"choice": {"value": "the second one"}}, device_id="kitchen")
+    assert other.speech["plain"]["speech"].startswith("I'm not sure what you mean")
+    mine = await intent.async_handle(hass, "alexa", "HomeInventoryChoose", {"choice": {"value": "the second one"}})
+    assert mine.speech["plain"]["speech"] == f"{second} is in Shed."
 
 
 async def test_alexa_custom_skill_request_is_answered(hass: HomeAssistant, inventory_app):
