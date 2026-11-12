@@ -32,7 +32,8 @@ HA_TOKEN = os.environ.get("HA_TOKEN", "")  # long-lived access token
 SKILL_ID = os.environ.get("SKILL_ID", "")  # amzn1.ask.skill.xxxxxxxx
 
 TIMEOUT = 6  # seconds; Alexa gives up after about 8
-FORWARDED = {"HomeInventoryWhereIs"}
+# Intents answered by Home Assistant, and the slot each one needs.
+FORWARDED = {"HomeInventoryWhereIs": "item", "HomeInventoryChoose": "choice"}
 
 
 def _say(text: str, end: bool = True, reprompt: str | None = None) -> dict:
@@ -93,7 +94,7 @@ def lambda_handler(event: dict, context=None) -> dict:
 
     name = (request.get("intent") or {}).get("name")
     if name in FORWARDED:
-        slot = ((request.get("intent") or {}).get("slots") or {}).get("item") or {}
+        slot = ((request.get("intent") or {}).get("slots") or {}).get(FORWARDED[name]) or {}
         if not slot.get("value"):
             return _say("What should I look for?", end=False, reprompt="Say, for example: where is the drill.")
         return _forward(event)
