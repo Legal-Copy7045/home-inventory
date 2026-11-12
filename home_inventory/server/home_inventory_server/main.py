@@ -155,8 +155,8 @@ def create_app(state: AppState, channel: str) -> FastAPI:
         response: Response = await call_next(request)
         for k, v in SECURITY_HEADERS.items():
             response.headers.setdefault(k, v)
-        if response.headers.get("content-type", "").startswith("text/html"):
-            response.headers["Cache-Control"] = "no-cache"
+        if response.headers.get("content-type", "").startswith("text/html") or request.url.path.endswith(("/sw.js", "/manifest.json")):
+            response.headers["Cache-Control"] = "no-cache"  # updates show up at once
         return response
 
     @app.exception_handler(RequestValidationError)

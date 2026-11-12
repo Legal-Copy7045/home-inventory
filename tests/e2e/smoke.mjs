@@ -344,6 +344,31 @@ await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
 await page.getByText("The shopping list is empty").waitFor();
 if ((await api(`items/${oilItem.id}`)).quantity !== 5) throw new Error("purchase did not update stock");
 
+// Scan mode "Take one out": typing the barcode takes one AA battery out
+const aaBefore = (await api("items?q=AA batteries")).items[0];
+await api(`items/${aaBefore.id}`, { method: "PATCH", data: { barcode: "5012345678900" } });
+await page.goto(BASE + "#/scan?mode=use");
+await page.getByPlaceholder("Type a barcode or label code").fill("5012345678900");
+await page.keyboard.press("Enter");
+await page.getByText(/Took 1 × AA batteries/).first().waitFor();
+if ((await api(`items/${aaBefore.id}`)).quantity !== aaBefore.quantity - 1) throw new Error("take one out failed");
+
+// Quick photos taken offline survive closing the app and upload later
+const unsortedBefore = (await api("capture/unsorted")).total;
+const offline = await ctx.newPage();
+await offline.goto(BASE + "#/capture");
+await offline.getByText("Quick photos · Shelf 1").waitFor();
+await ctx.setOffline(true);
+await offline.locator('input[type="file"]').setInputFiles([{ name: "o.png", mimeType: "image/png", buffer: png }]);
+await offline.getByText("Saved · waiting").first().waitFor();
+await offline.close();
+await ctx.setOffline(false);
+await page.goto(BASE);
+for (let i = 0; i < 40 && (await api("capture/unsorted")).total === unsortedBefore; i++) await page.waitForTimeout(500);
+if ((await api("capture/unsorted")).total !== unsortedBefore + 1) throw new Error("offline photo was not uploaded after reopening");
+const manifest = await page.request.fetch(BASE + "manifest.json");
+if (!manifest.ok() || (await manifest.json()).name !== "Home Inventory") throw new Error("manifest missing");
+
 const after = await api(`containers/${box.id}`);
 const cord = after.items.find((i) => i.name === "Extension cord");
 if (!after.items.some((i) => i.name === "Hammer")) throw new Error("finished quick photo missing from box");

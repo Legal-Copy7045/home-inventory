@@ -1243,6 +1243,21 @@ def barcode_lookup(data: BarcodeLookupIn, request: Request, actor: Actor = Depen
     return barcode_svc.identify(db, st.settings, data.code, data.format, data.external, st.barcode_providers)
 
 
+class UseOneIn(BaseModel):
+    code: str = Field(min_length=1, max_length=100)
+    format: str | None = Field(default=None, max_length=30)
+    item_id: int | None = None
+    container_id: int | None = None
+
+
+@router.post("/barcode/use-one")
+def barcode_use_one(data: UseOneIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Scan a consumable's barcode to take one out of stock."""
+    res = _err(barcode_svc.use_one, db, actor, data.code, data.format, data.item_id, data.container_id)
+    db.commit()
+    return res
+
+
 @router.get("/search")
 def search(
     request: Request,
