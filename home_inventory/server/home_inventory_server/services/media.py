@@ -125,6 +125,23 @@ class MediaStore:
         return self.path(relative).read_bytes()
 
 
+def crop_box(data: bytes, box: list[float], pad: float = 0.04) -> bytes | None:
+    """JPEG of the part of a stored photo inside ``box`` = [x, y, w, h]
+    (fractions of the width/height), with a little margin.  None if too small."""
+    img = Image.open(io.BytesIO(data))
+    img = ImageOps.exif_transpose(img).convert("RGB")
+    w, h = img.size
+    x, y, bw, bh = box
+    left, top = max(0.0, x - pad), max(0.0, y - pad)
+    right, bottom = min(1.0, x + bw + pad), min(1.0, y + bh + pad)
+    px = (int(left * w), int(top * h), int(right * w), int(bottom * h))
+    if px[2] - px[0] < 48 or px[3] - px[1] < 48:
+        return None
+    out = io.BytesIO()
+    img.crop(px).save(out, "JPEG", quality=88)
+    return out.getvalue()
+
+
 def downscale_for_ai(data: bytes, max_px: int) -> tuple[bytes, str]:
     """Return a JPEG no larger than ``max_px`` on its long edge."""
     img = Image.open(io.BytesIO(data))

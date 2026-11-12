@@ -25,6 +25,10 @@ There is one service device, **Home Inventory**, with summary entities only. Ind
 | `sensor.home_inventory_shopping_list_items` | Open shopping-list entries |
 | `binary_sensor.home_inventory_inventory_app` | App availability (attribute `live_events`) |
 
+## Operating hours from sensors
+
+Equipment can read its hour meter (and/or a starts counter) from any Home Assistant entity whose state is a number: open the item → Maintenance → **Edit** → **Read from Home Assistant**. Units h, min, s and d are converted to hours; counters are used as-is. The App reads them every 15 minutes through the Home Assistant API and records a reading only when the value has gone up. Useful sources: a smart plug's runtime/"on time" sensor, or a [`history_stats`](https://www.home-assistant.io/integrations/history_stats/) sensor counting the hours a plug or power sensor was on.
+
 ## Actions
 
 | Action | Returns | Example |

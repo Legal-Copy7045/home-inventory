@@ -535,6 +535,8 @@ def profile_out(p: EquipmentProfile | None) -> dict[str, Any] | None:
         "engine_serial": p.engine_serial,
         "fuel_type": p.fuel_type,
         "meter": p.meter,
+        "hours_entity_id": p.hours_entity_id,
+        "cycles_entity_id": p.cycles_entity_id,
         "specs": p.specs or [],
         "notes": p.notes,
     }
@@ -556,6 +558,8 @@ def save_profile(db: Session, actor: Actor, item: Item, data: dict[str, Any], pr
         if not profile.specs:
             profile.specs = [dict(s) for s in pre["specs"]]
     for k, v in data.items():
+        if k in ("hours_entity_id", "cycles_entity_id"):
+            v = v or None
         setattr(profile, k, v)
     db.flush()
     if preset:

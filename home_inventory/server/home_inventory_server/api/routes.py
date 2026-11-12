@@ -81,6 +81,7 @@ from ..services import backup as backup_svc
 from ..services import barcode as barcode_svc
 from ..services import capture as capture_svc
 from ..services import customers as customers_svc
+from ..services import duplicates as dup_svc
 from ..services import export as export_svc
 from ..services import inventory as inv
 from ..services import labels as labels_svc
@@ -89,7 +90,7 @@ from ..services import maintenance as maintenance_svc
 from ..services import scans as scans_svc
 from ..services import search as search_svc
 from ..services import stats as stats_svc
-from ..services.media import MediaError
+from ..services.media import MediaError, crop_box
 from ..services.placement import PlacementError, Resolver, validate_item_target
 
 _LOGGER = logging.getLogger(__name__)
@@ -851,6 +852,43 @@ def bulk_delete_items(data: BulkDeleteIn, actor: Actor = Depends(require_member)
     return {"deleted": [i.id for i in items]}
 
 
+@router.get("/products/duplicates")
+def product_duplicates(actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Pairs of products that look like the same thing, most likely first."""
+    return dup_svc.find(db)
+
+
+class MergeIn(BaseModel):
+    other_id: int
+
+
+@router.post("/products/{product_id}/merge")
+def merge_products(product_id: int, data: MergeIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Merge ``other_id`` into this product (all holdings, photos, links and
+    restock settings move here; the other product is deleted)."""
+    keep, other = db.get(Product, product_id), db.get(Product, data.other_id)
+    if keep is None or other is None:
+        raise HTTPException(404, "Product not found")
+    try:
+        res = dup_svc.merge(db, actor, keep, other)
+    except dup_svc.MergeError as err:
+        raise HTTPException(409, str(err)) from err
+    db.commit()
+    return res
+
+
+class DismissIn(BaseModel):
+    product_ids: list[int] = Field(min_length=2, max_length=2)
+
+
+@router.post("/products/duplicates/dismiss")
+def dismiss_duplicate(data: DismissIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Not a duplicate: stop suggesting this pair."""
+    dup_svc.dismiss(db, *data.product_ids)
+    db.commit()
+    return {"ok": True}
+
+
 @router.get("/products/similar")
 def similar_products(name: str, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
     """Existing products with a similar name, so the user can choose to add
@@ -1251,11 +1289,33 @@ async def retry_scan(scan_id: int, request: Request, actor: Actor = Depends(requ
 
 
 @router.post("/scans/{scan_id}/confirm")
-def confirm_scan(scan_id: int, data: ScanConfirmIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+def confirm_scan(scan_id: int, data: ScanConfirmIn, request: Request, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
     scan = db.get(ContainerScan, scan_id)
     if scan is None:
         raise HTTPException(404, "Scan not found")
-    result = _err(scans_svc.confirm, db, actor, scan, data)
+    st = _state(request)
+    photo = db.get(Attachment, scan.photo_id) if scan.photo_id else None
+    source: list[bytes] = []
+
+    def crop(box: list[float]) -> Attachment | None:
+        """A photo of just this entry, cut from the scan photo."""
+        if photo is None:
+            return None
+        try:
+            if not source:
+                source.append(st.media.read(photo.stored_path))
+            part = crop_box(source[0], box)
+            if part is None:
+                return None
+            stored = st.media.save(part, False)
+        except Exception:  # noqa: BLE001 - fall back to the whole photo
+            return None
+        att = Attachment(kind=AttachmentKind.photo, caption="Cut from photo inventory", created_by_id=actor.user_id, **stored.__dict__)
+        db.add(att)
+        db.flush()
+        return att
+
+    result = _err(scans_svc.confirm, db, actor, scan, data, crop)
     db.commit()
     return result
 
