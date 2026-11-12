@@ -90,6 +90,23 @@ automation:
         data: { item: "{{ trigger.event.data.name }}" }
 ```
 
+### Example: warranty ending reminder
+
+The App sends `home_inventory_warranty_expiring` once per item when its warranty enters the `warranty_notice_days` window (30 days by default).
+
+```yaml
+automation:
+  - alias: Warranty ending soon
+    triggers:
+      - trigger: event
+        event_type: home_inventory_warranty_expiring
+    actions:
+      - action: notify.mobile_app_phone
+        data:
+          title: "Warranty ending"
+          message: "{{ trigger.event.data.name }}: warranty ends in {{ trigger.event.data.days_left }} days ({{ trigger.event.data.warranty_expires }})."
+```
+
 ### Example: overdue loan reminder
 
 ```yaml

@@ -111,6 +111,27 @@ container. List every distinct kind of object you can see, grouping identical ob
 Return JSON only. Use null when unsure; never invent brands or model numbers. Use short everyday names.
 "confidence" is 0..1 for each entry. Ignore the container itself and packing material.{hint}"""
 
+RECEIPT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "retailer": _NULLABLE_STR,
+        "purchase_date": _NULLABLE_STR,
+        "currency": _NULLABLE_STR,
+        "total": {"type": ["number", "null"]},
+        "item_price": {"type": ["number", "null"]},
+        "warranty_months": {"type": ["integer", "null"]},
+        "confidence": {"type": "number"},
+    },
+    "required": ["retailer", "purchase_date", "currency", "total", "item_price", "warranty_months", "confidence"],
+    "additionalProperties": False,
+}
+
+RECEIPT_PROMPT = """The photo is a shop receipt, invoice or order confirmation. Read it. Return JSON only; use null for
+anything not printed on it, never guess. "retailer": the shop's name. "purchase_date": YYYY-MM-DD. "currency": the
+3-letter ISO code (infer from the symbol only if unambiguous, e.g. £ is GBP). "total": the amount paid.
+"item_price": the price of the line that best matches the item below (the price for one unit), or null.
+"warranty_months": only if a warranty or guarantee length is printed. "confidence" 0..1 for the whole reading.{hint}"""
+
 SHELF_PROMPT = """You help catalogue a household inventory. The photo shows a shelf, shelving unit, bench, wall
 or other storage space, possibly with several shelves. List every distinct kind of object you can see, grouping
 identical objects with a quantity. Count carefully; if objects are partly hidden, count only what is visible.
@@ -215,6 +236,13 @@ class AIService:
         res.data = {"items": items[:200], "notes": res.data.get("notes")}
         return res
 
+    def read_receipt(self, image: bytes, item_name: str | None = None) -> AIResult:
+        """Purchase details printed on a receipt photo (a suggestion only)."""
+        hint = f"\nThe item: {item_name[:200]}" if item_name else ""
+        res = self._call(RECEIPT_PROMPT.format(hint=hint), RECEIPT_SCHEMA, image)
+        res.data = _clean_receipt(res.data)
+        return res
+
     def extract_product_from_text(self, text: str, url: str) -> AIResult:
         prompt = (
             "This is the visible text of a shop or manufacturer web page. Identify the single product it is about. "
@@ -238,6 +266,42 @@ class AIService:
             "status": d.get("status") or None,
         }
         return res
+
+
+def _clean_receipt(d: dict[str, Any]) -> dict[str, Any]:
+    from datetime import date
+
+    def money(v: Any) -> str | None:
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            return None
+        return f"{f:.2f}" if 0 <= f < 10_000_000 else None
+
+    day = None
+    try:
+        day = date.fromisoformat(str(d.get("purchase_date") or "")[:10]).isoformat()
+    except ValueError:
+        pass
+    cur = str(d.get("currency") or "").strip().upper()
+    try:
+        months = int(d.get("warranty_months")) if d.get("warranty_months") is not None else None
+    except (TypeError, ValueError):
+        months = None
+    try:
+        conf = float(d.get("confidence")) if d.get("confidence") is not None else None
+    except (TypeError, ValueError):
+        conf = None
+    retailer = str(d.get("retailer") or "").strip()[:200] or None
+    return {
+        "retailer": retailer,
+        "purchase_date": day,
+        "currency": cur if len(cur) == 3 and cur.isalpha() else None,
+        "total": money(d.get("total")),
+        "item_price": money(d.get("item_price")),
+        "warranty_months": months if months is not None and 0 < months <= 240 else None,
+        "confidence": conf,
+    }
 
 
 def _clean_item(d: dict[str, Any]) -> dict[str, Any]:
