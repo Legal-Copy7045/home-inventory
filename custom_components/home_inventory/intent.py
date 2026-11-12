@@ -3,6 +3,7 @@
 Two intents:
 
 * ``HomeInventoryWhereIs`` (slot ``item``) answers where something is.
+  The verb follows the name ("Wood screws are in…", "Drill is in…").
   Several records with the same name are one answer ("Drill is in A, and
   in B").  When the words match *different* things, it asks instead:
   "I found 3 things for hose: A, B and C. Which one did you mean?" and
@@ -96,11 +97,44 @@ def group_by_name(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list(groups.values())
 
 
+# Words that are plural without ending in "s" (or always plural), and
+# singular words that do end in "s".
+_PLURAL = {"people", "children", "men", "women", "feet", "teeth", "mice", "geese", "dice", "cattle",
+           "scissors", "pliers", "tongs", "tweezers", "shears", "clippers", "loppers", "secateurs",
+           "binoculars", "goggles", "headphones", "earphones", "jeans", "trousers", "shorts", "pants",
+           "glasses", "spectacles", "overalls", "pyjamas", "pajamas", "snips", "nippers", "cutters"}
+_SINGULAR = {"series", "species", "news", "gas", "bus", "lens", "chassis", "corps", "means", "kit", "set",
+             "pack", "box", "bag", "case", "tin", "jar", "pair", "bundle", "roll", "reel", "tub", "bucket"}
+_UNITS = {"ft", "in", "mm", "cm", "m", "km", "v", "w", "kw", "a", "ah", "mah", "kg", "g", "lb", "lbs", "oz",
+          "ml", "l", "pk", "pc", "pcs", "gal", "psi", "nm", "hp", "cc", "x"}
+
+
+def verb_for(name: str) -> str:
+    """ "is" or "are" for an item name ("Wood screws are", "Siphon pump with hose is").
+
+    The noun that decides is the main one: before "of"/"with"/"for" ("Box of
+    screws is", "Set of drill bits is"), the last real word otherwise (sizes
+    such as "50ft" are skipped).  Two things joined by "and" are plural.
+    """
+    head = re.split(r"\b(?:of|with|for|from|in|on)\b", name.lower(), maxsplit=1)[0]
+    if re.search(r"\band\b|&", head):
+        return "are"
+    words = [w for w in re.findall(r"[a-z]+(?:'[a-z]+)?", head) if w not in _UNITS]
+    if not words:
+        return "is"
+    w = words[-1]
+    if w in _PLURAL:
+        return "are"
+    if w in _SINGULAR or w.endswith(("ss", "us", "is", "'s")) or len(w) <= 2:
+        return "is"
+    return "are" if w.endswith("s") else "is"
+
+
 def answer_for(group: dict[str, Any]) -> str:
     places = [_where(it) for it in group["items"][:3]]
     more = len(group["items"]) - 3
     tail = f", and {more} more place{'s' if more != 1 else ''}" if more > 0 else ""
-    return f"{group['name']} is " + ", and ".join(places) + tail + "."
+    return f"{group['name']} {verb_for(group['name'])} " + ", and ".join(places) + tail + "."
 
 
 def _list(names: list[str]) -> str:
