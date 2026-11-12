@@ -8,6 +8,7 @@ member role; administration requires admin.
 from __future__ import annotations
 
 import asyncio
+import calendar
 import json
 import logging
 import shutil
@@ -80,6 +81,7 @@ from ..services import backup as backup_svc
 from ..services import barcode as barcode_svc
 from ..services import capture as capture_svc
 from ..services import customers as customers_svc
+from ..services import export as export_svc
 from ..services import inventory as inv
 from ..services import labels as labels_svc
 from ..services import location_import, weblink
@@ -561,6 +563,49 @@ def list_items(
     }
     page = [loaded[i] for i in page_ids if i in loaded]
     return {"total": total, "offset": offset, "items": [inv.item_out(i, r, db) for i in page]}
+
+
+def _report(db: Session, r: Resolver, q, status, category, container_id, location_id):
+    conds = _item_filters(r, q, status, category, container_id, location_id, False, False)
+    return export_svc.build(db, _ordered_item_ids(db, r, conds, "location"), r)
+
+
+@router.get("/reports/inventory")
+def inventory_report(
+    q: str | None = None,
+    status: ItemStatus | None = None,
+    category: str | None = None,
+    container_id: int | None = None,
+    location_id: int | None = None,
+    actor: Actor = Depends(current_actor),
+    db: Session = Depends(get_db),
+):
+    """Insurance / inventory report: every matching household item grouped by
+    room, with recorded values, serial numbers and paperwork counts."""
+    return _report(db, _resolver(db), q, status, category, container_id, location_id)
+
+
+@router.get("/reports/inventory.{fmt}")
+def inventory_report_file(
+    fmt: str,
+    q: str | None = None,
+    status: ItemStatus | None = None,
+    category: str | None = None,
+    container_id: int | None = None,
+    location_id: int | None = None,
+    actor: Actor = Depends(current_actor),
+    db: Session = Depends(get_db),
+):
+    """The same report as a CSV or Excel download."""
+    if fmt not in ("csv", "xlsx"):
+        raise HTTPException(404, "Use .csv or .xlsx")
+    report = _report(db, _resolver(db), q, status, category, container_id, location_id)
+    stamp = date.today().isoformat()
+    if fmt == "csv":
+        body, media = export_svc.to_csv(report), "text/csv; charset=utf-8"
+    else:
+        body, media = export_svc.to_xlsx(report), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    return Response(body, media_type=media, headers={"Content-Disposition": f'attachment; filename="home-inventory-{stamp}.{fmt}"'})
 
 
 @router.get("/items/ids")
@@ -1062,6 +1107,41 @@ async def ai_identify_item(body: dict[str, Any], request: Request, actor: Actor 
     suggestion["confidence_label"] = confidence_label(suggestion.get("confidence"))
     similar = similar_products(suggestion["name"], actor, db) if suggestion.get("name") else []
     return {"suggestion": suggestion, "metadata": res.metadata(), "similar": similar}
+
+
+class ReceiptIn(BaseModel):
+    attachment_id: int
+
+
+@router.post("/items/{item_id}/read-receipt")
+async def read_receipt(item_id: int, data: ReceiptIn, request: Request, actor: Actor = Depends(require_member),
+                       db: Session = Depends(get_db)):
+    """AI reads a receipt photo attached to this item and suggests the
+    purchase date, price, shop and warranty end.  Nothing is saved."""
+    st = _state(request)
+    item = _get_or_404(db, Item, item_id)
+    att = db.get(Attachment, data.attachment_id)
+    if att is None or att.item_id != item.id:
+        raise HTTPException(404, "Receipt not found on this item")
+    if not (att.mime_type or "").startswith("image/"):
+        raise HTTPException(422, "AI can read receipt photos, not PDFs")
+    _limit(request, actor, "ai")
+    try:
+        res = await asyncio.to_thread(st.ai.read_receipt, st.media.read(att.stored_path), item.product.name)
+    except AIUnavailable as err:
+        raise HTTPException(503, str(err)) from err
+    except AIFailed as err:
+        raise HTTPException(502, str(err)) from err
+    sug = res.data
+    warranty_expires = None
+    if sug["purchase_date"] and sug["warranty_months"]:
+        start = date.fromisoformat(sug["purchase_date"])
+        y, m = divmod(start.month - 1 + sug["warranty_months"], 12)
+        day = min(start.day, calendar.monthrange(start.year + y, m + 1)[1])
+        warranty_expires = date(start.year + y, m + 1, day).isoformat()
+    sug["warranty_expires"] = warranty_expires
+    sug["confidence_label"] = confidence_label(sug.get("confidence"))
+    return {"suggestion": sug, "metadata": res.metadata()}
 
 
 async def _new_scan(
