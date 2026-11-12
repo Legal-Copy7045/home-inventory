@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.1
+
+- **Voice asks when it's unclear.** "Where is the hose?" used to read out every match in one long sentence. Now, when your words match different things, it asks: "I found 3 things for hose: Kink Control Plus Water Hose 50ft, Siphon pump hose and Siphon pump with hose and funnel. Which one did you mean?" Reply "the water hose one", "the one with the funnel" or "the second one".
+  - Several records of the same thing are answered together ("Battery is in A, and in B").
+  - Alexa and Assist voice devices keep listening for your reply.
+- **Update your voice setup:**
+  - Alexa: paste the new `deploy/alexa/interaction-model.json` (adds the reply intent), build the skill again, and replace the skill code with the new `deploy/alexa/lambda_function.py`, keeping your three settings.
+  - Assist: add the `HomeInventoryChoose` lines from `docs/voice.md` to your sentences file.
+
 ## 0.10.0
 
 ### Fixed
@@ -20,7 +29,7 @@
 - **Operating hours from Home Assistant:** in an item's equipment details, pick a runtime sensor (a smart plug's runtime, a `history_stats` sensor…) and/or a uses counter. They're read every 15 minutes (minutes and seconds are converted to hours) and maintenance due dates follow real use. A sensor that goes backwards (reset) isn't recorded; the item page says why. **Read now** checks straight away.
 - **Possible duplicates** (link under the Items list): pairs with the same barcode, the same maker and model, or very similar names. **Keep this one** merges the other into it — holdings, photos, shop links, restock settings and shopping-list lines move over and blank details are filled in; holdings stay in their own places. "Not the same thing" stops suggesting a pair.
 - **Photo inventory improvements:** each new item gets its own picture cut from the shelf or box photo (where the AI could say where it is), shown as a preview while reviewing. Things already recorded but not seen in the photo can be left alone, **marked missing**, or deleted.
-- **Voice: "Where is the hedge trimmer?"** The integration adds the `HomeInventoryWhereIs` intent with a short spoken answer (place, who it's lent to, or "for now, normally…"). Works with Assist (add the sentences file from `docs/voice.md`), Siri via a Shortcut that sends text to Assist, and an Alexa custom skill ("Alexa, ask Home Inventory where…"). Update the integration in HACS to get it. When your words match several different things it asks which you meant ("I found 3 things for hose: … Which one did you mean?") and understands replies like "the water hose one" or "the second one"; several records of the same thing are answered together instead. For Alexa, `deploy/alexa/` has a ready-to-paste skill definition and forwarding function, and `docs/voice.md` has step-by-step setup.
+- **Voice: "Where is the hedge trimmer?"** The integration adds the `HomeInventoryWhereIs` intent with a short spoken answer (place, who it's lent to, or "for now, normally…"). Works with Assist (add the sentences file from `docs/voice.md`), Siri via a Shortcut that sends text to Assist, and an Alexa custom skill ("Alexa, ask Home Inventory where…"). Update the integration in HACS to get it. For Alexa, `deploy/alexa/` has a ready-to-paste skill definition and forwarding function, and `docs/voice.md` has step-by-step setup.
 - Database: equipment profiles can name Home Assistant sensors (an automatic, additive migration with a snapshot first).
 - **Installable web app (PWA):** a manifest, icons and a service worker that caches the app itself (never your inventory data) for faster, flaky-signal loading. See the docs for where installing works.
 
