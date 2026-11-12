@@ -28,10 +28,11 @@ from sqlalchemy import select
 from . import __version__
 from .ai import AIService
 from .api.routes import router
-from .auth import HaAdminDirectory, load_or_create_token
+from .auth import AdminBootstrap, HaAdminDirectory, load_or_create_token
 from .config import Settings
 from .db import Database, run_migrations
 from .events import EventBus, install_session_hooks
+from .limits import DEFAULT_RATE_LIMITS, MB, BodySizeLimit, RateLimiter
 from .models import Attachment, LocationMap
 from .services import capture as capture_svc
 from .services import stats as stats_svc
@@ -65,6 +66,8 @@ class AppState:
     write_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     tasks: list[asyncio.Task] = field(default_factory=list)
     capture_queue: asyncio.Queue = field(default_factory=asyncio.Queue)
+    admin_bootstrap: AdminBootstrap = field(default_factory=AdminBootstrap)
+    rate_limiter: RateLimiter = field(default_factory=lambda: RateLimiter(DEFAULT_RATE_LIMITS))
 
     def reopen_database(self) -> None:
         self.db.dispose()
@@ -114,7 +117,7 @@ def create_app(state: AppState, channel: str) -> FastAPI:
     )
     app.state.channel = channel
     # Share attributes with the AppState instance.
-    for name in ("settings", "bus", "media", "ai", "admin_directory", "api_token", "version", "barcode_providers", "capture_queue"):
+    for name in ("settings", "bus", "media", "ai", "admin_directory", "admin_bootstrap", "rate_limiter", "api_token", "version", "barcode_providers", "capture_queue"):
         setattr(app.state, name, getattr(state, name))
     app.state._app_state = state
 
@@ -126,6 +129,13 @@ def create_app(state: AppState, channel: str) -> FastAPI:
     app.state.write_lock = state.write_lock
     app.state.reopen_database = state.reopen_database
     app.include_router(router)
+
+    def body_limit(path: str) -> int:
+        if path.endswith("/backup/restore"):
+            return state.settings.backup_max_mb * MB
+        return state.settings.max_upload_mb * MB + MB  # form fields and multipart overhead
+
+    app.add_middleware(BodySizeLimit, limit_for=body_limit)
 
     @app.middleware("http")
     async def _headers(request: Request, call_next):
@@ -249,6 +259,21 @@ async def _announce_discovery(state: AppState) -> None:
         await asyncio.sleep(min(30, 2 ** attempt))
 
 
+async def _admin_setup_notice(state: AppState) -> None:
+    """Print the first-run setup code at start-up when no administrator is known."""
+    await asyncio.sleep(3)  # let the Home Assistant user list load first
+
+    def check() -> None:
+        state.admin_directory.is_admin("")  # refreshes availability
+        with state.db.SessionLocal() as db:
+            state.admin_bootstrap.available(db, state.settings, state.admin_directory)
+
+    try:
+        await asyncio.to_thread(check)
+    except Exception:  # noqa: BLE001
+        _LOGGER.exception("Could not check for an administrator")
+
+
 async def serve(settings: Settings) -> None:
     import uvicorn
 
@@ -268,6 +293,7 @@ async def serve(settings: Settings) -> None:
     state.tasks.append(asyncio.create_task(_periodic(state)))
     state.tasks.append(asyncio.create_task(_announce_discovery(state)))
     state.tasks.append(asyncio.create_task(capture_svc.worker(state)))
+    state.tasks.append(asyncio.create_task(_admin_setup_notice(state)))
     _LOGGER.info(
         "Home Inventory %s started (mode=%s, ingress port %s, API port %s, UI %s, Supervisor API %s, AI %s)",
         state.version, settings.mode, settings.ingress_port, settings.api_port,

@@ -14,7 +14,9 @@ Results only pre-fill the form; the user reviews before saving.
 Safety: the request is made from the user's Home Assistant host, so a link
 must not be usable to probe the local network (SSRF).  Every hop (including
 redirects and the image download) must resolve exclusively to public IP
-addresses; responses are size- and time-limited.
+addresses, and the connection is made to the exact address that was checked
+(no second DNS lookup, so DNS rebinding can't swap in a private address);
+responses are size- and time-limited.
 """
 
 from __future__ import annotations
@@ -50,7 +52,12 @@ class LinkError(ValueError):
 # ---------------------------------------------------------------------------
 
 
-def _check_host(url: str) -> None:
+def _resolve_public(url: str) -> tuple[str, str]:
+    """Resolve ``url``'s host once; return (hostname, the IP to connect to).
+
+    Every address the name resolves to must be public, so a name that mixes
+    public and private answers is refused outright.
+    """
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
         raise LinkError("Only http:// and https:// links are supported")
@@ -59,23 +66,73 @@ def _check_host(url: str) -> None:
     host = parsed.hostname
     try:
         infos = socket.getaddrinfo(host, parsed.port or (443 if parsed.scheme == "https" else 80), proto=socket.IPPROTO_TCP)
-    except socket.gaierror as err:
+    except (socket.gaierror, UnicodeError) as err:
         raise LinkError(f"Could not find the website {host}") from err
+    addresses = []
     for info in infos:
-        addr = ipaddress.ip_address(info[4][0])
+        addr = ipaddress.ip_address(info[4][0].split("%", 1)[0])
+        if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped:
+            addr = addr.ipv4_mapped
         if not addr.is_global or addr.is_multicast:
             raise LinkError("Links to local or private network addresses are not allowed")
+        addresses.append(addr)
+    if not addresses:
+        raise LinkError(f"Could not find the website {host}")
+    return host, str(addresses[0])
+
+
+def _check_host(url: str) -> None:
+    """Validate a URL's host (kept for callers that only need the check)."""
+    _resolve_public(url)
+
+
+def _pinned_request(client: httpx.Client, url: str) -> tuple[httpx.Request, str]:
+    """Build a request that connects to the validated IP for ``url``.
+
+    The connection goes to the exact address that was checked (DNS is not
+    consulted again, closing the DNS-rebinding window), while the ``Host``
+    header, TLS SNI and certificate verification still use the hostname.
+    """
+    host, ip = _resolve_public(url)
+    target = httpx.URL(url)
+    host_header = host if target.port is None else f"{host}:{target.port}"
+    request = client.build_request(
+        "GET",
+        target.copy_with(host=ip),
+        headers={"Host": host_header},
+        extensions={"sni_hostname": host},
+    )
+    return request, ip
+
+
+def _check_peer(resp: httpx.Response, ip: str) -> None:
+    """Defence in depth: the socket really is connected to the pinned IP."""
+    stream = resp.extensions.get("network_stream")
+    if stream is None:
+        return
+    try:
+        peer = stream.get_extra_info("server_addr")
+    except Exception:  # noqa: BLE001 - transport without this info
+        return
+    if peer and ipaddress.ip_address(str(peer[0]).split("%", 1)[0]) != ipaddress.ip_address(ip):
+        raise LinkError("The website's address changed while connecting; please try again")
 
 
 def fetch(url: str, max_bytes: int, accept: str) -> tuple[bytes, str, str]:
-    """GET ``url`` following redirects safely; returns (body, content type, final url)."""
+    """GET ``url`` following redirects safely; returns (body, content type, final url).
+
+    Each hop is resolved once, checked, and connected to by IP.  Proxies
+    from the environment are ignored (a proxy would resolve the name again).
+    """
     current = url
-    with httpx.Client(timeout=TIMEOUT, follow_redirects=False, headers={"User-Agent": USER_AGENT, "Accept": accept,
-                                                                        "Accept-Language": "en-US,en;q=0.8"}) as client:
+    with httpx.Client(timeout=TIMEOUT, follow_redirects=False, trust_env=False,
+                      headers={"User-Agent": USER_AGENT, "Accept": accept, "Accept-Language": "en-US,en;q=0.8"}) as client:
         for _ in range(MAX_REDIRECTS + 1):
-            _check_host(current)
+            request, ip = _pinned_request(client, current)
             try:
-                with client.stream("GET", current) as resp:
+                resp = client.send(request, stream=True)
+                try:
+                    _check_peer(resp, ip)
                     if resp.is_redirect:
                         location = resp.headers.get("location")
                         if not location:
@@ -100,6 +157,8 @@ def fetch(url: str, max_bytes: int, accept: str) -> tuple[bytes, str, str]:
                             raise LinkError("The page is too large to read")
                         chunks.append(chunk)
                     return b"".join(chunks), resp.headers.get("content-type", ""), current
+                finally:
+                    resp.close()
             except httpx.TimeoutException as err:
                 raise LinkError("The website took too long to respond") from err
             except httpx.HTTPError as err:

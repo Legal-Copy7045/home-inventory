@@ -1,7 +1,7 @@
 # Home Assistant App manifest
 # https://developers.home-assistant.io/docs/add-ons/configuration
 name: Home Inventory
-version: "0.1.7"
+version: "0.2.0"
 slug: home_inventory
 description: >-
   Household inventory with AI photo identification, barcode and QR scanning,
@@ -23,10 +23,9 @@ homeassistant_api: true
 # Announce the internal API to the companion integration.
 discovery:
   - home_inventory
-# Shared /media is used only for short-lived image hand-off to AI Task.
-map:
-  - type: media
-    read_only: false
+# No shared folders are mounted. Photos for Home Assistant's AI Task are
+# handed over through Home Assistant's media API (upload, then remove), so the
+# App cannot read, overwrite or delete anything in /media.
 # The App is stopped briefly during backups so the SQLite database and
 # photos are captured consistently.
 backup: cold
@@ -45,6 +44,7 @@ options:
   warranty_notice_days: 30
   expiry_notice_days: 14
   max_upload_mb: 25
+  backup_max_mb: 2048
   log_level: info
 schema:
   ai_provider: list(home_assistant|gemini|anthropic|openai|ollama|none)
@@ -63,4 +63,5 @@ schema:
   warranty_notice_days: int(1,365)
   expiry_notice_days: int(1,365)
   max_upload_mb: int(1,100)
+  backup_max_mb: int(50,20000)
   log_level: list(debug|info|warning|error)

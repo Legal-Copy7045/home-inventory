@@ -86,7 +86,8 @@ class EventBus:
 
 
 def queue_event(db: Session, event_type: str, data: dict[str, Any]) -> None:
-    assert event_type in EVENT_TYPES, event_type
+    if event_type not in EVENT_TYPES:  # programming error, not user input
+        raise ValueError(f"Unknown event type {event_type}")
     db.info.setdefault("pending_events", []).append((event_type, data))
 
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "home-inventory-server"
-version = "0.1.7"
+version = "0.2.0"
 description = "Backend for the Home Inventory Home Assistant App"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -45,6 +45,15 @@ line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP"]
-ignore = ["B008", "E501", "UP042", "B905"]
+# "S" = flake8-bandit security rules.  Exclusions:
+#   S104 the server must listen on all interfaces inside the container; the
+#        Ingress port is not published and only the Supervisor's address is
+#        trusted (see auth.py).
+#   S110 deliberate best-effort fallbacks while parsing third-party pages.
+select = ["E", "F", "W", "I", "B", "UP", "S"]
+ignore = ["B008", "E501", "UP042", "B905", "S104", "S110"]
 exclude = ["home_inventory_server/migrations/versions"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests use asserts and dummy credentials by design.
+"tests/*" = ["S101", "S105", "S106", "S108"]

@@ -309,6 +309,8 @@ export interface Me {
   role: "admin" | "member" | "read_only";
   can_edit: boolean;
   is_admin: boolean;
+  /** True only while nobody can administer the app (first-run setup code). */
+  admin_setup?: boolean;
   channel: string;
   app: {
     version: string;

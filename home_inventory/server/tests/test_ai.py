@@ -138,11 +138,12 @@ def test_ai_image_downscaled(tmp_path, fake_ai):
     assert max(seen["size"]) == 100
 
 
-def test_ha_ai_task_provider(tmp_path, monkeypatch):
-    s = make_settings(tmp_path, ai_provider="home_assistant")
-    s.supervisor_token = "tok"
-    s.ha_media_dir = tmp_path / "media"
-    calls = {}
+def _ha_fakes(monkeypatch, upload_status=(200,)):
+    """Fake Home Assistant: states list, media upload, AI Task and WS remove."""
+    from home_inventory_server.ai import providers
+
+    calls = {"uploads": [], "removed": [], "stored": set()}
+    statuses = list(upload_status)
 
     def fake_get(url, headers, timeout):
         return httpx.Response(200, json=[
@@ -150,23 +151,84 @@ def test_ha_ai_task_provider(tmp_path, monkeypatch):
             {"entity_id": "ai_task.google_ai_task", "attributes": {"supported_features": 3}},
         ], request=httpx.Request("GET", url))
 
-    def fake_post(url, json, headers, timeout):
+    def fake_post(url, json=None, headers=None, timeout=None, data=None, files=None):
+        if url.endswith("/media_source/local_source/upload"):
+            folder, (name, content, ctype) = data["media_content_id"], files["file"]
+            calls["uploads"].append((folder, name, ctype, content))
+            status = statuses.pop(0) if statuses else 200
+            if status >= 400:
+                return httpx.Response(status)
+            media_id = f"{folder}/{name}"
+            calls["stored"].add(media_id)
+            return httpx.Response(200, json={"media_content_id": media_id})
         calls["url"], calls["body"] = url, json
         att = json["attachments"][0]["media_content_id"]
-        rel = att.split("media_source/local/")[1]
-        calls["file_existed"] = (s.ha_media_dir / rel).exists()
+        calls["file_existed"] = att in calls["stored"]
         return httpx.Response(200, json={"service_response": {"data": '```json\n{"name": "Mug", "confidence": 0.7}\n```'}})
+
+    def fake_ws(url, token, message):
+        calls["ws_url"] = url
+        assert message["type"] == "media_source/local_source/remove"
+        calls["removed"].append(message["media_content_id"])
+        calls["stored"].discard(message["media_content_id"])
 
     monkeypatch.setattr(httpx, "get", fake_get)
     monkeypatch.setattr(httpx, "post", fake_post)
+    monkeypatch.setattr(providers, "_ws_request", fake_ws)
+    return calls
+
+
+def test_ha_ai_task_provider_uses_media_api_not_a_mount(tmp_path, monkeypatch):
+    s = make_settings(tmp_path, ai_provider="home_assistant")
+    s.supervisor_token = "tok"
+    calls = _ha_fakes(monkeypatch)
     p = build_provider(s)
     assert isinstance(p, HomeAssistantAITaskProvider)
     out = p.generate_json("identify", {"type": "object"}, (b"jpegdata", "image/jpeg"), 10)
     assert json.loads(out)["name"] == "Mug"
     assert calls["body"]["entity_id"] == "ai_task.google_ai_task"
     assert calls["url"] == "http://supervisor/core/api/services/ai_task/generate_data?return_response"
+    folder, name, ctype, content = calls["uploads"][0]
+    assert folder == "media-source://media_source/local/home_inventory/.ai-tmp"
+    assert ctype == "image/jpeg" and content == b"jpegdata" and name.endswith(".jpg")
     assert calls["file_existed"] is True
-    assert list((s.ha_media_dir / "home_inventory/.ai-tmp").iterdir()) == []  # temp image removed
+    assert calls["removed"] == [f"{folder}/{name}"] and not calls["stored"]  # cleaned up
+    assert calls["ws_url"] == "ws://supervisor/core/websocket"
+
+
+def test_ha_ai_task_older_home_assistant_falls_back_to_media_root(tmp_path, monkeypatch):
+    s = make_settings(tmp_path, ai_provider="home_assistant")
+    s.supervisor_token = "tok"
+    calls = _ha_fakes(monkeypatch, upload_status=(400, 200))
+    build_provider(s).generate_json("identify", {"type": "object"}, (b"jpegdata", "image/jpeg"), 10)
+    assert calls["uploads"][1][0] == "media-source://media_source/local"
+    assert calls["uploads"][1][1].startswith("home_inventory_ai_")
+    assert not calls["stored"]
+
+
+def test_ha_ai_task_temp_photo_removed_even_when_ai_fails(tmp_path, monkeypatch):
+    s = make_settings(tmp_path, ai_provider="home_assistant")
+    s.supervisor_token = "tok"
+    calls = _ha_fakes(monkeypatch)
+    real_post = httpx.post
+
+    def failing(url, **kw):
+        if "generate_data" in url:
+            raise httpx.ConnectTimeout("boom")
+        return real_post(url, **kw)
+
+    monkeypatch.setattr(httpx, "post", failing)
+    with pytest.raises(AIProviderError):
+        build_provider(s).generate_json("identify", {"type": "object"}, (b"jpegdata", "image/jpeg"), 10)
+    assert calls["uploads"] and not calls["stored"]
+
+
+def test_app_manifest_does_not_mount_media():
+    import re
+    from pathlib import Path
+
+    text = (Path(__file__).resolve().parents[2] / "config.yaml").read_text()
+    assert not re.search(r"^map:", text, re.M), "the App must not mount shared folders"
 
 
 def test_openai_compatible_errors(monkeypatch):
