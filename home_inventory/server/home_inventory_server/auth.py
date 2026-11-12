@@ -24,6 +24,12 @@ Roles: ``admin`` > ``member`` > ``read_only``.  A user's role is the explicit
 override set by an administrator in the app, otherwise ``admin`` when the
 user is a Home Assistant administrator or listed in ``admin_users``,
 ``read_only`` when listed in ``read_only_users``, else the configured default.
+
+Nobody becomes an administrator by default.  If no administrator can be
+established (none in the database, none configured, Home Assistant's user
+list unavailable), :class:`AdminBootstrap` prints a one-time setup code in
+the App log - readable only by Home Assistant administrators - which one
+person can enter in the app to claim the administrator role.
 """
 
 from __future__ import annotations
@@ -31,6 +37,7 @@ from __future__ import annotations
 import hmac
 import logging
 import secrets
+import threading
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -39,6 +46,7 @@ from typing import Any
 
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .config import Settings
@@ -162,12 +170,9 @@ def _ws_call(settings: Settings, message: dict[str, Any]) -> Any:
 def effective_role(user: User, settings: Settings) -> Role:
     if user.role_override is not None:
         return user.role_override
-    ident = {user.ha_user_id, (user.username or "").lower(), (user.display_name or "").lower()}
-    admins = {a.lower() for a in settings.admin_users} | set(settings.admin_users)
-    readers = {a.lower() for a in settings.read_only_users} | set(settings.read_only_users)
-    if user.ha_is_admin or ident & admins:
+    if user.ha_is_admin or _listed(user, settings.admin_users):
         return Role.admin
-    if ident & readers:
+    if _listed(user, settings.read_only_users):
         return Role.read_only
     return Role(settings.default_role)
 
@@ -179,36 +184,124 @@ def upsert_user(
     display_name: str | None,
     ha_is_admin: bool | None,
 ) -> User:
+    """Create or refresh the user record for a Home Assistant identity.
+
+    ``ha_is_admin`` is ``None`` when Home Assistant could not be asked; the
+    stored flag is then left as it is, so a temporary outage neither grants
+    nor removes administrator rights.  Nobody is ever promoted here.
+    """
     user = db.scalar(select(User).where(User.ha_user_id == ha_user_id))
     now = datetime.now(UTC)
     if user is None:
         user = User(ha_user_id=ha_user_id, username=username, display_name=display_name, ha_is_admin=bool(ha_is_admin))
         db.add(user)
-        db.flush()
-        # Bootstrap: if Home Assistant cannot tell us who the administrators
-        # are and none is configured, the first person to open the app
-        # becomes the administrator so the app can be configured.
-        if ha_is_admin is None and not _any_admin(db, user.id):
-            user.role_override = Role.admin
-            _LOGGER.warning("No administrator known; granting admin role to first user %s", display_name or ha_user_id)
-    else:
-        if username:
-            user.username = username
-        if display_name:
-            user.display_name = display_name
-        if ha_is_admin is not None:
-            user.ha_is_admin = ha_is_admin
-        # Throttle last_seen writes.
-        last = user.last_seen if user.last_seen.tzinfo else user.last_seen.replace(tzinfo=UTC)
-        if (now - last).total_seconds() > 60:
-            user.last_seen = now
+        try:
+            db.commit()
+        except IntegrityError:
+            # The same person's first two requests raced; use the winner's row.
+            db.rollback()
+            user = db.scalar(select(User).where(User.ha_user_id == ha_user_id))
+            if user is None:  # pragma: no cover - would mean the row vanished
+                raise
+        return user
+    if username:
+        user.username = username
+    if display_name:
+        user.display_name = display_name
+    if ha_is_admin is not None:
+        user.ha_is_admin = ha_is_admin
+    # Throttle last_seen writes.
+    last = user.last_seen if user.last_seen.tzinfo else user.last_seen.replace(tzinfo=UTC)
+    if (now - last).total_seconds() > 60:
+        user.last_seen = now
     db.commit()
     return user
 
 
-def _any_admin(db: Session, exclude_id: int) -> bool:
-    users = db.scalars(select(User).where(User.id != exclude_id)).all()
-    return any(u.role_override == Role.admin or u.ha_is_admin for u in users)
+def admin_known(db: Session, settings: Settings, directory: HaAdminDirectory | None) -> bool:
+    """True when someone can act as administrator without the setup code."""
+    if settings.admin_users:
+        return True
+    if directory is not None and directory.available:
+        return True  # Home Assistant always has an owner, who is an admin here
+    users = db.scalars(select(User).where((User.role_override == Role.admin) | (User.ha_is_admin.is_(True)))).first()
+    return users is not None
+
+
+def _listed(user: User, names: list[str]) -> bool:
+    ident = {user.ha_user_id, (user.username or "").lower(), (user.display_name or "").lower()}
+    return bool(ident & ({n.lower() for n in names} | set(names)))
+
+
+class AdminBootstrap:
+    """One-time setup code for claiming the first administrator role.
+
+    Only offered while :func:`admin_known` is false.  The code is random,
+    kept in memory, written to the App log (which only Home Assistant
+    administrators can read) and replaced after a successful claim, after
+    ``MAX_ATTEMPTS`` wrong guesses and on every restart.
+    """
+
+    MAX_ATTEMPTS = 5
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._code: str | None = None
+        self._failures = 0
+
+    @staticmethod
+    def _new_code() -> str:
+        alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        raw = "".join(secrets.choice(alphabet) for _ in range(12))
+        return f"{raw[:4]}-{raw[4:8]}-{raw[8:]}"
+
+    def _issue(self) -> None:
+        self._code = self._new_code()
+        self._failures = 0
+        _LOGGER.warning(
+            "Home Inventory has no administrator yet. To become the administrator, open Inventory in the "
+            "sidebar and enter this setup code: %s  (or list your Home Assistant username under "
+            "admin_users in the App configuration)",
+            self._code,
+        )
+
+    def available(self, db: Session, settings: Settings, directory: HaAdminDirectory | None) -> bool:
+        if admin_known(db, settings, directory):
+            self._code = None
+            return False
+        with self._lock:
+            if self._code is None:
+                self._issue()
+        return True
+
+    def claim(self, db: Session, settings: Settings, directory: HaAdminDirectory | None, user: User, code: str) -> bool:
+        """Grant ``user`` the administrator role if ``code`` is right.
+
+        Serialised with a lock, so of several simultaneous claims at most one
+        succeeds.  Raises ``HTTPException`` for refusals.
+        """
+        with self._lock:
+            if admin_known(db, settings, directory):
+                self._code = None
+                raise HTTPException(status_code=409, detail="This app already has an administrator")
+            if _listed(user, settings.read_only_users):
+                raise HTTPException(status_code=403, detail="Your account is configured as read-only")
+            if self._code is None:
+                self._issue()
+                raise HTTPException(status_code=403, detail="A new setup code has been written to the App log")
+            supplied = "".join(ch for ch in code.upper() if ch.isalnum())
+            expected = self._code.replace("-", "")
+            if not hmac.compare_digest(supplied.encode(), expected.encode()):
+                self._failures += 1
+                if self._failures >= self.MAX_ATTEMPTS:
+                    _LOGGER.warning("Too many wrong setup codes; issuing a new one")
+                    self._issue()
+                raise HTTPException(status_code=403, detail="That setup code is not correct")
+            user.role_override = Role.admin
+            db.commit()
+            self._code = None
+            _LOGGER.warning("%s claimed the administrator role with the setup code", user.display_name or user.ha_user_id)
+            return True
 
 
 def system_user(db: Session, ha_user_id: str = SYSTEM_USER_ID, name: str = "System") -> User:
@@ -279,6 +372,11 @@ def resolve_actor(request: Request, db: Session) -> Actor:
 
 def get_db(request: Request):
     yield from request.app.state.db.session()
+
+
+def authenticated_actor(request: Request, db: Session = Depends(get_db)) -> Actor:
+    """Identity only, without the read-only write rule (first-run setup)."""
+    return resolve_actor(request, db)
 
 
 def current_actor(request: Request, db: Session = Depends(get_db)) -> Actor:

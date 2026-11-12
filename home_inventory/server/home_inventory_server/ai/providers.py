@@ -17,11 +17,14 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 from typing import Any, Protocol
 
 import httpx
 
 from ..config import Settings
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class AIProviderError(RuntimeError):
@@ -188,14 +191,17 @@ class GeminiProvider:
 class HomeAssistantAITaskProvider:
     """Runs prompts through Home Assistant's ``ai_task.generate_data`` action.
 
-    Images are passed as media-source attachments: the App writes a
-    temporary JPEG into the shared ``/media`` folder (mapped read/write) and
-    references it as ``media-source://media_source/local/...``; the file is
-    deleted as soon as the call returns.
+    Images are passed as media-source attachments.  The App does not mount
+    Home Assistant's ``/media`` folder: it uploads the photo through Home
+    Assistant's own media upload API into ``home_inventory/.ai-tmp`` (or,
+    on Home Assistant versions that can't create that folder, the media
+    root under a ``home_inventory_ai_`` name), and removes it again over the
+    WebSocket API as soon as the AI Task call returns.
     """
 
     name = "home_assistant"
     MEDIA_SUBDIR = "home_inventory/.ai-tmp"
+    MEDIA_ROOT_ID = "media-source://media_source/local"
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -207,7 +213,11 @@ class HomeAssistantAITaskProvider:
             self.token = settings.ha_token
         else:
             raise AIProviderError("Home Assistant API access is not available to the App")
-        self.media_root = settings.ha_media_dir
+        self.ws_url = (
+            settings.supervisor_url.replace("http", "ws", 1).rstrip("/") + "/core/websocket"
+            if settings.supervisor_token
+            else settings.ha_url.replace("http", "ws", 1).rstrip("/") + "/api/websocket"
+        )
         self.entity_id = settings.ai_task_entity or None
         self.model = self.entity_id or "auto"
 
@@ -234,6 +244,43 @@ class HomeAssistantAITaskProvider:
         self.model = self.entity_id
         return self.entity_id
 
+    def _upload_image(self, data: bytes, token: str, timeout: float) -> str:
+        """Upload a JPEG through Home Assistant's media API; return its media-source id."""
+        attempts = [
+            (f"{self.MEDIA_ROOT_ID}/{self.MEDIA_SUBDIR}", f"{token}.jpg"),
+            # Older Home Assistant versions don't create missing folders.
+            (self.MEDIA_ROOT_ID, f"home_inventory_ai_{token}.jpg"),
+        ]
+        last = None
+        for folder, filename in attempts:
+            try:
+                r = httpx.post(
+                    f"{self.base}/media_source/local_source/upload",
+                    data={"media_content_id": folder},
+                    files={"file": (filename, data, "image/jpeg")},
+                    headers=self._headers(),
+                    timeout=timeout,
+                )
+            except httpx.HTTPError as err:
+                raise AIProviderError(f"could not send the photo to Home Assistant: {err}", retryable=True) from err
+            if r.status_code < 400:
+                try:
+                    return r.json()["media_content_id"]
+                except (KeyError, ValueError):
+                    return f"{folder}/{filename}"
+            last = r
+            if r.status_code != 400:
+                break
+        if last is not None and last.status_code in (401, 403):
+            raise AIProviderError("Home Assistant refused the photo upload; the App needs Home Assistant API access")
+        raise AIProviderError(f"Home Assistant could not store the photo for AI Task ({last.status_code if last else '?'})")
+
+    def _remove_media(self, media_content_id: str) -> None:
+        try:
+            _ws_request(self.ws_url, self.token, {"type": "media_source/local_source/remove", "media_content_id": media_content_id})
+        except Exception as err:  # noqa: BLE001 - never fail the AI call over cleanup
+            _LOGGER.warning("Could not remove temporary AI photo %s from Home Assistant media: %s", media_content_id, err)
+
     def generate_json(self, prompt, schema, image, timeout):
         import secrets as _secrets
 
@@ -243,19 +290,11 @@ class HomeAssistantAITaskProvider:
             f"JSON Schema:\n{json.dumps(schema)}"
         )
         body: dict[str, Any] = {"task_name": "home_inventory", "entity_id": entity, "instructions": instructions}
-        tmp = None
+        uploaded = None
         if image is not None:
             data, _mime = image
-            folder = self.media_root / self.MEDIA_SUBDIR
-            folder.mkdir(parents=True, exist_ok=True)
-            tmp = folder / f"{_secrets.token_hex(12)}.jpg"
-            tmp.write_bytes(data)
-            body["attachments"] = [
-                {
-                    "media_content_id": f"media-source://media_source/local/{self.MEDIA_SUBDIR}/{tmp.name}",
-                    "media_content_type": "image/jpeg",
-                }
-            ]
+            uploaded = self._upload_image(data, _secrets.token_hex(12), timeout)
+            body["attachments"] = [{"media_content_id": uploaded, "media_content_type": "image/jpeg"}]
         try:
             r = httpx.post(
                 f"{self.base}/services/ai_task/generate_data?return_response",
@@ -268,8 +307,8 @@ class HomeAssistantAITaskProvider:
         except httpx.HTTPError as err:
             raise AIProviderError(f"could not reach Home Assistant: {err}", retryable=True) from err
         finally:
-            if tmp is not None:
-                tmp.unlink(missing_ok=True)
+            if uploaded is not None:
+                self._remove_media(uploaded)
         if r.status_code >= 500:
             raise AIProviderError(f"Home Assistant AI Task failed ({r.status_code}): {r.text[:200]}", retryable=True)
         if r.status_code >= 400:
@@ -281,6 +320,24 @@ class HomeAssistantAITaskProvider:
         if isinstance(data, dict):
             return data
         return _strip_fences(str(data))
+
+
+def _ws_request(url: str, token: str, message: dict[str, Any]) -> Any:
+    """One Home Assistant WebSocket command (authenticate, send, await result)."""
+    from websockets.sync.client import connect  # type: ignore[import-not-found]
+
+    with connect(url, open_timeout=5, close_timeout=2) as ws:
+        json.loads(ws.recv(timeout=5))  # auth_required
+        ws.send(json.dumps({"type": "auth", "access_token": token}))
+        if json.loads(ws.recv(timeout=5)).get("type") != "auth_ok":
+            raise RuntimeError("authentication with Home Assistant failed")
+        ws.send(json.dumps({"id": 1, **message}))
+        while True:
+            reply = json.loads(ws.recv(timeout=10))
+            if reply.get("id") == 1:
+                if not reply.get("success"):
+                    raise RuntimeError(reply.get("error", {}).get("message", "request failed"))
+                return reply.get("result")
 
 
 def build_provider(settings: Settings) -> Provider:

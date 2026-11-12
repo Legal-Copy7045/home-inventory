@@ -43,5 +43,8 @@ configuration:
     description: Fire an expiry event this many days before an item's use-by date.
   max_upload_mb:
     name: Maximum upload size (MB)
+  backup_max_mb:
+    name: Maximum backup size for restore (MB)
+    description: Largest backup archive the Restore function accepts.
   log_level:
     name: Log level
