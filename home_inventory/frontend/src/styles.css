@@ -370,6 +370,8 @@ button.linkish { background: none; border: 0; padding: 0; color: var(--primary);
   box-shadow: 0 6px 24px rgba(0,0,0,.18);
 }
 .selection-bar > b { flex-basis: 100%; }
+.selection-bar[role="status"] > span:first-child { font-weight: 600; }
+.selection-bar[role="status"] > .btn { flex: none; }
 .selection-bar > .spacer { display: none; }
 .selection-bar > .btn { flex: 1; justify-content: center; }
 @media (min-width: 640px) {

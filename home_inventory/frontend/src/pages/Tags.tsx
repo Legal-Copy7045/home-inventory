@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Copy, ExternalLink, Nfc, QrCode, RefreshCw, Smartphone } from "lucide-react";
+import { ArrowRightLeft, Copy, ExternalLink, Nfc, QrCode, RefreshCw, Smartphone } from "lucide-react";
 import { api, appBaseUrl, url, type Item } from "../api";
 import { Empty, ErrorBox, Section, Sheet, Spinner, fmtWhen, useAction, useApi, useMe, useToast } from "../components/ui";
 
@@ -258,6 +258,7 @@ export function TagsPage() {
   const [status, setStatus] = useState<"active" | "inactive" | "lost" | "">("active");
   const tags = useApi(() => api.get<TagRow[]>("tags", { status: status || undefined, base: base || undefined }), [status]);
   const [qr, setQr] = useState<TagRow | null>(null);
+  const [moving, setMoving] = useState<TagRow | null>(null);
   const { busy, run } = useAction();
   const update = async (t: TagRow, body: Record<string, unknown>, msg: string) => {
     if (await run(() => api.patch(`tags/${t.id}`, body), msg)) tags.reload();
@@ -292,6 +293,7 @@ export function TagsPage() {
                   {t.status === "active"
                     ? <button className="btn small" disabled={busy} onClick={() => update(t, { status: "inactive" }, "Tag deactivated")}>Deactivate</button>
                     : <button className="btn small" disabled={busy} onClick={() => update(t, { status: "active" }, "Tag active")}>Reactivate</button>}
+                  <button className="btn small" disabled={busy} onClick={() => setMoving(t)}><ArrowRightLeft size={16} /> Move to…</button>
                   <button className="btn small" disabled={busy} onClick={() => replace(t)}><RefreshCw size={16} /> Replace</button>
                 </div>
               )}
@@ -299,6 +301,13 @@ export function TagsPage() {
           ))}
         </ul>
       ) : <Empty>No {status || ""} tags. Assign tags from an item, container, location or kit page.</Empty>}
+      {moving && (
+        <ReassignSheet tag={moving} onClose={() => setMoving(null)} onPick={async (type, id, name) => {
+          const t = moving;
+          setMoving(null);
+          await update(t, { target_type: type, target_id: id }, `Tag now opens ${name}`);
+        }} />
+      )}
       {qr && (
         <Sheet title="Tag link" onClose={() => setQr(null)}>
           <div className="stack">
@@ -336,4 +345,49 @@ export function ScanWithPhone() {
     }
   };
   return <button className="btn block" style={{ marginBottom: 10 }} disabled={busy} onClick={scan}><Nfc size={18} /> {busy ? "Hold a tag to the phone…" : "Scan an NFC tag"}</button>;
+}
+
+type TargetType = "item" | "container" | "location" | "kit";
+
+/** Point an existing tag at a different item, container, location or kit (the physical tag keeps working). */
+function ReassignSheet({ tag, onClose, onPick }: { tag: TagRow; onClose: () => void; onPick: (type: TargetType, id: number, name: string) => void }) {
+  const [type, setType] = useState<TargetType>(tag.target_type as TargetType);
+  const [q, setQ] = useState("");
+  const rows = useApi<{ id: number; name: string; sub: string }[]>(async () => {
+    const ql = q.trim().toLowerCase();
+    const match = (s: string) => !ql || s.toLowerCase().includes(ql);
+    if (type === "item") {
+      const r = await api.get<{ items: { id: number; display_name: string; placement: { path: string } }[] }>("items", { q: q.trim() || undefined, limit: 40 });
+      return r.items.map((i) => ({ id: i.id, name: i.display_name, sub: i.placement.path }));
+    }
+    if (type === "container") {
+      const r = await api.get<{ id: number; name: string; number: string | null; path: string }[]>("containers");
+      return r.filter((c) => match(`${c.name} ${c.number ?? ""} ${c.path}`)).slice(0, 60).map((c) => ({ id: c.id, name: `${c.number ? `#${c.number} ` : ""}${c.name}`, sub: c.path }));
+    }
+    if (type === "location") {
+      const r = await api.get<{ id: number; name: string; path: string }[]>("locations");
+      return r.filter((l) => match(l.path)).slice(0, 60).map((l) => ({ id: l.id, name: l.name, sub: l.path }));
+    }
+    const r = await api.get<{ id: number; name: string }[]>("kits");
+    return r.filter((k) => match(k.name)).slice(0, 60).map((k) => ({ id: k.id, name: k.name, sub: "Kit" }));
+  }, [type, q]);
+  return (
+    <Sheet title="Move tag to…" onClose={onClose}>
+      <p className="muted" style={{ marginTop: 0 }}>The same physical tag will open the new choice. Currently: {tag.target_name || `deleted ${tag.target_type}`}.</p>
+      <div className="tabs">
+        {(["item", "container", "location", "kit"] as const).map((t) => (
+          <button key={t} className={type === t ? "active" : ""} onClick={() => setType(t)}>{t[0].toUpperCase() + t.slice(1)}</button>
+        ))}
+      </div>
+      <input autoFocus placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="list card tight" style={{ marginTop: 10, maxHeight: 360, overflow: "auto" }}>
+        {rows.loading && !rows.data ? <Spinner /> : (rows.data || []).map((r) => (
+          <a key={r.id} href="#" onClick={(e) => { e.preventDefault(); onPick(type, r.id, r.name); }}>
+            <div className="grow"><div className="t">{r.name}</div><div className="s">{r.sub}</div></div>
+          </a>
+        ))}
+        {rows.data && !rows.data.length && <div className="empty">Nothing matches.</div>}
+      </div>
+    </Sheet>
+  );
 }

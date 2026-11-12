@@ -69,7 +69,7 @@ def test_bulk_actions_are_all_or_nothing_and_validated(env):
     assert u.post("/api/v1/items/bulk-delete", json={"item_ids": [a["id"], 999999]}).status_code == 404
     assert u.ok("get", f"/api/v1/items/{a['id']}")["deleted_at"] is None
     assert u.post("/api/v1/items/bulk-move", json={"item_ids": [a["id"]], "location_id": 999999}).status_code == 409
-    assert u.post("/api/v1/items/bulk-edit", json={"item_ids": list(range(1, 502)), "category": "X"}).status_code == 422
+    assert u.post("/api/v1/items/bulk-edit", json={"item_ids": list(range(1, 2002)), "category": "X"}).status_code == 422  # over BULK_MAX
 
 
 def test_bulk_actions_need_member(env):

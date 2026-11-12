@@ -13,9 +13,9 @@ Build, test and lint commands are in `docs/development.md`, and CI runs them in 
 - **Versions:** `python3 .github/scripts/check_versions.py` when versions change.
 - **Database changes:** follow "Database changes" in `docs/development.md`. A migration bumps at least the minor version.
 
-## Mandatory CodeRabbit Code Review
+## CodeRabbit Code Review (when available)
 
-Every logical feature, bug fix, refactor and dependency update gets a CodeRabbit review before it is reported as done. A successful build alone is not completion.
+Use CodeRabbit to review each logical feature, bug fix, refactor and dependency update **when it is installed and authenticated**. It is not mandatory: if it can't run (not installed, not authenticated, unavailable, rate-limited), skip it and say so in the completion report. A successful build alone is still not completion; the project checks above always apply.
 
 ### Tooling
 
@@ -29,7 +29,7 @@ Two things are needed. Installing the plugin does not install or authenticate th
   - Check readiness: `coderabbit auth status --agent`. Continue only on `authenticated: true`. Otherwise ask the user to run `coderabbit auth login`.
   - Without the plugin, run the CLI directly: `coderabbit review --agent`. Add `--base main` for a branch's committed changes, or `--uncommitted` for the working tree.
 
-### Workflow, for every meaningful change
+### Workflow, when CodeRabbit is available
 
 1. Finish the requested implementation.
 2. Run the relevant project checks listed above.
@@ -47,7 +47,7 @@ Two things are needed. Installing the plugin does not install or authenticate th
 - **Only claim reviews that finished.** Say a review succeeded only after it actually completed:
   - heartbeats or partial output are not a result;
   - `review_skipped` with zero findings is not a clean review.
-- **Never skip silently.** If a review can't run (not installed, not authenticated, unavailable, rate-limited, misconfigured), stop and tell the user why. Ask whether to fix the blocker or go ahead without the review, and record the answer in the completion report.
+- **Never skip silently.** If a review can't run, carry on without it and state why in the completion report. Don't stop the task to ask.
 - **No secrets.** The CLI sends diffs and repository context to CodeRabbit. Before a review, check that the scope holds no secrets or credentials; untracked files are only included if asked for. Never pass tokens or credentials to the review.
 
 ### Completion report
@@ -56,5 +56,5 @@ End each development task with:
 
 - **Changes:** what was implemented.
 - **Checks:** build, test and lint results, including anything not run and why.
-- **CodeRabbit:** whether the review completed, and how many rounds.
+- **CodeRabbit:** whether a review ran and completed (and how many rounds), or why it was skipped.
 - **Findings:** counts by severity, which ones were fixed, and every finding left open with its justification.

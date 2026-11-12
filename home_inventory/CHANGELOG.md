@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.0
+
+### Fixed
+- **The Items page showed at most 300 items.** It now pages through everything with **Show more**. Filtering and paging happen in the database, so large inventories stay fast.
+- **Select all** on the Items page now selects every item matching the filter, not just the ones on screen.
+- **Changing an item's status could leave a loan open.** Setting a lent-out item to "In storage" (singly or in bulk) is now refused; mark the loan returned instead.
+
+### New
+- **Undo after deleting**, and a **Recently deleted** page (link under the Items list) to restore several items at once.
+- **Multi-select everywhere:** container contents, a location's loose items, search results and To finish, as well as Items.
+- **Bulk Lend** (several items to one person) and **Add to kit** (an existing kit or a new one), next to Move, Edit and Delete.
+- **NFC tags: Move to…** points an existing tag at a different item, container, location or kit.
+
 ## 0.9.0
 
 - **Photo inventory for shelves.** Open a location (a shelf, racking bay, bench or wall) and tap **Photo inventory**. The AI lists every kind of item in the one photo, with quantities and where each is ("top shelf, left").

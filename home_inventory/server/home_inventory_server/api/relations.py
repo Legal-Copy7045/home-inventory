@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import Actor, current_actor, get_db, require_member
 from ..models import Item, ItemRelation, Kit, KitMember
-from ..schemas import KitIn, KitMemberIn, KitMemberPatch, KitPatch, RelationIn
+from ..schemas import BulkKitIn, KitIn, KitMemberIn, KitMemberPatch, KitPatch, RelationIn
 from ..services import relations as rel_svc
 
 router = APIRouter(prefix="/api/v1")
@@ -107,6 +107,23 @@ def add_member(kit_id: int, data: KitMemberIn, actor: Actor = Depends(require_me
     _run(rel_svc.add_member, db, actor, kit, data.item_id, data.quantity, data.optional, data.note)
     db.commit()
     return rel_svc.kit_out(db, kit, detail=True)
+
+
+@router.post("/kits/{kit_id}/members/bulk")
+def add_members(kit_id: int, data: BulkKitIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Add several items to a kit (multi-select).  Items already in the kit
+    are skipped; anything else wrong rolls the whole request back."""
+    kit = _kit(db, kit_id)
+    present = {m.item_id for m in kit.members}
+    added = []
+    for item_id in dict.fromkeys(data.item_ids):
+        _item(db, item_id)
+        if item_id in present:
+            continue
+        _run(rel_svc.add_member, db, actor, kit, item_id, 1, False, None)
+        added.append(item_id)
+    db.commit()
+    return {"added": added, "kit": rel_svc.kit_out(db, kit, detail=True)}
 
 
 @router.patch("/kits/{kit_id}/members/{member_id}")
