@@ -234,6 +234,20 @@ def test_spoken_answer_wording():
     assert pick("the lawn mower", choices) is None
     # An exact name among several answers directly
     assert spoken_answer("siphon pump hose", hoses)[1] is None
+    # In a box: the box first, then where the box is
+    def boxed(name, *boxes, rooms=("Shed", "Rear Right Shelving", "Middle Shelf")):
+        return {"display_name": name, "status": "stored", "placement": {
+            "path": "ignored", "container_path": list(boxes), "location_path": [{"name": r} for r in rooms]}}
+    tote = {"name": "Hoses", "number": "1", "type": "Plastic tote"}
+    assert spoken_answer("hose", [boxed("Water hose", tote)])[0] == (
+        "Water hose is in Plastic tote number 1, labelled Hoses, located in Shed, Rear Right Shelving, Middle Shelf.")
+    assert spoken_answer("hose", [boxed("Water hose", {"name": "Hoses", "number": "1"})])[0] == (
+        "Water hose is in Hoses number 1, located in Shed, Rear Right Shelving, Middle Shelf.")  # older App: no type
+    tin = {"name": "Fittings tin", "number": None, "type": "Tin"}  # type already in the name
+    assert spoken_answer("washer", [boxed("Washer", tote, tin)])[0] == (
+        "Washer is in Fittings tin, inside Plastic tote number 1, labelled Hoses, located in Shed, Rear Right Shelving, Middle Shelf.")
+    assert spoken_answer("x", [boxed("X", {"name": "Loft box", "number": "4", "type": "Crate"}, rooms=())])[0] == (
+        "X is in Crate number 4, labelled Loft box.")
     many = [item(f"Thing {c}", "Shed") for c in "abcdefgh"]
     text, choices = spoken_answer("thing", many)
     assert text.startswith("I found 8 things for thing, including Thing a, Thing b, Thing c and Thing d.") and len(choices) == 6
