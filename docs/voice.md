@@ -49,6 +49,22 @@ Other languages: put a file with the same intent name in `custom_sentences/<lang
 
 If you use an AI conversation agent (OpenAI, Gemini…) with Assist, you can also expose the `home_inventory.get_item_location` action through a script (see `home-assistant.md`) so the agent can look things up.
 
+### How names are matched
+
+Names are compared in a forgiving but careful way:
+
+- Case, punctuation and extra spaces don't matter, and a leading "the" or "my" is ignored.
+- Plurals match singulars: "wood screws" = "Wood screw", "batteries" = "Battery", "shelves" = "Shelf".
+- Words that are singular but end in "s" are left alone: "Glass", "Compass", "Status", "Chassis".
+- Words that are only ever plural keep their meaning: "Safety glasses" is not "Safety glass", and "Pliers" stays "Pliers".
+- Sizes and model numbers are compared as written:
+  - "50 ft", "50 feet", "50-foot" and "50'" are the same.
+  - "2.5 mm" is not "25 mm".
+  - "HRX-217" = "HRX 217" = "HRX217".
+- Hyphens, apostrophes and "&" don't matter: "self-propelled" = "self propelled", "Pat's bike" = "Pats bike".
+
+If two different things still match, it asks which one you meant rather than guessing.
+
 ## 2. Siri
 
 Siri can't call Home Assistant intents by itself, but it can run an Apple Shortcut that sends text to Assist using the Home Assistant companion app:
@@ -115,6 +131,24 @@ You need:
 
 9. Open the **Test** tab and set "Skill testing is enabled in" to **Development**. Type or say: `ask home inventory where the hedge trimmer is`.
 10. Then try it on your Echo: "Alexa, ask Home Inventory where the hedge trimmer is". You can also say "Alexa, open Home Inventory" and then ask.
+
+### Get the answer on your phone too
+
+So you don't have to ask Alexa to repeat itself, Home Inventory can also send the answer as a notification, including where the thing is, to your phone.
+
+1. Go to Settings → Devices & services → **Home Inventory** → **Configure**.
+2. Set **Also send voice answers to your phone** to one of:
+   - **Alexa answers only**;
+   - **All voice answers**, which also covers Assist and Siri.
+3. Choose the **Notification action**. The Home Assistant companion app adds one for each phone, named `mobile_app_<phone name>`.
+4. Select **Submit**.
+
+What gets sent:
+- Only final answers, such as *"Kink Control Plus Water Hose 50ft is in Plastic tote number 1, located in Shed, Rear right shelving."*
+- "Which one did you mean?" questions and "I couldn't find…" answers aren't sent.
+- If the notification can't be sent, the spoken answer still works.
+
+The notification goes through Home Assistant's own notify action, so it uses whatever that action reaches: the companion app's push service, or any other notify integration you choose.
 
 ### If something goes wrong
 

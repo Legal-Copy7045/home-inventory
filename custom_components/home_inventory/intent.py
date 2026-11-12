@@ -15,6 +15,9 @@ The question ends with "?" and carries a reprompt, which keeps the
 conversation open: Assist voice devices listen again, and Home Assistant's
 Alexa integration keeps the Alexa session open.
 
+Final answers can also go to a phone as a notification (the integration's
+options: off, Alexa only, or all voice assistants).
+
 Any voice front end that hands Home Assistant an intent can use these:
 Assist (with the custom sentences in ``docs/voice.md``), Siri through a
 Shortcut that passes text to Assist, and an Alexa custom skill.
@@ -22,6 +25,7 @@ Shortcut that passes text to Assist, and an Alexa custom skill.
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 from difflib import SequenceMatcher
@@ -33,9 +37,11 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import intent
 
 from .api import InventoryError
-from .const import DOMAIN
+from .const import CONF_NOTIFY_SERVICE, CONF_VOICE_NOTIFY, DOMAIN, NAME, VOICE_NOTIFY_ALEXA, VOICE_NOTIFY_ALL
 from .names import key as name_key
 from .names import normalize
+
+_LOGGER = logging.getLogger(__name__)
 
 INTENT_WHERE_IS = "HomeInventoryWhereIs"
 INTENT_CHOOSE = "HomeInventoryChoose"
@@ -198,6 +204,28 @@ async def _search(intent_obj: intent.Intent, query: str) -> list[dict[str, Any]]
     return r.get("results") or []
 
 
+async def _notify(intent_obj: intent.Intent, answer: str) -> None:
+    """Also send a final answer as a notification, if that's turned on.
+
+    Only answers that found something are sent (not questions, not "I
+    couldn't find…").  A notification that fails never spoils the spoken answer.
+    """
+    hass = intent_obj.hass
+    entries = hass.config_entries.async_entries(DOMAIN)
+    opts = entries[0].options if entries else {}
+    mode, service = opts.get(CONF_VOICE_NOTIFY), opts.get(CONF_NOTIFY_SERVICE)
+    if not service or mode not in (VOICE_NOTIFY_ALEXA, VOICE_NOTIFY_ALL):
+        return
+    if mode == VOICE_NOTIFY_ALEXA and intent_obj.platform != "alexa":
+        return
+    try:
+        await hass.services.async_call(
+            "notify", service, {"title": NAME, "message": answer}, blocking=False, context=intent_obj.context
+        )
+    except Exception as err:  # noqa: BLE001 - never break the voice answer
+        _LOGGER.warning("Couldn't send the voice answer to notify.%s: %s", service, err)
+
+
 def _ask(response: intent.IntentResponse, speech: str, reprompt: str) -> None:
     response.async_set_speech(speech)
     response.async_set_reprompt(reprompt)  # keeps an Alexa session open
@@ -228,6 +256,8 @@ class WhereIsHandler(intent.IntentHandler):
         else:
             pending.pop(_key(intent_obj), None)
             response.async_set_speech(speech)
+            if results:
+                await _notify(intent_obj, speech)
         return response
 
 
@@ -253,7 +283,9 @@ class ChooseHandler(intent.IntentHandler):
             _ask(response, f"Sorry, which one: {_list(names[:4])}?", "Which one did you mean?")
             return response
         pending.pop(key, None)
-        response.async_set_speech(answer_for(group))
+        speech = answer_for(group)
+        response.async_set_speech(speech)
+        await _notify(intent_obj, speech)
         return response
 
 

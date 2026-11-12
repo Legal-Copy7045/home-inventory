@@ -310,3 +310,58 @@ async def test_alexa_custom_skill_request_is_answered(hass: HomeAssistant, inven
     resp = await intent.async_handle(hass, "alexa", "HomeInventoryWhereIs",
                                      {"item": {"value": "axle stand"}, "item_Id": {"value": None}})
     assert resp.speech["plain"]["speech"].startswith("Axle stand is in Garage")
+
+
+async def test_voice_answers_sent_as_notification(hass: HomeAssistant, inventory_app):
+    from homeassistant.helpers import intent
+    from pytest_homeassistant_custom_component.common import async_mock_service
+
+    from custom_components.home_inventory.const import CONF_NOTIFY_SERVICE, CONF_VOICE_NOTIFY
+
+    sent = async_mock_service(hass, "notify", "mobile_app_phone")
+    shed = inventory_app.seed["shed"]
+    for name in ("Notify test rake", "Notify test leaf rake"):
+        inventory_app.ui("POST", "items", {"name": name, "location_id": shed["id"]})
+    entry = await _setup_via_user_flow(hass, inventory_app)
+
+    async def options(**values):
+        flow = await hass.config_entries.options.async_init(entry.entry_id)
+        return await hass.config_entries.options.async_configure(flow["flow_id"], values)
+
+    # Off by default
+    await intent.async_handle(hass, "alexa", "HomeInventoryWhereIs", {"item": {"value": "axle stand"}})
+    await hass.async_block_till_done()
+    assert sent == []
+    # Turning it on needs a notify action that exists
+    assert (await options(voice_notify="alexa"))["errors"] == {CONF_NOTIFY_SERVICE: "notify_service_required"}
+    assert (await options(voice_notify="alexa", notify_service="nope"))["errors"] == {CONF_NOTIFY_SERVICE: "notify_service_unknown"}
+    result = await options(voice_notify="alexa", notify_service="notify.mobile_app_phone")
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    assert entry.options[CONF_NOTIFY_SERVICE] == "mobile_app_phone" and entry.options[CONF_VOICE_NOTIFY] == "alexa"
+
+    resp = await intent.async_handle(hass, "alexa", "HomeInventoryWhereIs", {"item": {"value": "axle stand"}})
+    await hass.async_block_till_done()
+    assert len(sent) == 1 and sent[0].data == {"title": "Home Inventory", "message": resp.speech["plain"]["speech"]}
+    # Questions and "couldn't find" aren't sent; the chosen answer is
+    await intent.async_handle(hass, "alexa", "HomeInventoryWhereIs", {"item": {"value": "unicorn saddle"}})
+    await intent.async_handle(hass, "alexa", "HomeInventoryWhereIs", {"item": {"value": "notify test"}})
+    await hass.async_block_till_done()
+    assert len(sent) == 1
+    await intent.async_handle(hass, "alexa", "HomeInventoryChoose", {"choice": {"value": "the leaf rake"}})
+    await hass.async_block_till_done()
+    assert len(sent) == 2 and sent[1].data["message"] == "Notify test leaf rake is in Shed."
+    # "Alexa only": Assist answers aren't sent; "all": they are
+    await intent.async_handle(hass, "conversation", "HomeInventoryWhereIs", {"item": {"value": "axle stand"}})
+    await hass.async_block_till_done()
+    assert len(sent) == 2
+    await options(voice_notify="all", notify_service="mobile_app_phone")
+    await hass.async_block_till_done()
+    await intent.async_handle(hass, "conversation", "HomeInventoryWhereIs", {"item": {"value": "axle stand"}})
+    await hass.async_block_till_done()
+    assert len(sent) == 3
+    # A notify action that has since gone away doesn't break the spoken answer
+    hass.services.async_remove("notify", "mobile_app_phone")
+    resp = await intent.async_handle(hass, "alexa", "HomeInventoryWhereIs", {"item": {"value": "axle stand"}})
+    assert resp.speech["plain"]["speech"].startswith("Axle stand is in Garage")
+    await hass.config_entries.async_unload(entry.entry_id)
