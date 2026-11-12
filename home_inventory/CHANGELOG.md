@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.11.0
+
+- **Photo inventory of a whole area.** Photograph a whole shelving rack, bench, pegboard or corner of a room, choosing "Photo inventory" on a location. The AI:
+  - works out the layout (racks or units and their shelves);
+  - recognises each thing and puts it on the right shelf;
+  - turns labelled boxes and totes into containers, using their label as the name.
+  
+  You review the layout and every row before anything is saved. Only the shelves you actually use are created, and existing shelves and boxes are matched by name, so photographing the same area again doesn't duplicate them. It works with any layout, including a single shelf or a photo with no shelves at all.
+- **Voice answers on your phone.** A new integration option, "Also send voice answers to your phone" (off, Alexa only, or all voice assistants), sends the final answer with its location as a notification through the notify action you choose, so you don't have to ask again. Questions and "couldn't find" answers aren't sent.
+- **Fixed: voice name matching.** Plurals are now made singular by explicit rules instead of dropping every final "s". So:
+  - "Glass", "Compass", "Class" and "Status" match again;
+  - "Safety glasses" stays different from "Safety glass";
+  - sizes ("50 ft" = "50ft" = "50-foot") and model numbers ("HRX-217" = "HRX 217") match however they're written, and different sizes never match.
+
 ## 0.10.3
 
 - **Voice answers use "are" for plural names:** "Wood screws are in Basement…", "Pliers are lent to Sam", while "Axle stand is…" and "Box of screws is…" stay singular. It goes by the name, not the quantity.

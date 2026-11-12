@@ -10,10 +10,24 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig, SelectSelectorMode
 from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 
 from .api import InventoryAuthError, InventoryClient, InventoryError
-from .const import CONF_PANEL, CONF_SCAN_INTERVAL, CONF_TOKEN, CONF_URL, DEFAULT_SCAN_INTERVAL, DOMAIN, NAME
+from .const import (
+    CONF_NOTIFY_SERVICE,
+    CONF_PANEL,
+    CONF_SCAN_INTERVAL,
+    CONF_TOKEN,
+    CONF_URL,
+    CONF_VOICE_NOTIFY,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    NAME,
+    VOICE_NOTIFY_ALEXA,
+    VOICE_NOTIFY_ALL,
+    VOICE_NOTIFY_OFF,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -101,16 +115,37 @@ class HomeInventoryConfigFlow(ConfigFlow, domain=DOMAIN):
 
 class HomeInventoryOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        notify = sorted(self.hass.services.async_services_for_domain("notify"))
+        errors: dict[str, str] = {}
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
-        opts = self.config_entry.options
+            service = (user_input.get(CONF_NOTIFY_SERVICE) or "").strip().removeprefix("notify.")
+            user_input[CONF_NOTIFY_SERVICE] = service
+            if user_input.get(CONF_VOICE_NOTIFY, VOICE_NOTIFY_OFF) != VOICE_NOTIFY_OFF:
+                if not service:
+                    errors[CONF_NOTIFY_SERVICE] = "notify_service_required"
+                elif service not in notify:
+                    errors[CONF_NOTIFY_SERVICE] = "notify_service_unknown"
+            if not errors:
+                return self.async_create_entry(data=user_input)
+        opts = {**self.config_entry.options, **(user_input or {})}
         return self.async_show_form(
             step_id="init",
+            errors=errors,
             data_schema=vol.Schema(
                 {
                     vol.Optional(CONF_PANEL, default=opts.get(CONF_PANEL, False)): bool,
                     vol.Optional(CONF_SCAN_INTERVAL, default=opts.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)): vol.All(
                         vol.Coerce(int), vol.Range(min=30, max=3600)
+                    ),
+                    vol.Optional(CONF_VOICE_NOTIFY, default=opts.get(CONF_VOICE_NOTIFY, VOICE_NOTIFY_OFF)): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[VOICE_NOTIFY_OFF, VOICE_NOTIFY_ALEXA, VOICE_NOTIFY_ALL],
+                            translation_key=CONF_VOICE_NOTIFY,
+                            mode=SelectSelectorMode.LIST,
+                        )
+                    ),
+                    vol.Optional(CONF_NOTIFY_SERVICE, default=opts.get(CONF_NOTIFY_SERVICE, "")): SelectSelector(
+                        SelectSelectorConfig(options=notify, custom_value=True, mode=SelectSelectorMode.DROPDOWN)
                     ),
                 }
             ),
