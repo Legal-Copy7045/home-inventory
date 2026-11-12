@@ -26,7 +26,7 @@ export default function ToFinish() {
               </Link>
             ))}
           </div>
-        ) : <Empty>Nothing to finish. Use <b>Quick photos</b> on a container or location to photograph several items in a row and add their details later.</Empty>}
+        ) : <Empty>Nothing to finish. Use <b>Quick photos</b> to photograph several items in a row and add their details later.</Empty>}
       </div>
     </div>
   );

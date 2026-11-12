@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { TagsSection } from "./Tags";
-import { AlertTriangle, Box, ChevronDown, ChevronRight, Clock, FileSpreadsheet, Images, Map as MapIcon, MapPin, Package, Pencil, Plus, Printer, QrCode, ScanBarcode, Search as SearchIcon, Sparkles, Trash2 } from "lucide-react";
+import { AlertTriangle, Box, Camera, ChevronDown, ChevronRight, Clock, FileSpreadsheet, Images, Map as MapIcon, MapPin, Package, Pencil, Plus, Printer, QrCode, ScanBarcode, Search as SearchIcon, Sparkles, Trash2 } from "lucide-react";
 import { api, qrImageUrl, type Dashboard, type Item, type LocationDetail, type LocationNode, type SearchResult } from "../api";
 import { LocationImportSheet } from "../components/LocationImport";
 import { PlacementPicker } from "../components/PlacementPicker";
@@ -32,6 +32,7 @@ export function DashboardPage() {
         <Link to="/scan"><span className="ico"><ScanBarcode size={20} /></span>Scan barcode</Link>
         <Link to="/scan"><span className="ico"><QrCode size={20} /></span>Scan container</Link>
         {me.can_edit && <Link to="/containers?new=1"><span className="ico"><Box size={20} /></span>Add container</Link>}
+        {me.can_edit && <Link to="/capture" style={{ gridColumn: "1 / -1" }}><span className="ico"><Camera size={20} /></span>Quick photos — snap now, sort onto shelves later</Link>}
       </div>
       <ErrorBox error={d.error} />
       {!s ? <Spinner /> : (
@@ -43,6 +44,7 @@ export function DashboardPage() {
             <Link className={`stat ${s.expired ? "alert" : ""}`} to="/loans?tab=expiry"><div className="v">{s.expiring_soon + s.expired}</div><div className="l">Expiring / expired</div></Link>
             {(s.repairs_awaiting_pickup ?? 0) > 0 && <Link className="stat" to="/repairs"><div className="v" style={{ color: "var(--ok)" }}>{s.repairs_awaiting_pickup}</div><div className="l">Repairs ready for pickup</div></Link>}
             {(s.maintenance_overdue ?? 0) > 0 && <Link className="stat alert" to="/maintenance"><div className="v">{s.maintenance_overdue}</div><div className="l">Maintenance overdue</div></Link>}
+            {(s.unsorted_photos ?? 0) > 0 && <Link className="stat" to="/sort"><div className="v" style={{ color: "var(--primary)" }}>{s.unsorted_photos}</div><div className="l">To sort (no place yet)</div></Link>}
             {s.needs_details > 0 && <Link className="stat" to="/to-finish"><div className="v" style={{ color: "var(--primary)" }}>{s.needs_details}</div><div className="l">To finish (quick photos)</div></Link>}
             {s.low_stock > 0 && <Link className="stat alert" to="/loans?tab=stock"><div className="v">{s.low_stock}</div><div className="l">Running low</div></Link>}
             {s.total_value > 0 && <div className="stat"><div className="v" style={{ fontSize: "1.2rem" }}>{money(s.total_value, s.currency)}</div><div className="l">Recorded value</div></div>}
