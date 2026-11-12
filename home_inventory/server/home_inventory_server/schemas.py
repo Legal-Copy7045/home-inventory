@@ -472,3 +472,46 @@ class RepairJobIn(RepairJobFields):
 class RepairStatusIn(_In):
     status: RepairStatus
     note: str | None = Field(default=None, max_length=2000)
+
+
+# ---------------------------------------------------------------------------
+# Relationships and kits
+# ---------------------------------------------------------------------------
+
+
+class RelationIn(_In):
+    other_item_id: int
+    relation_type: Literal["accessory_of", "component_of", "compatible_with", "stored_with", "replacement_for", "custom"]
+    # "this_to_other": this item is <type> the other (e.g. this hose is an
+    # accessory of that compressor).  "other_to_this": the reverse.
+    direction: Literal["this_to_other", "other_to_this"] = "this_to_other"
+    custom_label: str | None = Field(default=None, max_length=60)
+    note: str | None = Field(default=None, max_length=300)
+
+
+class KitIn(_In):
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=5000)
+    container_id: int | None = None
+    location_id: int | None = None
+    item_ids: list[int] = Field(default_factory=list, max_length=200)
+
+
+class KitPatch(_In):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=5000)
+    container_id: int | None = None
+    location_id: int | None = None
+
+
+class KitMemberIn(_In):
+    item_id: int
+    quantity: int = Field(default=1, ge=1, le=10000)
+    optional: bool = False
+    note: str | None = Field(default=None, max_length=300)
+
+
+class KitMemberPatch(_In):
+    quantity: int | None = Field(default=None, ge=1, le=10000)
+    optional: bool | None = None
+    note: str | None = Field(default=None, max_length=300)

@@ -171,6 +171,21 @@ export function ItemRow({ item, right }: { item: Item; right?: ReactNode }) {
         <div className="s">{item.placement.path}</div>
         <div className="row wrap" style={{ gap: 4, marginTop: 2 }}>
           <StatusBadge item={item} />
+          {item.related?.map((r) => (
+            <button
+              key={`r${r.id}`}
+              type="button"
+              className="badge maplink"
+              title={r.label}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                nav(`/items/${r.item.id}`);
+              }}
+            >
+              {r.label}: {r.item.name}
+            </button>
+          ))}
           {/* Map links are buttons, not links: a link inside the row link is invalid HTML. */}
           {item.maps?.map((m) => (
             <button
