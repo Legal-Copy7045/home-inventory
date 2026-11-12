@@ -16,7 +16,11 @@ FOLDER = "media-source://media_source/local/home_inventory/.ai-tmp"
 
 async def test_upload_creates_folder_and_remove_deletes(hass, hass_client, hass_ws_client, tmp_path):
     hass.config.media_dirs = {"local": str(tmp_path)}
+    # Set up every component before the first client: creating a client
+    # freezes Home Assistant's HTTP router.
+    assert await async_setup_component(hass, "websocket_api", {})
     assert await async_setup_component(hass, "media_source", {})
+    ws = await hass_ws_client()
     client = await hass_client()
 
     form = aiohttp.FormData()
@@ -29,7 +33,6 @@ async def test_upload_creates_folder_and_remove_deletes(hass, hass_client, hass_
     stored = tmp_path / "home_inventory" / ".ai-tmp" / "abc123.jpg"
     assert stored.read_bytes().startswith(b"\xff\xd8")  # missing folders were created
 
-    ws = await hass_ws_client()
     await ws.send_json({"id": 1, "type": "media_source/local_source/remove", "media_content_id": media_id})
     reply = await ws.receive_json()
     assert reply["success"], reply
