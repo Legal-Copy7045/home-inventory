@@ -102,9 +102,7 @@ export function SearchPage() {
                 {r.data.answer}
                 {r.data.interpretation.by.startsWith("ai") && <div className="muted" style={{ fontSize: ".8rem", marginTop: 4 }}><Sparkles size={12} /> Question interpreted by AI; results come from your inventory.</div>}
               </div>
-              <div className="card tight">
-                {r.data.results.length ? <div className="list">{r.data.results.map((i) => <ItemRow key={i.id} item={i} />)}</div> : <Empty>No matches.</Empty>}
-              </div>
+              <SelectableItems items={r.data.results} onChanged={r.reload} resetKey={params.get("q") || ""} empty={<Empty>No matches.</Empty>} />
             </>
           )}
         </>
@@ -121,7 +119,18 @@ export function ItemsPage() {
   const loose = params.get("loose") === "1";
   const cats = useApi(() => api.get<{ id: number; name: string; item_count: number }[]>("categories"), []);
   const category = params.get("category") || "";
-  const list = useApi(() => api.get<{ total: number; items: Item[] }>("items", { q, sort, status, category, loose: loose || undefined, limit: 300 }), [q, sort, status, category, loose]);
+  const filters = { q, sort, status, category, loose: loose || undefined };
+  const key = JSON.stringify(filters);
+  const PAGE = 100;
+  const list = useApi(() => api.get<{ total: number; items: Item[] }>("items", { ...filters, limit: PAGE }), [key]);
+  // Further pages are appended to the first one ("Show more").
+  const [more, setMore] = useState<Item[]>([]);
+  useEffect(() => setMore([]), [list.data]);
+  const shown = [...(list.data?.items || []), ...more];
+  const loadMore = async () => {
+    const r = await api.get<{ total: number; items: Item[] }>("items", { ...filters, limit: PAGE, offset: shown.length });
+    setMore((m) => [...m, ...r.items]);
+  };
   const set = (k: string, v: string) => { const p = new URLSearchParams(params); if (v) p.set(k, v); else p.delete(k); setParams(p, { replace: true }); };
   return (
     <div className="page">
@@ -140,10 +149,24 @@ export function ItemsPage() {
         </select>
         <label className="check"><input type="checkbox" checked={loose} onChange={(e) => set("loose", e.target.checked ? "1" : "")} /> Loose only</label>
       </div>
-      {list.loading && !list.data ? <Spinner /> : list.data?.items.length ? (
-        <SelectableItems items={list.data.items} groupByPlace={sort === "location"} onChanged={list.reload} />
-      ) : <div className="card tight"><Empty>No items.</Empty></div>}
-      {list.data && <p className="muted">{list.data.total} record{list.data.total === 1 ? "" : "s"}</p>}
+      {list.loading && !list.data ? <Spinner /> : (
+        <SelectableItems
+          items={shown}
+          total={list.data?.total}
+          groupByPlace={sort === "location"}
+          onChanged={list.reload}
+          onLoadMore={loadMore}
+          allIds={() => api.get<{ ids: number[] }>("items/ids", filters).then((r) => r.ids)}
+          resetKey={key}
+          empty={<Empty>No items.</Empty>}
+        />
+      )}
+      {list.data && (
+        <p className="muted row between">
+          <span>{list.data.total} record{list.data.total === 1 ? "" : "s"}</span>
+          <Link to="/deleted">Recently deleted</Link>
+        </p>
+      )}
     </div>
   );
 }
@@ -275,7 +298,9 @@ export function LocationDetailPage() {
       )}
       {l.children!.length > 0 && <Section title="Inside" tight><div className="list">{l.children!.map((c) => <Link key={c.id} to={`/locations/${c.id}`}><MapPin size={20} /><div className="grow"><div className="t">{c.name}</div>{c.kind && <div className="s">{c.kind}</div>}</div><ChevronRight size={18} /></Link>)}</div></Section>}
       {l.containers!.length > 0 && <Section title="Containers" tight><div className="list">{l.containers!.map((c) => <ContainerRow key={c.id} c={c} />)}</div></Section>}
-      <Section title="Loose items" tight>{l.items!.length ? <div className="list">{l.items!.map((i) => <ItemRow key={i.id} item={i} />)}</div> : <Empty>No loose items here.</Empty>}</Section>
+      <Section title="Loose items" tight>
+        <SelectableItems bare items={l.items!} onChanged={d.reload} empty={<Empty>No loose items here.</Empty>} />
+      </Section>
       <TagsSection targetType="location" targetId={l.id} name={l.name} />
       {l.maps!.length > 0 && <Section title="Visual maps">{l.maps!.map((m) => <Link key={m.id} className="btn" to={`/maps/${m.id}`} style={{ marginRight: 8 }}>{m.title}</Link>)}</Section>}
       {me.can_edit && (

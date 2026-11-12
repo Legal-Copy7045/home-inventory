@@ -138,10 +138,14 @@ class ItemPatch(ProductFields, PurchaseFields):
     primary_photo_id: int | None = None
 
 
+# Most items one bulk action takes ("select all" on the Items page).
+BULK_MAX = 2000
+
+
 class PlaceItemsIn(_In):
     """Put several items in one place (sorting quick photos onto shelves)."""
 
-    item_ids: list[int] = Field(min_length=1, max_length=500)
+    item_ids: list[int] = Field(min_length=1, max_length=BULK_MAX)
     container_id: int | None = None
     location_id: int | None = None
 
@@ -153,7 +157,7 @@ class PlaceItemsIn(_In):
 
 
 class BulkItemsIn(_In):
-    item_ids: list[int] = Field(min_length=1, max_length=500)
+    item_ids: list[int] = Field(min_length=1, max_length=BULK_MAX)
 
 
 class BulkDeleteIn(BulkItemsIn):
@@ -174,6 +178,16 @@ class BulkEditIn(BulkItemsIn):
         if not (self.model_fields_set - {"item_ids"}):
             raise ValueError("Choose at least one thing to change")
         return self
+
+
+class BulkKitIn(BulkItemsIn):
+    pass
+
+
+class BulkLendIn(BulkItemsIn):
+    borrower: str = Field(min_length=1, max_length=200)
+    expected_return: date | None = None
+    notes: str | None = Field(default=None, max_length=2000)
 
 
 class MoveIn(_In):
