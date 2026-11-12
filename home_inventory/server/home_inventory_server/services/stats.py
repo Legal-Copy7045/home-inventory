@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..events import queue_event
 from ..models import Container, HistoryEvent, IdentificationStatus, Item, ItemStatus, Loan, Location, Product, Setting
+from .customers import household_only
 from .inventory import item_out, loan_out
 from .placement import Resolver
 
@@ -23,7 +24,8 @@ def currency(db: Session) -> str:
 
 def stats(db: Session, warranty_days: int = 30, expiry_days: int = 14) -> dict[str, Any]:
     today = date.today()
-    live_items = select(Item).join(Product).where(Item.deleted_at.is_(None), Product.deleted_at.is_(None))
+    # Household totals: customer equipment is left out.
+    live_items = select(Item).join(Product).where(Item.deleted_at.is_(None), Product.deleted_at.is_(None), household_only())
     items = db.scalars(live_items).all()
     total_qty = sum(i.quantity for i in items)
     value = sum(((i.purchase_price or Decimal(0)) * i.quantity for i in items), Decimal(0))
@@ -73,14 +75,16 @@ def dashboard(db: Session, warranty_days: int = 30, expiry_days: int = 14) -> di
     warr = db.scalars(
         select(Item)
         .options(selectinload(Item.product), selectinload(Item.loans))
-        .where(Item.deleted_at.is_(None), Item.warranty_expires.is_not(None), Item.warranty_expires >= today, Item.warranty_expires <= soon)
+        .where(Item.deleted_at.is_(None), Item.warranty_expires.is_not(None), Item.warranty_expires >= today, Item.warranty_expires <= soon,
+               household_only())
         .order_by(Item.warranty_expires)
         .limit(10)
     ).all()
     expiring = db.scalars(
         select(Item)
         .options(selectinload(Item.product), selectinload(Item.loans))
-        .where(Item.deleted_at.is_(None), Item.quantity > 0, Item.expires_on.is_not(None), Item.expires_on <= today + timedelta(days=expiry_days))
+        .where(Item.deleted_at.is_(None), Item.quantity > 0, Item.expires_on.is_not(None), Item.expires_on <= today + timedelta(days=expiry_days),
+               household_only())
         .order_by(Item.expires_on)
         .limit(10)
     ).all()
@@ -124,6 +128,7 @@ def warranty_check(db: Session, days: int) -> int:
             Item.warranty_expires >= today,
             Item.warranty_expires <= soon,
             Item.warranty_notified_at.is_(None),
+            household_only(),
         )
     ).all()
     for it in items:
@@ -170,6 +175,7 @@ def expiry_check(db: Session, days: int) -> int:
             Item.expires_on.is_not(None),
             Item.expires_on <= today + timedelta(days=days),
             Item.expiry_notified_at.is_(None),
+            household_only(),
         )
     ).all()
     r = Resolver.load(db)

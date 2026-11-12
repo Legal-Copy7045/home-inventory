@@ -73,6 +73,7 @@ from ..schemas import (
 from ..services import backup as backup_svc
 from ..services import barcode as barcode_svc
 from ..services import capture as capture_svc
+from ..services import customers as customers_svc
 from ..services import inventory as inv
 from ..services import labels as labels_svc
 from ..services import location_import, weblink
@@ -180,6 +181,7 @@ def stats(request: Request, actor: Actor = Depends(current_actor), db: Session =
     s = _state(request).settings
     st = stats_svc.stats(db, s.warranty_notice_days, s.expiry_notice_days)
     st.update(maintenance_svc.counts(db))
+    st.update(customers_svc.counts(db))
     if st["last_activity"]:
         st["last_activity"] = st["last_activity"].isoformat()
     return st
@@ -759,6 +761,7 @@ async def upload_attachment(
     item_id: int | None = Form(None),
     container_id: int | None = Form(None),
     location_id: int | None = Form(None),
+    repair_job_id: int | None = Form(None),
     caption: str | None = Form(None),
     actor: Actor = Depends(require_member),
     db: Session = Depends(get_db),
@@ -774,6 +777,16 @@ async def upload_attachment(
     for model, oid in ((Item, item_id), (Container, container_id), (Location, location_id)):
         if oid is not None:
             _get_or_404(db, model, oid)
+    job = None
+    if repair_job_id is not None:
+        from ..models import RepairJob
+
+        job = db.get(RepairJob, repair_job_id)
+        if job is None or job.deleted_at is not None:
+            raise HTTPException(404, "Repair job not found")
+        if owners:
+            raise HTTPException(422, "A repair job photo is attached to the job's equipment automatically")
+        item_id = job.item_id
     try:
         stored = await asyncio.to_thread(st.media.save, data, kind is not AttachmentKind.photo)
     except MediaError as err:
@@ -786,11 +799,14 @@ async def upload_attachment(
         original_name=(file.filename or "")[:255] or None,
         caption=(caption or "")[:300] or None,
         created_by_id=actor.user_id,
+        repair_job_id=job.id if job else None,
         **stored.__dict__,
     )
     db.add(att)
     db.flush()
-    if item_id and kind is AttachmentKind.photo:
+    if job is not None:
+        audit.record(db, actor, "repair_document", "item", item_id or 0, f"{job.number}: added {kind.value}")
+    elif item_id and kind is AttachmentKind.photo:
         item = db.get(Item, item_id)
         if item.primary_photo_id is None:
             item.primary_photo_id = att.id
@@ -1231,6 +1247,11 @@ def history(
     db: Session = Depends(get_db),
 ):
     stmt = select(HistoryEvent)
+    if not actor.can(Role.member):
+        # Entries that name customers are for members and administrators only.
+        stmt = stmt.where(HistoryEvent.entity_type != "customer",
+                          ~HistoryEvent.action.like("repair\\_%", escape="\\"),
+                          ~HistoryEvent.action.like("owner\\_%", escape="\\"))
     if container_id:
         stmt = stmt.where(
             or_(

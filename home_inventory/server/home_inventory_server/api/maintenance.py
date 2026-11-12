@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth import Actor, current_actor, get_db, require_member
-from ..models import Attachment, EquipmentProfile, Item, MaintenanceTask, MeterKind, ServiceEvent
+from ..models import Attachment, EquipmentProfile, Item, MaintenanceTask, MeterKind, Role, ServiceEvent
 from ..schemas import DeferIn, EquipmentIn, MeterReadingIn, NotApplicableIn, ServiceIn, SkipIn, TaskFields, TaskIn
 from ..services import inventory as inv
 from ..services import maintenance as mnt
@@ -66,9 +67,21 @@ def presets(actor: Actor = Depends(current_actor)):
 
 
 @router.get("/maintenance/dashboard")
-def maintenance_dashboard(within: int = Query(30, ge=0, le=365), actor: Actor = Depends(current_actor),
-                          db: Session = Depends(get_db)):
-    return mnt.dashboard(db, within_days=within)
+def maintenance_dashboard(within: int = Query(30, ge=0, le=365),
+                          owner: Literal["all", "household", "customer"] = "all",
+                          actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    from ..services import customers as cust
+
+    if owner == "customer" and not actor.can(Role.member):
+        raise HTTPException(403, "Customer equipment is visible to members only")
+    item_filter = {"household": cust.household_only(), "customer": cust.customer_owned()}.get(owner)
+    if item_filter is None and not actor.can(Role.member):
+        item_filter = cust.household_only()
+    out = mnt.dashboard(db, within_days=within, item_filter=item_filter)
+    if actor.can(Role.member) and owner != "household":
+        out["repairs_in_progress"] = [cust.job_out(db, j) for j in cust.list_jobs(db, "open", None, None)]
+        out["awaiting_pickup"] = [cust.job_out(db, j) for j in cust.list_jobs(db, "pickup", None, None)]
+    return out
 
 
 @router.get("/items/{item_id}/maintenance")

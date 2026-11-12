@@ -67,13 +67,14 @@ export const api = {
     }),
 };
 
-export async function uploadPhoto(file: Blob, opts: { kind?: string; item_id?: number; container_id?: number; location_id?: number; name?: string } = {}) {
+export async function uploadPhoto(file: Blob, opts: { kind?: string; item_id?: number; container_id?: number; location_id?: number; repair_job_id?: number; name?: string } = {}) {
   const f = new FormData();
   f.append("file", file, opts.name || (file instanceof File ? file.name : "photo.jpg"));
   f.append("kind", opts.kind || "photo");
   if (opts.item_id) f.append("item_id", String(opts.item_id));
   if (opts.container_id) f.append("container_id", String(opts.container_id));
   if (opts.location_id) f.append("location_id", String(opts.location_id));
+  if (opts.repair_job_id) f.append("repair_job_id", String(opts.repair_job_id));
   return api.upload<Attachment>("attachments", f);
 }
 
@@ -154,6 +155,8 @@ export interface Item {
   id: number;
   product_id: number;
   name: string;
+  /** Set when the item belongs to a customer, not the household. */
+  owner?: ItemOwner | null;
   label: string | null;
   display_name: string;
   category: string | null;
@@ -285,6 +288,8 @@ export interface Stats {
   missing: number;
   needs_details: number;
   maintenance_overdue?: number;
+  repairs_in_progress?: number;
+  repairs_awaiting_pickup?: number;
   maintenance_due_soon?: number;
 }
 
@@ -550,10 +555,81 @@ export interface MaintPreset {
 }
 
 export interface MaintDashboard {
+  repairs_in_progress?: RepairJob[];
+  awaiting_pickup?: RepairJob[];
   within_days: number;
   overdue: MaintTask[];
   due: MaintTask[];
   no_records: { id: number; name: string; equipment_type: string | null }[];
   recent: ServiceEntry[];
   equipment_count: number;
+}
+
+// ---------------------------------------------------------------- customers & repairs
+
+export interface ItemOwner {
+  kind: "customer";
+  customer_id: number | null;
+  name: string | null;
+}
+
+export interface Customer {
+  id: number;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  notes: string | null;
+  deleted: boolean;
+  equipment_count?: number;
+  open_jobs?: number;
+}
+
+export type RepairStatus = "received" | "awaiting_diagnosis" | "awaiting_approval" | "waiting_for_parts" | "in_progress" | "completed" | "returned" | "cancelled";
+
+export const REPAIR_STATUS_LABELS: Record<RepairStatus, string> = {
+  received: "Received",
+  awaiting_diagnosis: "Awaiting diagnosis",
+  awaiting_approval: "Awaiting approval",
+  waiting_for_parts: "Waiting for parts",
+  in_progress: "In progress",
+  completed: "Ready for pickup",
+  returned: "Returned",
+  cancelled: "Cancelled",
+};
+
+export interface RepairJob {
+  id: number;
+  number: string;
+  status: RepairStatus;
+  status_label: string;
+  open: boolean;
+  awaiting_pickup: boolean;
+  customer: { id: number; name: string; phone?: string | null; email?: string | null; address?: string | null };
+  item: { id: number | null; name: string | null; serial_number: string | null; manufacturer?: string | null; model_number?: string | null };
+  received_on: string;
+  completed_on: string | null;
+  returned_on: string | null;
+  reported_problem: string | null;
+  estimate: number | null;
+  labor_charge: number | null;
+  parts_charge: number | null;
+  total: number;
+  currency: string | null;
+  // detail only
+  condition_received?: string | null;
+  diagnosis?: string | null;
+  approval_notes?: string | null;
+  notes?: string | null;
+  labor_charge_set?: number | null;
+  parts_charge_set?: number | null;
+  service?: ServiceEntry[];
+  attachments?: Attachment[];
+  history?: { ts: string; from: string | null; to: RepairStatus; to_label: string; note: string | null; user: string | null }[];
+}
+
+export interface CustomerDetail extends Customer {
+  equipment: { id: number; name: string; manufacturer: string | null; model_number: string | null; serial_number: string | null }[];
+  jobs: RepairJob[];
+  contacts: { id: number; contacted_at: string; channel: string | null; note: string }[];
 }
