@@ -292,3 +292,107 @@ class SearchIn(_In):
     q: str = Field(min_length=1, max_length=500)
     use_ai: bool = True
     limit: int = Field(default=50, ge=1, le=200)
+
+
+# ---------------------------------------------------------------------------
+# Equipment maintenance
+# ---------------------------------------------------------------------------
+
+Hours = Decimal
+
+
+class SpecEntry(_In):
+    label: str = Field(min_length=1, max_length=120)
+    value: str | None = Field(default=None, max_length=300)
+    kind: Literal["spec", "part"] = "spec"
+    part_number: str | None = Field(default=None, max_length=120)
+
+
+class EquipmentIn(_In):
+    preset: str | None = Field(default=None, max_length=40)
+    equipment_type: str | None = Field(default=None, max_length=80)
+    engine_manufacturer: str | None = Field(default=None, max_length=120)
+    engine_model: str | None = Field(default=None, max_length=120)
+    engine_serial: str | None = Field(default=None, max_length=120)
+    fuel_type: str | None = Field(default=None, max_length=60)
+    meter: Literal["none", "hours", "cycles", "both"] | None = None
+    specs: list[SpecEntry] | None = Field(default=None, max_length=60)
+    notes: str | None = Field(default=None, max_length=10000)
+    # When starting to track used equipment: schedules start from here.
+    current_hours: Hours | None = Field(default=None, ge=0, le=1_000_000, max_digits=10, decimal_places=1)
+    current_cycles: int | None = Field(default=None, ge=0)
+
+    _blank = field_validator(
+        "equipment_type", "engine_manufacturer", "engine_model", "engine_serial", "fuel_type", "notes", mode="before"
+    )(_blank_to_none)
+
+
+class TaskFields(_In):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    instructions: str | None = Field(default=None, max_length=5000)
+    interval_days: int | None = Field(default=None, gt=0, le=3650)
+    interval_hours: Hours | None = Field(default=None, gt=0, le=100000, max_digits=10, decimal_places=1)
+    interval_cycles: int | None = Field(default=None, gt=0, le=100000)
+    due_soon_days: int | None = Field(default=None, ge=0, le=365)
+    due_soon_hours: Hours | None = Field(default=None, ge=0, le=10000, max_digits=10, decimal_places=1)
+    due_soon_cycles: int | None = Field(default=None, ge=0, le=10000)
+    last_done_on: date | None = None
+    last_done_hours: Hours | None = Field(default=None, ge=0, max_digits=10, decimal_places=1)
+    last_done_cycles: int | None = Field(default=None, ge=0)
+    next_due_on: date | None = None
+    next_due_hours: Hours | None = Field(default=None, ge=0, max_digits=10, decimal_places=1)
+    next_due_cycles: int | None = Field(default=None, ge=0)
+
+    _blank = field_validator("instructions", mode="before")(_blank_to_none)
+
+
+class TaskIn(TaskFields):
+    title: str = Field(min_length=1, max_length=200)
+    first_due_on: date | None = None
+
+
+class PartIn(_In):
+    description: str = Field(min_length=1, max_length=300)
+    part_number: str | None = Field(default=None, max_length=120)
+    quantity: Decimal = Field(default=Decimal("1"), gt=0, max_digits=10, decimal_places=2)
+    unit_cost: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    item_id: int | None = None
+    # Take the quantity out of that inventory holding.
+    deduct_stock: bool = False
+
+
+class ServiceIn(_In):
+    title: str | None = Field(default=None, max_length=200)
+    performed_on: date | None = None
+    hours: Hours | None = Field(default=None, ge=0, max_digits=10, decimal_places=1)
+    cycles: int | None = Field(default=None, ge=0)
+    work_performed: str | None = Field(default=None, max_length=10000)
+    notes: str | None = Field(default=None, max_length=10000)
+    performed_by: str | None = Field(default=None, max_length=120)
+    labor_cost: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    parts: list[PartIn] = Field(default_factory=list, max_length=50)
+    attachment_ids: list[int] = Field(default_factory=list, max_length=30)
+
+    _blank = field_validator("title", "work_performed", "notes", "performed_by", mode="before")(_blank_to_none)
+
+
+class SkipIn(_In):
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class DeferIn(_In):
+    until: date
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class NotApplicableIn(_In):
+    value: bool = True
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class MeterReadingIn(_In):
+    kind: Literal["hours", "cycles"] = "hours"
+    value: Hours = Field(ge=0, le=1_000_000, max_digits=10, decimal_places=1)
+    estimated: bool = False
+    correction: bool = False
+    note: str | None = Field(default=None, max_length=300)

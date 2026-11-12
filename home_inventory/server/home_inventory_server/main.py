@@ -27,6 +27,7 @@ from sqlalchemy import select
 
 from . import __version__
 from .ai import AIService
+from .api.maintenance import router as maintenance_router
 from .api.routes import router
 from .auth import AdminBootstrap, HaAdminDirectory, load_or_create_token
 from .config import Settings
@@ -129,6 +130,7 @@ def create_app(state: AppState, channel: str) -> FastAPI:
     app.state.write_lock = state.write_lock
     app.state.reopen_database = state.reopen_database
     app.include_router(router)
+    app.include_router(maintenance_router)
 
     def body_limit(path: str) -> int:
         if path.endswith("/backup/restore"):
