@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { HashRouter, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Activity, ArrowLeft, Box, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings } from "lucide-react";
+import { Activity, ArrowLeft, Box, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings, Wrench } from "lucide-react";
 import { api, appBaseUrl, labelRef, type Me, type QrTarget } from "./api";
 import { MeContext, Sheet, Spinner, ToastHost, useToast } from "./components/ui";
 import AddItem from "./pages/AddItem";
@@ -9,6 +9,7 @@ import { ContainerDetail, ContainersPage } from "./pages/Containers";
 import ItemDetail from "./pages/ItemDetail";
 import { MapView, MapsPage } from "./pages/Maps";
 import { ActivityPage, LabelsPage, LoansPage, SettingsPage } from "./pages/Other";
+import { MaintenancePage } from "./pages/Maintenance";
 import QuickCapture from "./pages/QuickCapture";
 import ScanPage from "./pages/ScanPage";
 import ToFinish from "./pages/ToFinish";
@@ -20,6 +21,7 @@ const NAV = [
   { to: "/scan", label: "Scan", icon: ScanLine },
   { to: "/items", label: "Items", icon: Package },
   { to: "/to-finish", label: "To finish", icon: ListChecks },
+  { to: "/maintenance", label: "Maintenance", icon: Wrench },
   { to: "/containers", label: "Containers", icon: Box },
   { to: "/locations", label: "Locations", icon: MapPin },
   { to: "/maps", label: "Visual Maps", icon: MapIcon },
@@ -32,7 +34,7 @@ const NAV = [
 const TITLES: [RegExp, string][] = [
   [/^\/$/, "Home Inventory"], [/^\/search/, "Search"], [/^\/add/, "Add item"], [/^\/scan/, "Scan"], [/^\/items\/\d+/, "Item"], [/^\/items/, "Items"],
   [/^\/containers\/\d+/, "Container"], [/^\/containers/, "Containers"], [/^\/locations/, "Locations"], [/^\/maps/, "Visual maps"], [/^\/labels/, "Labels"],
-  [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/activity/, "Activity"], [/^\/loans/, "Loans & temporary"], [/^\/settings/, "Settings"],
+  [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/maintenance/, "Maintenance"], [/^\/activity/, "Activity"], [/^\/loans/, "Loans & temporary"], [/^\/settings/, "Settings"],
 ];
 
 /** QR labels can encode `<base>?c=CODE`; open the container when launched that way. */
@@ -133,7 +135,7 @@ function Shell({ me }: { me: Me }) {
   const [more, setMore] = useState(false);
   useEffect(() => { setMore(false); window.scrollTo(0, 0); }, [loc.pathname]);
   const title = TITLES.find(([re]) => re.test(loc.pathname))?.[1] || "Home Inventory";
-  const isRoot = ["/", "/search", "/scan", "/items", "/to-finish", "/containers", "/locations", "/maps", "/labels", "/activity", "/loans", "/settings"].includes(loc.pathname);
+  const isRoot = ["/", "/search", "/scan", "/items", "/to-finish", "/maintenance", "/containers", "/locations", "/maps", "/labels", "/activity", "/loans", "/settings"].includes(loc.pathname);
   const items = NAV.filter((n) => !n.edit || me.can_edit);
   return (
     <div className="app">
@@ -158,6 +160,7 @@ function Shell({ me }: { me: Me }) {
           <Route path="/scan" element={<ScanPage />} />
           <Route path="/capture" element={<QuickCapture />} />
           <Route path="/to-finish" element={<ToFinish />} />
+          <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/items" element={<ItemsPage />} />
           <Route path="/items/:id" element={<ItemDetail />} />
           <Route path="/containers" element={<ContainersPage />} />

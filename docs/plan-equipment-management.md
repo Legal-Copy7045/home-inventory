@@ -1,6 +1,6 @@
 # Plan: security remediation and equipment management
 
-Status: **Phase 1 complete (0.2.0).** Phases 2–6 to follow. This document records verified findings, design decisions and the phase plan. Each phase ships as its own pull request with tests, and gets its own section below once it lands.
+Status: **Phases 1 (0.2.0) and 2 (0.3.0) complete.** Phases 3–6 to follow. This document records verified findings, design decisions and the phase plan. Each phase ships as its own pull request with tests, and gets its own section below once it lands.
 
 ## Ground rules
 
@@ -62,7 +62,18 @@ Status: **Phase 1 complete (0.2.0).** Phases 2–6 to follow. This document reco
    - CodeQL already runs through GitHub default setup.
    - A route-level authorization test asserts that every mutating route rejects read-only users and that the API channel requires the token.
 
-## Phase 2: maintenance foundation
+## Phase 2: maintenance foundation (done, 0.3.0)
+
+**As built:**
+- Migration `0003`. It is additive: five new tables, plus a nullable `attachments.service_event_id` with a named FK, added by an atomic batch rebuild with FKs off, then `foreign_key_check`. To roll back, restore the automatic pre-migration snapshot in `/data/backups`. The Alembic `downgrade()` also exists.
+- Endpoints (`api/maintenance.py`):
+  - `GET /maintenance/presets`, `GET /maintenance/dashboard?within=`
+  - `GET /items/{id}/maintenance`, `PUT|DELETE /items/{id}/equipment` (with `current_hours`)
+  - `POST /items/{id}/maintenance-tasks`, `PATCH|DELETE /maintenance-tasks/{id}`, `POST /maintenance-tasks/{id}/complete|skip|defer|not-applicable`
+  - `POST /items/{id}/meter-readings`, `POST /items/{id}/service-events`, `DELETE /service-events/{id}`
+  - `/stats` gains `maintenance_overdue` and `maintenance_due_soon`.
+- Tests: `tests/test_maintenance.py` (15), the route authorization walk, and the e2e maintenance flow.
+
 
 New tables:
 - `equipment_profiles`, one per item and optional:

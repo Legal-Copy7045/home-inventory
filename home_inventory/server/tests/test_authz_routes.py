@@ -21,9 +21,10 @@ READ_ONLY_ALLOWED: set[tuple[str, str]] = {("POST", "/api/v1/setup/claim-admin")
 
 
 def _routes(app):
+    from home_inventory_server.api.maintenance import router as maintenance_router
     from home_inventory_server.api.routes import router
 
-    routes = [r for r in router.routes if isinstance(r, APIRoute)]
+    routes = [r for rt in (router, maintenance_router) for r in rt.routes if isinstance(r, APIRoute)]
     assert len(routes) > 50, "route walk found too few routes"
     for r in routes:
         for method in r.methods - {"HEAD", "OPTIONS"}:

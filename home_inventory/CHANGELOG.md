@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0
+
+- **Maintenance tracking** for equipment: open an item and tap **Track maintenance**.
+  - Ready-made starting points for lawn mowers, string trimmers, chainsaws, leaf blowers, generators, pressure washers and snow blowers, or any other equipment.
+  - Equipment details: engine make, model and serial, fuel, and your own list of specifications and part numbers (oil, spark plug, filters…).
+  - Tasks by calendar, operating hours, uses (e.g. tanks of fuel), or any mix, whichever comes first. One-off tasks too.
+  - Log operating hours, including estimates for machines with no hour meter.
+  - Record service with parts (optionally taken from your stock), costs, who did it, and photos or receipts. The next due date and hours are worked out for you. A task can also be skipped, deferred or marked not applicable.
+  - Full service history per item, including work done before you started using the app.
+  - New **Maintenance** page: overdue, due in 7/30/90 days, equipment with no records, and recent work. Dashboard card for overdue maintenance.
+  - Home Assistant sensors: maintenance overdue, maintenance due soon.
+- Fix: opening another item while an edit sheet was open kept the sheet open on the new item.
+
 ## 0.2.0
 
 Security release. Nothing to do when updating; your data and roles are kept.
