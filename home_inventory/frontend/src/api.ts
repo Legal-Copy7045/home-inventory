@@ -694,3 +694,125 @@ export interface Kit {
     item: { id: number; name: string; label: string | null; quantity: number; placement: string | null } | null;
   }[];
 }
+
+// ---------------------------------------------------------------- parts
+
+export interface PartBrief {
+  id: number;
+  name: string;
+  manufacturer: string | null;
+  model_number: string | null;
+  is_generic: boolean;
+  specs: Record<string, string>;
+  content_quantity: number | null;
+  content_unit: string | null;
+}
+
+export interface ProductLinkRow {
+  id: number;
+  kind: "meets" | "replaced_by";
+  status: "suggested" | "confirmed" | "rejected";
+  source: string;
+  note: string | null;
+  product: PartBrief;
+  target: PartBrief;
+}
+
+export interface Fitment {
+  id: number;
+  role: string;
+  quantity: number | null;
+  unit: string | null;
+  status: string;
+  source: string;
+  source_ref: string | null;
+  note: string | null;
+  equipment: PartBrief;
+  part: PartBrief;
+}
+
+export interface PartDetails extends PartBrief {
+  stock: { count: number; amount?: number; unit?: string | null };
+  links: ProductLinkRow[];
+  linked_from: ProductLinkRow[];
+  fits: Fitment[];
+  takes: Fitment[];
+}
+
+export type Readiness = "in_stock" | "partial" | "missing" | "uncertain";
+
+export interface ReadinessLine {
+  key: number;
+  product: PartBrief;
+  quantity: number;
+  unit: string | null;
+  status: Readiness;
+  have: number;
+  have_uncertain: number;
+  short: number;
+  sources: { product: PartBrief; sure: boolean; why: string; count: number; amount: number | null; items: { id: number; quantity: number; label: string | null }[] }[];
+  buy: { product_id: number; name: string; quantity: number } | null;
+  // task rows only
+  task_part_id?: number;
+  allow_equivalent?: boolean;
+  note?: string | null;
+  // overview only
+  tasks?: { id: number; title: string; item: { id: number; name: string }; status: string; quantity: number; unit: string | null }[];
+}
+
+export interface ItemParts {
+  model: PartBrief;
+  fitments: Fitment[];
+  tasks: Record<string, ReadinessLine[]>;
+}
+
+export interface ReadinessOverview {
+  within_days: number;
+  lines: ReadinessLine[];
+  tasks_without_parts: { id: number; title: string; item: { id: number; name: string }; status: string }[];
+  short_count: number;
+}
+
+export interface ManualPart {
+  key: string;
+  role: string | null;
+  kind: "consumable" | "part";
+  name: string | null;
+  manufacturer: string | null;
+  part_number: string | null;
+  alternatives: string[];
+  specification: string | null;
+  quantity: number | null;
+  unit: string | null;
+  page: number | null;
+  proposed_specs: Record<string, string>;
+  proposed_generic: boolean;
+  match: PartBrief | null;
+}
+
+export interface ManualService {
+  title: string;
+  interval_hours: number | null;
+  interval_days: number | null;
+  interval_cycles: number | null;
+  first_at_hours: number | null;
+  instructions: string | null;
+  needs: { key: string; quantity: number | null; unit: string | null }[];
+  page: number | null;
+  task_match: { id: number; title: string } | null;
+}
+
+export interface ManualReading {
+  id: number;
+  item_id: number;
+  attachment_ids: number[];
+  status: "pending" | "ready" | "failed" | "applied" | "discarded";
+  error: string | null;
+  result: {
+    equipment: { manufacturer: string | null; model: string | null; engine: string | null };
+    parts: ManualPart[];
+    services: ManualService[];
+    specs: { label: string; value: string; page: number | null }[];
+  } | null;
+  created_at: string;
+}

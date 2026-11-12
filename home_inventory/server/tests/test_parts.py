@@ -291,3 +291,24 @@ def test_long_manuals_send_the_maintenance_pages():
     pages.insert(30, (100, "Maintenance schedule: every 50 hours change the oil, replace the spark plug and air filter."))
     text = select_text(pages, limit=20000)
     assert "[page 100]" in text and len(text) <= 20000 + 500
+
+
+def test_completing_a_service_takes_a_used_up_bottle_out_of_stock(env):
+    u = env.admin
+    mower = _equipment(u, "Mower")
+    oil = u.item("Oil 1L", quantity=3)
+    t = _task(u, mower, "Oil")
+    u.ok("post", f"/api/v1/maintenance-tasks/{t['id']}/complete", json={"parts": [
+        {"description": "Oil 1L", "item_id": oil["id"], "quantity": "0.55", "deduct_stock": True, "deduct_quantity": 1}]})
+    assert u.ok("get", f"/api/v1/items/{oil['id']}")["quantity"] == 2
+    h = u.ok("get", f"/api/v1/items/{mower['id']}/maintenance")["history"][0]
+    assert h["parts"][0]["quantity"] == 0.55
+
+
+def test_adding_a_part_you_dont_have_yet(env):
+    u = env.admin
+    p = u.ok("post", "/api/v1/parts/products", json={"name": "Blade", "part_number": "72511-VH7-000"})
+    again = u.ok("post", "/api/v1/parts/products", json={"name": "Mower blade", "part_number": "72511 VH7 000"})
+    assert again["id"] == p["id"]  # same part number: the same part
+    found = u.ok("get", "/api/v1/parts/search", params={"q": "72511"})
+    assert [x["id"] for x in found] == [p["id"]]
