@@ -369,6 +369,16 @@ if ((await api("capture/unsorted")).total !== unsortedBefore + 1) throw new Erro
 const manifest = await page.request.fetch(BASE + "manifest.json");
 if (!manifest.ok() || (await manifest.json()).name !== "Home Inventory") throw new Error("manifest missing");
 
+// Inventory report + downloads
+await page.goto(BASE + "#/report");
+await page.getByText("Recorded value").waitFor();
+await page.locator(".report-room").first().waitFor();
+await shot("15-report");
+const csvRes = await page.request.fetch(BASE + "api/v1/reports/inventory.csv");
+if (!csvRes.ok() || !(await csvRes.text()).includes("Serial number")) throw new Error("CSV export failed");
+const xlsxRes = await page.request.fetch(BASE + "api/v1/reports/inventory.xlsx");
+if (!xlsxRes.ok() || (await xlsxRes.body()).subarray(0, 2).toString() !== "PK") throw new Error("Excel export failed");
+
 const after = await api(`containers/${box.id}`);
 const cord = after.items.find((i) => i.name === "Extension cord");
 if (!after.items.some((i) => i.name === "Hammer")) throw new Error("finished quick photo missing from box");
