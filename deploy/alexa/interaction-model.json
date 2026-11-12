@@ -1,0 +1,40 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "home inventory",
+      "intents": [
+        {
+          "name": "HomeInventoryWhereIs",
+          "slots": [
+            { "name": "item", "type": "AMAZON.SearchQuery" }
+          ],
+          "samples": [
+            "where {item} is",
+            "where the {item} is",
+            "where my {item} is",
+            "where my {item} are",
+            "where the {item} are",
+            "where is {item}",
+            "where is the {item}",
+            "where is my {item}",
+            "where are my {item}",
+            "where are the {item}",
+            "to find {item}",
+            "to find the {item}",
+            "to find my {item}",
+            "where I put the {item}",
+            "where I put my {item}",
+            "where I left the {item}",
+            "where I left my {item}"
+          ]
+        },
+        { "name": "AMAZON.HelpIntent", "samples": [] },
+        { "name": "AMAZON.StopIntent", "samples": [] },
+        { "name": "AMAZON.CancelIntent", "samples": [] },
+        { "name": "AMAZON.FallbackIntent", "samples": [] },
+        { "name": "AMAZON.NavigateHomeIntent", "samples": [] }
+      ],
+      "types": []
+    }
+  }
+}
