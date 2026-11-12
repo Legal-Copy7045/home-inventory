@@ -7,6 +7,9 @@ import { PlacementPicker } from "../components/PlacementPicker";
 import { Scanner, type Detection } from "../components/Scanner";
 import { Empty, Sheet, Thumb, useAction, useMe, useToast } from "../components/ui";
 
+type UseChoice = { item_id: number; name: string; quantity: number; path: string };
+type UseOneResult = { used: { item_id: number; name: string; remaining: number; path: string; low_stock: boolean } | null; choices: UseChoice[] };
+
 const QR_RE = /HINV[:/-][CL][:/-]([A-Z2-9]{6,16})|[?&#][cl]=([A-Z2-9]{6,16})|\/[cl]\/([A-HJ-NP-Z2-9]{6,16})/i;
 
 export function isContainerCode(text: string) {
@@ -28,6 +31,29 @@ export default function ScanPage() {
   const [moving, setMoving] = useState<Item | null>(null);
   const { busy, run } = useAction();
   const containerId = params.get("container");
+  // "Take one out": scanning a consumable's barcode uses one straight away.
+  const useMode = params.get("mode") === "use";
+  const [choices, setChoices] = useState<{ code: string; format: string; list: UseChoice[] } | null>(null);
+  const setMode = (use: boolean) => {
+    const p = new URLSearchParams(params);
+    if (use) p.set("mode", "use");
+    else p.delete("mode");
+    setParams(p, { replace: true });
+  };
+
+  async function takeOne(code: string, format: string, itemId?: number) {
+    try {
+      const r = await api.post<UseOneResult>("barcode/use-one", { code, format, item_id: itemId ?? null, container_id: container?.id ?? null });
+      if (r.used) {
+        setChoices(null);
+        if (navigator.vibrate) navigator.vibrate(40);
+        toast(`Took 1 × ${r.used.name} — ${r.used.remaining} left${r.used.low_stock ? " (running low)" : ""}`);
+        if (container) loadContainer(container.id);
+      } else setChoices({ code, format, list: r.choices });
+    } catch (e) {
+      toast((e as Error).message, true);
+    }
+  }
 
   const loadContainer = useCallback(async (id: number | string) => {
     try {
@@ -60,6 +86,10 @@ export default function ScanPage() {
       } catch (e) {
         toast((e as Error).message, true);
       }
+      return;
+    }
+    if (useMode && me.can_edit) {
+      await takeOne(d.text, d.format);
       return;
     }
     try {
@@ -118,7 +148,15 @@ export default function ScanPage() {
         <p className="muted">Scan a container's QR label to open it, or a product barcode to find it.</p>
       )}
 
-      <Scanner onDetect={onDetect} paused={!!barcode || !!moving} hint={container ? "Scan a product barcode or another label" : "Scan a QR label or barcode"} />
+      {me.can_edit && (
+        <div className="tabs" role="tablist" aria-label="When a barcode is scanned">
+          <button role="tab" aria-selected={!useMode} className={!useMode ? "active" : ""} onClick={() => setMode(false)}>Look up / add</button>
+          <button role="tab" aria-selected={useMode} className={useMode ? "active" : ""} onClick={() => setMode(true)}><Minus size={14} /> Take one out</button>
+        </div>
+      )}
+      {useMode && <p className="muted" style={{ marginTop: 0 }}>Each barcode scanned takes one out of stock (from this container when one is open). Restock alerts update straight away.</p>}
+
+      <Scanner onDetect={onDetect} paused={!!barcode || !!moving || !!choices} hint={container ? "Scan a product barcode or another label" : "Scan a QR label or barcode"} />
 
       {container && (
         <div className="card tight" style={{ marginTop: 14 }}>
@@ -169,6 +207,18 @@ export default function ScanPage() {
             )}
             {barcode.result.inventory_matches[0]?.holdings[0] && <Link className="btn block" to={`/items/${barcode.result.inventory_matches[0].holdings[0].item_id}`}>View item</Link>}
             <button className="btn ghost block" onClick={() => setBarcode(null)}>Keep scanning</button>
+          </div>
+        </Sheet>
+      )}
+      {choices && (
+        <Sheet title="Take one from which?" onClose={() => setChoices(null)}>
+          <div className="list card tight">
+            {choices.list.map((c) => (
+              <a key={c.item_id} href="#" onClick={(e) => { e.preventDefault(); void takeOne(choices.code, choices.format, c.item_id); }}>
+                <div className="grow"><div className="t">{c.name}</div><div className="s">{c.path}</div></div>
+                <b>{c.quantity}</b>
+              </a>
+            ))}
           </div>
         </Sheet>
       )}

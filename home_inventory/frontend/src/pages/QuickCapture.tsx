@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Check, ImagePlus, Layers, Loader2, RotateCcw } from "lucide-react";
 import { api, url, type Item } from "../api";
+import { discard, enqueue, pending as queued, retry as retryUpload, subscribe } from "../uploadQueue";
 import { cameraAvailable } from "../components/Scanner";
 import { useApi } from "../components/ui";
 
-type Shot = { key: number; group: number; preview: string; state: "uploading" | "done" | "error"; item?: Item; error?: string; blob: Blob };
+type Shot = { key: string; group: number; preview: string; state: "uploading" | "waiting" | "done" | "error"; item?: Item; error?: string };
 
 /**
  * Quick photos: snap item after item; each photo becomes an item flagged
@@ -40,8 +41,29 @@ export default function QuickCapture() {
   const [camError, setCamError] = useState<string | null>(null);
   const [shots, setShots] = useState<Shot[]>([]);
   const [flash, setFlash] = useState(false);
-  const queue = useRef<Shot[]>([]);
-  const busy = useRef(false);
+
+  // Photos are saved on the phone first and uploaded by the shared queue,
+  // so closing the app or losing signal doesn't lose them.
+  useEffect(() => {
+    const off = subscribe((e) => {
+      if (e.type === "uploading") update(e.id, { state: "uploading", error: undefined });
+      else if (e.type === "done") update(e.id, { state: "done", item: e.item });
+      else if (e.type === "failed") update(e.id, { state: e.retrying ? "waiting" : "error", error: e.error });
+      else if (e.type === "removed") setShots((all) => all.filter((s) => s.key !== e.id));
+    });
+    // Photos left over from an earlier visit that haven't uploaded yet.
+    void queued().then((left) => {
+      setShots((all) => {
+        const known = new Set(all.map((s) => s.key));
+        const extra = left.filter((q) => !known.has(q.id)).map<Shot>((q) => ({
+          key: q.id, group: Number(q.fields.group || 1), preview: URL.createObjectURL(q.blob),
+          state: q.error ? "error" : "waiting", error: q.error,
+        }));
+        return [...all, ...extra];
+      });
+    });
+    return off;
+  }, []);
 
   useEffect(() => {
     if (!cameraAvailable()) return;
@@ -65,36 +87,17 @@ export default function QuickCapture() {
     };
   }, []);
 
-  function update(key: number, patch: Partial<Shot>) {
+  function update(key: string, patch: Partial<Shot>) {
     setShots((all) => all.map((s) => (s.key === key ? { ...s, ...patch } : s)));
   }
 
-  async function pump() {
-    if (busy.current) return;
-    busy.current = true;
-    while (queue.current.length) {
-      const shot = queue.current.shift()!;
-      const fd = new FormData();
-      fd.append("file", shot.blob, "photo.jpg");
-      if (containerId) fd.append("container_id", containerId);
-      else if (locationId) fd.append("location_id", locationId);
-      fd.append("batch", batch.current);
-      fd.append("group", String(shot.group));
-      try {
-        const item = await api.upload<Item>("capture", fd);
-        update(shot.key, { state: "done", item });
-      } catch (e) {
-        update(shot.key, { state: "error", error: (e as Error).message });
-      }
-    }
-    busy.current = false;
-  }
-
-  function add(blob: Blob) {
-    const shot: Shot = { key: Date.now() + Math.random(), group, preview: URL.createObjectURL(blob), state: "uploading", blob };
-    setShots((all) => [shot, ...all]);
-    queue.current.push(shot);
-    pump();
+  async function add(blob: Blob) {
+    const fields: Record<string, string> = { batch: batch.current, group: String(group) };
+    if (containerId) fields.container_id = containerId;
+    else if (locationId) fields.location_id = locationId;
+    const preview = URL.createObjectURL(blob);
+    const entry = await enqueue(blob, fields);
+    setShots((all) => (all.some((s) => s.key === entry.id) ? all : [{ key: entry.id, group, preview, state: "uploading" }, ...all]));
   }
 
   function snap() {
@@ -112,12 +115,11 @@ export default function QuickCapture() {
 
   function retry(shot: Shot) {
     update(shot.key, { state: "uploading", error: undefined });
-    queue.current.push(shot);
-    pump();
+    void retryUpload(shot.key);
   }
 
   const done = shots.filter((s) => s.state === "done").length;
-  const pending = shots.filter((s) => s.state === "uploading").length;
+  const pending = shots.filter((s) => s.state === "uploading" || s.state === "waiting").length;
   const inGroup = shots.filter((s) => s.group === group).length;
   const groups = [...new Set(shots.map((s) => s.group))].sort((a, b) => b - a);
 
@@ -182,8 +184,12 @@ export default function QuickCapture() {
             <span className="star">
               {s.state === "uploading" && <span className="badge"><Loader2 size={12} className="spin" /></span>}
               {s.state === "done" && <span className="badge ok"><Check size={12} /></span>}
+              {s.state === "waiting" && <span className="badge warn" title={s.error}>Saved · waiting</span>}
               {s.state === "error" && (
-                <button className="badge danger" style={{ border: 0 }} onClick={() => retry(s)} title={s.error}><RotateCcw size={12} /> Retry</button>
+                <>
+                  <button className="badge danger" style={{ border: 0 }} onClick={() => retry(s)} title={s.error}><RotateCcw size={12} /> Retry</button>{" "}
+                  <button className="badge" style={{ border: 0 }} onClick={() => { if (window.confirm("Discard this photo?")) void discard(s.key); }}>Discard</button>
+                </>
               )}
             </span>
           </div>

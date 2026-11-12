@@ -47,6 +47,16 @@ To inventory a box fast, open the container (or location) and tap **Quick photos
 
 To photograph a whole room first and sort later, tap **Quick photos** in the menu or on the dashboard. Photos taken this way have no place yet. Tap **Next shelf** each time you move to another shelf, box or drawer. Afterwards, open **To sort**: the photos are grouped shelf by shelf. Tap **Put all in…** and choose the shelf (a location) or box (a container). Untick any photo in the group that belongs somewhere else and put it away separately.
 
+Quick photos are saved on your phone before they upload. If you lose signal, or close the app part-way, they upload the next time you open Home Inventory; a banner shows how many are still waiting.
+
+## Taking things out of stock by barcode
+
+**Scan → Take one out** turns the scanner into a "used one" button for consumables: every barcode scanned removes one from stock. With a container open in scan mode it takes from that container; otherwise, if you keep the product in more than one place, you're asked which. Low-stock alerts and the shopping list update immediately.
+
+## Using it like an app on your phone
+
+Inside Home Assistant, Home Inventory is a panel in the Home Assistant app, so the simplest "app" is the Home Assistant companion app (or a home-screen bookmark to the panel). The App also ships a web-app manifest and a service worker, so the app loads quickly and keeps working on a weak signal (it caches only the app itself, never inventory data; this needs Home Assistant over https). A standalone install only works where the page is opened on its own rather than inside Home Assistant, because Home Assistant's sign-in session belongs to its own frame.
+
 ## Photo inventory (AI, several items in one photo)
 
 With an AI provider set up, one photo can add many items. Open a **location** (a shelf, bay, bench or wall) or a **container** and tap **Photo inventory**. Take one photo of the whole shelf or the open box. The AI lists every kind of item it can see, with a quantity and, for shelves, where it is ("top shelf, left"). Nothing is saved yet: edit names and quantities, tap **Details** for category, maker, model and notes, remove anything wrong and **Add something it missed**. Then tap **Confirm inventory**. Items on a shelf become loose items in that location. Photographing the same shelf again later matches what's already there and lets you tick off anything that has gone. The AI's guesses can be wrong, so check counts and brands.

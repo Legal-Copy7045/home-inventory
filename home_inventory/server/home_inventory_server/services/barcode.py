@@ -246,3 +246,48 @@ def identify(db: Session, settings: Settings, code: str, fmt: str | None, extern
         "catalog": catalog,
         "message": message,
     }
+
+
+def use_one(db: Session, actor, code: str, fmt: str | None, item_id: int | None = None,
+            container_id: int | None = None) -> dict[str, Any]:
+    """"Take one out" by barcode: decrement one unit of the matching product.
+
+    Picks the holding automatically when it is unambiguous: the one chosen
+    (``item_id``), else the one in ``container_id`` (scan mode's current
+    container), else the only household holding with stock.  Otherwise the
+    caller gets the choices back and nothing changes.
+    """
+    from ..services import inventory as inv
+    from ..services.customers import household_only
+
+    bc = gtin_mod.parse(code, fmt)
+    stmt = select(Product).where(Product.deleted_at.is_(None))
+    stmt = stmt.where(Product.gtin == bc.gtin14) if bc.gtin14 else stmt.where(Product.barcode == bc.raw)
+    product_ids = [p.id for p in db.scalars(stmt)]
+    if not product_ids:
+        raise inv.NotFound("That barcode isn't in your inventory yet")
+    r = Resolver.load(db)
+    holdings = list(db.scalars(
+        select(Item).where(Item.product_id.in_(product_ids), Item.deleted_at.is_(None), Item.quantity > 0, household_only())
+        .order_by(Item.id)
+    ))
+    pick = None
+    if item_id is not None:
+        pick = next((h for h in holdings if h.id == item_id), None)
+        if pick is None:
+            raise inv.Conflict("That holding has none left or doesn't match this barcode")
+    elif container_id is not None:
+        pick = next((h for h in holdings if h.container_id == container_id), None)
+    if pick is None and item_id is None and len(holdings) == 1:
+        pick = holdings[0]
+    if pick is None:
+        if not holdings:
+            raise inv.Conflict("None left to take out")
+        return {"used": None, "choices": [
+            {"item_id": h.id, "name": h.product.name, "quantity": h.quantity, "path": r.describe_item(h)["path"]}
+            for h in holdings
+        ]}
+    inv.adjust_quantity(db, actor, pick, -1, "Barcode: took one out")
+    return {"used": {"item_id": pick.id, "name": pick.product.name, "remaining": pick.quantity,
+                     "path": r.describe_item(pick)["path"], "low_stock": pick.product.low_stock_notified_at is not None},
+            "choices": []}
