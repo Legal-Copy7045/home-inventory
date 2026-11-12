@@ -394,3 +394,6 @@ button.linkish { background: none; border: 0; padding: 0; color: var(--primary);
 }
 .dup-side { padding: 10px; border: 1px solid var(--border); border-radius: 12px; }
 .crop-preview { width: 52px; height: 52px; flex: none; border-radius: 8px; background-repeat: no-repeat; background-color: var(--surface-2); }
+.layout-unit { padding: 8px 0; border-top: 1px solid var(--border); }
+.layout-unit:first-of-type { border-top: 0; }
+.layout-shelf { margin: 6px 0 0 14px; }

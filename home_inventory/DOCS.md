@@ -63,7 +63,19 @@ Inside Home Assistant, Home Inventory is a panel in the Home Assistant app, so t
 
 ## Photo inventory (AI, several items in one photo)
 
-With an AI provider set up, one photo can add many items. Open a **location** (a shelf, bay, bench or wall) or a **container** and tap **Photo inventory**. Take one photo of the whole shelf or the open box. The AI lists every kind of item it can see, with a quantity and, for shelves, where it is ("top shelf, left"). Nothing is saved yet: edit names and quantities, tap **Details** for category, maker, model and notes, remove anything wrong and **Add something it missed**. Then tap **Confirm inventory**. Items on a shelf become loose items in that location. Photographing the same shelf again later matches what's already there and lets you tick off anything that has gone. The AI's guesses can be wrong, so check counts and brands.
+With an AI provider set up, one photo can add many things. Open a **location** or a **container** and tap **Photo inventory**.
+
+**Photographing a whole area.** Open the location that holds the area, for example "Basement storage" or "Garage", and photograph the whole area in one picture: several racks side by side, a single shelving unit, a workbench, a pegboard or a closet. The AI:
+
+- works out the **layout**: each rack or unit, left to right, and its shelves from the top down, including things sitting on top;
+- lists everything, saying which rack and shelf each thing is on;
+- treats storage boxes, bins and totes as **containers**, named from their labels ("Party supplies", "Double bedding covers"), so you can open each one later and photograph what's inside.
+
+In the review, the **Layout** panel matches each rack and shelf to a place you already have, or creates it (rename it if you like). Each entry's **Put on** can be changed, and only places that something actually goes on are created. Photographing the same area again later reuses those places and recognises what's already recorded. Everything is saved together when you tap **Confirm inventory**: new places, containers (each with a cut-out photo) and items.
+
+**One shelf or one box.** Open that shelf or container and photograph it; everything goes there.
+
+In every case nothing is saved until you confirm. Edit names and quantities, tap **Details** for category, maker, model, notes and whether it's an item or a box, remove anything wrong and **Add something it missed**. Things already recorded but not seen in the photo can be kept, marked missing or deleted. The AI's guesses can be wrong, especially counts, brands and partly hidden things, so check before confirming.
 
 ## Working with several items
 
