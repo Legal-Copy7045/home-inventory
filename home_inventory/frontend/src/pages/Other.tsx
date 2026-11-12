@@ -193,7 +193,7 @@ export function LoansPage() {
 
 // ---------------------------------------------------------------- settings
 
-interface SettingsData { currency: string; qr_base_url: string; synonyms: Record<string, string[]>; ai: { enabled: boolean; provider?: string; model?: string; error?: string }; barcode_providers: string[]; mode: string; version: string }
+interface SettingsData { currency: string; qr_base_url: string; amazon_domain: string | null; amazon_associate_tag: string | null; synonyms: Record<string, string[]>; ai: { enabled: boolean; provider?: string; model?: string; error?: string }; barcode_providers: string[]; mode: string; version: string }
 interface UserRow { id: number; name: string; username: string | null; ha_is_admin: boolean; role: string; role_override: string | null; last_seen: string }
 
 export function SettingsPage() {
@@ -204,12 +204,16 @@ export function SettingsPage() {
   const [currency, setCurrency] = useState("");
   const [qrBase, setQrBase] = useState("");
   const [syn, setSyn] = useState("");
+  const [amazonDomain, setAmazonDomain] = useState("");
+  const [amazonTag, setAmazonTag] = useState("");
   const { busy, run } = useAction();
   const toast = useToast();
   useEffect(() => {
     if (s.data) {
       setCurrency(s.data.currency);
       setQrBase(s.data.qr_base_url);
+      setAmazonDomain(s.data.amazon_domain || "");
+      setAmazonTag(s.data.amazon_associate_tag || "");
       setSyn(Object.entries(s.data.synonyms || {}).map(([k, v]) => `${k}: ${v.join(", ")}`).join("\n"));
     }
   }, [s.data]);
@@ -221,7 +225,10 @@ export function SettingsPage() {
       const [k, v] = line.split(":");
       if (k?.trim() && v) synonyms[k.trim().toLowerCase()] = v.split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
     }
-    await run(() => api.patch("settings", { currency: currency.toUpperCase(), qr_base_url: qrBase.trim(), synonyms }), "Settings saved");
+    await run(() => api.patch("settings", {
+      currency: currency.toUpperCase(), qr_base_url: qrBase.trim(), synonyms,
+      amazon_domain: amazonDomain.trim() || null, amazon_associate_tag: amazonTag.trim() || null,
+    }), "Settings saved");
   }
 
   return (
@@ -249,6 +256,14 @@ export function SettingsPage() {
             <label className="field">Search synonyms
               <span className="hint">One per line: word: alternative, alternative</span>
               <textarea rows={4} value={syn} onChange={(e) => setSyn(e.target.value)} placeholder="loft: attic" />
+            </label>
+            <label className="field">Amazon store
+              <span className="hint">Used for product links and the "add to cart" hand-off, e.g. amazon.com or amazon.co.uk.</span>
+              <input value={amazonDomain} onChange={(e) => setAmazonDomain(e.target.value)} placeholder="amazon.com" />
+            </label>
+            <label className="field">Amazon Associates tag (optional)
+              <span className="hint">Only if you have your own Associates account; added to links you open.</span>
+              <input value={amazonTag} onChange={(e) => setAmazonTag(e.target.value)} />
             </label>
             <button className="btn primary" disabled={busy} onClick={saveSettings}>Save</button>
           </div>

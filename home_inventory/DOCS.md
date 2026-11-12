@@ -63,6 +63,12 @@ The **Maintenance** page lists what's overdue, what's due in the next 7, 30 or 9
 
 Service history is kept when tasks are changed or removed, and even when you stop tracking an item.
 
+## Restocking
+
+Set a minimum and a restock level in an item's **Restock** section, and add where to buy it (Amazon, Lowe's, Tractor Supply or any shop). The **Restock** page lists what's running low with suggested quantities, and keeps a shopping list grouped by shop.
+
+**Open at <shop>** opens the product pages; for Amazon, it opens Amazon's own add-to-cart confirmation. Nothing is bought or added for you. Tap **It's in my cart** when it is, and **Bought** to add it to your stock. See the [restock guide](https://github.com/Legal-Copy7045/home-inventory/blob/main/docs/replenishment.md) for what each shop allows.
+
 ## NFC tags
 
 Stick NFC tags on equipment, boxes or shelves. Tapping one with your phone opens the record, or goes straight to an action such as *Log hours*. Assign tags from the record's **NFC tags** section. Android phones can write tags directly; on iPhone, copy the link into an NFC writer app. See the [NFC guide](https://github.com/Legal-Copy7045/home-inventory/blob/main/docs/nfc.md).
