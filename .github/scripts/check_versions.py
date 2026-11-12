@@ -36,6 +36,8 @@ if bad:
     sys.exit(f"Version mismatch (config.yaml says {version}): {bad}")
 if f"## {version}" not in (ROOT / "home_inventory/CHANGELOG.md").read_text():
     sys.exit(f"home_inventory/CHANGELOG.md has no '## {version}' entry")
+if not (ROOT / f"docs/release-notes/v{version}.md").exists():
+    sys.exit(f"docs/release-notes/v{version}.md is missing (it becomes the GitHub release text)")
 if len(sys.argv) > 1 and sys.argv[1] and sys.argv[1].removeprefix("v") != version:
     sys.exit(f"Release tag {sys.argv[1]} does not match version {version} (expected v{version})")
 print(version)

@@ -1,6 +1,10 @@
-# Publish prebuilt App images to GitHub Container Registry when a GitHub
-# release is published, so Home Assistant downloads an image instead of
-# building it on the device. See docs/development.md → Releasing.
+# Releases are published automatically: when a merge to main changes the
+# App's version (home_inventory/config.yaml), this creates the GitHub release
+# (tag = the version, e.g. 0.10.3; notes from docs/release-notes/v<version>.md)
+# and builds the prebuilt App images, so Home Assistant downloads an image
+# instead of building it on the device, and HACS sees the new version.
+# Publishing a release by hand, or running this workflow manually, also
+# builds the images. See docs/publishing.md.
 #
 # Images: ghcr.io/legal-copy7045/{aarch64,amd64}-home-inventory:<version>
 # Home Assistant uses them once home_inventory/config.yaml contains
@@ -8,6 +12,9 @@
 name: Release
 
 on:
+  push:
+    branches: [main]
+    paths: [home_inventory/config.yaml]
   release:
     types: [published]
   workflow_dispatch:
@@ -33,8 +40,40 @@ jobs:
           TAG: ${{ github.event.release.tag_name }}
         run: echo "version=$(python3 .github/scripts/check_versions.py "$TAG")" >> "$GITHUB_OUTPUT"
 
-  images:
+  publish:
+    # Merges and manual runs; a release that already exists is left alone.
+    if: github.event_name != 'release'
     needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      created: ${{ steps.release.outputs.created }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: release
+        name: Create the GitHub release for this version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "Release $VERSION already exists; nothing to publish."
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          notes="docs/release-notes/v$VERSION.md"
+          test -f "$notes" || { echo "::error::$notes is missing"; exit 1; }
+          gh release create "$VERSION" --target "$GITHUB_SHA" --title "$VERSION" --notes-file "$notes"
+          echo "created=true" >> "$GITHUB_OUTPUT"
+
+  images:
+    # Releases created by the publish job don't trigger other workflows,
+    # so the images are built here for those too.
+    needs: [version, publish]
+    if: >-
+      always() && needs.version.result == 'success' &&
+      (github.event_name != 'push' || needs.publish.outputs.created == 'true')
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
