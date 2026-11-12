@@ -49,6 +49,10 @@ To photograph a whole room first and sort later, tap **Quick photos** in the men
 
 Quick photos are saved on your phone before they upload. If you lose signal, or close the app part-way, they upload the next time you open Home Inventory; a banner shows how many are still waiting.
 
+## Asking by voice
+
+"Where is the hedge trimmer?" works with Home Assistant Assist once you add a small sentences file, with Siri through an Apple Shortcut that hands your words to Assist, and with Alexa through your own custom skill ("Alexa, ask Home Inventory where the hedge trimmer is"). See `docs/voice.md` in the repository for the setup and the trade-offs (Alexa needs Home Assistant reachable from the internet).
+
 ## Taking things out of stock by barcode
 
 **Scan → Take one out** turns the scanner into a "used one" button for consumables: every barcode scanned removes one from stock. With a container open in scan mode it takes from that container; otherwise, if you keep the product in more than one place, you're asked which. Low-stock alerts and the shopping list update immediately.
