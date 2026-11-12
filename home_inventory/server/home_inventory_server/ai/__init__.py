@@ -64,8 +64,10 @@ CONTAINER_SCHEMA: dict[str, Any] = {
                     "model_number": _NULLABLE_STR,
                     "quantity": {"type": "integer"},
                     "confidence": {"type": "number"},
+                    # Where in the photo, e.g. "top shelf, left" (shelf photos).
+                    "position": _NULLABLE_STR,
                 },
-                "required": ["name", "description", "category", "manufacturer", "model_number", "quantity", "confidence"],
+                "required": ["name", "description", "category", "manufacturer", "model_number", "quantity", "confidence", "position"],
                 "additionalProperties": False,
             },
         },
@@ -108,6 +110,14 @@ CONTAINER_PROMPT = """You help catalogue a household inventory. The photo shows 
 container. List every distinct kind of object you can see, grouping identical objects with a quantity.
 Return JSON only. Use null when unsure; never invent brands or model numbers. Use short everyday names.
 "confidence" is 0..1 for each entry. Ignore the container itself and packing material.{hint}"""
+
+SHELF_PROMPT = """You help catalogue a household inventory. The photo shows a shelf, shelving unit, bench, wall
+or other storage space, possibly with several shelves. List every distinct kind of object you can see, grouping
+identical objects with a quantity. Count carefully; if objects are partly hidden, count only what is visible.
+Return JSON only. Use null when unsure; never invent brands or model numbers. Use short everyday names, reading
+labels and packaging where legible. "position" says where it is, e.g. "top shelf, left" or "second shelf, middle"
+(null if unclear). "confidence" is 0..1 for each entry. Ignore the shelving itself, walls and the floor.
+Closed boxes and bins: list them as one entry each named for the box (e.g. "Blue plastic storage bin").{hint}"""
 
 SEARCH_PROMPT = """Convert a household inventory question into search filters. Return JSON only.
 intent: "count" for how-many questions, "loans" for lending/borrowing questions, "warranty" for warranty
@@ -190,9 +200,12 @@ class AIService:
         res.data = _clean_item(res.data)
         return res
 
-    def identify_container(self, image: bytes, hint: str | None = None) -> AIResult:
+    def identify_container(self, image: bytes, hint: str | None = None, shelf: bool = False) -> AIResult:
+        """Everything visible in a photo of an open container, or of a shelf
+        space when ``shelf`` is set.  Suggestions only - nothing is saved."""
         hint_txt = f"\nContext: {hint[:300]}" if hint else ""
-        res = self._call(CONTAINER_PROMPT.format(hint=hint_txt), CONTAINER_SCHEMA, image)
+        prompt = SHELF_PROMPT if shelf else CONTAINER_PROMPT
+        res = self._call(prompt.format(hint=hint_txt), CONTAINER_SCHEMA, image)
         items = [_clean_item(i) for i in res.data.get("items") or [] if isinstance(i, dict) and i.get("name")]
         for i in items:
             try:
@@ -251,6 +264,8 @@ def _clean_item(d: dict[str, Any]) -> dict[str, Any]:
     }
     if "quantity" in d:
         out["quantity"] = d["quantity"]
+    if d.get("position"):
+        out["position"] = s("position", 120)
     if d.get("notes"):
         out["notes"] = s("notes", 1000)
     return out
