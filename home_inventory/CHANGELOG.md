@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.0
+
+- **Restocking and shopping list.**
+  - Per item: minimum, restock level, buy-at-least and unit, plus one or more shops (Amazon, Lowe's, Tractor Supply, any other) with link, product number, pack size and price.
+  - The **Restock** page shows what's below minimum or getting low, with suggested quantities (e.g. stock 1, minimum 2, restock to 5 → buy 4) and estimated cost.
+  - The shopping list is grouped by shop. Select items, change quantities, move them to later, mark them bought (optionally adding them to stock), and see the last price paid.
+  - **Open at shop:** Amazon gets one "review & add" link to Amazon's own add-to-cart page, where you confirm. Lowe's and Tractor Supply open the exact product page (or a search), because neither offers a way for apps to add to your cart.
+  - The app never claims something is in your cart until you tap **It's in my cart**.
+  - Scanning a barcode you already own offers **Add to shopping list**. Customer equipment is never restocked.
+- Settings: Amazon store (e.g. amazon.co.uk) and an optional Associates tag.
+- Home Assistant: sensors for supplies below minimum and shopping list items; event `home_inventory_shopping_list_updated`.
+
 ## 0.6.0
 
 - **NFC tags** for items, containers, locations and kits, alongside QR labels.

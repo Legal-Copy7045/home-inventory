@@ -797,3 +797,87 @@ class Tag(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     last_scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     scan_count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+# ---------------------------------------------------------------------------
+# Replenishment and shopping list
+# ---------------------------------------------------------------------------
+
+RETAILERS = ("amazon", "lowes", "tractor_supply", "other")
+SHOPPING_STATUSES = ("listed", "handed_off", "in_cart", "purchased", "deferred", "cancelled")
+
+
+class ReplenishmentProfile(TimestampMixin, Base):
+    """Restocking settings for a product (stock is counted across holdings).
+
+    The minimum is the product's existing ``min_quantity`` (low-stock
+    threshold); this adds the level to restock up to and buying details.
+    """
+
+    __tablename__ = "replenishment_profiles"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), unique=True)
+    enabled: Mapped[bool] = mapped_column(default=True)
+    target_stock: Mapped[int | None] = mapped_column(Integer)
+    reorder_quantity: Mapped[int | None] = mapped_column(Integer)
+    unit: Mapped[str | None] = mapped_column(String(30))
+    preferred_name: Mapped[str | None] = mapped_column(String(300))
+    notes: Mapped[str | None] = mapped_column(Text)
+    last_purchased_on: Mapped[date | None] = mapped_column(Date)
+    last_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    currency: Mapped[str | None] = mapped_column(String(3))
+
+
+class ProductSource(TimestampMixin, Base):
+    """Where to buy a product (several per product; one preferred)."""
+
+    __tablename__ = "product_sources"
+    __table_args__ = (
+        CheckConstraint("retailer IN ('amazon', 'lowes', 'tractor_supply', 'other')", name="ck_source_retailer"),
+        CheckConstraint("pack_size >= 1", name="ck_source_pack_size"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    retailer: Mapped[str] = mapped_column(String(20))
+    retailer_name: Mapped[str | None] = mapped_column(String(100))  # for "other"
+    url: Mapped[str | None] = mapped_column(String(2000))
+    retailer_product_id: Mapped[str | None] = mapped_column(String(60))  # ASIN, Lowe's item #, TSC SKU
+    gtin: Mapped[str | None] = mapped_column(String(14))
+    product_name: Mapped[str | None] = mapped_column(String(300))
+    brand_model: Mapped[str | None] = mapped_column(String(200))
+    pack_size: Mapped[int] = mapped_column(Integer, default=1)
+    estimated_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    preferred: Mapped[bool] = mapped_column(default=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
+class ShoppingListItem(TimestampMixin, Base):
+    """Something to buy.
+
+    ``handed_off`` means the product page or a cart link was opened;
+    ``in_cart`` is only ever set when the user confirms it - the app never
+    claims a retailer cart was changed.
+    """
+
+    __tablename__ = "shopping_list_items"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('listed', 'handed_off', 'in_cart', 'purchased', 'deferred', 'cancelled')", name="ck_shopping_status"
+        ),
+        CheckConstraint("quantity >= 1", name="ck_shopping_quantity"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    source_id: Mapped[int | None] = mapped_column(ForeignKey("product_sources.id", ondelete="SET NULL"))
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(12), default="listed", index=True)
+    deferred_until: Mapped[date | None] = mapped_column(Date)
+    note: Mapped[str | None] = mapped_column(String(500))
+    handed_off_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    purchased_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    purchased_quantity: Mapped[int | None] = mapped_column(Integer)
+    purchase_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))

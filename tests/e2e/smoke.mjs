@@ -236,6 +236,39 @@ await page.getByLabel(/Meter reading/).waitFor();
 const tags = await api(`tags?target_type=item&target_id=${mower.id}`);
 if (tags[0].scan_count !== 1 || tags[0].label !== "Handle") throw new Error(`tag not recorded: ${JSON.stringify(tags[0])}`);
 
+// Replenishment: restock settings, Amazon source, list, hand-off, confirm, buy
+const oilItem = (await api("items", { method: "POST", data: { name: "SAE 30 engine oil", quantity: 1, min_quantity: 2, location_id: garage.id } })).items[0];
+await page.goto(BASE + "#/items/" + oilItem.id);
+const restock = page.locator(".card", { has: page.getByRole("heading", { name: "Restock" }) });
+await restock.getByRole("button", { name: "Settings" }).click();
+await page.getByRole("dialog").getByLabel("Restock to").fill("5");
+await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+await restock.getByText("Below minimum").waitFor();
+await restock.getByRole("button", { name: "Where to buy" }).click();
+await page.getByRole("dialog").getByRole("button", { name: "Amazon" }).click();
+await page.getByRole("dialog").getByLabel("Product page link").fill("https://www.amazon.com/dp/B000BQ7JXA");
+await page.getByRole("dialog").getByLabel("Price (optional)").fill("8.99");
+await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+await restock.getByText("B000BQ7JXA").waitFor();
+await page.goto(BASE + "#/shopping");
+await page.locator("li", { hasText: "SAE 30 engine oil" }).getByRole("button", { name: "4" }).click();
+await page.locator("li", { hasText: "SAE 30 engine oil" }).getByText("On list").waitFor();
+await page.getByRole("button", { name: /Shopping list/ }).click();
+await page.getByRole("button", { name: /Open all at Amazon/ }).click();
+const cartLink = page.getByRole("link", { name: /Review & add 1 item on Amazon/ });
+await cartLink.waitFor();
+const href = await cartLink.getAttribute("href");
+if (!href.includes("/gp/aws/cart/add.html") || !href.includes("ASIN.1=B000BQ7JXA") || !href.includes("Quantity.1=4")) throw new Error(`bad cart link ${href}`);
+await shot("14-handoff");
+await page.getByRole("dialog").getByRole("button", { name: "Close" }).click();
+await page.getByText("Opened at shop").waitFor();  // not "in cart"
+await page.getByRole("button", { name: "It's in my cart" }).click();
+await page.getByText("In cart (you confirmed)").waitFor();
+await page.getByRole("button", { name: "Bought" }).click();
+await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+await page.getByText("The shopping list is empty").waitFor();
+if ((await api(`items/${oilItem.id}`)).quantity !== 5) throw new Error("purchase did not update stock");
+
 const after = await api(`containers/${box.id}`);
 const cord = after.items.find((i) => i.name === "Extension cord");
 if (!after.items.some((i) => i.name === "Hammer")) throw new Error("finished quick photo missing from box");
