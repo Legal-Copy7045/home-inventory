@@ -207,6 +207,21 @@ async def test_voice_where_is_intent(hass: HomeAssistant, inventory_app, hass_ad
             await intent.async_handle(hass, "test", "HomeInventoryWhereIs", {"item": {"value": "axle stands"}})
 
 
+def test_is_or_are_follows_the_name():
+    from custom_components.home_inventory.intent import spoken_answer, verb_for
+
+    are = ["Wood screws", "Axle stands", "Pliers", "Safety glasses", "Nuts and bolts", "Drill bits 10pk",
+           "AA batteries", "Christmas lights", "Hoses"]
+    is_ = ["Axle stand", "Kink Control Plus Water Hose 50ft", "Siphon pump with hose and funnel", "Glass",
+           "Box of screws", "Set of drill bits", "Hedge trimmer", "Grass seed", "Bus pass", "Compass", "Cactus"]
+    assert {n: verb_for(n) for n in are} == dict.fromkeys(are, "are")
+    assert {n: verb_for(n) for n in is_} == dict.fromkeys(is_, "is")
+    screws = {"display_name": "Wood screws", "status": "stored", "placement": {"path": "Basement › Server Shelf Left › Top Shelf"}}
+    assert spoken_answer("screws", [screws])[0] == "Wood screws are in Basement, Server Shelf Left, Top Shelf."
+    lent = {"display_name": "Pliers", "status": "on_loan", "loan": {"borrower": "Sam"}, "placement": {"path": "Garage"}}
+    assert spoken_answer("pliers", [lent])[0] == "Pliers are lent to Sam."
+
+
 def test_spoken_answer_wording():
     from custom_components.home_inventory.intent import pick, spoken_answer
 
