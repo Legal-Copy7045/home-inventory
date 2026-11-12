@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0
+
+Security release. Nothing to do when updating; your data and roles are kept.
+
+- **No automatic administrator.** Previously, if the App couldn't read Home Assistant's user list, the first person to open it became administrator. Now nobody is promoted automatically.
+  - Administrators come from Home Assistant, from `admin_users`, or (when neither is available) from a one-time **setup code** printed in the App log, which only Home Assistant administrators can see.
+  - Existing administrators keep their role, and a temporary Home Assistant outage no longer changes anyone's role.
+- **Safer restore.**
+  - Backup archives are fully checked before anything is touched: size limits (new option `backup_max_mb`), allowed files only, no unsafe paths or links, and zip-bomb detection.
+  - The database is checked and upgraded in a staging area first. Your current data is swapped out only at the end, and put back automatically if anything fails.
+- **Product link import** connects only to the exact public address it checked, which closes a DNS-rebinding gap.
+- **No access to Home Assistant's `/media` folder.** Photos for Home Assistant's AI Task are now handed over through Home Assistant's media API and removed straight after. The App no longer mounts `/media`.
+- **Limits.** Uploads are size-limited before they reach the disk. AI, web-link and online barcode lookups are rate-limited per person.
+- CI now runs dependency audits (Python and JavaScript), security lint rules, a secret scan and a container image scan, plus tests that check every API route's permissions.
+
 ## 0.1.7
 
 - **Fix: Save & next showed the previous item's details.** When moving to the next quick photo, the form could open before the next item had loaded and keep the last item's name and category (for example, a photo of funnels pre-filled as "carburettor"). The form now waits for the right item.

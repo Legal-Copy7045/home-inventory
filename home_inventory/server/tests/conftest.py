@@ -48,7 +48,11 @@ def jpeg_bytes(color=(200, 30, 30), size=(64, 48)) -> bytes:
 
 
 class Env:
-    def __init__(self, tmp_path: Path, ai_provider=None, barcode_providers=None, **settings) -> None:
+    def __init__(self, tmp_path: Path, ai_provider=None, barcode_providers=None, configured_admin=True, **settings) -> None:
+        if configured_admin:
+            # Nobody is promoted automatically, so the test administrator is
+            # configured the way a real install would list one.
+            settings["admin_users"] = ["u-admin", *settings.get("admin_users", [])]
         self.settings = make_settings(tmp_path, **settings)
         self.fake_ai = ai_provider
         ai = AIService(self.settings, provider=ai_provider) if ai_provider else AIService(self.settings)
@@ -57,9 +61,9 @@ class Env:
         self.api_app = create_app(self.state, "api")
         self._ingress = TestClient(self.ingress_app)
         self._api = TestClient(self.api_app)
-        # First user to arrive becomes admin (no HA admin directory in tests).
         self.admin = self.user("u-admin", "Alex Admin")
-        self.admin.get("/api/v1/me").raise_for_status()
+        if configured_admin:
+            self.admin.get("/api/v1/me").raise_for_status()
 
     def user(self, ha_id: str, name: str) -> UserClient:
         return UserClient(self._ingress, {"X-Remote-User-Id": ha_id, "X-Remote-User-Name": name.split()[0].lower(), "X-Remote-User-Display-Name": name})

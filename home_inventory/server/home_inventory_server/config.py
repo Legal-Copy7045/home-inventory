@@ -90,6 +90,7 @@ class Settings:
 
     # Uploads
     max_upload_mb: int = 25
+    backup_max_mb: int = 2048
     max_image_px: int = 4096
 
     # Labels / QR
@@ -105,7 +106,6 @@ class Settings:
     # Standalone (Container/Core) installs: Home Assistant URL + token for AI Task.
     ha_url: str = ""
     ha_token: str = ""
-    ha_media_dir: Path = Path("/media")
 
     @property
     def db_path(self) -> Path:
@@ -163,7 +163,6 @@ class Settings:
             "ai_task_entity": str,
             "ha_url": str,
             "ha_token": str,
-            "ha_media_dir": Path,
             "ai_api_key": str,
             "ai_model": str,
             "ai_base_url": str,
@@ -175,6 +174,7 @@ class Settings:
             "barcode_lookup_api_key": str,
             "barcode_timeout": float,
             "max_upload_mb": int,
+            "backup_max_mb": int,
             "max_image_px": int,
             "qr_base_url": str,
             "warranty_notice_days": int,

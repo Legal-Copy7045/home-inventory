@@ -24,7 +24,7 @@ def test_health_is_public_and_minimal(env):
     assert r.status_code == 200 and set(r.json()) == {"status", "version"}
 
 
-def test_first_user_admin_then_members(env):
+def test_configured_admin_then_members(env):
     me = env.admin.ok("get", "/api/v1/me")
     assert me["role"] == "admin" and me["name"] == "Alex Admin"
     sam = env.user("u-sam", "Sam Member")
@@ -136,3 +136,140 @@ def test_ui_static_files_are_confined(tmp_path, monkeypatch):
     # API routes still win over the UI mount
     assert client.get("/api/health").json()["status"] == "ok"
     e.state.db.dispose()
+
+
+# ---------------------------------------------------------------------------
+# administrator bootstrap (fail closed)
+# ---------------------------------------------------------------------------
+
+
+def _bare_env(tmp_path, **kw):
+    from tests.conftest import Env
+
+    return Env(tmp_path, configured_admin=False, **kw)
+
+
+def _code(e) -> str:
+    return e.state.admin_bootstrap._code
+
+
+def test_ha_lookup_unavailable_never_promotes_first_user(tmp_path):
+    e = _bare_env(tmp_path)
+    first = e.user("u-first", "First Person")
+    me = first.ok("get", "/api/v1/me")
+    assert me["role"] == "member" and me["is_admin"] is False
+    assert me["admin_setup"] is True  # setup code is offered instead
+    assert first.get("/api/v1/users").status_code == 403
+
+
+def test_configured_admin_arriving_first(tmp_path):
+    e = _bare_env(tmp_path, admin_users=["jo"])
+    jo = e.user("u-jo", "Jo Bloggs")
+    me = jo.ok("get", "/api/v1/me")
+    assert me["role"] == "admin" and me["admin_setup"] is False
+
+
+def test_configured_read_only_user_arriving_first(tmp_path):
+    e = _bare_env(tmp_path, read_only_users=["guest"])
+    guest = e.user("u-guest", "Guest Viewer")
+    me = guest.ok("get", "/api/v1/me")
+    assert me["role"] == "read_only"
+    # even with the right code, a configured read-only user can't claim admin
+    r = guest.post("/api/v1/setup/claim-admin", json={"code": _code(e)})
+    assert r.status_code == 403
+    assert guest.ok("get", "/api/v1/me")["role"] == "read_only"
+
+
+def test_member_first_then_setup_code_claim(tmp_path):
+    e = _bare_env(tmp_path)
+    sam = e.user("u-sam", "Sam Member")
+    assert sam.ok("get", "/api/v1/me")["role"] == "member"
+    assert sam.post("/api/v1/setup/claim-admin", json={"code": "WRONG-CODE-XXXX"}).status_code == 403
+    code = _code(e)
+    sam.ok("post", "/api/v1/setup/claim-admin", json={"code": code.lower()})
+    me = sam.ok("get", "/api/v1/me")
+    assert me["role"] == "admin" and me["admin_setup"] is False
+    # the code is single use and no longer offered
+    other = e.user("u-other", "Other Person")
+    assert other.post("/api/v1/setup/claim-admin", json={"code": code}).status_code == 409
+    assert other.ok("get", "/api/v1/me")["role"] == "member"
+
+
+def test_setup_code_rotates_after_failed_attempts(tmp_path):
+    e = _bare_env(tmp_path)
+    sam = e.user("u-sam", "Sam Member")
+    sam.get("/api/v1/me")
+    first = _code(e)
+    for _ in range(5):
+        assert sam.post("/api/v1/setup/claim-admin", json={"code": "AAAA-BBBB-CCCC"}).status_code == 403
+    assert _code(e) != first
+    assert sam.post("/api/v1/setup/claim-admin", json={"code": first}).status_code == 403
+
+
+def test_setup_code_not_offered_through_integration_api(tmp_path):
+    e = _bare_env(tmp_path)
+    integ = e.integration(**{"X-Remote-User-Id": "u-int", "X-Remote-User-Name": "int"})
+    assert integ.ok("get", "/api/v1/me")["admin_setup"] is False
+    assert integ.post("/api/v1/setup/claim-admin", json={"code": "AAAA-BBBB-CCCC"}).status_code == 403
+
+
+class _Directory:
+    def __init__(self, answers):
+        self.answers = answers
+        self.available = True
+
+    def is_admin(self, ha_id):
+        return self.answers.get(ha_id) if self.available else None
+
+
+def test_existing_admin_kept_when_home_assistant_unavailable(tmp_path):
+    e = _bare_env(tmp_path)
+    directory = _Directory({"u-owner": True, "u-sam": False})
+    e.state.admin_directory = e.ingress_app.state.admin_directory = directory
+    owner = e.user("u-owner", "Owner Person")
+    assert owner.ok("get", "/api/v1/me")["role"] == "admin"
+    # Home Assistant goes away: the stored flag is kept, nobody else is promoted
+    directory.available = False
+    me = owner.ok("get", "/api/v1/me")
+    assert me["role"] == "admin" and me["admin_setup"] is False
+    sam = e.user("u-sam", "Sam Member")
+    assert sam.ok("get", "/api/v1/me")["role"] == "member"
+    # a user Home Assistant has never reported (None) is not promoted either
+    assert e.user("u-new", "New Person").ok("get", "/api/v1/me")["role"] == "member"
+
+
+def test_home_assistant_admin_flag_can_be_revoked(tmp_path):
+    e = _bare_env(tmp_path)
+    directory = _Directory({"u-owner": True})
+    e.state.admin_directory = e.ingress_app.state.admin_directory = directory
+    owner = e.user("u-owner", "Owner Person")
+    assert owner.ok("get", "/api/v1/me")["role"] == "admin"
+    directory.answers["u-owner"] = False
+    assert owner.ok("get", "/api/v1/me")["role"] == "member"
+
+
+def test_concurrent_first_requests(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+
+    e = _bare_env(tmp_path)
+    clients = [e.user(f"u-{i}", f"Person {i}") for i in range(8)]
+    # the same person twice at once, plus several others
+    clients += [e.user("u-0", "Person 0")]
+    with ThreadPoolExecutor(max_workers=9) as pool:
+        results = list(pool.map(lambda c: c.get("/api/v1/me"), clients))
+    assert all(r.status_code == 200 for r in results), [r.text for r in results if r.status_code != 200]
+    assert {r.json()["role"] for r in results} == {"member"}
+    code = _code(e)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        claims = list(pool.map(lambda c: c.post("/api/v1/setup/claim-admin", json={"code": code}), clients[:8]))
+    assert sorted(r.status_code for r in claims).count(200) == 1
+    admins = [c for c in clients[:8] if c.ok("get", "/api/v1/me")["role"] == "admin"]
+    assert len(admins) == 1
+
+
+def test_claim_works_when_everyone_defaults_to_read_only(tmp_path):
+    e = _bare_env(tmp_path, default_role="read_only")
+    first = e.user("u-first", "First Person")
+    assert first.ok("get", "/api/v1/me")["role"] == "read_only"
+    first.ok("post", "/api/v1/setup/claim-admin", json={"code": _code(e)})
+    assert first.ok("get", "/api/v1/me")["role"] == "admin"
