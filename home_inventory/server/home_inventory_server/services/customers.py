@@ -77,6 +77,18 @@ def owner_out(db: Session, item_id: int) -> dict[str, Any] | None:
     return {"kind": "customer", "customer_id": c.id, "name": c.name + (" (deleted)" if c.deleted_at else "")}
 
 
+def audit_name(db: Session, item: Item | None) -> str:
+    """Item name for history summaries recorded against *other* records.
+
+    History entries are filtered by the record they belong to; when one
+    mentions a second item that is customer equipment, it says so instead of
+    naming it, so read-only users never see customer equipment names.
+    """
+    if item is None:
+        return "an item"
+    return "customer equipment" if db.get(ItemOwner, item.id) is not None else item.product.name
+
+
 def copy_owner(db: Session, source: Item, clone: Item) -> None:
     row = db.get(ItemOwner, source.id)
     if row is not None:

@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from .. import audit
 from ..auth import Actor
 from ..models import RELATION_TYPES, Container, Item, ItemRelation, ItemStatus, Kit, KitMember, Location
+from .customers import audit_name
 from .placement import Resolver
 
 # label seen from the "from" item, label seen from the "to" item
@@ -67,14 +68,14 @@ def add_relation(db: Session, actor: Actor, from_id: int, to_id: int, relation_t
     db.add(rel)
     db.flush()
     label = custom_label or LABELS[relation_type][0].lower()
-    audit.record(db, actor, "related", "item", a.id, f"{a.product.name} is {label} {b.product.name}")
+    audit.record(db, actor, "related", "item", a.id, f"{audit_name(db, a)} is {label} {audit_name(db, b)}")
     return rel
 
 
 def remove_relation(db: Session, actor: Actor, rel: ItemRelation) -> None:
     a, b = db.get(Item, rel.from_item_id), db.get(Item, rel.to_item_id)
     db.delete(rel)
-    audit.record(db, actor, "unrelated", "item", a.id, f"Unlinked {a.product.name} and {b.product.name}")
+    audit.record(db, actor, "unrelated", "item", a.id, f"Unlinked {audit_name(db, a)} and {audit_name(db, b)}")
 
 
 def _brief(item: Item, r: Resolver) -> dict[str, Any]:
@@ -174,14 +175,14 @@ def add_member(db: Session, actor: Actor, kit: Kit, item_id: int, quantity: int,
     m = KitMember(item_id=item.id, quantity=quantity, optional=optional, note=note)
     kit.members.append(m)
     db.flush()
-    audit.record(db, actor, "kit_member_added", "kit", kit.id, f"Added {item.product.name} to kit {kit.name}")
+    audit.record(db, actor, "kit_member_added", "kit", kit.id, f"Added {audit_name(db, item)} to kit {kit.name}")
     return m
 
 
 def remove_member(db: Session, actor: Actor, kit: Kit, member: KitMember) -> None:
     item = db.get(Item, member.item_id)
     kit.members.remove(member)
-    audit.record(db, actor, "kit_member_removed", "kit", kit.id, f"Removed {item.product.name if item else 'an item'} from kit {kit.name}")
+    audit.record(db, actor, "kit_member_removed", "kit", kit.id, f"Removed {audit_name(db, item)} from kit {kit.name}")
 
 
 def _member_state(item: Item | None, member: KitMember, kit: Kit, r: Resolver) -> tuple[str, dict[str, Any] | None]:
