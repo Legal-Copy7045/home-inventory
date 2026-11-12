@@ -39,6 +39,7 @@ from .db import Database, run_migrations
 from .events import EventBus, install_session_hooks
 from .limits import DEFAULT_RATE_LIMITS, MB, BodySizeLimit, RateLimiter
 from .models import Attachment, LocationMap
+from .privacy import install as install_privacy
 from .services import capture as capture_svc
 from .services import stats as stats_svc
 from .services.media import MediaStore
@@ -78,6 +79,7 @@ class AppState:
         self.db.dispose()
         self.db = Database(self.settings.database_url)
         install_session_hooks(self.db.SessionLocal, self.bus)
+        install_privacy(self.db.SessionLocal)
         run_migrations(self.db.engine, self.settings.db_path, self.settings.backup_dir)
 
 
@@ -87,6 +89,7 @@ def build_state(settings: Settings, ai: AIService | None = None, barcode_provide
     run_migrations(db.engine, settings.db_path, settings.backup_dir)
     bus = EventBus()
     install_session_hooks(db.SessionLocal, bus)
+    install_privacy(db.SessionLocal)
     return AppState(
         settings=settings,
         db=db,

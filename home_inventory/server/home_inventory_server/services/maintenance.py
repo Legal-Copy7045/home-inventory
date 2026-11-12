@@ -31,6 +31,7 @@ from ..models import (
     Attachment,
     EquipmentProfile,
     Item,
+    ItemOwner,
     MaintenanceTask,
     MeterKind,
     MeterReading,
@@ -391,6 +392,8 @@ def record_service(
             stock = db.get(Item, part["item_id"])
             if stock is None or stock.deleted_at is not None:
                 raise MaintenanceError("The inventory item for a part was not found")
+            if deduct and db.get(ItemOwner, stock.id) is not None:
+                raise MaintenanceError("Parts can only be taken from household stock, not from customer equipment")
             if deduct:
                 qty = Decimal(str(part.get("quantity") or 1))
                 if qty != qty.to_integral_value():
@@ -398,7 +401,9 @@ def record_service(
                 from .inventory import Conflict, adjust_quantity
 
                 try:
-                    adjust_quantity(db, actor, stock, -int(qty), f"Used for service of {item.product.name}")
+                    # The note lands in the household item's history: don't name customer equipment there.
+                    serviced = "a customer repair" if db.get(ItemOwner, item.id) is not None else item.product.name
+                    adjust_quantity(db, actor, stock, -int(qty), f"Used for service of {serviced}")
                 except Conflict as err:
                     raise MaintenanceError(f"{stock.product.name}: {err}") from err
         event.parts.append(ServicePart(**part))
