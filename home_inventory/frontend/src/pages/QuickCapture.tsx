@@ -1,28 +1,40 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Check, ImagePlus, Loader2, RotateCcw } from "lucide-react";
+import { Check, ImagePlus, Layers, Loader2, RotateCcw } from "lucide-react";
 import { api, url, type Item } from "../api";
 import { cameraAvailable } from "../components/Scanner";
 import { useApi } from "../components/ui";
 
-type Shot = { key: number; preview: string; state: "uploading" | "done" | "error"; item?: Item; error?: string; blob: Blob };
+type Shot = { key: number; group: number; preview: string; state: "uploading" | "done" | "error"; item?: Item; error?: string; blob: Blob };
 
 /**
- * Quick photos: snap item after item into one container or location; each
- * photo becomes an item flagged "needs details" (finish them later from the
- * To finish list).  Uploads run one at a time in the background so the
- * shutter never waits.
+ * Quick photos: snap item after item; each photo becomes an item flagged
+ * "needs details" (finish them later from the To finish list).  Uploads run
+ * one at a time in the background so the shutter never waits.
+ *
+ * Opened from a container or location, photos go straight there.  Opened on
+ * its own, photos have no place yet: tap "Next shelf" between shelves (or
+ * boxes, drawers...) and say where each group is afterwards on "To sort".
  */
 export default function QuickCapture() {
   const [params] = useSearchParams();
   const nav = useNavigate();
   const containerId = params.get("container_id");
   const locationId = params.get("location_id");
+  const unsorted = !containerId && !locationId;
   const target = useApi(
-    () => (containerId ? api.get<{ path: string; name: string }>(`containers/${containerId}`) : api.get<{ path: string; name: string }>(`locations/${locationId}`)),
+    () =>
+      unsorted
+        ? Promise.resolve(null)
+        : containerId
+          ? api.get<{ path: string; name: string }>(`containers/${containerId}`)
+          : api.get<{ path: string; name: string }>(`locations/${locationId}`),
     [containerId, locationId],
   );
-  const back = containerId ? `/containers/${containerId}` : `/locations/${locationId}`;
+  const back = unsorted ? "/sort" : containerId ? `/containers/${containerId}` : `/locations/${locationId}`;
+  // One id per visit to this page, so its groups stay together on "To sort".
+  const batch = useRef(`${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
+  const [group, setGroup] = useState(1);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [live, setLive] = useState(false);
   const [camError, setCamError] = useState<string | null>(null);
@@ -66,6 +78,8 @@ export default function QuickCapture() {
       fd.append("file", shot.blob, "photo.jpg");
       if (containerId) fd.append("container_id", containerId);
       else if (locationId) fd.append("location_id", locationId);
+      fd.append("batch", batch.current);
+      fd.append("group", String(shot.group));
       try {
         const item = await api.upload<Item>("capture", fd);
         update(shot.key, { state: "done", item });
@@ -77,7 +91,7 @@ export default function QuickCapture() {
   }
 
   function add(blob: Blob) {
-    const shot: Shot = { key: Date.now() + Math.random(), preview: URL.createObjectURL(blob), state: "uploading", blob };
+    const shot: Shot = { key: Date.now() + Math.random(), group, preview: URL.createObjectURL(blob), state: "uploading", blob };
     setShots((all) => [shot, ...all]);
     queue.current.push(shot);
     pump();
@@ -104,17 +118,28 @@ export default function QuickCapture() {
 
   const done = shots.filter((s) => s.state === "done").length;
   const pending = shots.filter((s) => s.state === "uploading").length;
+  const inGroup = shots.filter((s) => s.group === group).length;
+  const groups = [...new Set(shots.map((s) => s.group))].sort((a, b) => b - a);
 
   return (
     <div className="page">
       <div className="scanbar">
         <div className="t">
-          Quick photos → {target.data?.name || "…"}
-          <div style={{ fontWeight: 500, fontSize: ".8rem", opacity: 0.9 }}>{target.data?.path}</div>
+          {unsorted ? <>Quick photos · Shelf {group}</> : <>Quick photos → {target.data?.name || "…"}</>}
+          <div style={{ fontWeight: 500, fontSize: ".8rem", opacity: 0.9 }}>
+            {unsorted ? `${inGroup} photo${inGroup === 1 ? "" : "s"} in this group · place them later` : target.data?.path}
+          </div>
         </div>
         <button className="btn small" onClick={() => nav(back)} aria-label="Done"><Check size={16} /> Done</button>
       </div>
-      <p className="muted" style={{ marginTop: 0 }}>One photo per item. Add the details later from <b>To finish</b>{" "}— nothing else to do now.</p>
+      {unsorted ? (
+        <p className="muted" style={{ marginTop: 0 }}>
+          One photo per item. Tap <b>Next shelf</b> when you move on to another shelf, box or drawer. Afterwards, say where each group is on{" "}
+          <b>To sort</b>, and add details from <b>To finish</b>.
+        </p>
+      ) : (
+        <p className="muted" style={{ marginTop: 0 }}>One photo per item. Add the details later from <b>To finish</b>{" "}— nothing else to do now.</p>
+      )}
 
       {cameraAvailable() && !camError ? (
         <div className="camera" style={{ aspectRatio: "3/4" }}>
@@ -131,6 +156,11 @@ export default function QuickCapture() {
       )}
 
       <div className="row wrap" style={{ margin: "12px 0" }}>
+        {unsorted && (
+          <button className="btn primary" style={{ flex: 1 }} disabled={!inGroup} onClick={() => setGroup((g) => g + 1)}>
+            <Layers size={18} /> Next shelf
+          </button>
+        )}
         <label className="btn" style={{ flex: 1 }}>
           <ImagePlus size={18} /> {cameraAvailable() && !camError ? "From gallery" : "Take / choose photos"}
           <input type="file" accept="image/*" multiple {...(cameraAvailable() && !camError ? {} : { capture: "environment" as const })} hidden
@@ -140,10 +170,13 @@ export default function QuickCapture() {
 
       <div className="row between">
         <b>{done} added{pending ? ` · ${pending} uploading` : ""}</b>
-        {done > 0 && <Link to="/to-finish">Add details now →</Link>}
+        {done > 0 && (unsorted ? <Link to="/sort">Say where they are →</Link> : <Link to="/to-finish">Add details now →</Link>)}
       </div>
-      <div className="photos" style={{ marginTop: 8 }}>
-        {shots.map((s) => (
+      {groups.map((g) => (
+        <div key={g}>
+          {unsorted && <div className="muted" style={{ margin: "12px 0 6px", fontWeight: 600 }}>Shelf {g}</div>}
+          <div className="photos" style={{ marginTop: unsorted ? 0 : 8 }}>
+            {shots.filter((s) => s.group === g).map((s) => (
           <div key={s.key} className="ph">
             <img src={s.item?.photo?.thumb_url ? url(s.item.photo.thumb_url) : s.preview} alt="" />
             <span className="star">
@@ -154,8 +187,10 @@ export default function QuickCapture() {
               )}
             </span>
           </div>
-        ))}
-      </div>
+            ))}
+          </div>
+        </div>
+      ))}
       {!shots.length && <div className="empty">No photos yet.</div>}
     </div>
   );

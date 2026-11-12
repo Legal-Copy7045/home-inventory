@@ -36,7 +36,8 @@ def test_quick_photos_to_a_location_and_validation(env):
     shelf = u.location("Shelf")
     s = _snap(u, location_id=shelf["id"])
     assert s["placement"]["location"]["id"] == shelf["id"]
-    assert u.post("/api/v1/capture", files={"file": ("p.jpg", jpeg_bytes())}).status_code == 422
+    assert u.post("/api/v1/capture", files={"file": ("p.jpg", jpeg_bytes())}, data={"location_id": str(shelf["id"]), "container_id": str(u.container("B")["id"])}).status_code == 409
+    assert u.post("/api/v1/capture", files={"file": ("p.jpg", jpeg_bytes())}, data={"location_id": "999999"}).status_code == 409
     assert u.post("/api/v1/capture", files={"file": ("p.jpg", b"not an image")}, data={"location_id": str(shelf["id"])}).status_code == 415
     viewer = env.user("u-v", "Viewer")
     viewer.get("/api/v1/me")
@@ -84,3 +85,61 @@ def test_worker_resumes_queued_captures_after_restart(ai_env, fake_ai):
 
     asyncio.run(run())
     assert u.ok("get", f"/api/v1/items/{s['id']}")["capture"]["suggestion"]["name"] == "Lantern"
+
+
+def test_quick_photos_without_a_place_then_sort_by_shelf(env):
+    """Photograph several shelves first, say which shelf each group is on later."""
+    u = env.admin
+    shelf1, shelf2 = u.location("Shelf 1"), u.location("Shelf 2")
+    box = u.container("Parts box")
+    g1 = [_snap(u, batch="b1", group=1) for _ in range(3)]
+    g2 = [_snap(u, batch="b1", group=2) for _ in range(2)]
+    later = _snap(u, batch="b2", group=1)
+    placed = _snap(u, location_id=shelf1["id"], batch="b3", group=1)  # has a place: not unsorted
+    assert all(s["placement"]["path"] == "Unassigned" and s["needs_details"] for s in g1 + g2)
+    assert u.ok("get", "/api/v1/stats")["unsorted_photos"] == 6
+    hist = u.ok("get", "/api/v1/history", params={"entity_type": "item", "entity_id": g1[0]["id"]})["events"]
+    assert any("place and details to follow" in e["summary"] for e in hist)
+
+    uns = u.ok("get", "/api/v1/capture/unsorted")
+    assert uns["total"] == 6
+    shape = [(g["batch"], g["group"], [i["id"] for i in g["items"]]) for g in uns["groups"]]
+    # Newest photo session first; groups in the order they were taken.
+    assert shape == [("b2", 1, [later["id"]]), ("b1", 1, [s["id"] for s in g1]), ("b1", 2, [s["id"] for s in g2])]
+    assert placed["id"] not in {i["id"] for g in uns["groups"] for i in g["items"]}
+
+    # Group 1 was shelf 1, group 2 shelf 2, the odd one into a box.
+    r1 = u.ok("post", "/api/v1/capture/place", json={"item_ids": [s["id"] for s in g1], "location_id": shelf1["id"]})
+    assert all(i["placement"]["location"]["id"] == shelf1["id"] for i in r1["items"])
+    u.ok("post", "/api/v1/capture/place", json={"item_ids": [s["id"] for s in g2], "location_id": shelf2["id"]})
+    u.ok("post", "/api/v1/capture/place", json={"item_ids": [later["id"]], "container_id": box["id"]})
+    assert u.ok("get", "/api/v1/capture/unsorted") == {"total": 0, "groups": []}
+    assert u.ok("get", "/api/v1/stats")["unsorted_photos"] == 0
+    on2 = u.ok("get", "/api/v1/items", params={"location_id": shelf2["id"]})
+    assert {i["id"] for i in on2["items"]} == {s["id"] for s in g2}
+    assert len(u.ok("get", f"/api/v1/containers/{box['id']}")["items"]) == 1
+    # Still need their details; sorting is recorded as a move.
+    assert all(i["needs_details"] for i in on2["items"])
+    hist = u.ok("get", "/api/v1/history", params={"entity_type": "item", "entity_id": later["id"]})["events"]
+    assert any(e["action"] == "moved" for e in hist)
+
+
+def test_placing_quick_photos_validation_and_roles(env):
+    u = env.admin
+    shelf = u.location("Shelf")
+    s = _snap(u, batch="b", group=1)
+    assert u.post("/api/v1/capture/place", json={"item_ids": [s["id"]]}).status_code == 422
+    assert u.post("/api/v1/capture/place", json={"item_ids": [], "location_id": shelf["id"]}).status_code == 422
+    assert u.post("/api/v1/capture/place", json={"item_ids": [s["id"]], "location_id": shelf["id"], "container_id": u.container("B")["id"]}).status_code == 422
+    assert u.post("/api/v1/capture/place", json={"item_ids": [s["id"]], "location_id": 999999}).status_code == 409
+    assert u.post("/api/v1/capture/place", json={"item_ids": [s["id"], 999999], "location_id": shelf["id"]}).status_code == 404
+    # Nothing moved by the failed request.
+    assert u.ok("get", "/api/v1/capture/unsorted")["total"] == 1
+    assert u.post("/api/v1/capture", files={"file": ("p.jpg", jpeg_bytes())}, data={"group": "0"}).status_code == 422
+    viewer = env.user("u-v2", "Viewer")
+    viewer.get("/api/v1/me")
+    vid = next(x["id"] for x in u.ok("get", "/api/v1/users") if x["name"] == "Viewer")
+    u.ok("patch", f"/api/v1/users/{vid}", json={"role": "read_only"})
+    assert viewer.get("/api/v1/capture/unsorted").status_code == 200
+    assert viewer.post("/api/v1/capture/place", json={"item_ids": [s["id"]], "location_id": shelf["id"]}).status_code == 403
+    assert viewer.post("/api/v1/capture", files={"file": ("p.jpg", jpeg_bytes())}).status_code == 403

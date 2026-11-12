@@ -1,8 +1,10 @@
 """Quick capture: photograph many items in a row, add details later.
 
-Each photo immediately becomes an item in the chosen container/location,
-flagged as needing details (product identification status ``pending``), so
-the container's contents are right straight away.  When AI is configured, a
+Each photo immediately becomes an item flagged as needing details (product
+identification status ``pending``).  Photos can go straight into a container
+or location, or be taken with no place at all - e.g. photograph everything on
+several shelves, grouped shelf by shelf, then say which shelf each group is
+on afterwards (:func:`unsorted`, :func:`place`).  When AI is configured, a
 background worker asks it what each photo shows and stores the answer as a
 *suggestion* only; nothing is filled in until the user confirms it.
 """
@@ -27,8 +29,18 @@ _LOGGER = logging.getLogger(__name__)
 PLACEHOLDER_NAME = "Item to identify"
 
 
-def capture(db: Session, actor: Actor, photo: Attachment, container_id: int | None, location_id: int | None, ai_enabled: bool) -> Item:
+def capture(
+    db: Session,
+    actor: Actor,
+    photo: Attachment,
+    container_id: int | None,
+    location_id: int | None,
+    ai_enabled: bool,
+    batch: str | None = None,
+    group: int | None = None,
+) -> Item:
     validate_item_target(db, container_id, location_id)
+    placed = container_id is not None or location_id is not None
     product = Product(
         name=PLACEHOLDER_NAME,
         identification_status=IdentificationStatus.pending,
@@ -36,19 +48,62 @@ def capture(db: Session, actor: Actor, photo: Attachment, container_id: int | No
     )
     db.add(product)
     db.flush()
-    item = Item(product_id=product.id, quantity=1, container_id=container_id, location_id=location_id)
+    now = datetime.now(UTC).isoformat()
+    item = Item(
+        product_id=product.id, quantity=1, container_id=container_id, location_id=location_id,
+        # Which photo session / shelf group it was taken in, for sorting later.
+        ai_metadata={"capture": {"batch": batch, "group": group, "at": now}},
+    )
     db.add(item)
     db.flush()
     photo.item_id = item.id
     item.primary_photo_id = photo.id
     where = Resolver.load(db).describe_item(item)["path"]
-    audit.record(db, actor, "captured", "item", item.id, f"Quick photo added to {where} (details to follow)",
-                 related_containers=[container_id])
+    summary = f"Quick photo added to {where} (details to follow)" if placed else "Quick photo taken (place and details to follow)"
+    audit.record(db, actor, "captured", "item", item.id, summary, related_containers=[container_id])
     queue_event(db, "item_added", {"item_ids": [item.id], "product_id": product.id, "name": PLACEHOLDER_NAME,
                                    "quantity": 1, "location": where, "user": actor.name, "needs_details": True})
     if container_id:
         queue_event(db, "container_inventory_updated", {"container_id": container_id, "user": actor.name})
     return item
+
+
+# ---------------------------------------------------------------------------
+# Sorting photos taken without a place
+# ---------------------------------------------------------------------------
+
+
+def _capture_meta(item: Item) -> dict[str, Any] | None:
+    meta = item.ai_metadata or {}
+    cap = meta.get("capture") if isinstance(meta, dict) else None
+    return cap if isinstance(cap, dict) else None
+
+
+def unsorted_items(db: Session) -> list[Item]:
+    """Quick-photo items that have no place yet."""
+    items = db.scalars(
+        select(Item).where(Item.deleted_at.is_(None), Item.container_id.is_(None), Item.location_id.is_(None)).order_by(Item.id)
+    ).all()
+    return [i for i in items if _capture_meta(i) is not None]
+
+
+def unsorted_groups(items: list[Item]) -> list[dict[str, Any]]:
+    """Group unsorted items by photo session and shelf group, newest session
+    first and groups in the order they were taken."""
+    groups: dict[tuple[str, int], dict[str, Any]] = {}
+    for i in items:
+        cap = _capture_meta(i) or {}
+        batch = str(cap.get("batch") or f"item-{i.id}")
+        g = cap.get("group")
+        group = g if isinstance(g, int) else 1
+        entry = groups.setdefault((batch, group), {"batch": batch, "group": group, "taken_at": cap.get("at"), "items": []})
+        entry["items"].append(i)
+    first_id = {k: min(x.id for x in v["items"]) for k, v in groups.items()}
+    batch_first = {}
+    for (b, _g), fid in first_id.items():
+        batch_first[b] = min(fid, batch_first.get(b, fid))
+    order = sorted(groups, key=lambda k: (-batch_first[k[0]], k[1]))
+    return [groups[k] for k in order]
 
 
 def pending_query():
