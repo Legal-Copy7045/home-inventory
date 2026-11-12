@@ -18,6 +18,7 @@ import QuickCapture from "./pages/QuickCapture";
 import ScanPage from "./pages/ScanPage";
 import SortPhotos from "./pages/SortPhotos";
 import ReportPage from "./pages/Report";
+import DuplicatesPage from "./pages/Duplicates";
 import { startQueue, subscribe as subscribeUploads, waitingCount } from "./uploadQueue";
 import { RecentlyDeleted } from "./components/BulkActions";
 import ToFinish from "./pages/ToFinish";
@@ -50,7 +51,7 @@ const NAV = [
 const TITLES: [RegExp, string][] = [
   [/^\/$/, "Home Inventory"], [/^\/search/, "Search"], [/^\/add/, "Add item"], [/^\/scan/, "Scan"], [/^\/items\/\d+/, "Item"], [/^\/items/, "Items"],
   [/^\/containers\/\d+/, "Container"], [/^\/containers/, "Containers"], [/^\/locations/, "Locations"], [/^\/maps/, "Visual maps"], [/^\/labels/, "Labels"],
-  [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/sort/, "To sort"], [/^\/deleted/, "Recently deleted"], [/^\/report/, "Inventory report"], [/^\/maintenance/, "Maintenance"], [/^\/kits\/\d+/, "Kit"], [/^\/tags/, "NFC tags"], [/^\/shopping/, "Restock & shopping"], [/^\/tag\//, "Tag"], [/^\/kits/, "Kits"], [/^\/customers\/\d+/, "Customer"], [/^\/customers/, "Customers"], [/^\/repairs\/\d+\/print/, "Work order"], [/^\/repairs\/\d+/, "Repair job"], [/^\/repairs/, "Repairs"], [/^\/activity/, "Activity"], [/^\/loans/, "Loans & temporary"], [/^\/settings/, "Settings"],
+  [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/sort/, "To sort"], [/^\/deleted/, "Recently deleted"], [/^\/report/, "Inventory report"], [/^\/duplicates/, "Possible duplicates"], [/^\/maintenance/, "Maintenance"], [/^\/kits\/\d+/, "Kit"], [/^\/tags/, "NFC tags"], [/^\/shopping/, "Restock & shopping"], [/^\/tag\//, "Tag"], [/^\/kits/, "Kits"], [/^\/customers\/\d+/, "Customer"], [/^\/customers/, "Customers"], [/^\/repairs\/\d+\/print/, "Work order"], [/^\/repairs\/\d+/, "Repair job"], [/^\/repairs/, "Repairs"], [/^\/activity/, "Activity"], [/^\/loans/, "Loans & temporary"], [/^\/settings/, "Settings"],
 ];
 
 /** QR labels can encode `<base>?c=CODE`; open the container when launched that way. */
@@ -204,6 +205,7 @@ function Shell({ me }: { me: Me }) {
           <Route path="/sort" element={<SortPhotos />} />
           <Route path="/deleted" element={<RecentlyDeleted />} />
           <Route path="/report" element={<ReportPage />} />
+          <Route path="/duplicates" element={<DuplicatesPage />} />
           <Route path="/to-finish" element={<ToFinish />} />
           <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/kits" element={<KitsPage />} />

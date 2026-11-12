@@ -240,6 +240,27 @@ def _daily_jobs(state: AppState) -> None:
         db.close()
 
 
+async def _meter_sensors(state: AppState) -> None:
+    """Read linked Home Assistant runtime sensors every 15 minutes."""
+    from .ha_api import HAClient
+    from .services import sensor_meters
+
+    client = HAClient.maybe(state.settings)
+    if client is None:
+        return
+    while True:
+        await asyncio.sleep(15 * 60)
+        db = state.db.SessionLocal()
+        try:
+            n = await asyncio.to_thread(sensor_meters.sync_all, db, client)
+            if n:
+                _LOGGER.info("Recorded %s meter reading(s) from Home Assistant sensors", n)
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("Meter sensor sync failed")
+        finally:
+            db.close()
+
+
 async def _announce_discovery(state: AppState) -> None:
     """Tell Home Assistant (via Supervisor discovery) how to reach the API.
 
@@ -305,6 +326,7 @@ async def serve(settings: Settings) -> None:
     ]
     state.tasks.append(asyncio.create_task(_periodic(state)))
     state.tasks.append(asyncio.create_task(_announce_discovery(state)))
+    state.tasks.append(asyncio.create_task(_meter_sensors(state)))
     state.tasks.append(asyncio.create_task(capture_svc.worker(state)))
     state.tasks.append(asyncio.create_task(_admin_setup_notice(state)))
     _LOGGER.info(

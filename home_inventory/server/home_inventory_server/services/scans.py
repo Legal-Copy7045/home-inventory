@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from .. import audit
 from ..auth import Actor
 from ..events import queue_event
-from ..models import Attachment, Container, ContainerScan, IdentificationStatus, Item, Location, ScanStatus
+from ..models import Attachment, Container, ContainerScan, IdentificationStatus, Item, ItemStatus, Location, ScanStatus
 from ..schemas import ItemCreate, ItemPatch, ScanConfirmIn
 from . import inventory as inv
 
@@ -141,7 +141,9 @@ def analyse(db: Session, scan: ContainerScan, ai, image: bytes) -> ContainerScan
     return scan
 
 
-def confirm(db: Session, actor: Actor, scan: ContainerScan, data: ScanConfirmIn) -> dict[str, Any]:
+def confirm(db: Session, actor: Actor, scan: ContainerScan, data: ScanConfirmIn, crop=None) -> dict[str, Any]:
+    """Apply the reviewed list.  ``crop(box)`` (optional) returns a new photo
+    Attachment of that part of the scan photo, for each new item's picture."""
     if scan.status in (ScanStatus.confirmed, ScanStatus.discarded):
         raise inv.Conflict("This scan has already been handled")
     if scan.container_id is not None:
@@ -187,11 +189,26 @@ def confirm(db: Session, actor: Actor, scan: ContainerScan, data: ScanConfirmIn)
             ),
         )
         created.extend(i.id for i in items)
-        # Link the container photo to the new item records so they have a picture.
-        if scan.photo_id:
-            for i in items:
-                if i.primary_photo_id is None:
-                    i.primary_photo_id = scan.photo_id
+        # Each new item gets its own cropped picture when the AI said where it
+        # is; otherwise the whole photo.
+        own = crop(entry.box) if (crop is not None and entry.box) else None
+        for i in items:
+            if own is not None and i.primary_photo_id is None:
+                own.item_id = i.id
+                i.primary_photo_id = own.id
+                own = None
+            elif i.primary_photo_id is None and scan.photo_id:
+                i.primary_photo_id = scan.photo_id
+    missing = []
+    for item_id in dict.fromkeys(data.missing_item_ids):
+        item = inv.get_item(db, item_id)
+        if item.id not in held:
+            raise inv.Conflict(f"That item is not {here}")
+        if item_id in data.remove_item_ids:
+            continue
+        if item.status is not ItemStatus.missing:
+            inv.set_status(db, actor, item, ItemStatus.missing, f"Not seen when {place_name} was re-scanned")
+        missing.append(item_id)
     for item_id in data.remove_item_ids:
         item = inv.get_item(db, item_id)
         if item.id not in held:
@@ -201,7 +218,9 @@ def confirm(db: Session, actor: Actor, scan: ContainerScan, data: ScanConfirmIn)
     scan.status = ScanStatus.confirmed
     scan.confirmed_at = datetime.now(UTC)
     summary = f"Confirmed photo inventory of {place_name}: {len(created)} added, {len(increased)} updated, {len(removed)} removed"
-    after = {"scan_id": scan.id, "created": created, "increased": increased, "removed": removed}
+    if missing:
+        summary += f", {len(missing)} marked missing"
+    after = {"scan_id": scan.id, "created": created, "increased": increased, "removed": removed, "missing": missing}
     if container is not None:
         audit.record(db, actor, "inventory_updated", "container", container.id, summary, after=after,
                      related_containers=[container.id])
@@ -213,7 +232,7 @@ def confirm(db: Session, actor: Actor, scan: ContainerScan, data: ScanConfirmIn)
         )
     else:
         audit.record(db, actor, "inventory_updated", "location", location.id, summary, after=after)
-    return {"created": created, "increased": increased, "removed": removed}
+    return {"created": created, "increased": increased, "removed": removed, "missing": missing}
 
 
 def _get_location(db: Session, location_id: int | None) -> Location:

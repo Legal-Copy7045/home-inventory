@@ -112,6 +112,7 @@ export function SearchPage() {
 }
 
 export function ItemsPage() {
+  const me = useMe();
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState(params.get("q") || "");
   const sort = params.get("sort") || "name";
@@ -164,7 +165,10 @@ export function ItemsPage() {
       {list.data && (
         <p className="muted row between">
           <span>{list.data.total} record{list.data.total === 1 ? "" : "s"}</span>
-          <Link to="/deleted">Recently deleted</Link>
+          <span className="row" style={{ gap: 12 }}>
+            {me.can_edit && <Link to="/duplicates">Possible duplicates</Link>}
+            <Link to="/deleted">Recently deleted</Link>
+          </span>
         </p>
       )}
     </div>

@@ -461,6 +461,9 @@ class EquipmentProfile(TimestampMixin, Base):
     fuel_type: Mapped[str | None] = mapped_column(String(60))
     # Which usage meter the equipment has: none, hours, cycles or both.
     meter: Mapped[str] = mapped_column(String(10), default="hours")
+    # Home Assistant entities that report the meter (read every 15 minutes).
+    hours_entity_id: Mapped[str | None] = mapped_column(String(255))
+    cycles_entity_id: Mapped[str | None] = mapped_column(String(255))
     specs: Mapped[list[Any] | None] = mapped_column(JSON)
     notes: Mapped[str | None] = mapped_column(Text)
 

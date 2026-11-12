@@ -6,7 +6,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -220,3 +220,43 @@ def remove_service(event_id: int, actor: Actor = Depends(require_member), db: Se
 def today(actor: Actor = Depends(current_actor)):
     """Server date, so the UI agrees with the backend on what is overdue."""
     return {"date": date.today().isoformat()}
+
+
+# ---------------------------------------------------------------------------
+# Meters read from Home Assistant sensors
+# ---------------------------------------------------------------------------
+
+
+def _ha(request: Request):
+    from ..ha_api import HAClient
+
+    client = HAClient.maybe(request.app.state.settings)
+    if client is None:
+        raise HTTPException(503, "Home Assistant API access is not available to the App")
+    return client
+
+
+@router.get("/ha/meter-sensors")
+def meter_sensors(request: Request, actor: Actor = Depends(require_member)):
+    """Home Assistant entities that could report operating hours or cycles."""
+    from ..ha_api import HAUnavailable
+    from ..services import sensor_meters
+
+    try:
+        return sensor_meters.candidates(_ha(request))
+    except HAUnavailable as err:
+        raise HTTPException(502, str(err)) from err
+
+
+@router.post("/items/{item_id}/meter-sync")
+def meter_sync(item_id: int, request: Request, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Read the linked sensors now (also happens every 15 minutes)."""
+    from ..services import sensor_meters
+
+    item = _item(db, item_id)
+    profile = db.scalar(select(EquipmentProfile).where(EquipmentProfile.item_id == item.id))
+    if profile is None or not (profile.hours_entity_id or profile.cycles_entity_id):
+        raise HTTPException(422, "No Home Assistant sensor is linked to this item")
+    results = sensor_meters.sync_profile(db, _ha(request), profile)
+    db.commit()
+    return {"results": results}

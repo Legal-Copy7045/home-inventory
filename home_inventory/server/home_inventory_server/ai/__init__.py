@@ -66,8 +66,10 @@ CONTAINER_SCHEMA: dict[str, Any] = {
                     "confidence": {"type": "number"},
                     # Where in the photo, e.g. "top shelf, left" (shelf photos).
                     "position": _NULLABLE_STR,
+                    # [x, y, width, height] as fractions of the photo, for a cropped item photo.
+                    "box": {"type": ["array", "null"], "items": {"type": "number"}},
                 },
-                "required": ["name", "description", "category", "manufacturer", "model_number", "quantity", "confidence", "position"],
+                "required": ["name", "description", "category", "manufacturer", "model_number", "quantity", "confidence", "position", "box"],
                 "additionalProperties": False,
             },
         },
@@ -109,7 +111,8 @@ Automotive, Sports, Toys, Clothing, Cleaning, Documents, Hardware, Camping).
 CONTAINER_PROMPT = """You help catalogue a household inventory. The photo shows the open contents of a storage
 container. List every distinct kind of object you can see, grouping identical objects with a quantity.
 Return JSON only. Use null when unsure; never invent brands or model numbers. Use short everyday names.
-"confidence" is 0..1 for each entry. Ignore the container itself and packing material.{hint}"""
+"confidence" is 0..1 for each entry. Ignore the container itself and packing material.
+"box" is [x, y, width, height] of the entry in the photo as fractions 0..1 from the top-left (null if unsure).{hint}"""
 
 RECEIPT_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -138,7 +141,8 @@ identical objects with a quantity. Count carefully; if objects are partly hidden
 Return JSON only. Use null when unsure; never invent brands or model numbers. Use short everyday names, reading
 labels and packaging where legible. "position" says where it is, e.g. "top shelf, left" or "second shelf, middle"
 (null if unclear). "confidence" is 0..1 for each entry. Ignore the shelving itself, walls and the floor.
-Closed boxes and bins: list them as one entry each named for the box (e.g. "Blue plastic storage bin").{hint}"""
+Closed boxes and bins: list them as one entry each named for the box (e.g. "Blue plastic storage bin").
+"box" is [x, y, width, height] of the entry in the photo as fractions 0..1 from the top-left (null if unsure).{hint}"""
 
 SEARCH_PROMPT = """Convert a household inventory question into search filters. Return JSON only.
 intent: "count" for how-many questions, "loans" for lending/borrowing questions, "warranty" for warranty
@@ -268,6 +272,19 @@ class AIService:
         return res
 
 
+def _clean_box(v: Any) -> list[float] | None:
+    """[x, y, w, h] within the photo, or None."""
+    if not isinstance(v, list) or len(v) != 4:
+        return None
+    try:
+        x, y, w, h = (float(n) for n in v)
+    except (TypeError, ValueError):
+        return None
+    if min(x, y) < 0 or w < 0.02 or h < 0.02 or x + w > 1.01 or y + h > 1.01:
+        return None
+    return [round(x, 4), round(y, 4), round(w, 4), round(h, 4)]
+
+
 def _clean_receipt(d: dict[str, Any]) -> dict[str, Any]:
     from datetime import date
 
@@ -330,6 +347,9 @@ def _clean_item(d: dict[str, Any]) -> dict[str, Any]:
         out["quantity"] = d["quantity"]
     if d.get("position"):
         out["position"] = s("position", 120)
+    box = _clean_box(d.get("box"))
+    if box:
+        out["box"] = box
     if d.get("notes"):
         out["notes"] = s("notes", 1000)
     return out

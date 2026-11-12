@@ -132,6 +132,9 @@ export function EquipmentSection({ itemId, edit, onChanged, initial }: { itemId:
           {edit && <button className="btn small" onClick={() => setSheet({ kind: "meter" })}><Clock size={16} /> Log {meter === "cycles" ? "uses" : "hours"}</button>}
         </div>
       )}
+      {(d.profile?.hours_entity_id || d.profile?.cycles_entity_id) && (
+        <SensorLink itemId={itemId} profile={d.profile} edit={edit} onDone={() => { s.reload(); onChanged?.(); }} />
+      )}
 
       {d.tasks.length > 0 && (
         <ul className="list">
@@ -227,6 +230,57 @@ function SetupSheet({ itemId, onClose, onDone }: { itemId: number; onClose: () =
   );
 }
 
+type MeterSensor = { entity_id: string; name: string; state: string; unit: string | null; time: boolean };
+
+/** "Read from Home Assistant": pick the runtime / counter entities. */
+function SensorFields({ p, setP }: { p: EquipmentProfile; setP: (p: EquipmentProfile) => void }) {
+  const sensors = useApi(() => api.get<MeterSensor[]>("ha/meter-sensors"), []);
+  if (p.meter === "none") return null;
+  const pick = (k: "hours_entity_id" | "cycles_entity_id", label: string, timeOnly: boolean) => (
+    <label className="field">{label}
+      <select value={p[k] || ""} onChange={(e) => setP({ ...p, [k]: e.target.value || null })}>
+        <option value="">Not linked (enter readings by hand)</option>
+        {p[k] && !sensors.data?.some((s) => s.entity_id === p[k]) && <option value={p[k]!}>{p[k]}</option>}
+        {(sensors.data || []).filter((s) => !timeOnly || s.time).map((s) => (
+          <option key={s.entity_id} value={s.entity_id}>{s.name} — {s.state}{s.unit ? ` ${s.unit}` : ""}</option>
+        ))}
+      </select>
+    </label>
+  );
+  return (
+    <>
+      <b>Read from Home Assistant</b>
+      {sensors.error ? <p className="muted" style={{ margin: 0 }}>Home Assistant sensors aren't available: {sensors.error}</p> : (
+        <div className="grid two">
+          {p.meter !== "cycles" && pick("hours_entity_id", "Operating hours sensor", true)}
+          {(p.meter === "cycles" || p.meter === "both") && pick("cycles_entity_id", "Uses / starts counter", false)}
+        </div>
+      )}
+      <p className="muted" style={{ margin: 0, fontSize: ".85rem" }}>Readings are taken every 15 minutes (hours, minutes or seconds are converted). A smart plug's runtime, a <code>history_stats</code> sensor or a counter all work.</p>
+    </>
+  );
+}
+
+/** Shown under the meter when a sensor is linked. */
+function SensorLink({ itemId, profile, edit, onDone }: { itemId: number; profile: EquipmentProfile; edit: boolean; onDone: () => void }) {
+  const { busy, run } = useAction();
+  const [problem, setProblem] = useState<string | null>(null);
+  const ids = [profile.hours_entity_id, profile.cycles_entity_id].filter(Boolean).join(", ");
+  return (
+    <div className="row between wrap muted" style={{ marginTop: -4, marginBottom: 10, fontSize: ".85rem" }}>
+      <span>Read automatically from <code>{ids}</code>{problem ? ` · ${problem}` : ""}</span>
+      {edit && (
+        <button className="btn small ghost" disabled={busy} onClick={async () => {
+          const r = await run(() => api.post<{ results: { recorded: boolean; problem: string | null }[] }>(`items/${itemId}/meter-sync`));
+          if (!r) return;
+          setProblem(r.results.map((x) => x.problem).filter(Boolean).join("; ") || null);
+          onDone();
+        }}>Read now</button>
+      )}
+    </div>
+  );
+}
+
 function ProfileSheet({ itemId, profile, onClose, onDone }: { itemId: number; profile: EquipmentProfile; onClose: () => void; onDone: (d?: MaintenanceSummary) => void }) {
   const [p, setP] = useState<EquipmentProfile>({ ...profile, specs: profile.specs.map((s) => ({ ...s })) });
   const { busy, run } = useAction();
@@ -261,6 +315,7 @@ function ProfileSheet({ itemId, profile, onClose, onDone }: { itemId: number; pr
           <label className="field">Engine serial<input value={p.engine_serial || ""} onChange={set("engine_serial")} /></label>
           <label className="field">Fuel<input value={p.fuel_type || ""} onChange={set("fuel_type")} placeholder="Gasoline, 50:1 mix, battery…" /></label>
         </div>
+        <SensorFields p={p} setP={setP} />
         <b>Specifications and parts</b>
         {p.specs.map((s, i) => (
           <div key={i} className="row" style={{ gap: 6, alignItems: "flex-end" }}>

@@ -392,3 +392,5 @@ button.linkish { background: none; border: 0; padding: 0; color: var(--primary);
   .report .list > li { break-inside: avoid; padding: 6px 8px; }
   .report .thumb { width: 48px; height: 48px; }
 }
+.dup-side { padding: 10px; border: 1px solid var(--border); border-radius: 12px; }
+.crop-preview { width: 52px; height: 52px; flex: none; border-radius: 8px; background-repeat: no-repeat; background-color: var(--surface-2); }
