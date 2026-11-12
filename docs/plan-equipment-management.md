@@ -1,6 +1,6 @@
 # Plan: security remediation and equipment management
 
-Status: **Phases 1 (0.2.0), 2 (0.3.0) and 3 (0.4.0) complete.** Phases 4–6 to follow. This document records verified findings, design decisions and the phase plan. Each phase ships as its own pull request with tests, and gets its own section below once it lands.
+Status: **Phases 1–4 complete (0.2.0–0.5.0).** Phases 5–6 to follow. This document records verified findings, design decisions and the phase plan. Each phase ships as its own pull request with tests, and gets its own section below once it lands.
 
 ## Ground rules
 
@@ -138,7 +138,19 @@ UI:
 - **Permissions:** customer and job data needs the **member** role, so read-only users get 403 and no customer names in search results. The HA aggregate sensors show counts only.
 - Printable work order: a print-styled page with customer, equipment, problem, work, parts and charges. It is not an invoice system.
 
-## Phase 4: relationships and kits
+## Phase 4: relationships and kits (done, 0.5.0)
+
+**As built:**
+- **Migration `0005`:** three new tables; no existing table changed.
+- **Duplicate links:** prevented in code, because SQLite treats NULLs as distinct in unique constraints. Symmetric types (`compatible_with`, `stored_with`) are de-duplicated in either direction.
+- **Endpoints** (`api/relations.py`):
+  - `GET /relation-types`
+  - `GET|POST /items/{id}/relations` (with `direction`), `DELETE /relations/{id}`
+  - `GET|POST /kits`, `GET|PATCH|DELETE /kits/{id}`, `POST|PATCH|DELETE /kits/{id}/members[/{member_id}]`
+  - `/search` results carry `related`.
+- **Kit member state:** `present` if the kit's container is in the item's container chain, or the kit's location is in its location chain. Otherwise `elsewhere`, `on_loan`, `short` (quantity below required) or `missing` (status missing or trashed).
+- **Tests:** `tests/test_relations.py` (8), the route walk, and the e2e link → search → kit flow.
+
 
 - `item_relations`: `from_item_id`, `to_item_id`, `relation_type` (`accessory_of`, `component_of`, `compatible_with`, `stored_with`, `replacement_for`, or a custom label), and `note`. Each pair and type is unique. Rows cascade only on hard delete; items in the trash are hidden. Every type shows from both sides using inverse labels, e.g. "Accessory of" ↔ "Accessories".
 - `kits`: name, description, home `container_id`/`location_id`, `qr_code`, `deleted_at`. `kit_members`: `kit_id`, `item_id`, `quantity`, `optional`, `note`.

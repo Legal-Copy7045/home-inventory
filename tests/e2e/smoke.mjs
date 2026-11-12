@@ -180,6 +180,40 @@ const stats2 = await api("stats");
 const cust = await api(`items/${job.item.id}`);
 if (!cust.owner || cust.owner.name !== "Pat Neighbour") throw new Error("customer equipment not marked as such");
 
+// Related items and kits: accessories stay separate items in their own places
+const compressor = (await api("items", { method: "POST", data: { name: "Air compressor", location_id: garage.id } })).items[0];
+const airHose = (await api("items", { method: "POST", data: { name: "Air hose 50 ft", container_id: box.id } })).items[0];
+await page.goto(BASE + "#/items/" + compressor.id);
+await page.getByRole("button", { name: "Link" }).click();
+await page.getByRole("button", { name: "Add an accessory for this…" }).click();
+await page.getByRole("button", { name: "Choose the item" }).click();
+await page.getByPlaceholder("Search your items").fill("air hose");
+await page.getByRole("button", { name: /Air hose 50 ft/ }).click();
+const related = page.locator(".card", { has: page.getByRole("heading", { name: "Related items" }) });
+await related.getByText("Air hose 50 ft").waitFor();
+await page.goto(BASE + "#/search");
+await page.getByRole("searchbox").fill("air compressor");
+await page.keyboard.press("Enter");
+await page.getByRole("button", { name: "Accessory: Air hose 50 ft" }).waitFor();
+await shot("11-search-related");
+await page.goto(BASE + "#/kits");
+await page.getByRole("button", { name: "Kit" }).click();
+await page.getByLabel("Name").fill("Air compressor kit");
+await page.getByRole("button", { name: "Choose a container or location" }).click();
+await page.getByRole("button", { name: /Locations/ }).click();
+await page.getByRole("link", { name: /^Garage/ }).first().click();
+await page.getByRole("button", { name: "Save" }).click();
+await page.getByRole("heading", { name: "Air compressor kit" }).waitFor();
+for (const name of ["Air compressor", "Air hose 50 ft"]) {
+  await page.getByRole("button", { name: "Add item" }).click();
+  await page.getByPlaceholder("Search your items").fill(name);
+  await page.getByRole("button", { name: new RegExp(name) }).first().click();
+  await page.locator("li", { hasText: name }).first().waitFor();
+}
+await page.locator("li", { hasText: "Air hose 50 ft" }).getByText("Stored separately").waitFor();
+await page.locator("li", { hasText: "Air compressor" }).getByText("With the kit").waitFor();
+await shot("12-kit");
+
 const after = await api(`containers/${box.id}`);
 const cord = after.items.find((i) => i.name === "Extension cord");
 if (!after.items.some((i) => i.name === "Hammer")) throw new Error("finished quick photo missing from box");

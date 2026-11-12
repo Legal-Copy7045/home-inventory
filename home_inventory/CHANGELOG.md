@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0
+
+- **Related items.** Link accessories, components, compatible parts, things stored together and replacements, or use your own description. The link shows on both items. Items stay separate, with their own place and QR label.
+- **Search shows related equipment.** Searching for "air compressor" shows its hose, inflator and fittings right under the result.
+- **Kits.** Name a collection (e.g. "Air compressor kit") and where it's kept. It shows which items are with the kit, stored separately, on loan, missing or short. Optional members don't count against completeness.
+- Fix: a button inside a form label took the label's text as its name (affected screen readers).
+
 ## 0.4.0
 
 - **Customers and repair jobs** for equipment you fix for other people.
