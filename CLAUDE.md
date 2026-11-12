@@ -10,7 +10,7 @@ Build, test and lint commands are in `docs/development.md`, and CI runs them in 
 - **Frontend:** `npm run build` in `home_inventory/frontend`. It also type-checks.
 - **Integration tests:** `pytest -q` from the repo root, with the HA test packages.
 - **Browser smoke test:** `tests/e2e/smoke.mjs`, for user-facing flows.
-- **Versions:** `python3 .github/scripts/check_versions.py` when versions change.
+- **Versions:** `python3 .github/scripts/check_versions.py` when versions change. A version bump needs a `CHANGELOG.md` entry and `docs/release-notes/v<version>.md`. Merging it to `main` publishes the GitHub release and the images automatically (see `docs/publishing.md`).
 - **Database changes:** follow "Database changes" in `docs/development.md`. A migration bumps at least the minor version.
 
 ## CodeRabbit Code Review (when available)

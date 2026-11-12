@@ -27,9 +27,21 @@ Don't add the `image:` line before step 2 works: users would get "image not foun
 
 ## 2. Releasing
 
-1. Bump the version in all five places (`home_inventory/config.yaml`, `home_inventory/server/pyproject.toml`, `home_inventory/server/home_inventory_server/__init__.py`, `home_inventory/frontend/package.json`, `custom_components/home_inventory/manifest.json`) and add a `## <version>` entry to `home_inventory/CHANGELOG.md`. CI fails if they disagree (`.github/scripts/check_versions.py`).
-2. Merge to `main`.
-3. On GitHub, go to **Releases → Draft a new release**. Use tag `v<version>` (create it on `main`) and title `v<version>`, paste the notes (drafts live in `docs/release-notes/`), and click **Publish release**.
+Releases publish themselves.
+
+1. In the pull request:
+   - bump the version in all five places (`home_inventory/config.yaml`, `home_inventory/server/pyproject.toml`, `home_inventory/server/home_inventory_server/__init__.py`, `home_inventory/frontend/package.json`, `custom_components/home_inventory/manifest.json`);
+   - add a `## <version>` entry to `home_inventory/CHANGELOG.md`;
+   - write the release text in `docs/release-notes/v<version>.md`.
+
+   CI fails if any of these is missing or the versions disagree (`.github/scripts/check_versions.py`).
+2. Merge to `main`. The **Release** workflow notices the new version in `config.yaml` and then:
+   - creates the GitHub release, with tag and title `<version>` (e.g. `0.10.3`) and the notes file as its text;
+   - builds and pushes the App images.
+
+   If a release for that version already exists, it does nothing.
+
+To publish by hand instead (for example, to re-release), create the release on GitHub with tag `<version>` on `main`. That also builds the images. **Actions → Release → Run workflow** rebuilds the images for the version on `main`.
 
 HACS shows the integration update from the release. Home Assistant shows the App update from `config.yaml` on `main`.
 
