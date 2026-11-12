@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.1
+
+- **Voice asks when it's unclear.** "Where is the hose?" used to read out every match in one long sentence. Now, when your words match different things, it asks: "I found 3 things for hose: Kink Control Plus Water Hose 50ft, Siphon pump hose and Siphon pump with hose and funnel. Which one did you mean?" Reply "the water hose one", "the one with the funnel" or "the second one".
+  - Several records of the same thing are answered together ("Battery is in A, and in B").
+  - Alexa and Assist voice devices keep listening for your reply.
+- **Update your voice setup:**
+  - Alexa: paste the new `deploy/alexa/interaction-model.json` (adds the reply intent), build the skill again, and replace the skill code with the new `deploy/alexa/lambda_function.py`, keeping your three settings.
+  - Assist: add the `HomeInventoryChoose` lines from `docs/voice.md` to your sentences file.
+
 ## 0.10.0
 
 ### Fixed

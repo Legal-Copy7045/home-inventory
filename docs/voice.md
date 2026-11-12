@@ -29,12 +29,21 @@ intents:
           - "where are [the|my] {item}"
           - "where did I (put|leave) [the|my] {item}"
           - "find [the|my] {item}"
+  HomeInventoryChoose:
+    data:
+      - sentences:
+          - "the {choice} [one]"
+          - "I meant [the] {choice}"
 lists:
   item:
+    wildcard: true
+  choice:
     wildcard: true
 ```
 
 Restart Home Assistant (or reload conversation). Then say or type "Where is the hedge trimmer?" to Assist.
+
+If your words match several different things, it asks: *"I found 3 things for hose: Kink Control Plus Water Hose 50ft, Siphon pump hose and Siphon pump with hose and funnel. Which one did you mean?"* Answer with "the water hose one", "the siphon pump" or "the second one" (within two minutes). Voice devices keep listening after a question, so you can just answer.
 
 Other languages: put a file with the same intent name in `custom_sentences/<language>/`, with sentences in that language.
 
@@ -83,7 +92,7 @@ You need:
    - Primary locale: your Echo's language, e.g. English (UK)
    - Experience: **Other** → **Custom**
    - Hosting: **Alexa-hosted (Python)**, which is simplest because it needs no AWS account, in the region nearest you. Alternatively choose **Provision your own** to use your own AWS Lambda (step 8b).
-6. Open **Interaction Model → JSON Editor**. Replace everything with the contents of `deploy/alexa/interaction-model.json`, then **Save** and **Build skill**.
+6. Open **Interaction Model → JSON Editor**. (On the "Choose a template" screen before this, pick **Start from Scratch**.) Replace everything with the contents of `deploy/alexa/interaction-model.json`, then **Save** and **Build skill**.
 7. Copy the **Skill ID** from the skill list ("Copy Skill ID"). It looks like `amzn1.ask.skill.…`.
 
 ### C. Add the forwarder
