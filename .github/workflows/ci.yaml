@@ -61,11 +61,39 @@ jobs:
           npx --yes playwright@1 install --with-deps chromium
           npm init -y >/dev/null && npm install playwright@1 >/dev/null
           mkdir -p /tmp/e2e
-          (cd home_inventory/server && HINV_DATA_DIR=/tmp/e2e HINV_TRUSTED_PROXIES=127.0.0.1 HINV_AI_PROVIDER=none \
+          (cd home_inventory/server && HINV_DATA_DIR=/tmp/e2e HINV_TRUSTED_PROXIES=127.0.0.1 HINV_AI_PROVIDER=none HINV_ADMIN_USERS=e2e-user \
              HINV_INGRESS_PORT=18099 HINV_API_PORT=18100 HINV_BARCODE_OPEN_FACTS=false HINV_BARCODE_UPCITEMDB=false \
              python -m home_inventory_server &)
           sleep 5
           node tests/e2e/smoke.mjs
+
+  # Security checks.  Thresholds are chosen to fail on actionable problems
+  # only; see docs/security.md ("Automated checks") for the reasoning.
+  security:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for the secret scan
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Python dependencies (pip-audit, known vulnerabilities)
+        run: |
+          python -m venv /tmp/audit
+          /tmp/audit/bin/pip install -q pip-audit ./home_inventory/server
+          /tmp/audit/bin/pip-audit --skip-editable --progress-spinner off
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: JavaScript dependencies (npm audit, shipped code, high and critical)
+        working-directory: home_inventory/frontend
+        run: npm audit --omit=dev --audit-level=high
+      - name: Secret scan (gitleaks, whole history)
+        run: |
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.24.3 git /repo --redact --no-banner -c /repo/.gitleaks.toml
 
   hassfest:
     runs-on: ubuntu-latest
@@ -105,3 +133,10 @@ jobs:
           for i in $(seq 1 30); do curl -sf localhost:8099/api/health && break; sleep 1; done
           docker stop hinv
           docker logs hinv | tail -5
+      # Trivy runs from its pinned container image (no third-party action,
+      # no secrets; the job token is read-only).
+      - name: Image vulnerability scan (Trivy; fixable CRITICAL fails, HIGH is reported)
+        run: |
+          trivy() { docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.62.1 "$@"; }
+          trivy image --quiet --ignore-unfixed --severity HIGH --exit-code 0 home-inventory:ci
+          trivy image --quiet --ignore-unfixed --severity CRITICAL --exit-code 1 home-inventory:ci

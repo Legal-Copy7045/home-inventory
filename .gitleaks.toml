@@ -1,0 +1,11 @@
+# Secret scanning configuration (gitleaks).  Uses the default rule set.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures and documentation placeholders, not real secrets"
+paths = [
+  '''home_inventory/server/tests/.*''',
+  '''tests/integration/.*''',
+  '''home_inventory/frontend/package-lock\\.json''',
+]

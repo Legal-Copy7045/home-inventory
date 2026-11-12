@@ -83,6 +83,50 @@ function DeepLink() {
   return null;
 }
 
+/** First run with no administrator: claim the role with the code from the App log. */
+function AdminSetup() {
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const claim = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api.post("setup/claim-admin", { code });
+      window.location.reload();
+    } catch (err) {
+      toast((err as Error).message, true);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="page" style={{ paddingBottom: 0 }}>
+      <div className="notice row between wrap">
+        <span>This app has no administrator yet.</span>
+        <button className="btn small" onClick={() => setOpen(true)}>Set up administrator</button>
+      </div>
+      {open && (
+        <Sheet title="Become the administrator" onClose={() => setOpen(false)}>
+          <form className="stack" onSubmit={claim}>
+            <p style={{ marginTop: 0 }}>
+              In Home Assistant, open <b>Settings → Apps → Home Inventory → Log</b> and copy the setup code shown there.
+              Only Home Assistant administrators can see that log. Alternatively, add your username under
+              <b> admin_users</b> on the App's Configuration tab.
+            </p>
+            <label className="field">
+              Setup code
+              <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="XXXX-XXXX-XXXX" autoCapitalize="characters" autoComplete="off" required />
+            </label>
+            <button className="btn primary block" disabled={busy || code.length < 4}>Become administrator</button>
+          </form>
+        </Sheet>
+      )}
+    </div>
+  );
+}
+
 function Shell({ me }: { me: Me }) {
   const loc = useLocation();
   const nav = useNavigate();
@@ -106,6 +150,7 @@ function Shell({ me }: { me: Me }) {
           {loc.pathname !== "/" && loc.pathname !== "/search" && <div style={{ maxWidth: 320, flex: 1 }} className="hide-sm"><SearchBox /></div>}
         </header>
         <DeepLink />
+        {me.admin_setup && <AdminSetup />}
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/search" element={<SearchPage />} />

@@ -26,11 +26,14 @@ A household inventory you open from the Home Assistant sidebar.
 | `warranty_notice_days` | `30` | When to fire `home_inventory_warranty_expiring`. |
 | `expiry_notice_days` | `14` | When to fire `home_inventory_item_expiring`. |
 | `max_upload_mb` | `25` | Upload size limit. |
+| `backup_max_mb` | `2048` | Largest backup archive accepted by *Restore*. |
 | `log_level` | `info` | |
 
 AI is optional. Without it you type the details in. Search still works: the built-in parser handles questions like "How many USB-C chargers do I own?".
 
 ## Roles
+
+The first administrator comes from Home Assistant: anyone who is a Home Assistant administrator is an administrator here, as is anyone listed in `admin_users`. If the App can't read Home Assistant's user list and nobody is configured, nobody is made administrator automatically. Instead, the app shows **Set up administrator**: copy the setup code from this App's **Log** tab and enter it there.
 
 - **Administrator**: everything, plus settings, user roles, backup and restore, and permanent deletion.
 - **Member**: search, add, edit, move, lend, scan, manage containers and locations, view history, restore from trash.

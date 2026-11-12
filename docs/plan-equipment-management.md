@@ -1,0 +1,157 @@
+# Plan: security remediation and equipment management
+
+Status: **Phase 1 complete (0.2.0).** Phases 2–6 to follow. This document records verified findings, design decisions and the phase plan. Each phase ships as its own pull request with tests, and gets its own section below once it lands.
+
+## Ground rules
+
+- Extend the existing architecture: FastAPI routers, SQLAlchemy models, Alembic migrations (transactional and additive only), React pages using the existing `ui.tsx` components, and aggregate Home Assistant entities in the companion integration.
+- Add no new runtime dependencies unless a phase says why.
+- Never destroy data. New columns are nullable or defaulted. Deletions are soft where the model already uses `deleted_at`. History tables snapshot names, so records stay readable after the source rows change.
+- The backend owns the business logic. Home Assistant and the frontend only display results or call actions.
+
+## Phase 1: security
+
+### Findings, verified against `main` at 1cb5840
+
+| # | Finding | Verified | Notes |
+|---|---|---|---|
+| 1 | First user auto-promoted to admin when the Home Assistant admin lookup returns `None` | **Yes** | `upsert_user()` sets `role_override=admin` when `ha_is_admin is None` and `_any_admin()` finds no admin in the database. `_any_admin()` ignores `admin_users`. `is_admin()` also returns `None` for a Home Assistant user created after the 5-minute cache refresh. Two first requests can both pass the check (no lock). Two first requests from the *same* user can raise a unique-constraint 500. |
+| 2 | Backup restore has no size limit or archive protections | **Yes** | The route streams the upload to disk with no cap. Starlette's multipart parser also spools the whole body before the handler runs. `validate_archive` checks traversal only: no entry count, sizes, compression ratio, symlinks or allow-list. `restore_archive` uses `extractall`, deletes the live database *before* moving media, and has no rollback, so a failure mid-way leaves partial data. The schema revision is not checked, so a backup from a newer version would break start-up. |
+| 3 | DNS rebinding in the web-link import | **Yes** | `_check_host()` resolves with `getaddrinfo`, then httpx resolves again when it connects. With `trust_env` on, an `HTTPS_PROXY` would also do its own resolution. |
+| 4 | Whole `/media` mounted read-write | **Yes** | `map: media, read_only: false`, used only to write a temporary JPEG for AI Task. |
+| 5a | No request body limit before multipart parsing | **Yes** (new) | Any authenticated user can make the server spool an arbitrarily large upload to disk. |
+| 5b | No rate limits on expensive operations | **Yes** (new) | AI identification, AI search, container scans, web-link import and online barcode lookups. |
+| 5c | CORS, SQL injection, command injection, file download, path traversal | Not present | No CORS middleware (same origin through Ingress). All SQL goes through the ORM, apart from fixed migration DDL. No shell calls. Uploads are re-encoded by Pillow. PDFs are served with `CSP: sandbox` and `nosniff`. `MediaStore.path()` confines paths. |
+| 5d | IDOR | By design | This is a single-household app: every authenticated user sees the whole inventory, and roles gate *writes*. Customer records (Phase 3) are the first data that read-only users must not see. They get an explicit member check and tests. |
+| 5e | Secrets | OK | API keys are App options and are never returned to the frontend (`/settings` reports only `ai_configured`). The integration token stays in `/data` (0600). |
+| 5f | QR routing | OK | Labels carry opaque codes resolved by an authenticated API call. They contain no IDs or tokens. |
+
+### Fixes
+
+1. **Administrator bootstrap (fail closed).**
+   - Nobody is ever promoted automatically.
+   - Admin comes only from: the Home Assistant admin flag, `admin_users`, an existing administrator's role change, or a **first-run setup code**.
+   - The setup code exists only while no administrator can be established: no admin in the database, none configured, and the Home Assistant admin list unavailable. It is printed in the App log, which only Home Assistant administrators can read. It is single-use, compared in constant time, limited to 5 attempts before it is rotated, held in memory only, and refused for anyone listed in `read_only_users`.
+   - Claims are serialised with a lock.
+   - A temporary Home Assistant failure (`None`) never changes the stored admin flag.
+   - User creation copes with concurrent first requests.
+2. **Restore hardening.**
+   - Requests are capped by size per route by ASGI middleware, before parsing.
+   - Restore upload limit is `backup_max_mb` (default 2048).
+   - Archive checks: an allow-list (`manifest.json`, `inventory.sqlite3`, `media/**`), at most 200,000 entries, no duplicates, no absolute paths, traversal, backslashes or symlinks, total and per-entry uncompressed limits, and a compression-ratio limit.
+   - Extraction is streamed and counts the real bytes.
+   - Manifest checks: format, format version, and a schema revision that this version knows.
+   - Database checks: `integrity_check`, `foreign_key_check`, required tables, and an `alembic_version` matching the manifest. The staged copy is then **migrated in staging**.
+   - Only then: a safety export, an atomic directory swap with automatic rollback (including when re-opening the database fails), and cleanup in `finally`.
+3. **DNS pinning.**
+   - Each hop resolves once and rejects any non-global address.
+   - It then connects to that exact IP: the URL host becomes the IP, the `Host` header and TLS SNI and certificate check keep the hostname, and `trust_env=False` keeps environment proxies out.
+   - The connected peer address is checked against the pinned IP when the transport exposes it.
+   - Redirects and image downloads go through the same function.
+4. **No `/media` mount.**
+   - The AI hand-off uses Home Assistant's own media API. It uploads to `media-source://media_source/local/home_inventory/.ai-tmp`, an admin-only endpoint the App's Home Assistant API access can use, then removes the file over the WebSocket (`media_source/local_source/remove`).
+   - Home Assistant versions before 2025.x don't create the folder, so on a 400 the file goes to the media root with a distinctive name.
+   - The App can no longer touch any file in `/media` directly.
+5. **Rate limits.** In-memory per-user sliding windows: AI calls 20/min, web-link import 10/min, online barcode lookups 30/min. Exceeding one returns 429 with `Retry-After`.
+6. **CI security checks.**
+   - `pip-audit` for the backend, failing on known vulnerabilities with a fix.
+   - `npm audit --omit=dev --audit-level=high` for the frontend.
+   - Ruff `S` (bandit) rules on the backend, with the exclusions listed in `pyproject.toml`.
+   - Gitleaks secret scan.
+   - Trivy image scan: HIGH/CRITICAL, fixed vulnerabilities only.
+   - CodeQL already runs through GitHub default setup.
+   - A route-level authorization test asserts that every mutating route rejects read-only users and that the API channel requires the token.
+
+## Phase 2: maintenance foundation
+
+New tables:
+- `equipment_profiles`, one per item and optional:
+  - Fields: `equipment_type`, `engine_manufacturer`, `engine_model`, `engine_serial`, `fuel_type`, `meter` (`none|hours|cycles|both`), `specs` (a JSON list of `{label, value, kind: spec|part, part_number}` that holds oil spec and capacity, spark plug, filters and any other parts), and `notes`.
+  - Manufacturer, model and serial reuse `products.manufacturer`, `products.model_number` and `items.serial_number` rather than duplicating them.
+- `maintenance_tasks`:
+  - The task: `item_id`, `title`, `instructions`.
+  - Any mix of intervals: `interval_days`, `interval_hours`, `interval_cycles`, or none (manual, with `next_due_on`).
+  - Due-soon windows: `due_soon_days` (14) and `due_soon_hours` (5).
+  - The last and next thresholds.
+  - `deferred_until`, `not_applicable`, `active`, and `deleted_at`.
+- `meter_readings`: `item_id`, `kind`, `value`, `recorded_at`, `source` (`manual|estimated|service|sensor`), the user, and an optional `service_event_id`. Readings may not go backwards unless the source is marked as a correction.
+- `service_events` (history):
+  - What was done: `item_id`, `task_id` (SET NULL), `task_title` snapshot, `performed_on`, `hours`, `cycles`, `outcome` (`completed|skipped|deferred|not_applicable`), `work_performed`, `notes`.
+  - Who and what it cost: `performed_by`, `labor_cost`, `currency`, `created_by_id`.
+  - `repair_job_id`, added in Phase 3.
+  - `snapshot` JSON holding the equipment name, serial and owner at the time.
+  - `deleted_at`.
+- `service_parts`: `service_event_id`, an optional `item_id` (stock to deduct, with confirmation), `description`, `part_number`, `quantity` (Numeric), `unit_cost`.
+- `attachments.service_event_id` (new nullable FK) for photos and receipts.
+
+Equipment-type presets live in code as starting points, e.g. small engine (oil 50 h, air filter 25 h, spark plug annually, winterize annually), generator (monthly exercise run) and chainsaw (chain sharpening by cycles). They are copied into editable tasks, so the schema isn't tied to lawn equipment.
+
+Due state is computed, not stored: `overdue`, `due_soon`, `ok`, `deferred`, `not_applicable`, or `manual` when there's no threshold. Whichever threshold comes first wins. Completing a task records a service event and its parts, and moves the task's last and next thresholds forward from the *completion* date and hours. Deleting or editing a task never touches past service events.
+
+API: `/items/{id}/equipment` (GET/PUT/DELETE), `/items/{id}/maintenance-tasks`, `/maintenance-tasks/{id}` (PATCH/DELETE, plus `complete`, `skip`, `defer`), `/items/{id}/meter-readings`, `/items/{id}/service-events` (with backdated history), and `/maintenance/dashboard`.
+
+UI:
+- Item page: an Equipment section with a meter reading, due tasks, a "Log service" sheet, history and specs.
+- A new **Maintenance** page with overdue tasks, tasks due in 7/30/90 days, equipment with no records, recent activity, and a household/customer filter.
+
+## Phase 3: customers and repair jobs
+
+- `customers`: name, phone, email, address, notes, `deleted_at`. `customer_contacts`: an optional contact log.
+- `items.owner_customer_id`: a nullable FK where NULL means the household. Customer-owned items stay ordinary items, so QR codes, photos, search and maintenance all work. They are **excluded** from household totals, value, low stock, replenishment and warranty alerts. They also show an "Owned by …" badge everywhere.
+  - Ownership changes only through `POST /items/{id}/owner`, which is audited and needs confirmation, never through a general item PATCH.
+  - The migration adds only the column (NULL), so no existing item changes owner.
+- `repair_jobs`:
+  - Who and what: `number` (RJ-0001), `customer_id`, `item_id`, and snapshots of the customer and equipment.
+  - The visit: `status` (`received|awaiting_diagnosis|awaiting_approval|waiting_for_parts|in_progress|completed|returned|cancelled`), `received_on`, `condition_received`, `reported_problem`, `diagnosis`.
+  - Charges and dates: `labor_charge`, `parts_charge` (computed from the linked service parts, or overridden), `completed_on`, `returned_on`.
+  - `repair_job_events` records status history.
+  - Service events and attachments link to jobs. A job can have several service events, and an item can have many jobs.
+- **Permissions:** customer and job data needs the **member** role, so read-only users get 403 and no customer names in search results. The HA aggregate sensors show counts only.
+- Printable work order: a print-styled page with customer, equipment, problem, work, parts and charges. It is not an invoice system.
+
+## Phase 4: relationships and kits
+
+- `item_relations`: `from_item_id`, `to_item_id`, `relation_type` (`accessory_of`, `component_of`, `compatible_with`, `stored_with`, `replacement_for`, or a custom label), and `note`. Each pair and type is unique. Rows cascade only on hard delete; items in the trash are hidden. Every type shows from both sides using inverse labels, e.g. "Accessory of" ↔ "Accessories".
+- `kits`: name, description, home `container_id`/`location_id`, `qr_code`, `deleted_at`. `kit_members`: `kit_id`, `item_id`, `quantity`, `optional`, `note`.
+  - Each member's status is computed: present at the kit's home, stored separately, on loan, missing, or deleted.
+- Items keep their own placement and QR code. Moving one item never moves another.
+- Search results gain "Related" chips, and the item page lists related items from both directions.
+
+## Phase 5: NFC
+
+- `tags`:
+  - The tag itself: `ref`, 22 random URL-safe characters, unique and never derived from IDs. `id_type` is `url` (default) or `ndef_serial` (Android Web NFC). `hardware_id` is optional and unique among active tags.
+  - Where it points: `target_type` (`item|container|location|kit`), `target_id`, `default_action`.
+  - Bookkeeping: `status` (`active|inactive|lost`), `label`, the last scan time, and who assigned it.
+- The tag stores the URL `https://<home assistant>/<app panel>/n/<ref>`. It goes through the existing deep-link path, Home Assistant login is still required, and the ref is resolved by an authenticated API call. Inactive and unknown refs give the same "Tag not recognised" message. The tag refers to the record, not a place, so links survive moves.
+- Writing tags:
+  - Chrome on Android: Web NFC (`NDEFReader.write` of the URL, then reading `serialNumber` for duplicate detection).
+  - iOS (no Web NFC in Safari): the app shows the URL with a copy button and a QR code, for writing with an NFC app such as NFC Tools. iOS reads URL tags natively and opens the link.
+- On scan: the default action opens the record, and a sheet offers move, quantity, log service, meter reading, start repair, kit members, or return from loan.
+- A management page lists tags, lets you reassign, deactivate or mark lost, and replace a tag (deactivates the old one and issues a new ref). It also prints a QR fallback.
+- Home Assistant event: `home_inventory_tag_scanned`.
+
+## Phase 6: replenishment
+
+- `replenishment_profiles` (one per product, because stock is summed across holdings): enabled, `min_stock` (reuses `products.min_quantity`), `target_stock`, `reorder_quantity`, `unit`, notes, plus the last purchase date and price.
+- `product_sources` (several per product): `retailer` key, `url`, `retailer_product_id` (ASIN, Lowe's item number, Tractor Supply SKU), GTIN, `preferred`, pack size, estimated price.
+- Suggested order quantity is `max(target − stock, reorder_quantity if stock ≤ min)`, rounded up to whole packs.
+- `shopping_list_items` status, in order: `listed` → `handed_off` (product page or cart link opened) → `in_cart` (only when the **user confirms**) → `purchased`, or `deferred` / `cancelled`.
+  - Purchase confirmation can add the quantity to a chosen holding.
+  - The app never sets `in_cart` by itself.
+- `RetailerProvider` declares `capabilities`: product URL, cart handoff URL, cart API, price, availability. The UI shows each capability honestly.
+- Retailers are investigated before implementing. The results go in this document as a capability matrix.
+
+## Phase 6.5: Home Assistant
+
+- Aggregate sensors: maintenance overdue, maintenance due soon, under repair, awaiting pickup, needs replenishing, shopping list.
+- Events: `maintenance_completed`, `tag_scanned`, `repair_job_status_changed`, `shopping_list_updated`.
+- Actions: record meter reading, complete maintenance.
+- No per-item entities.
+
+## Decisions taken without blocking (change on request)
+
+- Read-only users can't see customers or repair jobs.
+- The setup code is in the App log rather than a UI-only claim. Only Home Assistant admins can read App logs.
+- Money uses the existing `currency` setting. Part quantities are decimals.
+- Operating-hour readings from Home Assistant sensors are left for later. The `source=sensor` value exists so it can be added without a migration.

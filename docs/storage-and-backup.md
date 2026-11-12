@@ -14,7 +14,7 @@ Everything is in the App's persistent data directory, `/data`, which the Supervi
 
 Nothing is stored in Home Assistant's recorder database. The integration only creates a handful of summary sensors.
 
-`/media/home_inventory/.ai-tmp/` is used only for a few seconds while handing a photo to Home Assistant's AI Task. Each file is deleted immediately after the call.
+The App doesn't mount Home Assistant's `/media` folder. When it hands a photo to Home Assistant's AI Task, it uploads the photo through Home Assistant's media API into `media/home_inventory/.ai-tmp/` and removes it again as soon as the call returns. On older Home Assistant versions it goes to the media root as `home_inventory_ai_*.jpg`.
 
 ## Home Assistant backups
 

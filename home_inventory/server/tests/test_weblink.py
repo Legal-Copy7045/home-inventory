@@ -172,3 +172,109 @@ def test_image_failure_returns_fixed_message(env, fake_web):
     assert res["photo"] is None
     assert res["image_error"] == "The product photo could not be downloaded or is not a supported image."
     assert res["details"]["name"]  # details still returned
+
+
+# ---------------------------------------------------------------- DNS rebinding
+
+
+def _fake_dns(monkeypatch, answers):
+    """Resolve hostnames from ``answers`` (a list per name, consumed in order)."""
+    import socket
+
+    calls = []
+
+    def getaddrinfo(host, port, *a, **kw):
+        calls.append(host)
+        queue = answers[host]
+        ip = queue.pop(0) if len(queue) > 1 else queue[0]
+        family = socket.AF_INET6 if ":" in ip else socket.AF_INET
+        return [(family, socket.SOCK_STREAM, 6, "", (ip, port))]
+
+    monkeypatch.setattr(weblink.socket, "getaddrinfo", getaddrinfo)
+    return calls
+
+
+def _mock_client(monkeypatch, handler):
+    import httpx
+
+    real_client = httpx.Client
+    seen = []
+
+    def factory(**kw):
+        assert kw.get("trust_env") is False, "environment proxies must not be used"
+        return real_client(transport=httpx.MockTransport(lambda r: (seen.append(r), handler(r))[1]), **kw)
+
+    monkeypatch.setattr(httpx, "Client", factory)
+    return seen
+
+
+def test_connects_to_the_checked_ip_not_a_second_lookup(monkeypatch):
+    import httpx
+
+    # First answer is public, any later answer would be private (rebinding).
+    calls = _fake_dns(monkeypatch, {"shop.example": ["93.184.215.14", "127.0.0.1"]})
+    seen = _mock_client(monkeypatch, lambda r: httpx.Response(200, text="<html><title>Ok</title></html>"))
+    body, _ctype, final = weblink.fetch("https://shop.example/p/1", 10_000, "text/html")
+    assert b"Ok" in body and final == "https://shop.example/p/1"
+    assert calls == ["shop.example"]  # resolved exactly once
+    req = seen[0]
+    assert req.url.host == "93.184.215.14"  # connected to the validated address
+    assert req.headers["host"] == "shop.example"
+    assert req.extensions["sni_hostname"] == "shop.example"  # TLS checks the real name
+
+
+def test_rebinding_on_redirect_hop_blocked(monkeypatch):
+    import httpx
+
+    _fake_dns(monkeypatch, {"shop.example": ["93.184.215.14"], "cdn.example": ["10.0.0.5"]})
+    _mock_client(monkeypatch, lambda r: httpx.Response(302, headers={"location": "https://cdn.example/img.jpg"}))
+    with pytest.raises(LinkError, match="private"):
+        weblink.fetch("https://shop.example/p/1", 10_000, "*/*")
+
+
+def test_mixed_public_private_answers_rejected(monkeypatch):
+    import socket
+
+    def getaddrinfo(host, port, *a, **kw):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.215.14", port)),
+                (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.168.1.10", port))]
+
+    monkeypatch.setattr(weblink.socket, "getaddrinfo", getaddrinfo)
+    with pytest.raises(LinkError, match="private"):
+        weblink.fetch("https://shop.example/p/1", 10_000, "*/*")
+
+
+@pytest.mark.parametrize("ip", ["127.0.0.1", "::1", "169.254.169.254", "fe80::1", "224.0.0.1", "100.64.0.1",
+                                "::ffff:192.168.0.1", "0.0.0.0", "fc00::1"])
+def test_non_public_addresses_rejected(monkeypatch, ip):
+    _fake_dns(monkeypatch, {"evil.example": [ip]})
+    with pytest.raises(LinkError):
+        weblink.fetch("http://evil.example/", 1000, "*/*")
+
+
+def test_peer_address_mismatch_rejected():
+    import httpx
+
+    class Stream:
+        def get_extra_info(self, key):
+            return ("10.0.0.9", 443) if key == "server_addr" else None
+
+    resp = httpx.Response(200, extensions={"network_stream": Stream()})
+    with pytest.raises(LinkError, match="changed"):
+        weblink._check_peer(resp, "93.184.215.14")
+    weblink._check_peer(httpx.Response(200), "93.184.215.14")  # no stream info: nothing to check
+
+
+def test_image_download_uses_pinned_fetch(monkeypatch):
+    import httpx
+
+    _fake_dns(monkeypatch, {"img.example": ["93.184.215.14", "192.168.0.2"]})
+    seen = _mock_client(monkeypatch, lambda r: httpx.Response(200, content=jpeg_bytes(), headers={"content-type": "image/jpeg"}))
+    assert weblink.download_image("https://img.example/a.jpg")[:2] == b"\xff\xd8"
+    assert seen[0].url.host == "93.184.215.14"
+
+
+def test_rate_limited(env, monkeypatch):
+    monkeypatch.setattr(weblink, "import_from_url", lambda url, ai: (_ for _ in ()).throw(LinkError("nope")))
+    codes = [env.admin.post("/api/v1/link/import", json={"url": "https://x.example/"}).status_code for _ in range(12)]
+    assert codes[:10] == [422] * 10 and codes[10] == 429

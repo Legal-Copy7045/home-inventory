@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import shutil
 import tempfile
 from datetime import date, timedelta
 from pathlib import Path
@@ -17,13 +18,14 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, Response, StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 from starlette.background import BackgroundTask
 
 from .. import audit
 from ..ai import AIFailed, AIUnavailable, confidence_label
-from ..auth import Actor, current_actor, effective_role, get_db, require_admin, require_member
+from ..auth import Actor, authenticated_actor, current_actor, effective_role, get_db, require_admin, require_member
 from ..models import (
     Attachment,
     AttachmentKind,
@@ -93,6 +95,11 @@ def _state(request: Request):
     return request.app.state
 
 
+def _limit(request: Request, actor: Actor, bucket: str) -> None:
+    """Per-user rate limit for operations that cost money or reach the internet."""
+    _state(request).rate_limiter.check(actor.user_id, bucket)
+
+
 def _commit(db: Session) -> None:
     db.commit()
 
@@ -119,6 +126,24 @@ def _get_or_404(db: Session, model, obj_id: int, include_deleted: bool = False):
 # ---------------------------------------------------------------------------
 
 
+class AdminClaim(BaseModel):
+    code: str = Field(min_length=4, max_length=40)
+
+
+@router.post("/setup/claim-admin")
+def claim_admin(data: AdminClaim, request: Request, actor: Actor = Depends(authenticated_actor),
+                db: Session = Depends(get_db)):
+    """Become the first administrator using the setup code from the App log."""
+    st = _state(request)
+    if actor.channel != "ingress":
+        raise HTTPException(403, "Only available in the app")
+    user = db.get(User, actor.user_id)
+    st.admin_bootstrap.claim(db, st.settings, st.admin_directory, user, data.code)
+    audit.record(db, actor, "admin_claimed", "user", user.id, f"{actor.name} became administrator using the setup code")
+    db.commit()
+    return {"role": "admin"}
+
+
 @router.get("/me")
 def me(request: Request, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
     st = _state(request)
@@ -130,6 +155,9 @@ def me(request: Request, actor: Actor = Depends(current_actor), db: Session = De
         "channel": actor.channel,
         "can_edit": actor.can(Role.member),
         "is_admin": actor.can(Role.admin),
+        # True only while nobody can administer the app; the UI then offers
+        # to enter the setup code from the App log.
+        "admin_setup": actor.channel == "ingress" and st.admin_bootstrap.available(db, st.settings, st.admin_directory),
         "app": {
             "version": st.version,
             "ai": st.ai.describe(),
@@ -842,6 +870,7 @@ async def ai_identify_item(body: dict[str, Any], request: Request, actor: Actor 
     att = db.get(Attachment, int(body.get("attachment_id") or 0))
     if att is None or att.kind is not AttachmentKind.photo:
         raise HTTPException(404, "Photo not found")
+    _limit(request, actor, "ai")
     data = st.media.read(att.stored_path)
     try:
         res = await asyncio.to_thread(st.ai.identify_item, data, (body.get("hint") or None))
@@ -866,6 +895,8 @@ async def create_scan(
 ):
     st = _state(request)
     c = _get_or_404(db, Container, container_id)
+    if st.ai.enabled:
+        _limit(request, actor, "ai")
     if file is not None:
         raw = await file.read(st.media.max_bytes + 1)
         if len(raw) > st.media.max_bytes:
@@ -920,6 +951,7 @@ async def retry_scan(scan_id: int, request: Request, actor: Actor = Depends(requ
         raise HTTPException(404, "Scan not found")
     if scan.status in (ScanStatus.confirmed, ScanStatus.discarded):
         raise HTTPException(409, "This scan has already been handled")
+    _limit(request, actor, "ai")
     att = db.get(Attachment, scan.photo_id)
     await asyncio.to_thread(scans_svc.analyse, db, scan, st.ai, st.media.read(att.stored_path))
     return scans_svc.scan_out(scan, db)
@@ -958,6 +990,7 @@ async def link_import(data: LinkImportIn, request: Request, actor: Actor = Depen
     upload (removed automatically if never used).
     """
     st = _state(request)
+    _limit(request, actor, "weblink")
     ai = st.ai if st.ai.enabled else None
     try:
         page = await asyncio.to_thread(weblink.import_from_url, data.url, ai)
@@ -992,6 +1025,8 @@ async def link_import(data: LinkImportIn, request: Request, actor: Actor = Depen
 @router.post("/barcode/lookup")
 def barcode_lookup(data: BarcodeLookupIn, request: Request, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
     st = _state(request)
+    if data.external:
+        _limit(request, actor, "barcode")
     return barcode_svc.identify(db, st.settings, data.code, data.format, data.external, st.barcode_providers)
 
 
@@ -1006,6 +1041,11 @@ def search(
 ):
     st = _state(request)
     use_ai = st.ai if (ai and st.ai.enabled and _looks_like_question(q)) else None
+    if use_ai is not None:
+        try:
+            _limit(request, actor, "ai")
+        except HTTPException:
+            use_ai = None  # over the AI limit: still answer, with keyword search
     return search_svc.search(db, q, ai=use_ai, limit=limit)
 
 
@@ -1332,25 +1372,32 @@ def backup_export(request: Request, actor: Actor = Depends(require_admin)):
 @router.post("/backup/restore")
 async def backup_restore(request: Request, file: UploadFile = File(...), actor: Actor = Depends(require_admin)):
     st = _state(request)
-    tmpdir = Path(tempfile.mkdtemp(dir=st.settings.data_dir))
+    limits = backup_svc.Limits.for_upload(st.settings.backup_max_mb)
+    tmpdir = Path(tempfile.mkdtemp(prefix=".restore-upload-", dir=st.settings.data_dir))
     target = tmpdir / "upload.zip"
     try:
+        size = 0
         with target.open("wb") as fh:
             while chunk := await file.read(1024 * 1024):
+                size += len(chunk)
+                if size > limits.max_upload:
+                    raise HTTPException(413, f"Backup is larger than the {st.settings.backup_max_mb} MB limit")
                 fh.write(chunk)
         try:
-            backup_svc.validate_archive(target)
+            await asyncio.to_thread(backup_svc.validate_archive, target, limits)
+            async with st.write_lock:
+                result = await asyncio.to_thread(
+                    backup_svc.restore_archive, target, st.settings.db_path, st.settings.media_dir,
+                    st.settings.backup_dir, st.db.engine, st.reopen_database, limits,
+                )
         except backup_svc.RestoreError as err:
             raise HTTPException(422, str(err)) from err
-        async with st.write_lock:
-            result = await asyncio.to_thread(
-                backup_svc.restore_archive, target, st.settings.db_path, st.settings.media_dir, st.settings.backup_dir, st.db.engine
-            )
-            await asyncio.to_thread(st.reopen_database)
+        # The restored database has its own users, so this goes to the App log.
+        _LOGGER.warning("%s restored a backup made %s; previous data saved as %s",
+                        actor.name, result["restored"].get("created_at", "at an unknown date"), result["safety_backup"])
         return result
     finally:
-        target.unlink(missing_ok=True)
-        tmpdir.rmdir()
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------
