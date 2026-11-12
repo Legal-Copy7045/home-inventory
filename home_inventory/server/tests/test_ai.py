@@ -396,3 +396,140 @@ def test_scan_items_get_cropped_photos_and_unseen_can_be_marked_missing(ai_env, 
     assert pliers["photo"]["id"] == scan["photo"]["id"]                # no box: whole photo
     assert u.ok("get", f"/api/v1/items/{maybe['id']}")["status"] == "missing"
     assert u.ok("get", f"/api/v1/items/{gone['id']}")["deleted_at"]
+
+
+def _area_entry(name, unit, shelf, kind="item", label=None, ctype=None, qty=1, box=None):
+    return {"name": name, "description": None, "category": None, "manufacturer": None, "model_number": None,
+            "quantity": qty, "confidence": 0.8, "position": None, "box": box, "kind": kind, "label": label,
+            "container_type": ctype, "unit": unit, "shelf": shelf}
+
+
+BASEMENT = {
+    "units": [{"name": "Left rack", "shelves": ["On top", "Shelf 1", "Shelf 2", "Bottom shelf"]},
+              {"name": "Right rack", "shelves": ["On top", "Shelf 1"]}],
+    "items": [
+        _area_entry("Suitcase", 0, 0, qty=3),
+        _area_entry("Cotton candy maker", 0, 2, box=[0.2, 0.4, 0.15, 0.2]),
+        _area_entry("Plastic tote", 0, 3, kind="container", label="PARTY SUPPLIES", ctype="Clear plastic tote", box=[0.25, 0.65, 0.15, 0.15]),
+        _area_entry("Plastic tote", 0, 3, kind="container", label="BALLOONS", ctype="Clear plastic tote"),
+        _area_entry("Cardboard box", 1, 1, kind="container", label="Poker table", ctype="Cardboard box"),
+        _area_entry("Paper lanterns", 9, 7, qty=4),   # nonsense unit/shelf: unplaced
+    ],
+    "notes": None,
+}
+
+
+def test_area_photo_finds_layout_items_and_labelled_boxes(ai_env, fake_ai):
+    u = ai_env.admin
+    basement = u.location("Basement storage")
+    left = u.ok("post", "/api/v1/locations", json={"name": "Left rack", "parent_id": basement["id"]})
+    fake_ai.responses.append(BASEMENT)
+    scan = u.ok("post", f"/api/v1/locations/{basement['id']}/scans", files={"file": ("a.jpg", jpeg_bytes(size=(800, 600)))})
+    assert "rack" in fake_ai.calls[-1]["prompt"].lower()
+    assert [x["name"] for x in scan["units"]] == ["Left rack", "Right rack"]
+    assert scan["units"][0]["shelves"] == ["On top", "Shelf 1", "Shelf 2", "Bottom shelf"]
+    assert {p["name"] for p in scan["places"]} == {"Basement storage", "Left rack"}
+    sugg = {s["name"]: s for s in scan["suggestions"]}
+    assert sugg["Party supplies"]["kind"] == "container" and sugg["Party supplies"]["container_type"] == "Clear plastic tote"
+    assert (sugg["Party supplies"]["unit"], sugg["Party supplies"]["shelf"]) == (0, 3)
+    assert sugg["Paper lanterns"]["unit"] is None and sugg["Paper lanterns"]["shelf"] is None
+    assert sugg["Suitcase"]["kind"] == "item" and sugg["Suitcase"]["quantity"] == 3
+
+    # Review: use the existing "Left rack", create its shelves and the right rack.
+    res = u.ok("post", f"/api/v1/scans/{scan['id']}/confirm", json={
+        "new_locations": [
+            {"key": "L0", "name": "On top", "parent_id": left["id"], "kind": "shelf"},
+            {"key": "L2", "name": "Shelf 2", "parent_id": left["id"], "kind": "shelf"},
+            {"key": "L3", "name": "Bottom shelf", "parent_id": left["id"], "kind": "shelf"},
+            {"key": "R", "name": "Right rack", "kind": "rack"},
+            {"key": "R1", "name": "Shelf 1", "parent_key": "R", "kind": "shelf"},
+        ],
+        "items": [
+            {"action": "add", "name": "Suitcase", "quantity": 3, "location_key": "L0"},
+            {"action": "add", "name": "Cotton candy maker", "location_key": "L2", "box": [0.2, 0.4, 0.15, 0.2]},
+            {"action": "add", "kind": "container", "name": "Party supplies", "container_type": "Clear plastic tote",
+             "location_key": "L3", "box": [0.25, 0.65, 0.15, 0.15]},
+            {"action": "add", "kind": "container", "name": "Balloons", "location_key": "L3"},
+            {"action": "add", "kind": "container", "name": "Poker table", "container_type": "Cardboard box", "location_key": "R1"},
+            {"action": "add", "name": "Paper lanterns", "quantity": 4},   # no place chosen: the area itself
+        ],
+    })
+    assert len(res["created"]) == 3 and len(res["containers"]) == 3
+    tree = {loc["path"]: loc for loc in u.ok("get", "/api/v1/locations")}
+    assert {"Basement storage › Left rack › Bottom shelf", "Basement storage › Right rack › Shelf 1"} <= set(tree)
+    bottom = u.ok("get", f"/api/v1/locations/{tree['Basement storage › Left rack › Bottom shelf']['id']}")
+    assert sorted(c["name"] for c in bottom["containers"]) == ["Balloons", "Party supplies"]
+    party = next(c for c in bottom["containers"] if c["name"] == "Party supplies")
+    party = u.ok("get", f"/api/v1/containers/{party['id']}")
+    assert party["container_type"] == "Clear plastic tote" and len(party["photos"]) == 1  # its own cut-out
+    top = u.ok("get", f"/api/v1/locations/{tree['Basement storage › Left rack › On top']['id']}")
+    assert [(i["name"], i["quantity"]) for i in top["items"]] == [("Suitcase", 3)]
+    area = u.ok("get", f"/api/v1/locations/{basement['id']}")
+    assert [i["name"] for i in area["items"]] == ["Paper lanterns"]
+    hist = u.ok("get", "/api/v1/history", params={"entity_type": "location", "entity_id": basement["id"]})["events"]
+    assert any("3 boxes added" in e["summary"] for e in hist)
+
+
+def test_area_rescan_matches_whole_area_and_keeps_places_inside_it(ai_env, fake_ai):
+    u = ai_env.admin
+    basement, elsewhere = u.location("Basement storage"), u.location("Garage")
+    shelf = u.ok("post", "/api/v1/locations", json={"name": "Shelf 1", "parent_id": basement["id"]})
+    u.container("Party supplies", location_id=shelf["id"])
+    u.item("Suitcase", location_id=shelf["id"])
+    fake_ai.responses.append({"units": [{"name": "Rack", "shelves": ["Shelf 1"]}], "notes": None, "items": [
+        _area_entry("Suitcase", 0, 0), _area_entry("Tote", 0, 0, kind="container", label="Party supplies")]})
+    scan = u.ok("post", f"/api/v1/locations/{basement['id']}/scans", files={"file": ("a.jpg", jpeg_bytes())})
+    sugg = {s["name"]: s for s in scan["suggestions"]}
+    assert sugg["Suitcase"]["match"] and sugg["Suitcase"]["proposed_action"] == "skip"   # on a shelf in the area
+    assert sugg["Party supplies"]["container_match"]["name"] == "Party supplies"
+    assert sugg["Party supplies"]["proposed_action"] == "skip"
+    bad = [
+        {"items": [{"action": "add", "name": "X", "location_id": elsewhere["id"]}]},            # outside the area
+        {"items": [{"action": "add", "name": "X", "location_key": "nope"}]},                    # unknown new place
+        {"items": [], "new_locations": [{"key": "a", "name": "A", "parent_id": elsewhere["id"]}]},
+        {"items": [], "new_locations": [{"key": "b", "name": "B", "parent_key": "c"}, {"key": "c", "name": "C"}]},
+    ]
+    for body in bad:
+        assert u.post(f"/api/v1/scans/{scan['id']}/confirm", json=body).status_code == 409, body
+    assert [loc["name"] for loc in u.ok("get", "/api/v1/locations") if loc["name"] in ("A", "B", "C")] == []  # rolled back
+
+
+def test_container_photo_can_add_a_box_inside_the_box(ai_env, fake_ai):
+    u = ai_env.admin
+    tote = u.container("Big tote")
+    fake_ai.responses.append({"items": [_shelf_item("Socket set")], "notes": None})
+    scan = u.ok("post", f"/api/v1/containers/{tote['id']}/scans", files={"file": ("c.jpg", jpeg_bytes())})
+    res = u.ok("post", f"/api/v1/scans/{scan['id']}/confirm", json={"items": [
+        {"action": "add", "name": "Socket set"}, {"action": "add", "kind": "container", "name": "Small parts tin"}]})
+    tin = u.ok("get", f"/api/v1/containers/{res['containers'][0]}")
+    assert tin["parent_container_id"] == tote["id"] and tin["location_id"] is None
+
+
+def test_area_photo_works_for_any_layout(ai_env, fake_ai):
+    """Not just racks: a bench and a pegboard with no shelves, and photos the AI can't lay out."""
+    u = ai_env.admin
+    garage = u.location("Garage")
+    fake_ai.responses.append({"units": [{"name": "Workbench", "shelves": []}, {"name": "Pegboard", "shelves": []}],
+                              "notes": None, "items": [
+        _area_entry("Bench vice", 0, None), _area_entry("Claw hammer", 1, None), _area_entry("Tape measure", 1, 3),
+        _area_entry("Screw organiser", 0, None, kind="container", label="Screws", ctype="Drawer unit")]})
+    scan = u.ok("post", f"/api/v1/locations/{garage['id']}/scans", files={"file": ("g.jpg", jpeg_bytes())})
+    assert [x["shelves"] for x in scan["units"]] == [[], []]
+    sugg = {s["name"]: s for s in scan["suggestions"]}
+    assert (sugg["Tape measure"]["unit"], sugg["Tape measure"]["shelf"]) == (1, None)  # no such shelf: unit only
+    res = u.ok("post", f"/api/v1/scans/{scan['id']}/confirm", json={
+        "new_locations": [{"key": "b", "name": "Workbench"}, {"key": "p", "name": "Pegboard"}],
+        "items": [{"action": "add", "name": "Bench vice", "location_key": "b"},
+                  {"action": "add", "name": "Claw hammer", "location_key": "p"},
+                  {"action": "add", "kind": "container", "name": "Screws", "container_type": "Drawer unit", "location_key": "b"}]})
+    assert len(res["created"]) == 2 and len(res["containers"]) == 1
+    # A photo the AI can't lay out still works: everything goes on the photographed place.
+    fake_ai.responses.append({"units": [], "notes": None, "items": [_area_entry("Leaf blower", None, None)]})
+    scan2 = u.ok("post", f"/api/v1/locations/{garage['id']}/scans", files={"file": ("g.jpg", jpeg_bytes())})
+    assert scan2["units"] == [] and scan2["suggestions"][0]["unit"] is None
+    u.ok("post", f"/api/v1/scans/{scan2['id']}/confirm", json={"items": [{"action": "add", "name": "Leaf blower"}]})
+    assert "Leaf blower" in [i["name"] for i in u.ok("get", f"/api/v1/locations/{garage['id']}")["items"]]
+    # Re-photographing reuses the places already there (offered in "places").
+    fake_ai.responses.append({"units": [{"name": "Workbench", "shelves": []}], "notes": None, "items": []})
+    scan3 = u.ok("post", f"/api/v1/locations/{garage['id']}/scans", files={"file": ("g.jpg", jpeg_bytes())})
+    assert {p["name"] for p in scan3["places"]} == {"Garage", "Workbench", "Pegboard"}

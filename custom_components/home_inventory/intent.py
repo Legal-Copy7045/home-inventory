@@ -15,6 +15,9 @@ The question ends with "?" and carries a reprompt, which keeps the
 conversation open: Assist voice devices listen again, and Home Assistant's
 Alexa integration keeps the Alexa session open.
 
+Final answers can also go to a phone as a notification (the integration's
+options: off, Alexa only, or all voice assistants).
+
 Any voice front end that hands Home Assistant an intent can use these:
 Assist (with the custom sentences in ``docs/voice.md``), Siri through a
 Shortcut that passes text to Assist, and an Alexa custom skill.
@@ -22,6 +25,7 @@ Shortcut that passes text to Assist, and an Alexa custom skill.
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 from difflib import SequenceMatcher
@@ -33,7 +37,11 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import intent
 
 from .api import InventoryError
-from .const import DOMAIN
+from .const import CONF_NOTIFY_SERVICE, CONF_VOICE_NOTIFY, DOMAIN, NAME, VOICE_NOTIFY_ALEXA, VOICE_NOTIFY_ALL
+from .names import key as name_key
+from .names import normalize
+
+_LOGGER = logging.getLogger(__name__)
 
 INTENT_WHERE_IS = "HomeInventoryWhereIs"
 INTENT_CHOOSE = "HomeInventoryChoose"
@@ -82,17 +90,12 @@ def _where(item: dict[str, Any]) -> str:
     return f"in {where}"
 
 
-def _norm(s: str) -> str:
-    s = re.sub(r"[^a-z0-9 ]", " ", s.lower())
-    return " ".join(w[:-1] if len(w) > 3 and w.endswith("s") else w for w in s.split())
-
-
 def group_by_name(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Records of the same thing (same name) together, best match first."""
     groups: dict[str, dict[str, Any]] = {}
     for it in results:
         name = it.get("display_name") or it.get("name") or "That"
-        g = groups.setdefault(_norm(name), {"name": name, "items": []})
+        g = groups.setdefault(name_key(name), {"name": name, "items": []})
         g["items"].append(it)
     return list(groups.values())
 
@@ -146,7 +149,7 @@ def spoken_answer(query: str, results: list[dict[str, Any]]) -> tuple[str, list[
     if not results:
         return f"I couldn't find {query} in your inventory.", None
     groups = group_by_name(results)
-    exact = [g for g in groups if _norm(g["name"]) == _norm(query)]
+    exact = [g for g in groups if name_key(g["name"]) == name_key(query)]
     if len(groups) == 1 or len(exact) == 1:
         return answer_for(exact[0] if exact else groups[0]), None
     shown = groups[:MAX_CHOICES]
@@ -159,9 +162,9 @@ def spoken_answer(query: str, results: list[dict[str, Any]]) -> tuple[str, list[
 
 def pick(choice: str, groups: list[dict[str, Any]]) -> dict[str, Any] | None:
     """The group a reply refers to: by position ("the second one") or name."""
-    words = _norm(choice).split()
+    words = normalize(choice).split()
     for w in words:
-        if w in ORDINALS and ORDINALS[w] < len(groups) and not any(w in _norm(g["name"]).split() for g in groups):
+        if w in ORDINALS and ORDINALS[w] < len(groups) and not any(w in normalize(g["name"]).split() for g in groups):
             return groups[ORDINALS[w]]
     if "last" in words:
         return groups[-1]
@@ -170,7 +173,7 @@ def pick(choice: str, groups: list[dict[str, Any]]) -> dict[str, Any] | None:
         return None
     best, best_score = None, 0.0
     for g in groups:
-        name = _norm(g["name"])
+        name = normalize(g["name"])
         name_words = set(name.split())
         overlap = len(set(target.split()) & name_words) / max(1, len(set(target.split())))
         score = max(SequenceMatcher(None, target, name).ratio(), overlap)
@@ -199,6 +202,28 @@ async def _search(intent_obj: intent.Intent, query: str) -> list[dict[str, Any]]
     user = await hass.auth.async_get_user(intent_obj.context.user_id) if intent_obj.context.user_id else None
     r = await client.request("GET", "search", params={"q": query, "limit": 10, "ai": "false"}, user=user)
     return r.get("results") or []
+
+
+async def _notify(intent_obj: intent.Intent, answer: str) -> None:
+    """Also send a final answer as a notification, if that's turned on.
+
+    Only answers that found something are sent (not questions, not "I
+    couldn't find…").  A notification that fails never spoils the spoken answer.
+    """
+    hass = intent_obj.hass
+    entries = hass.config_entries.async_entries(DOMAIN)
+    opts = entries[0].options if entries else {}
+    mode, service = opts.get(CONF_VOICE_NOTIFY), opts.get(CONF_NOTIFY_SERVICE)
+    if not service or mode not in (VOICE_NOTIFY_ALEXA, VOICE_NOTIFY_ALL):
+        return
+    if mode == VOICE_NOTIFY_ALEXA and intent_obj.platform != "alexa":
+        return
+    try:
+        await hass.services.async_call(
+            "notify", service, {"title": NAME, "message": answer}, blocking=False, context=intent_obj.context
+        )
+    except Exception as err:  # noqa: BLE001 - never break the voice answer
+        _LOGGER.warning("Couldn't send the voice answer to notify.%s: %s", service, err)
 
 
 def _ask(response: intent.IntentResponse, speech: str, reprompt: str) -> None:
@@ -231,6 +256,8 @@ class WhereIsHandler(intent.IntentHandler):
         else:
             pending.pop(_key(intent_obj), None)
             response.async_set_speech(speech)
+            if results:
+                await _notify(intent_obj, speech)
         return response
 
 
@@ -256,7 +283,9 @@ class ChooseHandler(intent.IntentHandler):
             _ask(response, f"Sorry, which one: {_list(names[:4])}?", "Which one did you mean?")
             return response
         pending.pop(key, None)
-        response.async_set_speech(answer_for(group))
+        speech = answer_for(group)
+        response.async_set_speech(speech)
+        await _notify(intent_obj, speech)
         return response
 
 

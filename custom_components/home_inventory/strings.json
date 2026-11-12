@@ -16,7 +16,9 @@
       },
       "reauth_confirm": {
         "title": "Re-authenticate Home Inventory",
-        "data": { "api_token": "API token" }
+        "data": {
+          "api_token": "API token"
+        }
       }
     },
     "error": {
@@ -34,33 +36,79 @@
       "init": {
         "data": {
           "sidebar_panel": "Add an Inventory sidebar panel (not needed with the App, which has its own)",
-          "scan_interval": "Statistics refresh interval (seconds)"
+          "scan_interval": "Statistics refresh interval (seconds)",
+          "voice_notify": "Also send voice answers to your phone",
+          "notify_service": "Notification action (for example mobile_app_your_phone)"
+        },
+        "data_description": {
+          "voice_notify": "When you ask where something is, the answer (with where it is) is also sent as a notification, so you don't have to ask again. \"Which one did you mean?\" questions aren't sent, only the final answer.",
+          "notify_service": "The notify action that reaches your phone. The Home Assistant companion app adds one per phone, named mobile_app_ followed by the phone's name."
         }
       }
+    },
+    "error": {
+      "notify_service_required": "Choose the notification action to send answers to.",
+      "notify_service_unknown": "There's no notify action with this name. Check the name under Developer tools → Actions (notify.…)."
     }
   },
   "entity": {
     "sensor": {
-      "total_items": { "name": "Total items" },
-      "containers": { "name": "Containers" },
-      "locations": { "name": "Locations" },
-      "total_value": { "name": "Recorded value" },
-      "on_loan": { "name": "Items on loan" },
-      "loans_overdue": { "name": "Overdue loans" },
-      "temporarily_relocated": { "name": "Temporarily relocated" },
-      "warranties_expiring": { "name": "Warranties expiring" },
-      "expiring_soon": { "name": "Items expiring soon" },
-      "expired": { "name": "Expired items" },
-      "low_stock": { "name": "Products running low" },
-      "maintenance_overdue": { "name": "Maintenance overdue" },
-      "maintenance_due_soon": { "name": "Maintenance due soon" },
-      "repairs_in_progress": { "name": "Repairs in progress" },
-      "repairs_awaiting_pickup": { "name": "Repairs awaiting pickup" },
-      "replenishment_needed": { "name": "Supplies below minimum" },
-      "shopping_list_open": { "name": "Shopping list items" }
+      "total_items": {
+        "name": "Total items"
+      },
+      "containers": {
+        "name": "Containers"
+      },
+      "locations": {
+        "name": "Locations"
+      },
+      "total_value": {
+        "name": "Recorded value"
+      },
+      "on_loan": {
+        "name": "Items on loan"
+      },
+      "loans_overdue": {
+        "name": "Overdue loans"
+      },
+      "temporarily_relocated": {
+        "name": "Temporarily relocated"
+      },
+      "warranties_expiring": {
+        "name": "Warranties expiring"
+      },
+      "expiring_soon": {
+        "name": "Items expiring soon"
+      },
+      "expired": {
+        "name": "Expired items"
+      },
+      "low_stock": {
+        "name": "Products running low"
+      },
+      "maintenance_overdue": {
+        "name": "Maintenance overdue"
+      },
+      "maintenance_due_soon": {
+        "name": "Maintenance due soon"
+      },
+      "repairs_in_progress": {
+        "name": "Repairs in progress"
+      },
+      "repairs_awaiting_pickup": {
+        "name": "Repairs awaiting pickup"
+      },
+      "replenishment_needed": {
+        "name": "Supplies below minimum"
+      },
+      "shopping_list_open": {
+        "name": "Shopping list items"
+      }
     },
     "binary_sensor": {
-      "app_available": { "name": "Inventory app" }
+      "app_available": {
+        "name": "Inventory app"
+      }
     }
   },
   "services": {
@@ -68,49 +116,110 @@
       "name": "Search inventory",
       "description": "Searches the inventory (natural language allowed) and returns matching items with their locations.",
       "fields": {
-        "query": { "name": "Query", "description": "What to look for, e.g. \"Where are my DeWalt batteries?\"" },
-        "limit": { "name": "Limit", "description": "Maximum number of items to return." }
+        "query": {
+          "name": "Query",
+          "description": "What to look for, e.g. \"Where are my DeWalt batteries?\""
+        },
+        "limit": {
+          "name": "Limit",
+          "description": "Maximum number of items to return."
+        }
       }
     },
     "get_item_location": {
       "name": "Get item location",
       "description": "Returns where an item is, including its status and loans.",
-      "fields": { "name": { "name": "Item", "description": "Item name." } }
+      "fields": {
+        "name": {
+          "name": "Item",
+          "description": "Item name."
+        }
+      }
     },
     "get_container_contents": {
       "name": "Get container contents",
       "description": "Returns what is inside a container.",
-      "fields": { "container": { "name": "Container", "description": "Container number, name or label code." } }
+      "fields": {
+        "container": {
+          "name": "Container",
+          "description": "Container number, name or label code."
+        }
+      }
     },
     "move_item": {
       "name": "Move item",
       "description": "Moves an item into a container or to a location.",
       "fields": {
-        "item_id": { "name": "Item ID", "description": "The item's ID (from search results)." },
-        "container": { "name": "Container", "description": "Destination container number, name or label code." },
-        "location": { "name": "Location", "description": "Destination location name, full path or ID." },
-        "quantity": { "name": "Quantity", "description": "Move only part of the quantity." },
-        "temporary": { "name": "Temporary", "description": "Remember the normal storage place." }
+        "item_id": {
+          "name": "Item ID",
+          "description": "The item's ID (from search results)."
+        },
+        "container": {
+          "name": "Container",
+          "description": "Destination container number, name or label code."
+        },
+        "location": {
+          "name": "Location",
+          "description": "Destination location name, full path or ID."
+        },
+        "quantity": {
+          "name": "Quantity",
+          "description": "Move only part of the quantity."
+        },
+        "temporary": {
+          "name": "Temporary",
+          "description": "Remember the normal storage place."
+        }
       }
     },
     "move_container": {
       "name": "Move container",
       "description": "Moves a container (and everything in it).",
       "fields": {
-        "container": { "name": "Container", "description": "Container number, name or label code." },
-        "into_container": { "name": "Into container", "description": "Put it inside another container." },
-        "location": { "name": "Location", "description": "Destination location name, full path or ID." },
-        "temporary": { "name": "Temporary", "description": "Remember the normal storage place." }
+        "container": {
+          "name": "Container",
+          "description": "Container number, name or label code."
+        },
+        "into_container": {
+          "name": "Into container",
+          "description": "Put it inside another container."
+        },
+        "location": {
+          "name": "Location",
+          "description": "Destination location name, full path or ID."
+        },
+        "temporary": {
+          "name": "Temporary",
+          "description": "Remember the normal storage place."
+        }
       }
     },
     "adjust_quantity": {
       "name": "Adjust quantity",
       "description": "Adds to or subtracts from an item's quantity, e.g. -1 when one is used.",
       "fields": {
-        "item_id": { "name": "Item ID", "description": "The item's ID." },
-        "delta": { "name": "Change", "description": "Positive to add, negative to use up." }
+        "item_id": {
+          "name": "Item ID",
+          "description": "The item's ID."
+        },
+        "delta": {
+          "name": "Change",
+          "description": "Positive to add, negative to use up."
+        }
       }
     },
-    "refresh": { "name": "Refresh statistics", "description": "Refreshes the inventory sensors now." }
+    "refresh": {
+      "name": "Refresh statistics",
+      "description": "Refreshes the inventory sensors now."
+    }
+  },
+  "selector": {
+    "voice_notify": {
+      "options": {
+        "off": "Off",
+        "alexa": "Alexa answers only",
+        "all": "All voice answers (Alexa, Assist, Siri)"
+      }
+    }
   }
 }

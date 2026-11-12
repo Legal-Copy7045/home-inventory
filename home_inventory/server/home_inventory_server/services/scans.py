@@ -28,8 +28,9 @@ from .. import audit
 from ..auth import Actor
 from ..events import queue_event
 from ..models import Attachment, Container, ContainerScan, IdentificationStatus, Item, ItemStatus, Location, ScanStatus
-from ..schemas import ItemCreate, ItemPatch, ScanConfirmIn
+from ..schemas import ContainerIn, ItemCreate, ItemPatch, LocationIn, ScanConfirmIn
 from . import inventory as inv
+from .placement import Resolver
 
 
 def _norm(s: str | None) -> str:
@@ -98,6 +99,9 @@ def scan_out(scan: ContainerScan, db: Session | None = None) -> dict[str, Any]:
         "provider": scan.provider,
         "model": scan.model,
         "suggestions": suggestions,
+        # Layout the AI saw (racks and their shelves) and the existing places in the area.
+        "units": (scan.raw_response or {}).get("units") or [],
+        "places": area_places(db, scan) if db is not None else [],
         "error": scan.error,
         "photo": inv.attachment_out(photo),
         "photo_id": scan.photo_id,
@@ -106,14 +110,63 @@ def scan_out(scan: ContainerScan, db: Session | None = None) -> dict[str, Any]:
     }
 
 
+def _area_ids(db: Session, scan: ContainerScan) -> set[int]:
+    """The scanned location and every place under it (its racks and shelves)."""
+    return Resolver.load(db).descendant_location_ids(scan.location_id) if scan.location_id is not None else set()
+
+
 def _current_items(db: Session, scan: ContainerScan) -> list[Item]:
-    """What the scanned place already holds directly (for matching)."""
+    """What the scanned place already holds (for matching): a container's own
+    items, or the loose items anywhere in a location's area."""
     stmt = select(Item).where(Item.deleted_at.is_(None))
     if scan.container_id is not None:
         stmt = stmt.where(Item.container_id == scan.container_id)
     else:
-        stmt = stmt.where(Item.location_id == scan.location_id, Item.container_id.is_(None))
+        stmt = stmt.where(Item.location_id.in_(_area_ids(db, scan)), Item.container_id.is_(None))
     return list(db.scalars(stmt))
+
+
+def _current_containers(db: Session, scan: ContainerScan) -> list[Container]:
+    stmt = select(Container).where(Container.deleted_at.is_(None))
+    if scan.container_id is not None:
+        stmt = stmt.where(Container.parent_container_id == scan.container_id)
+    else:
+        stmt = stmt.where(Container.location_id.in_(_area_ids(db, scan)))
+    return list(db.scalars(stmt))
+
+
+def _match_containers(entries: list[dict[str, Any]], containers: list[Container]) -> None:
+    """Boxes already recorded here are proposed as "already recorded"."""
+    used: set[int] = set()
+    for e in entries:
+        if e.get("kind") != "container":
+            continue
+        best, score = None, 0.0
+        for c in containers:
+            if c.id in used:
+                continue
+            sc = similarity(e.get("name", ""), c.name)
+            if sc > score:
+                best, score = c, sc
+        e["match"] = None
+        e["proposed_action"] = "add"
+        if best is not None and score >= 0.8:
+            used.add(best.id)
+            e["container_match"] = {"container_id": best.id, "name": best.name, "number": best.number}
+            e["proposed_action"] = "skip"
+
+
+def area_places(db: Session, scan: ContainerScan) -> list[dict[str, Any]]:
+    """The scanned location and the places under it, for "put on" choices."""
+    if scan.location_id is None:
+        return []
+    r = Resolver.load(db)
+    ids = r.descendant_location_ids(scan.location_id)
+    return sorted(
+        ({"id": i, "name": r.locations[i].name, "parent_id": r.locations[i].parent_id, "path": r.location_path(i)}
+         for i in ids if i in r.locations),
+        key=lambda p: (p["id"] != scan.location_id, p["path"].lower()),
+    )
 
 
 def analyse(db: Session, scan: ContainerScan, ai, image: bytes) -> ContainerScan:
@@ -126,14 +179,19 @@ def analyse(db: Session, scan: ContainerScan, ai, image: bytes) -> ContainerScan
     scan.status = ScanStatus.analysing
     db.commit()
     try:
-        res = ai.identify_container(image, hint=hint, shelf=shelf)
+        res = ai.identify_area(image, hint=hint) if shelf else ai.identify_container(image, hint=hint)
     except Exception as err:  # noqa: BLE001 - failures are recorded, nothing is lost
         scan.status = ScanStatus.failed
         scan.error = str(err)[:1000]
         db.commit()
         return scan
-    scan.suggestions = match_existing(res.data["items"], _current_items(db, scan))
-    scan.raw_response = {"notes": res.data.get("notes"), "elapsed_ms": res.elapsed_ms}
+    entries = res.data["items"]
+    things = [e for e in entries if e.get("kind", "item") == "item"]
+    boxes = [e for e in entries if e.get("kind") == "container"]
+    matched = match_existing(things, _current_items(db, scan))
+    _match_containers(boxes, _current_containers(db, scan))
+    scan.suggestions = matched + boxes
+    scan.raw_response = {"notes": res.data.get("notes"), "elapsed_ms": res.elapsed_ms, "units": res.data.get("units") or []}
     scan.provider, scan.model = res.provider, res.model
     scan.status = ScanStatus.ready
     scan.error = None
@@ -153,9 +211,24 @@ def confirm(db: Session, actor: Actor, scan: ContainerScan, data: ScanConfirmIn,
         container, location = None, _get_location(db, scan.location_id)
         place_name, here = location.name, "here"
     held = {i.id for i in _current_items(db, scan)}
-    created, increased, removed = [], [], []
+    created, increased, removed, boxes = [], [], [], []
+    place_for = _make_places(db, actor, scan, data) if location is not None else None
     for entry in data.items:
         if entry.action == "skip":
+            continue
+        target = place_for(entry) if place_for is not None else None
+        if entry.kind == "container":
+            if not entry.name:
+                raise inv.Conflict("Each new box needs a name")
+            box = inv.create_container(db, actor, ContainerIn(
+                name=entry.name, container_type=entry.container_type, description=entry.description,
+                location_id=target if container is None else None,
+                parent_container_id=container.id if container is not None else None,
+            ))
+            boxes.append(box.id)
+            pic = crop(entry.box) if (crop is not None and entry.box) else None
+            if pic is not None:
+                pic.container_id = box.id
             continue
         if entry.action == "increase":
             if not entry.existing_item_id:
@@ -181,7 +254,7 @@ def confirm(db: Session, actor: Actor, scan: ContainerScan, data: ScanConfirmIn,
                 model_number=entry.model_number,
                 quantity=entry.quantity,
                 container_id=container.id if container else None,
-                location_id=location.id if location else None,
+                location_id=target if location else None,
                 notes=entry.notes,
                 identification_status=IdentificationStatus.confirmed,
                 ai_metadata={"source": "container_scan", "scan_id": scan.id, "confidence": entry.confidence,
@@ -218,9 +291,12 @@ def confirm(db: Session, actor: Actor, scan: ContainerScan, data: ScanConfirmIn,
     scan.status = ScanStatus.confirmed
     scan.confirmed_at = datetime.now(UTC)
     summary = f"Confirmed photo inventory of {place_name}: {len(created)} added, {len(increased)} updated, {len(removed)} removed"
+    if boxes:
+        summary += f", {len(boxes)} box{'es' if len(boxes) != 1 else ''} added"
     if missing:
         summary += f", {len(missing)} marked missing"
-    after = {"scan_id": scan.id, "created": created, "increased": increased, "removed": removed, "missing": missing}
+    after = {"scan_id": scan.id, "created": created, "increased": increased, "removed": removed, "missing": missing,
+             "containers": boxes}
     if container is not None:
         audit.record(db, actor, "inventory_updated", "container", container.id, summary, after=after,
                      related_containers=[container.id])
@@ -232,7 +308,43 @@ def confirm(db: Session, actor: Actor, scan: ContainerScan, data: ScanConfirmIn,
         )
     else:
         audit.record(db, actor, "inventory_updated", "location", location.id, summary, after=after)
-    return {"created": created, "increased": increased, "removed": removed, "missing": missing}
+    return {"created": created, "increased": increased, "removed": removed, "missing": missing, "containers": boxes}
+
+
+def _make_places(db: Session, actor: Actor, scan: ContainerScan, data: ScanConfirmIn):
+    """Create the new racks/shelves, then return ``entry -> location id``.
+
+    Places must stay inside the scanned area: existing ones under the scanned
+    location, new ones under those (or under other new ones listed earlier).
+    """
+    area = _area_ids(db, scan)
+    made: dict[str, int] = {}
+    for p in data.new_locations:
+        if p.key in made:
+            raise inv.Conflict(f"Two new places share the key {p.key}")
+        if p.parent_key is not None:
+            if p.parent_key not in made:
+                raise inv.Conflict(f"New place {p.name}: its parent must be listed before it")
+            parent = made[p.parent_key]
+        else:
+            parent = p.parent_id if p.parent_id is not None else scan.location_id
+            if parent not in area:
+                raise inv.Conflict(f"New place {p.name} must be inside the photographed area")
+        loc = inv.create_location(db, actor, LocationIn(name=p.name, parent_id=parent, kind=p.kind))
+        made[p.key] = loc.id
+
+    def place_for(entry) -> int:
+        if entry.location_key is not None:
+            if entry.location_key not in made:
+                raise inv.Conflict(f"Unknown new place {entry.location_key}")
+            return made[entry.location_key]
+        if entry.location_id is not None:
+            if entry.location_id not in area:
+                raise inv.Conflict("Things can only be put on places inside the photographed area")
+            return entry.location_id
+        return scan.location_id
+
+    return place_for
 
 
 def _get_location(db: Session, location_id: int | None) -> Location:

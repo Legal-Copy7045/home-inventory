@@ -408,7 +408,17 @@ export interface Scan {
     box?: number[] | null;
     match: { item_id: number; name: string; quantity: number; similarity: number } | null;
     proposed_action: "add" | "increase" | "skip";
+    // Area photos: a labelled box/bin, and where in the layout it is.
+    kind?: "item" | "container";
+    container_type?: string | null;
+    unit?: number | null;
+    shelf?: number | null;
+    container_match?: { container_id: number; name: string; number: string | null } | null;
   })[];
+  /** Area photos: racks/units the AI saw, left to right, with shelves top down. */
+  units?: { name: string; shelves: string[] }[];
+  /** Area photos: the photographed location and the places already under it. */
+  places?: { id: number; name: string; parent_id: number | null; path: string }[];
   created_at: string;
 }
 
