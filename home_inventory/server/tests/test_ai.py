@@ -266,3 +266,106 @@ def test_ai_search_failure_falls_back(ai_env, fake_ai):
     res = u.ok("get", "/api/v1/search", params={"q": "where is the garden hose"})
     assert res["total_matches"] == 1 and res["interpretation"]["by"] == "rules"
     assert res["ai_error"]
+
+
+def _shelf_item(name, qty=1, position=None, **kw):
+    return {"name": name, "description": None, "category": kw.get("category"), "manufacturer": kw.get("manufacturer"),
+            "model_number": None, "quantity": qty, "confidence": kw.get("confidence", 0.8), "position": position}
+
+
+def test_shelf_photo_inventory_identifies_several_items(ai_env, fake_ai):
+    """One photo of a shelf: AI lists everything on it, the user edits, and
+    confirmed items become loose items on that shelf."""
+    u = ai_env.admin
+    garage = u.location("Garage")
+    shelf = u.ok("post", "/api/v1/locations", json={"name": "Shelf 2", "parent_id": garage["id"], "kind": "shelf"})
+    already = u.ok("post", "/api/v1/items", json={"name": "WD-40", "quantity": 1, "location_id": shelf["id"]})["items"][0]
+    fake_ai.responses.append({"items": [
+        _shelf_item("Paint tins", 3, "top shelf, left", category="Decorating"),
+        _shelf_item("WD-40", 2, "second shelf"),
+        _shelf_item("Socket set", 1, "bottom shelf", manufacturer="Halfords", confidence=0.4),
+    ], "notes": None})
+    scan = u.ok("post", f"/api/v1/locations/{shelf['id']}/scans", files={"file": ("s.jpg", jpeg_bytes())})
+    assert scan["status"] == "ready" and scan["location_id"] == shelf["id"] and scan["container_id"] is None
+    assert "shelf" in fake_ai.calls[-1]["prompt"].lower() and "Shelf 2 (shelf)" in fake_ai.calls[-1]["prompt"]
+    sugg = {s["name"]: s for s in scan["suggestions"]}
+    assert sugg["Paint tins"]["position"] == "top shelf, left" and sugg["Paint tins"]["quantity"] == 3
+    assert sugg["WD-40"]["match"]["item_id"] == already["id"] and sugg["WD-40"]["proposed_action"] == "increase"
+    assert sugg["Socket set"]["proposed_action"] == "add"
+    # Nothing saved before confirming
+    assert [i["id"] for i in u.ok("get", f"/api/v1/locations/{shelf['id']}")["items"]] == [already["id"]]
+    assert [s["id"] for s in u.ok("get", f"/api/v1/locations/{shelf['id']}/scans")] == [scan["id"]]
+
+    # The user corrects names/details, drops nothing, adds one it missed.
+    res = u.ok("post", f"/api/v1/scans/{scan['id']}/confirm", json={"items": [
+        {"action": "add", "name": "Emulsion paint (white)", "category": "Decorating", "manufacturer": "Dulux", "quantity": 3,
+         "notes": "top shelf, left"},
+        {"action": "increase", "existing_item_id": already["id"], "quantity": 2},
+        {"action": "add", "name": "Socket set 1/2in", "manufacturer": "Halfords", "model_number": "HSS-200", "quantity": 1},
+        {"action": "add", "name": "Funnel", "quantity": 1},
+    ]})
+    assert len(res["created"]) == 3 and res["increased"] == [already["id"]]
+    loose = {i["name"]: i for i in u.ok("get", f"/api/v1/locations/{shelf['id']}")["items"]}
+    assert set(loose) == {"WD-40", "Emulsion paint (white)", "Socket set 1/2in", "Funnel"}
+    assert loose["WD-40"]["quantity"] == 2
+    paint = u.ok("get", f"/api/v1/items/{loose['Emulsion paint (white)']['id']}")
+    assert paint["manufacturer"] == "Dulux" and paint["notes"] == "top shelf, left" and paint["photo"]
+    assert paint["placement"]["location"]["id"] == shelf["id"] and paint["placement"]["container"] is None
+    assert u.ok("get", f"/api/v1/items/{loose['Socket set 1/2in']['id']}")["model_number"] == "HSS-200"
+    hist = u.ok("get", "/api/v1/history", params={"entity_type": "location", "entity_id": shelf["id"]})["events"]
+    assert any(e["action"] == "inventory_updated" and "3 added, 1 updated" in e["summary"] for e in hist)
+    assert u.post(f"/api/v1/scans/{scan['id']}/confirm", json={"items": []}).status_code == 409
+
+
+def test_shelf_rescan_only_touches_that_shelf(ai_env, fake_ai):
+    u = ai_env.admin
+    shelf, other = u.location("Shelf A"), u.location("Shelf B")
+    box = u.container("Bin on shelf A", location_id=shelf["id"])
+    in_box = u.ok("post", "/api/v1/items", json={"name": "Hammer", "quantity": 1, "container_id": box["id"]})["items"][0]
+    elsewhere = u.ok("post", "/api/v1/items", json={"name": "Saw", "quantity": 1, "location_id": other["id"]})["items"][0]
+    gone = u.ok("post", "/api/v1/items", json={"name": "Old glue", "quantity": 1, "location_id": shelf["id"]})["items"][0]
+    fake_ai.responses.append({"items": [_shelf_item("Hammer"), _shelf_item("Saw")], "notes": None})
+    scan = u.ok("post", f"/api/v1/locations/{shelf['id']}/scans", files={"file": ("s.jpg", jpeg_bytes())})
+    # Items in a box on the shelf, or on another shelf, are not "here".
+    assert all(s["match"] is None for s in scan["suggestions"])
+    for bad in ({"items": [{"action": "increase", "existing_item_id": in_box["id"], "quantity": 3}]},
+                {"items": [], "remove_item_ids": [elsewhere["id"]]}):
+        assert u.post(f"/api/v1/scans/{scan['id']}/confirm", json=bad).status_code == 409
+    assert u.ok("get", f"/api/v1/items/{in_box['id']}")["quantity"] == 1
+    # Removing something no longer on the shelf works.
+    res = u.ok("post", f"/api/v1/scans/{scan['id']}/confirm", json={"items": [], "remove_item_ids": [gone["id"]]})
+    assert res["removed"] == [gone["id"]]
+    assert u.ok("get", f"/api/v1/items/{gone['id']}")["deleted_at"]
+
+
+def test_shelf_scan_roles_and_missing_ai(env, ai_env, fake_ai):
+    shelf = env.admin.location("Shelf")
+    scan = env.admin.ok("post", f"/api/v1/locations/{shelf['id']}/scans", files={"file": ("s.jpg", jpeg_bytes())})
+    assert scan["status"] == "failed" and "not configured" in scan["error"] and scan["photo"]
+    assert env.admin.post("/api/v1/locations/999999/scans", files={"file": ("s.jpg", jpeg_bytes())}).status_code == 404
+    assert env.admin.post(f"/api/v1/locations/{shelf['id']}/scans").status_code == 422
+    viewer = env.user("u-ro", "Viewer")
+    viewer.get("/api/v1/me")
+    vid = next(x["id"] for x in env.admin.ok("get", "/api/v1/users") if x["name"] == "Viewer")
+    env.admin.ok("patch", f"/api/v1/users/{vid}", json={"role": "read_only"})
+    assert viewer.post(f"/api/v1/locations/{shelf['id']}/scans", files={"file": ("s.jpg", jpeg_bytes())}).status_code == 403
+    assert viewer.post(f"/api/v1/scans/{scan['id']}/confirm", json={"items": []}).status_code == 403
+    assert viewer.ok("get", f"/api/v1/locations/{shelf['id']}/scans")[0]["id"] == scan["id"]
+
+
+def test_scan_matches_do_not_name_customer_equipment_to_read_only(ai_env, fake_ai):
+    from tests.test_privacy import _viewer
+
+    u = ai_env.admin
+    box = u.container("Bench box")
+    drill = u.item("Household drill", container_id=box["id"])
+    cust = u.ok("post", "/api/v1/customers", json={"name": "Pat"})
+    u.ok("post", "/api/v1/repair-jobs", json={"customer_id": cust["id"], "reported_problem": "Dead",
+                                               "new_equipment": {"name": "Pat's chainsaw", "container_id": box["id"]}})
+    fake_ai.responses.append({"items": [_shelf_item("Household drill"), _shelf_item("Pat's chainsaw")], "notes": None})
+    scan = u.ok("post", f"/api/v1/containers/{box['id']}/scans", files={"file": ("c.jpg", jpeg_bytes())})
+    assert all(s["match"] for s in scan["suggestions"])  # members see both matches
+    viewer = _viewer(ai_env)
+    seen = {s["name"]: s["match"] for s in viewer.ok("get", f"/api/v1/scans/{scan['id']}")["suggestions"]}
+    assert seen["Household drill"]["item_id"] == drill["id"]
+    assert seen["Pat's chainsaw"] is None

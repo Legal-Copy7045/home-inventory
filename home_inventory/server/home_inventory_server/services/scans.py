@@ -1,6 +1,11 @@
-"""Container photo analysis → reviewed inventory updates.
+"""Photo inventory: AI analysis of a container or shelf photo → reviewed
+inventory updates.
 
-Workflow: upload a photo of the open container → ``ContainerScan`` row
+A scan targets either a container (photo of its open contents) or a
+location such as a shelf, bench or wall (photo of what is on it; new items
+become loose items there).
+
+Workflow: upload a photo → ``ContainerScan`` row
 (status pending) → AI analysis stores *suggestions* (status ready) → the
 user reviews/edits/adds/removes → confirm applies the reviewed list.
 
@@ -22,7 +27,7 @@ from sqlalchemy.orm import Session
 from .. import audit
 from ..auth import Actor
 from ..events import queue_event
-from ..models import Attachment, Container, ContainerScan, IdentificationStatus, Item, ScanStatus
+from ..models import Attachment, Container, ContainerScan, IdentificationStatus, Item, Location, ScanStatus
 from ..schemas import ItemCreate, ItemPatch, ScanConfirmIn
 from . import inventory as inv
 
@@ -77,13 +82,22 @@ def match_existing(suggestions: list[dict[str, Any]], items: list[Item]) -> list
 
 def scan_out(scan: ContainerScan, db: Session | None = None) -> dict[str, Any]:
     photo = db.get(Attachment, scan.photo_id) if (db is not None and scan.photo_id) else None
+    suggestions = scan.suggestions or []
+    if db is not None and not db.info.get("can_view_customers", True):
+        # Matches were worked out by whoever took the photo; don't name items
+        # this user can't see (the read-only privacy filter hides them).
+        suggestions = [
+            {**sg, "match": None} if sg.get("match") and db.get(Item, sg["match"].get("item_id")) is None else sg
+            for sg in suggestions
+        ]
     return {
         "id": scan.id,
         "container_id": scan.container_id,
+        "location_id": scan.location_id,
         "status": scan.status.value,
         "provider": scan.provider,
         "model": scan.model,
-        "suggestions": scan.suggestions or [],
+        "suggestions": suggestions,
         "error": scan.error,
         "photo": inv.attachment_out(photo),
         "photo_id": scan.photo_id,
@@ -92,19 +106,33 @@ def scan_out(scan: ContainerScan, db: Session | None = None) -> dict[str, Any]:
     }
 
 
+def _current_items(db: Session, scan: ContainerScan) -> list[Item]:
+    """What the scanned place already holds directly (for matching)."""
+    stmt = select(Item).where(Item.deleted_at.is_(None))
+    if scan.container_id is not None:
+        stmt = stmt.where(Item.container_id == scan.container_id)
+    else:
+        stmt = stmt.where(Item.location_id == scan.location_id, Item.container_id.is_(None))
+    return list(db.scalars(stmt))
+
+
 def analyse(db: Session, scan: ContainerScan, ai, image: bytes) -> ContainerScan:
-    container = db.get(Container, scan.container_id)
+    if scan.container_id is not None:
+        container = db.get(Container, scan.container_id)
+        hint, shelf = (f"Container: {container.name}" if container else None), False
+    else:
+        loc = db.get(Location, scan.location_id)
+        hint, shelf = (f"Place: {loc.name}" + (f" ({loc.kind})" if loc.kind else "") if loc else None), True
     scan.status = ScanStatus.analysing
     db.commit()
     try:
-        res = ai.identify_container(image, hint=f"Container: {container.name}" if container else None)
+        res = ai.identify_container(image, hint=hint, shelf=shelf)
     except Exception as err:  # noqa: BLE001 - failures are recorded, nothing is lost
         scan.status = ScanStatus.failed
         scan.error = str(err)[:1000]
         db.commit()
         return scan
-    current = db.scalars(select(Item).where(Item.container_id == scan.container_id, Item.deleted_at.is_(None))).all()
-    scan.suggestions = match_existing(res.data["items"], list(current))
+    scan.suggestions = match_existing(res.data["items"], _current_items(db, scan))
     scan.raw_response = {"notes": res.data.get("notes"), "elapsed_ms": res.elapsed_ms}
     scan.provider, scan.model = res.provider, res.model
     scan.status = ScanStatus.ready
@@ -116,7 +144,13 @@ def analyse(db: Session, scan: ContainerScan, ai, image: bytes) -> ContainerScan
 def confirm(db: Session, actor: Actor, scan: ContainerScan, data: ScanConfirmIn) -> dict[str, Any]:
     if scan.status in (ScanStatus.confirmed, ScanStatus.discarded):
         raise inv.Conflict("This scan has already been handled")
-    container = inv.get_container(db, scan.container_id)
+    if scan.container_id is not None:
+        container, location = inv.get_container(db, scan.container_id), None
+        place_name, here = container.name, "in this container"
+    else:
+        container, location = None, _get_location(db, scan.location_id)
+        place_name, here = location.name, "here"
+    held = {i.id for i in _current_items(db, scan)}
     created, increased, removed = [], [], []
     for entry in data.items:
         if entry.action == "skip":
@@ -125,8 +159,8 @@ def confirm(db: Session, actor: Actor, scan: ContainerScan, data: ScanConfirmIn)
             if not entry.existing_item_id:
                 raise inv.Conflict("An existing item is required to increase quantity")
             item = inv.get_item(db, entry.existing_item_id)
-            if item.container_id != container.id:
-                raise inv.Conflict("That item is not in this container")
+            if item.id not in held:
+                raise inv.Conflict(f"That item is not {here}")
             if entry.quantity != item.quantity:
                 inv.update_item(db, actor, item, ItemPatch(quantity=entry.quantity))
                 increased.append(item.id)
@@ -144,7 +178,9 @@ def confirm(db: Session, actor: Actor, scan: ContainerScan, data: ScanConfirmIn)
                 manufacturer=entry.manufacturer,
                 model_number=entry.model_number,
                 quantity=entry.quantity,
-                container_id=container.id,
+                container_id=container.id if container else None,
+                location_id=location.id if location else None,
+                notes=entry.notes,
                 identification_status=IdentificationStatus.confirmed,
                 ai_metadata={"source": "container_scan", "scan_id": scan.id, "confidence": entry.confidence,
                              "provider": scan.provider, "model": scan.model},
@@ -158,29 +194,33 @@ def confirm(db: Session, actor: Actor, scan: ContainerScan, data: ScanConfirmIn)
                     i.primary_photo_id = scan.photo_id
     for item_id in data.remove_item_ids:
         item = inv.get_item(db, item_id)
-        if item.container_id != container.id:
-            raise inv.Conflict("That item is not in this container")
-        inv.delete_item(db, actor, item, reason="Not found when container was re-scanned")
+        if item.id not in held:
+            raise inv.Conflict(f"That item is not {here}")
+        inv.delete_item(db, actor, item, reason=f"Not found when {place_name} was re-scanned")
         removed.append(item_id)
     scan.status = ScanStatus.confirmed
     scan.confirmed_at = datetime.now(UTC)
-    audit.record(
-        db,
-        actor,
-        "inventory_updated",
-        "container",
-        container.id,
-        f"Confirmed photo inventory of {container.name}: {len(created)} added, {len(increased)} updated, {len(removed)} removed",
-        after={"scan_id": scan.id, "created": created, "increased": increased, "removed": removed},
-        related_containers=[container.id],
-    )
-    queue_event(
-        db,
-        "container_inventory_updated",
-        {"container_id": container.id, "name": container.name, "added": len(created), "updated": len(increased),
-         "removed": len(removed), "user": actor.name},
-    )
+    summary = f"Confirmed photo inventory of {place_name}: {len(created)} added, {len(increased)} updated, {len(removed)} removed"
+    after = {"scan_id": scan.id, "created": created, "increased": increased, "removed": removed}
+    if container is not None:
+        audit.record(db, actor, "inventory_updated", "container", container.id, summary, after=after,
+                     related_containers=[container.id])
+        queue_event(
+            db,
+            "container_inventory_updated",
+            {"container_id": container.id, "name": container.name, "added": len(created), "updated": len(increased),
+             "removed": len(removed), "user": actor.name},
+        )
+    else:
+        audit.record(db, actor, "inventory_updated", "location", location.id, summary, after=after)
     return {"created": created, "increased": increased, "removed": removed}
+
+
+def _get_location(db: Session, location_id: int | None) -> Location:
+    loc = db.get(Location, location_id) if location_id is not None else None
+    if loc is None or loc.deleted_at is not None:
+        raise inv.NotFound("Location not found")
+    return loc
 
 
 def attach_scan_photo(db: Session, scan: ContainerScan) -> Attachment | None:

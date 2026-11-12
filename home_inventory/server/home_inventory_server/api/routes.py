@@ -49,6 +49,8 @@ from ..models import (
 from ..schemas import (
     AdjustIn,
     BarcodeLookupIn,
+    BulkDeleteIn,
+    BulkEditIn,
     CategoryIn,
     ContainerIn,
     ContainerMoveIn,
@@ -520,8 +522,16 @@ def list_items(
         "value": [Item.purchase_price.desc().nulls_last()],
         "expiry": [Item.expires_on.asc().nulls_last()],
         "warranty": [Item.warranty_expires.asc().nulls_last()],
+        "location": [func.lower(Product.name), Item.id],
     }.get(sort, [func.lower(Product.name)])
     items = db.scalars(stmt.order_by(*order)).all()
+    if sort == "location":
+        # Grouped by where things are: place path, then name; unplaced last.
+        def where(i: Item) -> tuple:
+            unplaced = i.container_id is None and i.location_id is None
+            return (unplaced, "" if unplaced else r.describe_item(i)["path"].lower(), (i.product.name or "").lower(), i.id)
+
+        items = sorted(items, key=where)
     if location_id:
         locs = r.descendant_location_ids(location_id)
         conts = r.containers_in_location_tree(location_id)
@@ -675,17 +685,49 @@ def capture_unsorted(actor: Actor = Depends(current_actor), db: Session = Depend
 
 
 @router.post("/capture/place")
+@router.post("/items/bulk-move")
 def capture_place(data: PlaceItemsIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
-    """Put several items in one place at once (e.g. a whole shelf's photos)."""
+    """Put several items in one place at once (a whole shelf's photos, or a
+    selection on the Items page).  All or nothing."""
     if data.container_id is None and data.location_id is None:
         raise HTTPException(422, "Choose a container or location")
     _err(validate_item_target, db, data.container_id, data.location_id)
-    items = [_get_or_404(db, Item, i) for i in dict.fromkeys(data.item_ids)]
+    items = _bulk_items(db, data.item_ids)
     move = MoveIn(container_id=data.container_id, location_id=data.location_id)
     moved = [_err(inv.move_item, db, actor, item, move) for item in items]
     db.commit()
     r = _resolver(db)
     return {"items": [inv.item_out(i, r, db) for i in moved]}
+
+
+def _bulk_items(db: Session, ids: list[int]) -> list[Item]:
+    return [_get_or_404(db, Item, i) for i in dict.fromkeys(ids)]
+
+
+@router.post("/items/bulk-edit")
+def bulk_edit_items(data: BulkEditIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Set the same details on several items.  All or nothing.  Category and
+    maker belong to the product, so items of the same product share them."""
+    items = _bulk_items(db, data.item_ids)
+    fields = data.model_dump(exclude_unset=True, exclude={"item_ids", "status"})
+    for item in items:
+        if fields:
+            _err(inv.update_item, db, actor, item, ItemPatch(**fields))
+        if "status" in data.model_fields_set and data.status is not None and item.status is not data.status:
+            _err(inv.set_status, db, actor, item, data.status, None)
+    db.commit()
+    r = _resolver(db)
+    return {"items": [inv.item_out(i, r, db) for i in items]}
+
+
+@router.post("/items/bulk-delete")
+def bulk_delete_items(data: BulkDeleteIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Delete several items (each can be restored from its page or history)."""
+    items = _bulk_items(db, data.item_ids)
+    for item in items:
+        inv.delete_item(db, actor, item, data.reason)
+    db.commit()
+    return {"deleted": [i.id for i in items]}
 
 
 @router.get("/products/similar")
@@ -946,19 +988,15 @@ async def ai_identify_item(body: dict[str, Any], request: Request, actor: Actor 
     return {"suggestion": suggestion, "metadata": res.metadata(), "similar": similar}
 
 
-@router.post("/containers/{container_id}/scans", status_code=201)
-async def create_scan(
-    container_id: int,
-    request: Request,
-    file: UploadFile | None = File(None),
-    attachment_id: int | None = Form(None),
-    actor: Actor = Depends(require_member),
-    db: Session = Depends(get_db),
-):
+async def _new_scan(
+    request: Request, actor: Actor, db: Session, file: UploadFile | None, attachment_id: int | None,
+    container: Container | None = None, location: Location | None = None,
+) -> dict:
+    """Photo inventory of a container's contents or of a shelf/location."""
     st = _state(request)
-    c = _get_or_404(db, Container, container_id)
     if st.ai.enabled:
         _limit(request, actor, "ai")
+    owner = {"container_id": container.id} if container is not None else {"location_id": location.id}
     if file is not None:
         raw = await file.read(st.media.max_bytes + 1)
         if len(raw) > st.media.max_bytes:
@@ -967,18 +1005,21 @@ async def create_scan(
             stored = await asyncio.to_thread(st.media.save, raw, False)
         except MediaError as err:
             raise HTTPException(415, str(err)) from err
-        att = Attachment(kind=AttachmentKind.photo, container_id=c.id, original_name=file.filename, caption="Contents photo", created_by_id=actor.user_id, **stored.__dict__)
+        caption = "Contents photo" if container is not None else "Shelf photo"
+        att = Attachment(kind=AttachmentKind.photo, original_name=file.filename, caption=caption, created_by_id=actor.user_id,
+                         **owner, **stored.__dict__)
         db.add(att)
         db.flush()
     elif attachment_id:
         att = db.get(Attachment, attachment_id)
         if att is None:
             raise HTTPException(404, "Photo not found")
-        if att.container_id is None and att.item_id is None:
-            att.container_id = c.id
+        if att.container_id is None and att.item_id is None and att.location_id is None:
+            for k, v in owner.items():
+                setattr(att, k, v)
     else:
         raise HTTPException(422, "A photo is required")
-    scan = ContainerScan(container_id=c.id, photo_id=att.id, created_by_id=actor.user_id)
+    scan = ContainerScan(photo_id=att.id, created_by_id=actor.user_id, **owner)
     db.add(scan)
     db.commit()
     image = st.media.read(att.stored_path)
@@ -991,9 +1032,43 @@ async def create_scan(
     return scans_svc.scan_out(scan, db)
 
 
+@router.post("/containers/{container_id}/scans", status_code=201)
+async def create_scan(
+    container_id: int,
+    request: Request,
+    file: UploadFile | None = File(None),
+    attachment_id: int | None = Form(None),
+    actor: Actor = Depends(require_member),
+    db: Session = Depends(get_db),
+):
+    c = _get_or_404(db, Container, container_id)
+    return await _new_scan(request, actor, db, file, attachment_id, container=c)
+
+
 @router.get("/containers/{container_id}/scans")
 def list_scans(container_id: int, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
     scans = db.scalars(select(ContainerScan).where(ContainerScan.container_id == container_id).order_by(ContainerScan.id.desc()).limit(20)).all()
+    return [scans_svc.scan_out(s, db) for s in scans]
+
+
+@router.post("/locations/{location_id}/scans", status_code=201)
+async def create_location_scan(
+    location_id: int,
+    request: Request,
+    file: UploadFile | None = File(None),
+    attachment_id: int | None = Form(None),
+    actor: Actor = Depends(require_member),
+    db: Session = Depends(get_db),
+):
+    """Photo inventory of a shelf, bench, wall...: AI lists what it sees for
+    review; confirmed items become loose items in this location."""
+    loc = _get_or_404(db, Location, location_id)
+    return await _new_scan(request, actor, db, file, attachment_id, location=loc)
+
+
+@router.get("/locations/{location_id}/scans")
+def list_location_scans(location_id: int, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    scans = db.scalars(select(ContainerScan).where(ContainerScan.location_id == location_id).order_by(ContainerScan.id.desc()).limit(20)).all()
     return [scans_svc.scan_out(s, db) for s in scans]
 
 
