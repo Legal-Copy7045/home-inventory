@@ -53,28 +53,72 @@ Then: "Hey Siri, Where is" → "hedge trimmer" → Siri answers. Siri needs the 
 
 ## 3. Alexa custom skill
 
-"Alexa, ask Home Inventory where the hedge trimmer is" needs your own (private, development-mode) Alexa custom skill. Home Assistant's Alexa integration passes custom-skill intents to the Home Assistant intent with the same name and turns each slot into an intent slot, so no `intent_script` is needed (checked against Home Assistant 2026.2's source, and covered by the integration tests).
+"Alexa, ask Home Inventory where the hedge trimmer is" needs your own private Alexa *custom skill*. It stays in development mode, so it is never published, and it works on every Echo signed in to your Amazon account.
 
-**Before you start, know the trade-off:** Amazon's servers must be able to call your Home Assistant over HTTPS (your own domain with a valid certificate, or another public HTTPS route to it). The Home Inventory App stays private either way; only Home Assistant is reached.
+How it fits together: Alexa → a small forwarding function (`deploy/alexa/lambda_function.py`) → Home Assistant's `/api/alexa` → the Home Inventory intent → spoken answer. The forwarder is needed because `/api/alexa` requires a Home Assistant access token, which Alexa can't send by itself.
 
-1. In `configuration.yaml`, enable Alexa custom-skill support:
+**The trade-off:** Amazon has to reach your Home Assistant over HTTPS from the internet, through Home Assistant Cloud's remote URL or your own domain. The Home Inventory App itself stays private, and only Home Assistant is reached, using the token you create.
+
+You need:
+- Home Assistant reachable over HTTPS from the internet;
+- a free Amazon developer account (the same Amazon account as your Echo);
+- Home Inventory 0.10.0 or later, with the integration updated in HACS.
+
+### A. Home Assistant
+
+1. **Turn on Alexa custom-skill support.** Add one line to `configuration.yaml` and restart Home Assistant:
 
    ```yaml
    alexa:
    ```
 
-2. In the Alexa developer console, create a **Custom** skill with invocation name **home inventory**, and an intent named exactly **`HomeInventoryWhereIs`** with one slot named **`item`** of type **`AMAZON.SearchQuery`**. Sample utterances:
+2. **Create a user for Alexa (recommended).** Settings → People → Users → Add user, for example "Alexa". Leave it **not** an administrator.
+3. **Create a long-lived access token for that user.** Log in as that user, then Profile → Security → Long-lived access tokens → Create token. Copy it now; it's shown only once.
+4. **Note your external address.** For example `https://xxxxxxxx.ui.nabu.casa` or `https://ha.example.com`, with no `/api` at the end.
 
-   ```
-   where {item} is
-   where the {item} is
-   where my {item} is
-   where are my {item}
-   to find {item}
-   ```
+### B. Create the skill
 
-3. Point the skill's endpoint at Home Assistant's Alexa endpoint, **`https://<your Home Assistant>/api/alexa`**. That endpoint requires Home Assistant authentication, so follow Home Assistant's "Amazon Alexa Custom Skill" documentation for how to authenticate the skill (it changes between releases, so use the current page rather than a copy here).
+5. Go to developer.amazon.com → **Alexa Skills Kit** → **Create Skill**. Fill in:
+   - Name: **Home Inventory**
+   - Primary locale: your Echo's language, e.g. English (UK)
+   - Experience: **Other** → **Custom**
+   - Hosting: **Alexa-hosted (Python)**, which is simplest because it needs no AWS account, in the region nearest you. Alternatively choose **Provision your own** to use your own AWS Lambda (step 8b).
+6. Open **Interaction Model → JSON Editor**. Replace everything with the contents of `deploy/alexa/interaction-model.json`, then **Save** and **Build skill**.
+7. Copy the **Skill ID** from the skill list ("Copy Skill ID"). It looks like `amzn1.ask.skill.…`.
 
-4. Test in the developer console's **Test** tab: "ask home inventory where the hedge trimmer is".
+### C. Add the forwarder
+
+8a. **Alexa-hosted skill:**
+   1. Open the **Code** tab and replace the contents of `lambda_function.py` with `deploy/alexa/lambda_function.py`.
+   2. Alexa-hosted skills have no environment variables, so fill in the three settings near the top of the file (`HA_URL`, `HA_TOKEN`, `SKILL_ID`) instead of the `os.environ.get(...)` defaults.
+   3. **Save**, then **Deploy**.
+   4. The code, including the token, stays private to your developer account. Don't share or publish the skill.
+
+8b. **Your own AWS Lambda instead:**
+   1. Create a Python 3.12 function in the region Alexa uses for your locale: US East (N. Virginia) for North America; EU (Ireland) for the UK and Europe; US West (Oregon) for Japan and Australia.
+   2. Paste the file as `lambda_function.py`.
+   3. Set the environment variables `HA_URL`, `HA_TOKEN` and `SKILL_ID`.
+   4. Set the timeout to 8 seconds.
+   5. Add an **Alexa Skills Kit** trigger restricted to your skill ID.
+   6. In the skill's **Endpoint** page, choose **AWS Lambda ARN** and paste the function's ARN.
+
+### D. Try it
+
+9. Open the **Test** tab and set "Skill testing is enabled in" to **Development**. Type or say: `ask home inventory where the hedge trimmer is`.
+10. Then try it on your Echo: "Alexa, ask Home Inventory where the hedge trimmer is". You can also say "Alexa, open Home Inventory" and then ask.
+
+### If something goes wrong
+
+The forwarder says what's wrong out loud:
+
+| What Alexa says | What to fix |
+|---|---|
+| "Home Assistant refused the request…" | The token is wrong, or its user was deleted. |
+| "…Alexa support isn't turned on…" | `alexa:` is missing from `configuration.yaml`, or Home Assistant wasn't restarted. |
+| "Sorry, I couldn't reach Home Assistant." | `HA_URL` is wrong, or Home Assistant isn't reachable from the internet. |
+| "…isn't set up yet…" | `HA_URL` or `HA_TOKEN` is empty. |
+| "I couldn't find X in your inventory." | It's working. Try the name as it's written in Home Inventory. |
+
+Home Assistant's own "Amazon Alexa Custom Skill" documentation describes the same `/api/alexa` endpoint if you want more background.
 
 A "Smart Home" Alexa skill (including the one Home Assistant Cloud sets up) only controls devices; it can't answer free-text questions, so it doesn't replace the custom skill.
