@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { TagsSection } from "./Tags";
 import { AlertTriangle, Box, ChevronDown, ChevronRight, Clock, FileSpreadsheet, Images, Map as MapIcon, MapPin, Package, Pencil, Plus, Printer, QrCode, ScanBarcode, Search as SearchIcon, Sparkles, Trash2 } from "lucide-react";
 import { api, qrImageUrl, type Dashboard, type Item, type LocationDetail, type LocationNode, type SearchResult } from "../api";
 import { LocationImportSheet } from "../components/LocationImport";
@@ -238,6 +239,7 @@ export function LocationDetailPage() {
       {l.children!.length > 0 && <Section title="Inside" tight><div className="list">{l.children!.map((c) => <Link key={c.id} to={`/locations/${c.id}`}><MapPin size={20} /><div className="grow"><div className="t">{c.name}</div>{c.kind && <div className="s">{c.kind}</div>}</div><ChevronRight size={18} /></Link>)}</div></Section>}
       {l.containers!.length > 0 && <Section title="Containers" tight><div className="list">{l.containers!.map((c) => <ContainerRow key={c.id} c={c} />)}</div></Section>}
       <Section title="Loose items" tight>{l.items!.length ? <div className="list">{l.items!.map((i) => <ItemRow key={i.id} item={i} />)}</div> : <Empty>No loose items here.</Empty>}</Section>
+      <TagsSection targetType="location" targetId={l.id} name={l.name} />
       {l.maps!.length > 0 && <Section title="Visual maps">{l.maps!.map((m) => <Link key={m.id} className="btn" to={`/maps/${m.id}`} style={{ marginRight: 8 }}>{m.title}</Link>)}</Section>}
       {me.can_edit && (
         <div className="row wrap">

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0
+
+- **NFC tags** for items, containers, locations and kits, alongside QR labels.
+  - Tags hold a link with a random reference: no IDs and no tokens. Opening one still needs your Home Assistant login. The link keeps working when things move.
+  - Choose what a scan does: open the record, log hours, log service, move, use one, start a repair job, or mark returned. The scan page shows that action first as one big button.
+  - **Android:** write and read tags straight from the app (in its own tab). Duplicate stickers are detected from the chip's serial number.
+  - **iPhone:** copy the link (or scan its QR code) into an NFC writer app. iPhones open link tags natively.
+  - **NFC tags** page: change actions, deactivate or reactivate, replace lost or damaged tags, and show the link and QR fallback.
+  - Home Assistant event `home_inventory_tag_scanned`.
+- Fix: read-only users could not scan QR labels (the lookup was treated as a change).
+
 ## 0.5.0
 
 - **Related items.** Link accessories, components, compatible parts, things stored together and replacements, or use your own description. The link shows on both items. Items stay separate, with their own place and QR label.

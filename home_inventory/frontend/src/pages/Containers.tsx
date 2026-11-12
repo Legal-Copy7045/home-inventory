@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { TagsSection } from "./Tags";
 import { ArrowRightLeft, Camera, Home, Images, Pencil, Plus, Printer, QrCode, ScanLine, Sparkles, Trash2 } from "lucide-react";
 import { api, qrImageUrl, url, type Container, type HistoryEvent, type Scan } from "../api";
 import { PlacementPicker, type PlacementValue } from "../components/PlacementPicker";
@@ -154,6 +155,7 @@ export function ContainerDetail() {
       )}
       {ct.maps && ct.maps.length > 0 && <Section title="Visual maps">{ct.maps.map((m) => <Link key={m.id} className="btn" to={`/maps/${m.id}`}>{m.title}</Link>)}</Section>}
 
+      <TagsSection targetType="container" targetId={ct.id} name={ct.name} />
       <Section title="Activity" tight>
         <div className="list">{hist.data?.events.map((e) => <li key={e.id}><div className="grow"><div style={{ fontWeight: 500 }}>{e.summary}</div><div className="s">{e.user} · {fmtWhen(e.ts)}</div></div></li>)}</div>
       </Section>

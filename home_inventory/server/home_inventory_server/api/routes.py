@@ -347,8 +347,21 @@ def lookup_container(ref: str, actor: Actor = Depends(current_actor), db: Sessio
 
 
 @router.post("/qr/resolve")
-def resolve_qr(body: dict[str, str], actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+def resolve_qr(body: dict[str, str], actor: Actor = Depends(authenticated_actor), db: Session = Depends(get_db)):
     """Turn any label payload (link, HINV:… code or bare code) into a record."""
+    from ..services import tags as tag_svc
+
+    if tag_svc.REF_RE.search((body.get("text") or "").strip()):
+        try:
+            tag = tag_svc.resolve(db, body["text"])
+        except tag_svc.TagNotFound as err:
+            raise HTTPException(404, str(err)) from err
+        from ..events import queue_event
+
+        queue_event(db, "tag_scanned", {"tag_id": tag.id, "target_type": tag.target_type, "target_id": tag.target_id,
+                                        "default_action": tag.default_action, "user": actor.name})
+        db.commit()
+        return {"type": tag.target_type, "id": tag.target_id, "tag_id": tag.id, "default_action": tag.default_action}
     ref = labels_svc.parse_qr_ref(body.get("text", ""))
     if not ref:
         raise HTTPException(404, "Not a Home Inventory label")

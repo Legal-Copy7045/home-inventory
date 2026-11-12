@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Box, Link2, Package, Plus, Trash2, X } from "lucide-react";
+import { TagsSection } from "./Tags";
 import { api, type Item, type ItemRelations, type Kit, type KitMemberState } from "../api";
 import { PlacementPicker, type PlacementValue } from "../components/PlacementPicker";
 import { Empty, ErrorBox, Section, Sheet, Spinner, useAction, useApi, useMe } from "../components/ui";
@@ -234,6 +235,7 @@ export function KitPage() {
           </ul>
         ) : <p className="muted" style={{ padding: "0 16px" }}>No items yet.</p>}
       </Section>
+      <TagsSection targetType="kit" targetId={k.id} name={k.name} />
       {edit && <button className="btn block" onClick={remove}>Delete kit</button>}
       {sheet === "edit" && <KitSheet kit={k} onClose={() => setSheet(null)} onDone={(x) => { kit.setData(x); setSheet(null); }} />}
       {sheet === "add" && <ItemPickerSheet title="Add to kit" exclude={(k.members || []).map((m) => m.item_id)} onPick={add} onClose={() => setSheet(null)} />}

@@ -34,6 +34,7 @@ EVENT_TYPES = {
     "low_stock",
     "maintenance_completed",
     "repair_job_status",
+    "tag_scanned",
 }
 
 

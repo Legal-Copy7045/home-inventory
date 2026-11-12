@@ -63,6 +63,10 @@ The **Maintenance** page lists what's overdue, what's due in the next 7, 30 or 9
 
 Service history is kept when tasks are changed or removed, and even when you stop tracking an item.
 
+## NFC tags
+
+Stick NFC tags on equipment, boxes or shelves. Tapping one with your phone opens the record, or goes straight to an action such as *Log hours*. Assign tags from the record's **NFC tags** section. Android phones can write tags directly; on iPhone, copy the link into an NFC writer app. See the [NFC guide](https://github.com/Legal-Copy7045/home-inventory/blob/main/docs/nfc.md).
+
 ## Related items and kits
 
 Keep accessories as separate items, each with its own place, QR label and search entry, and link them:
