@@ -49,8 +49,24 @@ ORDINALS = {
 }
 
 
+def _box(c: dict[str, Any]) -> str:
+    """A container as it's spoken: "Plastic tote number 1, labelled Hoses"."""
+    name, kind, number = c.get("name") or "a box", (c.get("type") or "").strip(), c.get("number")
+    num = f" number {number}" if number else ""
+    if kind and kind.lower() not in name.lower():
+        return f"{kind[:1].upper()}{kind[1:]}{num}, labelled {name}"
+    return f"{name}{num}"
+
+
 def _place(item: dict[str, Any]) -> str:
-    return (item.get("placement") or {}).get("path", "").replace(" › ", ", ") or "somewhere without a place yet"
+    """Where a record is: the box first (innermost first), then where the box is."""
+    p = item.get("placement") or {}
+    boxes = [_box(c) for c in reversed(p.get("container_path") or [])]
+    rooms = ", ".join(loc["name"] for loc in p.get("location_path") or [])
+    if boxes:
+        text = ", inside ".join(boxes)
+        return f"{text}, located in {rooms}" if rooms else text
+    return rooms or (p.get("path") or "").replace(" › ", ", ") or "somewhere without a place yet"
 
 
 def _where(item: dict[str, Any]) -> str:
