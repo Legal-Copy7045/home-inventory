@@ -157,6 +157,8 @@ export interface Item {
   name: string;
   /** Set when the item belongs to a customer, not the household. */
   owner?: ItemOwner | null;
+  /** Search results only: parent equipment, accessories etc. */
+  related?: RelatedRef[];
   label: string | null;
   display_name: string;
   category: string | null;
@@ -632,4 +634,44 @@ export interface CustomerDetail extends Customer {
   equipment: { id: number; name: string; manufacturer: string | null; model_number: string | null; serial_number: string | null }[];
   jobs: RepairJob[];
   contacts: { id: number; contacted_at: string; channel: string | null; note: string }[];
+}
+
+// ---------------------------------------------------------------- relationships & kits
+
+export interface RelatedRef {
+  id: number;
+  type: string;
+  label: string;
+  direction: "out" | "in";
+  note: string | null;
+  item: { id: number; name: string; label: string | null; quantity: number; status: string; placement: string };
+}
+
+export interface ItemRelations {
+  relations: RelatedRef[];
+  kits: { id: number; name: string }[];
+}
+
+export type KitMemberState = "present" | "elsewhere" | "on_loan" | "short" | "missing";
+
+export interface Kit {
+  id: number;
+  name: string;
+  description: string | null;
+  container_id: number | null;
+  location_id: number | null;
+  home: string | null;
+  member_count: number;
+  counts: Record<KitMemberState, number>;
+  complete: boolean;
+  members?: {
+    id: number;
+    item_id: number;
+    quantity: number;
+    optional: boolean;
+    note: string | null;
+    state: KitMemberState;
+    state_label: string;
+    item: { id: number; name: string; label: string | null; quantity: number; placement: string | null } | null;
+  }[];
 }

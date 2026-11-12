@@ -1064,7 +1064,15 @@ def search(
             _limit(request, actor, "ai")
         except HTTPException:
             use_ai = None  # over the AI limit: still answer, with keyword search
-    return search_svc.search(db, q, ai=use_ai, limit=limit)
+    out = search_svc.search(db, q, ai=use_ai, limit=limit)
+    # Show each result's parent equipment / accessories so a search for
+    # "air compressor" also surfaces its hose, inflator and fittings.
+    from ..services import relations as rel_svc
+
+    related = rel_svc.relations_for(db, [r["id"] for r in out["results"][:30]])
+    for r in out["results"]:
+        r["related"] = related.get(r["id"], [])[:6]
+    return out
 
 
 def _looks_like_question(q: str) -> bool:
