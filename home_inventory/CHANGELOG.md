@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.2
+
+- **Voice answers say the box first.** "Kink Control Plus Water Hose 50ft is in Plastic tote number 1, labelled Hoses, located in Shed, Rear Right Shelving, Middle Shelf." instead of reading the whole path in one go. Boxes inside boxes are named innermost first. The box's type (set on the container, e.g. "Plastic tote") is used when it has one.
+
 ## 0.10.1
 
 - **Voice asks when it's unclear.** "Where is the hose?" used to read out every match in one long sentence. Now, when your words match different things, it asks: "I found 3 things for hose: Kink Control Plus Water Hose 50ft, Siphon pump hose and Siphon pump with hose and funnel. Which one did you mean?" Reply "the water hose one", "the one with the funnel" or "the second one".

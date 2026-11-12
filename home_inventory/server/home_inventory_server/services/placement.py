@@ -134,7 +134,8 @@ def _container_label(c: Container) -> str:
 
 
 def _container_ref(c: Container) -> dict[str, Any]:
-    return {"id": c.id, "name": c.name, "number": c.number, "qr_code": c.qr_code, "label": _container_label(c)}
+    return {"id": c.id, "name": c.name, "number": c.number, "qr_code": c.qr_code, "label": _container_label(c),
+            "type": c.container_type}
 
 
 # -- validation -------------------------------------------------------------
