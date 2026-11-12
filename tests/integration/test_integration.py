@@ -187,3 +187,49 @@ async def test_app_unavailable_marks_entry_not_ready(hass: HomeAssistant, invent
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
     assert entry.state is config_entries.ConfigEntryState.SETUP_RETRY
+
+
+async def test_voice_where_is_intent(hass: HomeAssistant, inventory_app, hass_admin_user):
+    """Assist / Siri (via Assist) / Alexa custom skill all end up in this intent."""
+    from homeassistant.helpers import intent
+
+    entry = await _setup_via_user_flow(hass, inventory_app)
+    ctx = Context(user_id=hass_admin_user.id)
+    resp = await intent.async_handle(hass, "test", "HomeInventoryWhereIs", {"item": {"value": "axle stands?"}}, context=ctx)
+    speech = resp.speech["plain"]["speech"]
+    assert speech.startswith("Axle stand is in Garage"), speech
+    assert " › " not in speech  # read aloud naturally
+    resp = await intent.async_handle(hass, "test", "HomeInventoryWhereIs", {"item": {"value": "unicorn saddle"}})
+    assert resp.speech["plain"]["speech"] == "I couldn't find unicorn saddle in your inventory."
+    await hass.config_entries.async_unload(entry.entry_id)
+    if hasattr(intent, "async_remove"):
+        with pytest.raises(intent.UnknownIntent):
+            await intent.async_handle(hass, "test", "HomeInventoryWhereIs", {"item": {"value": "axle stands"}})
+
+
+def test_spoken_answer_wording():
+    from custom_components.home_inventory.intent import spoken_answer
+
+    item = lambda name, path, **kw: {"display_name": name, "placement": {"path": path}, "status": kw.pop("status", "stored"), **kw}  # noqa: E731
+    assert spoken_answer("drill", [item("Drill", "Shed › Box #3")]) == "Drill is in Shed, Box #3."
+    assert spoken_answer("ladder", [item("Ladder", "Garage", status="on_loan", loan={"borrower": "Sam"})]) == "Ladder is lent to Sam."
+    moved = item("Saw", "Garage", status="temporarily_relocated", home_placement={"path": "Shed"})
+    assert spoken_answer("saw", [moved]) == "Saw is in Garage for now, normally Shed."
+    many = [item(f"Battery {i}", "Shed") for i in range(5)]
+    assert spoken_answer("battery", many).endswith("and 2 more places.")
+
+
+async def test_alexa_custom_skill_request_is_answered(hass: HomeAssistant, inventory_app):
+    """Alexa custom-skill requests reach the intent.
+
+    Home Assistant's Alexa integration (homeassistant/components/alexa/intent.py)
+    turns each Alexa slot into ``{name: {"value": v}, name + "_Id": {"value": id}}``
+    and calls ``intent.async_handle(hass, "alexa", intent_name, slots)``.  Importing
+    that module needs camera libraries, so the same call is made directly here.
+    """
+    from homeassistant.helpers import intent
+
+    await _setup_via_user_flow(hass, inventory_app)
+    resp = await intent.async_handle(hass, "alexa", "HomeInventoryWhereIs",
+                                     {"item": {"value": "axle stand"}, "item_Id": {"value": None}})
+    assert resp.speech["plain"]["speech"].startswith("Axle stand is in Garage")
