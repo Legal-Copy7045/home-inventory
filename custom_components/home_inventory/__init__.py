@@ -19,6 +19,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import InventoryClient
 from .const import CONF_PANEL, CONF_SCAN_INTERVAL, CONF_TOKEN, CONF_URL, DEFAULT_SCAN_INTERVAL, DOMAIN
 from .coordinator import InventoryCoordinator
+from .intent import async_setup_intents, async_unload_intents
 from .panel import async_register_panel, async_remove_panel
 from .services import async_setup_services, async_unload_services
 
@@ -40,6 +41,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator.start_event_listener()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await async_setup_services(hass)
+    async_setup_intents(hass)
     if entry.options.get(CONF_PANEL):
         await async_register_panel(hass)
     entry.async_on_unload(entry.add_update_listener(_options_updated))
@@ -59,6 +61,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         async_remove_panel(hass)
         if not hass.data[DOMAIN]:
             async_unload_services(hass)
+            async_unload_intents(hass)
     return ok
 
 
