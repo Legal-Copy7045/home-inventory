@@ -135,6 +135,68 @@ anything not printed on it, never guess. "retailer": the shop's name. "purchase_
 "item_price": the price of the line that best matches the item below (the price for one unit), or null.
 "warranty_months": only if a warranty or guarantee length is printed. "confidence" 0..1 for the whole reading.{hint}"""
 
+# Photo of a whole storage area: the layout (racks/units, shelves) plus where
+# each thing is in it, and which entries are labelled boxes/bins.
+_AREA_ENTRY = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "description": _NULLABLE_STR,
+        "category": _NULLABLE_STR,
+        "manufacturer": _NULLABLE_STR,
+        "model_number": _NULLABLE_STR,
+        "quantity": {"type": "integer"},
+        "confidence": {"type": "number"},
+        "position": _NULLABLE_STR,
+        "box": {"type": ["array", "null"], "items": {"type": "number"}},
+        "kind": {"type": "string", "enum": ["item", "container"]},
+        "label": _NULLABLE_STR,
+        "container_type": _NULLABLE_STR,
+        "unit": {"type": ["integer", "null"]},
+        "shelf": {"type": ["integer", "null"]},
+    },
+    "required": ["name", "description", "category", "manufacturer", "model_number", "quantity", "confidence",
+                 "position", "box", "kind", "label", "container_type", "unit", "shelf"],
+    "additionalProperties": False,
+}
+AREA_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "units": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"name": {"type": "string"}, "shelves": {"type": "array", "items": {"type": "string"}}},
+                "required": ["name", "shelves"],
+                "additionalProperties": False,
+            },
+        },
+        "items": {"type": "array", "items": _AREA_ENTRY},
+        "notes": _NULLABLE_STR,
+    },
+    "required": ["units", "items", "notes"],
+    "additionalProperties": False,
+}
+
+AREA_PROMPT = """You help catalogue a household inventory. The photo shows a storage area: shelving units,
+racks, a bench, a wall or a corner, possibly several units side by side with several shelves each.
+
+1. Describe the layout in "units": each shelving unit / rack, left to right, with a short name ("Left rack",
+   "Right rack"; just one unit if there is one). For each unit, "shelves" lists its levels from the TOP down,
+   with short names: "On top" (only if things sit on top of the unit), then "Shelf 1", "Shelf 2"... and
+   "Bottom shelf" for the lowest. Use [] for a unit without shelves. Things on the floor in front go in a unit
+   named "Floor" with no shelves.
+2. List every distinct thing in "items", grouping identical objects with a quantity. Count only what is
+   visible. Give each its "unit" (index into units, from 0) and "shelf" (index into that unit's shelves, from
+   0; null if it has none or it's unclear), plus a short human "position" ("Left rack, shelf 2, left").
+3. Storage boxes, bins, totes, tubs and crates that hold other things are "kind": "container"; read any label
+   on them into "label" and use it as the name ("Party supplies"); "container_type" is what it is ("Clear
+   plastic tote", "Cardboard box"). A closed box whose contents are unknown is still one container entry.
+   Everything else is "kind": "item", with "label" null.
+Return JSON only. Use null when unsure; never invent brands or model numbers. Short everyday names; read
+packaging where legible. "confidence" is 0..1. Ignore the shelving, walls, pipes, ducts and the floor itself.
+"box" is [x, y, width, height] of the entry in the photo as fractions 0..1 from the top-left (null if unsure).{hint}"""
+
 SHELF_PROMPT = """You help catalogue a household inventory. The photo shows a shelf, shelving unit, bench, wall
 or other storage space, possibly with several shelves. List every distinct kind of object you can see, grouping
 identical objects with a quantity. Count carefully; if objects are partly hidden, count only what is visible.
@@ -238,6 +300,38 @@ class AIService:
             except (TypeError, ValueError):
                 i["quantity"] = 1
         res.data = {"items": items[:200], "notes": res.data.get("notes")}
+        return res
+
+    def identify_area(self, image: bytes, hint: str | None = None) -> AIResult:
+        """A storage area photo: its layout (units and shelves) and every item or
+        labelled container in it, placed in that layout.  Suggestions only."""
+        hint_txt = f"\nContext: {hint[:300]}" if hint else ""
+        res = self._call(AREA_PROMPT.format(hint=hint_txt), AREA_SCHEMA, image)
+        units = []
+        for u in (res.data.get("units") or [])[:12]:
+            if isinstance(u, dict) and str(u.get("name") or "").strip():
+                shelves = [str(x).strip()[:80] for x in (u.get("shelves") or []) if str(x).strip()][:20]
+                units.append({"name": str(u["name"]).strip()[:80], "shelves": shelves})
+        items = []
+        for raw in res.data.get("items") or []:
+            if not (isinstance(raw, dict) and raw.get("name")):
+                continue
+            i = _clean_item(raw)
+            try:
+                i["quantity"] = max(1, min(int(raw.get("quantity") or 1), 10000))
+            except (TypeError, ValueError):
+                i["quantity"] = 1
+            i["kind"] = "container" if raw.get("kind") == "container" else "item"
+            label = str(raw.get("label") or "").strip()[:200] or None
+            if i["kind"] == "container" and label:
+                i["name"] = label[:1].upper() + label[1:].lower() if label.isupper() else label
+            i["container_type"] = (str(raw.get("container_type") or "").strip()[:60] or None) if i["kind"] == "container" else None
+            unit, shelf = raw.get("unit"), raw.get("shelf")
+            unit = unit if isinstance(unit, int) and 0 <= unit < len(units) else None
+            shelf = shelf if unit is not None and isinstance(shelf, int) and 0 <= shelf < len(units[unit]["shelves"]) else None
+            i["unit"], i["shelf"] = unit, shelf
+            items.append(i)
+        res.data = {"units": units, "items": items[:300], "notes": res.data.get("notes")}
         return res
 
     def read_receipt(self, image: bytes, item_name: str | None = None) -> AIResult:
