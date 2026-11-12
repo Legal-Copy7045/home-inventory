@@ -58,9 +58,6 @@ node tests/e2e/smoke.mjs /tmp/screenshots
 
 ## Releasing
 
-1. Update `version` in `home_inventory/config.yaml`, `custom_components/home_inventory/manifest.json`, `home_inventory/server/pyproject.toml` and `home_inventory_server/__init__.py`.
-2. Add an entry to `home_inventory/CHANGELOG.md`.
-3. Merge to `main`. Home Assistant offers the update to App users, and HACS offers the integration update.
-4. Optional: publish a GitHub release to run `.github/workflows/release.yaml`, which pushes prebuilt multi-arch images to GHCR. Then add `image: "ghcr.io/legal-copy7045/{arch}-home-inventory"` to `config.yaml`, so devices download images instead of building them.
+See [publishing.md](publishing.md) for version bumps, GitHub releases, prebuilt images and the HACS listing.
 
 Versions follow semantic versioning. A database migration bumps at least the minor version.

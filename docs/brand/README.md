@@ -9,6 +9,7 @@ Inter Display wordmark renders exactly.
 | `logo.svg` / `logo-dark.svg` | Mark + wordmark for light / dark backgrounds |
 | `icon-512.png` | High-resolution mark |
 | `../../home_inventory/icon.png` (128×128), `logo.png` / `dark_logo.png` (250×100) | Apps store |
+| `home-assistant-brands/custom_integrations/home_inventory/` | Files for the home-assistant/brands PR (see `docs/publishing.md`) |
 | `../../home_inventory/frontend/public/favicon.svg`, `apple-touch-icon.png` | Browser tab and home-screen icon |
 
 Palette: tile `#4FC3F7 → #0277BD`, box `#FFFFFF / #E1F1FC / #B6DCF6`, pin `#FFCA28 → #FF8F00`, ink `#0B3B5E`.
