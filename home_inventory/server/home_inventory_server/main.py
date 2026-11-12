@@ -29,6 +29,7 @@ from . import __version__
 from .ai import AIService
 from .api.customers import router as customers_router
 from .api.maintenance import router as maintenance_router
+from .api.parts import router as parts_router
 from .api.relations import router as relations_router
 from .api.replenishment import router as replenishment_router
 from .api.routes import router
@@ -138,6 +139,7 @@ def create_app(state: AppState, channel: str) -> FastAPI:
     app.state.reopen_database = state.reopen_database
     app.include_router(router)
     app.include_router(maintenance_router)
+    app.include_router(parts_router)
     app.include_router(customers_router)
     app.include_router(relations_router)
     app.include_router(tags_router)
