@@ -36,6 +36,12 @@ class StandardIn(_In):
     unit: str | None = Field(default=None, max_length=10)
 
 
+class NewPartIn(_In):
+    name: str = Field(min_length=1, max_length=300)
+    manufacturer: str | None = Field(default=None, max_length=200)
+    part_number: str | None = Field(default=None, max_length=120)
+
+
 class LinkIn(_In):
     target_id: int
     kind: Literal["meets", "replaced_by"]
@@ -178,6 +184,22 @@ def add_standard(data: StandardIn, actor: Actor = Depends(require_member), db: S
     p = _run(parts_svc.create_standard, db, actor, data.name, data.specs, data.unit)
     db.commit()
     return parts_svc.details_out(db, p)
+
+
+@router.post("/parts/products", status_code=201)
+def add_part(data: NewPartIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """A part you don't have yet (no stock), so a task can name it."""
+    from .. import audit
+
+    existing = parts_svc.find_by_part_number(db, data.part_number)
+    if existing is not None:
+        return parts_svc._brief(existing)
+    p = Product(name=data.name, manufacturer=data.manufacturer or None, model_number=data.part_number or None)
+    db.add(p)
+    db.flush()
+    audit.record(db, actor, "product_added", "product", p.id, f"Added part {p.name}")
+    db.commit()
+    return parts_svc._brief(p)
 
 
 @router.get("/parts/search")
