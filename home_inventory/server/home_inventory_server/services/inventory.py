@@ -502,11 +502,18 @@ def update_item(db: Session, actor: Actor, item: Item, data: ItemPatch) -> Item:
     return item
 
 
+def household_only():
+    from .customers import household_only as _h
+
+    return _h()
+
+
 def product_total(db: Session, product_id: int) -> int:
     return int(
         db.scalar(
             select(func.coalesce(func.sum(Item.quantity), 0)).where(
-                Item.product_id == product_id, Item.deleted_at.is_(None), Item.status != ItemStatus.missing
+                Item.product_id == product_id, Item.deleted_at.is_(None), Item.status != ItemStatus.missing,
+                household_only(),  # customer equipment isn't household stock
             )
         )
         or 0
@@ -579,6 +586,10 @@ def split_item(db: Session, item: Item, quantity: int) -> Item:
     item.quantity -= quantity
     db.add(clone)
     db.flush()
+    # A split-off part of a customer's item is still the customer's.
+    from .customers import copy_owner
+
+    copy_owner(db, item, clone)
     return clone
 
 
@@ -895,6 +906,10 @@ def item_out(item: Item, r: Resolver, db: Session | None = None, detail: bool = 
         "deleted_at": item.deleted_at.isoformat() if item.deleted_at else None,
         "updated_at": item.updated_at.isoformat() if item.updated_at else None,
     }
+    if db is not None:
+        from .customers import owner_out
+
+        out["owner"] = owner_out(db, item.id)
     if detail and db is not None:
         out["product"] = product_out(item.product)
         out.update(

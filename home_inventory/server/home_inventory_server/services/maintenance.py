@@ -437,6 +437,15 @@ def complete_task(db: Session, actor: Actor, task: MaintenanceTask, data: dict[s
         _schedule_from(task, event.performed_on, hours, cycles)
     task.deferred_until = None
     task.not_applicable = False
+    from ..events import queue_event
+
+    queue_event(db, "maintenance_completed", {
+        "item_id": item.id, "name": item.product.name, "task": task.title, "performed_on": event.performed_on.isoformat(),
+        "hours": float(event.hours) if event.hours is not None else None,
+        "next_due_on": task.next_due_on.isoformat() if task.next_due_on else None,
+        "next_due_hours": float(task.next_due_hours) if task.next_due_hours is not None else None,
+        "user": actor.name,
+    })
     return event
 
 

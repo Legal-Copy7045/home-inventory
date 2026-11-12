@@ -318,7 +318,17 @@ function MeterSheet({ itemId, summary, onClose, onDone }: { itemId: number; summ
 
 interface PartForm { description: string; part_number: string; quantity: string; unit_cost: string }
 
-function ServiceSheet({ itemId, task, summary, onClose, onDone }: { itemId: number; task?: MaintTask; summary: MaintenanceSummary; onClose: () => void; onDone: (d?: MaintenanceSummary) => void }) {
+export function ServiceSheet({ itemId, task, summary, onClose, onDone, postTo, title }: {
+  itemId: number;
+  task?: MaintTask;
+  summary: MaintenanceSummary;
+  onClose: () => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onDone: (d?: any) => void;
+  /** Post somewhere else (e.g. a repair job) instead of the item's history. */
+  postTo?: string;
+  title?: string;
+}) {
   const me = useMe();
   const meter = summary.profile?.meter ?? "hours";
   const [f, setF] = useState({
@@ -355,7 +365,7 @@ function ServiceSheet({ itemId, task, summary, onClose, onDone }: { itemId: numb
   const save = async (e: FormEvent) => {
     e.preventDefault();
     const d = await run(
-      () => (task ? api.post<MaintenanceSummary>(`maintenance-tasks/${task.id}/complete`, payload()) : api.post<MaintenanceSummary>(`items/${itemId}/service-events`, payload())),
+      () => (postTo ? api.post(postTo, payload()) : task ? api.post<MaintenanceSummary>(`maintenance-tasks/${task.id}/complete`, payload()) : api.post<MaintenanceSummary>(`items/${itemId}/service-events`, payload())),
       "Service recorded",
     );
     if (d) onDone(d);
@@ -371,7 +381,7 @@ function ServiceSheet({ itemId, task, summary, onClose, onDone }: { itemId: numb
     }
   };
   return (
-    <Sheet title={task ? task.title : "Log service"} onClose={onClose}>
+    <Sheet title={title || (task ? task.title : "Log service")} onClose={onClose}>
       <form className="stack" onSubmit={save}>
         {task?.instructions && <div className="notice" style={{ whiteSpace: "pre-line" }}>{task.instructions}</div>}
         {!task && <label className="field">What was done<input required value={f.title} onChange={set("title")} placeholder="Oil change, carburetor cleaned…" /></label>}
@@ -486,7 +496,8 @@ export function MaintenancePage() {
   const me = useMe();
   const [tab, setTab] = useState<"overdue" | "due" | "missing" | "recent">("overdue");
   const [within, setWithin] = useState(30);
-  const d = useApi(() => api.get<MaintDashboard>("maintenance/dashboard", { within }), [within]);
+  const [owner, setOwner] = useState<"all" | "household" | "customer">("all");
+  const d = useApi(() => api.get<MaintDashboard>("maintenance/dashboard", { within, owner }), [within, owner]);
   if (d.loading && !d.data) return <Spinner />;
   if (d.error || !d.data) return <div className="page"><ErrorBox error={d.error} /></div>;
   const x = d.data;
@@ -505,8 +516,30 @@ export function MaintenancePage() {
         ))}
       </div>
     ) : <div className="empty">{empty}</div>;
+  const repairs = (x.repairs_in_progress?.length || 0) + (x.awaiting_pickup?.length || 0);
   return (
     <div className="page">
+      {me.can_edit && (
+        <div className="steps" style={{ marginBottom: 10 }}>
+          {(["all", "household", "customer"] as const).map((o) => (
+            <button key={o} className={owner === o ? "active" : ""} onClick={() => setOwner(o)}>{o === "all" ? "All equipment" : o === "household" ? "Mine" : "Customers'"}</button>
+          ))}
+        </div>
+      )}
+      {repairs > 0 && (
+        <div className="card">
+          <div className="card-title"><h2>Repairs</h2><Link className="btn small" to="/repairs">All jobs</Link></div>
+          <div className="list">
+            {[...(x.awaiting_pickup || []), ...(x.repairs_in_progress || [])].map((j) => (
+              <Link key={j.id} to={`/repairs/${j.id}`}>
+                <Wrench size={20} />
+                <div className="grow"><div className="t">{j.number} · {j.item.name}</div><div className="s">{j.customer.name}</div></div>
+                <span className={`badge ${j.awaiting_pickup ? "ok" : "blue"}`}>{j.awaiting_pickup ? "Ready for pickup" : j.status_label}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="tabs">
         <button className={tab === "overdue" ? "active" : ""} onClick={() => setTab("overdue")}>Overdue ({x.overdue.length})</button>
         <button className={tab === "due" ? "active" : ""} onClick={() => setTab("due")}>Due soon ({x.due.length})</button>

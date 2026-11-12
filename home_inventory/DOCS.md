@@ -63,6 +63,24 @@ The **Maintenance** page lists what's overdue, what's due in the next 7, 30 or 9
 
 Service history is kept when tasks are changed or removed, and even when you stop tracking an item.
 
+## Customers and repairs
+
+If you repair equipment for other people:
+
+1. Add them under **Customers**, with name, phone and email.
+2. Open a **repair job**. You can add their equipment at the same time.
+3. Record its condition when received and the reported problem.
+4. Move the job through *received → awaiting diagnosis → awaiting approval → waiting for parts → in progress → ready for pickup → returned*.
+5. Use **Record work** to log work and parts. These also go into the equipment's own service history, so return visits keep the full record.
+6. **Work order** gives a printable summary with charges. It's a work record, not an invoice.
+
+Customer equipment:
+- is shown with a purple **Customer** badge everywhere;
+- is kept out of your household totals, value, warranty and expiry alerts, and low-stock counts;
+- can only change owner through **Change owner** on the item page, which asks for confirmation and is recorded in the history.
+
+Customer names and contact details are visible to members and administrators only. Read-only users see "Customer equipment", and Home Assistant events never include customer details.
+
 ## Camera access
 
 Live scanning needs Home Assistant to be opened over **HTTPS** (Home Assistant Cloud, or your own certificate) or in the Home Assistant companion app. Over plain `http://` the browser won't open the camera, but **Photo of code** still works: it takes a picture with the camera app and decodes it.

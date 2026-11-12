@@ -1,6 +1,6 @@
 # Plan: security remediation and equipment management
 
-Status: **Phases 1 (0.2.0) and 2 (0.3.0) complete.** Phases 3–6 to follow. This document records verified findings, design decisions and the phase plan. Each phase ships as its own pull request with tests, and gets its own section below once it lands.
+Status: **Phases 1 (0.2.0), 2 (0.3.0) and 3 (0.4.0) complete.** Phases 4–6 to follow. This document records verified findings, design decisions and the phase plan. Each phase ships as its own pull request with tests, and gets its own section below once it lands.
 
 ## Ground rules
 
@@ -105,7 +105,25 @@ UI:
 - Item page: an Equipment section with a meter reading, due tasks, a "Log service" sheet, history and specs.
 - A new **Maintenance** page with overdue tasks, tasks due in 7/30/90 days, equipment with no records, recent activity, and a household/customer filter.
 
-## Phase 3: customers and repair jobs
+## Phase 3: customers and repair jobs (done, 0.4.0)
+
+**As built:**
+- **Data model.** Ownership is a separate `item_owners` table (`item_id` PK, `customer_id` RESTRICT) rather than a column on `items`. This avoided rebuilding the central table, and it means ownership can only change through `POST /items/{id}/owner` with `confirm: true` or at creation via `POST /customers/{id}/equipment`.
+  - `split_item` copies the owner, so partial moves and loans keep customer stock customer-owned.
+  - Household totals, value, warranty and expiry alerts and low-stock totals filter with `household_only()`.
+- **Migration `0004`:** additive. Five tables; `attachments.repair_job_id` and `service_events.repair_job_id` are added by atomic batch rebuilds that are safe to re-run.
+- **Privacy:** every customer and job route needs the member role, including reads.
+  - Read-only users get an anonymous owner block.
+  - History entries for customers, repairs and ownership are hidden from them.
+  - The HA event carries the job number and status only.
+- **Endpoints** (`api/customers.py`):
+  - Customers: `GET|POST /customers`, `GET|PATCH|DELETE /customers/{id}`, `/customers/{id}/contacts`, `/customers/{id}/equipment`.
+  - Ownership: `/items/{id}/owner`.
+  - Jobs: `GET|POST /repair-jobs`, `GET|PATCH|DELETE /repair-jobs/{id}`, `/repair-jobs/{id}/status`, `/repair-jobs/{id}/service`, `/items/{id}/repair-jobs`.
+  - Uploads: `attachments` takes `repair_job_id`.
+  - Maintenance dashboard: `owner=all|household|customer`.
+- **Tests:** `tests/test_customers.py` (11), the route authorization walk, and the e2e repair flow.
+
 
 - `customers`: name, phone, email, address, notes, `deleted_at`. `customer_contacts`: an optional contact log.
 - `items.owner_customer_id`: a nullable FK where NULL means the household. Customer-owned items stay ordinary items, so QR codes, photos, search and maintenance all work. They are **excluded** from household totals, value, low stock, replenishment and warranty alerts. They also show an "Owned by …" badge everywhere.

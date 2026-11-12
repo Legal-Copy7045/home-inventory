@@ -49,6 +49,10 @@ SENSORS: tuple[InvSensorDescription, ...] = (
                          state_class=SensorStateClass.MEASUREMENT, value=lambda d: d.get("maintenance_overdue", 0)),
     InvSensorDescription(key="maintenance_due_soon", translation_key="maintenance_due_soon", icon="mdi:wrench-outline",
                          state_class=SensorStateClass.MEASUREMENT, value=lambda d: d.get("maintenance_due_soon", 0)),
+    InvSensorDescription(key="repairs_in_progress", translation_key="repairs_in_progress", icon="mdi:tools",
+                         state_class=SensorStateClass.MEASUREMENT, value=lambda d: d.get("repairs_in_progress", 0)),
+    InvSensorDescription(key="repairs_awaiting_pickup", translation_key="repairs_awaiting_pickup", icon="mdi:account-clock",
+                         state_class=SensorStateClass.MEASUREMENT, value=lambda d: d.get("repairs_awaiting_pickup", 0)),
 )
 
 

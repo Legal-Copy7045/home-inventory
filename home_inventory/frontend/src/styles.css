@@ -303,3 +303,23 @@ input[type="checkbox"] { width: 20px; min-height: 20px; height: 20px; }
 .shutter span { display: block; width: 100%; height: 100%; border-radius: 50%; background: #fff; transform: scale(.82); transition: transform .08s; }
 .shutter:active span { transform: scale(.7); }
 .spin { animation: spin .8s linear infinite; }
+
+/* Customer-owned equipment: a distinct colour everywhere it appears. */
+.badge.customer { background: #f3e8ff; color: #6b21a8; }
+@media (prefers-color-scheme: dark) { .badge.customer { background: #3b1d5a; color: #e9d5ff; } }
+.owner-banner { background: #f3e8ff; color: #6b21a8; border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; font-weight: 600; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+@media (prefers-color-scheme: dark) { .owner-banner { background: #3b1d5a; color: #e9d5ff; } }
+.steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.steps button { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 8px 12px; min-height: 40px; font: inherit; cursor: pointer; }
+.steps button.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+@media print {
+  .sidebar, .bottomnav, .topbar, .no-print, .toast { display: none !important; }
+  .main { margin: 0 !important; padding: 0 !important; }
+  .card { box-shadow: none !important; border: 1px solid #ccc; break-inside: avoid; }
+  body { background: #fff !important; }
+}
+.workorder h1 { margin: 0 0 4px; font-size: 1.4rem; }
+.workorder table { width: 100%; border-collapse: collapse; }
+.workorder th, .workorder td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.workorder td.num, .workorder th.num { text-align: right; white-space: nowrap; }
+button.linkish { background: none; border: 0; padding: 0; color: var(--primary); font: inherit; cursor: pointer; text-decoration: underline; }
