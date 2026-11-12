@@ -73,7 +73,7 @@ def test_recovers_from_half_applied_upgrade(tmp_path):
         c.execute(text("UPDATE locations SET qr_code='ABCD2345' WHERE id=2"))  # clashes with a container code
     before = _state(d)
     run_migrations(d.engine, tmp_path / "inv.sqlite3", tmp_path / "b")
-    assert current_revision(d.engine) == "0002"
+    assert current_revision(d.engine) == head_revision(str(d.engine.url))
     assert _state(d) == before
     with d.engine.connect() as c:
         codes = dict(c.execute(text("SELECT id, qr_code FROM locations")).fetchall())
@@ -104,5 +104,5 @@ def test_failed_migration_rolls_back_completely(tmp_path, monkeypatch):
     assert len(snaps) == 1  # the pristine snapshot is kept, not replaced each restart
     monkeypatch.setattr(db_mod.command, "upgrade", real_upgrade)
     run_migrations(d.engine, tmp_path / "inv.sqlite3", tmp_path / "b")
-    assert current_revision(d.engine) == "0002"
+    assert current_revision(d.engine) == head_revision(str(d.engine.url))
     d.dispose()

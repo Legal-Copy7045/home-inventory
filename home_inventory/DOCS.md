@@ -45,6 +45,24 @@ People are identified by their Home Assistant login, and the history records who
 
 To inventory a box fast, open the container (or location) and tap **Quick photos**. Take one photo per item; each is saved into that box at once as "Item to identify". Come back later via **To finish** in the menu, which shows the photo beside the details form. **Save & next** moves on to the next one. If AI is configured, a suggested name and category is already filled in. The live shutter needs Home Assistant over https; otherwise the button opens your phone's camera app.
 
+## Maintenance
+
+For mowers, trimmers, saws, generators, pressure washers, snow blowers or anything else that needs servicing:
+
+1. Open the item and tap **Track maintenance**.
+2. Pick the kind of equipment. Typical tasks are added as a starting point, such as oil every 50 hours or yearly, whichever comes first. Check them against your manual, then change, add or remove them.
+3. For a used machine, enter its current hours first, so it isn't shown as overdue for everything.
+
+On the item page:
+- **Log hours** records a meter reading. Tick *Estimate* if there's no hour meter, or *Correction* if the meter was replaced.
+- **Done** on a task records the work, including parts, costs, who did it, and photos or receipts. It also works out when the task is next due, from the date and hours you entered.
+- A task can also be skipped once, deferred to a date, or marked not applicable.
+- **Log service** records unscheduled work or older history; past dates are fine.
+
+The **Maintenance** page lists what's overdue, what's due in the next 7, 30 or 90 days, equipment with no service recorded yet, and recent work.
+
+Service history is kept when tasks are changed or removed, and even when you stop tracking an item.
+
 ## Camera access
 
 Live scanning needs Home Assistant to be opened over **HTTPS** (Home Assistant Cloud, or your own certificate) or in the Home Assistant companion app. Over plain `http://` the browser won't open the camera, but **Photo of code** still works: it takes a picture with the camera app and decodes it.

@@ -76,6 +76,7 @@ from ..services import capture as capture_svc
 from ..services import inventory as inv
 from ..services import labels as labels_svc
 from ..services import location_import, weblink
+from ..services import maintenance as maintenance_svc
 from ..services import scans as scans_svc
 from ..services import search as search_svc
 from ..services import stats as stats_svc
@@ -178,6 +179,7 @@ def dashboard(request: Request, actor: Actor = Depends(current_actor), db: Sessi
 def stats(request: Request, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
     s = _state(request).settings
     st = stats_svc.stats(db, s.warranty_notice_days, s.expiry_notice_days)
+    st.update(maintenance_svc.counts(db))
     if st["last_activity"]:
         st["last_activity"] = st["last_activity"].isoformat()
     return st

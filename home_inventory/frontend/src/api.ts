@@ -284,6 +284,8 @@ export interface Stats {
   low_stock: number;
   missing: number;
   needs_details: number;
+  maintenance_overdue?: number;
+  maintenance_due_soon?: number;
 }
 
 export interface LowStock {
@@ -458,4 +460,100 @@ export function qrImageUrl(kind: "containers" | "locations", id: number): string
 export interface QrTarget {
   type: "container" | "location";
   id: number;
+}
+
+// ---------------------------------------------------------------- maintenance
+
+export type TaskStatus = "overdue" | "due_soon" | "deferred" | "ok" | "manual" | "not_applicable";
+
+export interface MaintTask {
+  id: number;
+  item_id: number;
+  title: string;
+  instructions: string | null;
+  interval_days: number | null;
+  interval_hours: number | null;
+  interval_cycles: number | null;
+  last_done_on: string | null;
+  last_done_hours: number | null;
+  next_due_on: string | null;
+  next_due_hours: number | null;
+  next_due_cycles: number | null;
+  deferred_until: string | null;
+  not_applicable: boolean;
+  status: TaskStatus;
+  days_left: number | null;
+  hours_left: number | null;
+  cycles_left: number | null;
+  item?: { id: number; name: string; label: string | null };
+}
+
+export interface ServicePartRow {
+  description: string;
+  part_number?: string | null;
+  quantity: number;
+  unit_cost?: number | null;
+  item_id?: number | null;
+}
+
+export interface ServiceEntry {
+  id: number;
+  item_id: number | null;
+  task_title: string | null;
+  outcome: "completed" | "skipped" | "deferred" | "not_applicable";
+  performed_on: string;
+  hours: number | null;
+  cycles: number | null;
+  title: string;
+  work_performed: string | null;
+  notes: string | null;
+  performed_by: string | null;
+  labor_cost: number | null;
+  parts_cost: number | null;
+  currency: string | null;
+  parts: ServicePartRow[];
+  attachments: Attachment[];
+  item?: { id: number | null; name: string | null };
+}
+
+export interface SpecRow {
+  label: string;
+  value: string | null;
+  kind: "spec" | "part";
+  part_number?: string | null;
+}
+
+export interface EquipmentProfile {
+  equipment_type: string | null;
+  engine_manufacturer: string | null;
+  engine_model: string | null;
+  engine_serial: string | null;
+  fuel_type: string | null;
+  meter: "none" | "hours" | "cycles" | "both";
+  specs: SpecRow[];
+  notes: string | null;
+}
+
+export interface MaintenanceSummary {
+  profile: EquipmentProfile | null;
+  meters: { hours: number | null; cycles: number | null };
+  readings: { id: number; kind: string; value: number; recorded_at: string; source: string; note: string | null }[];
+  tasks: MaintTask[];
+  history: ServiceEntry[];
+}
+
+export interface MaintPreset {
+  key: string;
+  name: string;
+  meter: string;
+  tasks: { title: string }[];
+}
+
+export interface MaintDashboard {
+  within_days: number;
+  overdue: MaintTask[];
+  due: MaintTask[];
+  no_records: { id: number; name: string; equipment_type: string | null }[];
+  recent: ServiceEntry[];
+  equipment_count: number;
 }

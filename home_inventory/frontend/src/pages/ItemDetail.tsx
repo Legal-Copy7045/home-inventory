@@ -5,6 +5,7 @@ import { api, uploadPhoto, url, type HistoryEvent, type Item, type ItemStatus, S
 import { ItemFields, applyLinkDetails, toPayload, type ItemFormValue } from "../components/ItemFields";
 import { LinkImport } from "../components/LinkImport";
 import { PlacementPicker, type PlacementValue } from "../components/PlacementPicker";
+import { EquipmentSection } from "./Maintenance";
 import { ErrorBox, PathView, Section, Sheet, Spinner, StatusBadge, Stepper, Thumb, fmtDate, fmtWhen, money, useAction, useApi, useMe, useToast } from "../components/ui";
 
 function toForm(it: Item): ItemFormValue {
@@ -44,7 +45,8 @@ export default function ItemDetail() {
   const hist = useApi(() => api.get<{ events: HistoryEvent[] }>("history", { entity_type: "item", entity_id: id, limit: 30 }), [id]);
   const [params] = useSearchParams();
   const [sheet, setSheet] = useState<null | "edit" | "move" | "lend" | "status" | "docs">(params.get("finish") ? "edit" : null);
-  useEffect(() => { if (params.get("finish")) setSheet("edit"); }, [id, params]);
+  // Moving to another item reuses this page: close any sheet from the previous one.
+  useEffect(() => { setSheet(params.get("finish") ? "edit" : null); }, [id, params]);
   const { busy, run } = useAction();
   const toast = useToast();
 
@@ -178,6 +180,8 @@ export default function ItemDetail() {
           <dt>Added</dt><dd>{fmtDate(it.created_at)}</dd>
         </dl>
       </Section>
+
+      <EquipmentSection itemId={it.id} edit={edit} onChanged={() => hist.reload()} />
 
       <Section title="Receipts & documents" action={edit && <button className="btn small" onClick={() => setSheet("docs")}><Plus size={16} /> Add</button>}>
         {docs.length ? (

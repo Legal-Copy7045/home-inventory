@@ -112,6 +112,36 @@ const pending = await api("items?needs_details=true");
 const pendingItems = pending.items ?? pending;
 if (pendingItems.length !== 1) throw new Error(`expected 1 item still to finish, got ${pendingItems.length}`);
 
+// Maintenance: track a mower, log hours, record the overdue oil change
+const mower = (await api("items", { method: "POST", data: { name: "Lawn mower", location_id: garage.id } })).items[0];
+await page.goto(BASE + "#/items/" + mower.id);
+await page.getByRole("button", { name: "Track maintenance" }).click();
+await page.getByRole("button", { name: /Lawn mower/ }).click();
+const maint = page.locator(".card", { has: page.getByRole("heading", { name: /^Maintenance/ }) });
+const oilRow = maint.locator("li", { hasText: "Engine oil change" });
+await oilRow.waitFor();
+await maint.getByRole("button", { name: /Log hours/ }).click();
+await page.getByLabel(/Meter reading/).fill("51");
+await page.getByRole("button", { name: "Save reading" }).click();
+await maint.getByText("51 h").waitFor();
+await oilRow.getByText("Overdue").waitFor();
+await shot("08-maintenance");
+await oilRow.getByRole("button", { name: "Record Engine oil change" }).click();
+await page.getByLabel("Work performed").fill("Drained and refilled with SAE 30");
+await page.getByRole("button", { name: "Add part" }).click();
+await page.getByLabel("Part", { exact: true }).fill("SAE 30 oil");
+const saved = page.waitForResponse((r) => r.url().includes("/complete") && r.request().method() === "POST");
+await page.getByRole("button", { name: "Save", exact: true }).click();
+if ((await saved).status() !== 201) throw new Error("recording the service failed");
+await maint.getByText("Drained and refilled with SAE 30").waitFor();
+const ms = await api(`items/${mower.id}/maintenance`);
+const oil = ms.tasks.find((t) => t.title === "Engine oil change");
+if (oil.status === "overdue" || oil.next_due_hours !== 101) throw new Error(`oil change not rescheduled: ${JSON.stringify(oil)}`);
+if (ms.history[0].parts[0].description !== "SAE 30 oil") throw new Error("part not recorded");
+await page.goto(BASE + "#/maintenance");
+await page.getByRole("button", { name: /Recent/ }).click();
+await page.getByText(/Lawn mower – Engine oil change/).waitFor();
+
 const after = await api(`containers/${box.id}`);
 const cord = after.items.find((i) => i.name === "Extension cord");
 if (!after.items.some((i) => i.name === "Hammer")) throw new Error("finished quick photo missing from box");
