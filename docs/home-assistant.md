@@ -19,6 +19,8 @@ There is one service device, **Home Inventory**, with summary entities only. Ind
 | `sensor.home_inventory_products_running_low` | Products below their low-stock threshold |
 | `sensor.home_inventory_maintenance_overdue` | Maintenance tasks past their date, hours or uses |
 | `sensor.home_inventory_maintenance_due_soon` | Maintenance tasks within their "due soon" window |
+| `sensor.home_inventory_repairs_in_progress` | Customer repair jobs not yet completed |
+| `sensor.home_inventory_repairs_awaiting_pickup` | Completed repairs waiting to be collected |
 | `binary_sensor.home_inventory_inventory_app` | App availability (attribute `live_events`) |
 
 ## Actions
@@ -65,6 +67,8 @@ script:
 | `home_inventory_warranty_expiring` | item_id, name, warranty_expires, days_left |
 | `home_inventory_item_expiring` | item_id, name, quantity, expires_on, days_left, expired, location |
 | `home_inventory_low_stock` | product_id, name, quantity, min_quantity |
+| `home_inventory_maintenance_completed` | item_id, name, task, performed_on, hours, next_due_on, next_due_hours, user |
+| `home_inventory_repair_job_status` | job_id, number, status, previous, user (no customer details) |
 
 Warranty, expiry and low-stock events fire once per crossing. They re-arm when the date changes or the stock is replenished.
 

@@ -53,7 +53,9 @@
       "expired": { "name": "Expired items" },
       "low_stock": { "name": "Products running low" },
       "maintenance_overdue": { "name": "Maintenance overdue" },
-      "maintenance_due_soon": { "name": "Maintenance due soon" }
+      "maintenance_due_soon": { "name": "Maintenance due soon" },
+      "repairs_in_progress": { "name": "Repairs in progress" },
+      "repairs_awaiting_pickup": { "name": "Repairs awaiting pickup" }
     },
     "binary_sensor": {
       "app_available": { "name": "Inventory app" }

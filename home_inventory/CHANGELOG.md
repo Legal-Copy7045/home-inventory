@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0
+
+- **Customers and repair jobs** for equipment you fix for other people.
+  - Customers with phone, email, address, notes and an optional contact log.
+  - Customer-owned equipment is clearly marked (purple **Customer** badge) and kept out of your own totals, value and alerts. Ownership only changes through the confirmed, recorded **Change owner** action, never by editing an item.
+  - Repair jobs (RJ-0001…) with condition on arrival, reported problem, diagnosis, approval notes, estimate, and status from received through ready for pickup to returned.
+  - Work and parts recorded on a job also go into the equipment's service history.
+  - Charges are worked out from the recorded parts and labor, or you can set them yourself.
+  - Photos of damage and receipts, multiple visits per item, and a **printable work order**.
+  - Repairs and Customers pages; repairs in progress and ready for pickup on the Maintenance page and dashboard.
+  - Customer details are visible to members and administrators only.
+- Home Assistant: sensors for repairs in progress and awaiting pickup; events `home_inventory_maintenance_completed` and `home_inventory_repair_job_status` (no customer details).
+
 ## 0.3.0
 
 - **Maintenance tracking** for equipment: open an item and tap **Track maintenance**.

@@ -361,6 +361,9 @@ def resolve_actor(request: Request, db: Session) -> Actor:
             user = system_user(db, INTEGRATION_USER_ID, "Home Assistant")
 
     role = effective_role(user, settings)
+    # Read by response builders sharing this session: customer names and
+    # contact details are only shown to members and administrators.
+    db.info["can_view_customers"] = ROLE_RANK[role] >= ROLE_RANK[Role.member]
     return Actor(
         user_id=user.id,
         ha_user_id=user.ha_user_id,

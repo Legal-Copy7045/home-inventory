@@ -32,6 +32,8 @@ EVENT_TYPES = {
     "warranty_expiring",
     "item_expiring",
     "low_stock",
+    "maintenance_completed",
+    "repair_job_status",
 }
 
 
