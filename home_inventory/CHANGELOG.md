@@ -11,6 +11,11 @@ Security and data-integrity fixes. Update recommended; nothing to do afterwards.
 - **A household purchase could be added to a customer's holding.** Choosing a customer's holding when marking a shopping-list item bought is now refused, and nothing changes. Taking service parts from a customer's stock is refused too.
 - Someone made read-only in the app can't use the first-run setup code to become administrator.
 - History entries and Home Assistant events no longer include the names of customer equipment.
+- **Item photos on phones.**
+  - The whole photo now shows, centred, instead of a cropped strip.
+  - Tapping a thumbnail switches the photo.
+  - Tapping the photo opens a full-screen viewer in the app, with swipe, arrows and pinch-to-zoom; swipe down or tap ✕ to close.
+  - The iPhone long-press preview pop-up no longer appears on photos.
 
 ## 0.7.0
 
