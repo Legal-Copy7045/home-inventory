@@ -42,7 +42,7 @@
         },
         "data_description": {
           "voice_notify": "When you ask where something is, the answer (with where it is) is also sent as a notification, so you don't have to ask again. \"Which one did you mean?\" questions aren't sent, only the final answer.",
-          "notify_service": "The notify action that reaches your phone. The Home Assistant companion app adds one per phone, named mobile_app_<phone name>."
+          "notify_service": "The notify action that reaches your phone. The Home Assistant companion app adds one per phone, named mobile_app_ followed by the phone's name."
         }
       }
     },
