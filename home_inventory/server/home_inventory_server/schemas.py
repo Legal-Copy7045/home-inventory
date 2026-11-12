@@ -396,3 +396,79 @@ class MeterReadingIn(_In):
     estimated: bool = False
     correction: bool = False
     note: str | None = Field(default=None, max_length=300)
+
+
+# ---------------------------------------------------------------------------
+# Customers and repair jobs
+# ---------------------------------------------------------------------------
+
+
+class CustomerIn(_In):
+    name: str = Field(min_length=1, max_length=200)
+    phone: str | None = Field(default=None, max_length=60)
+    email: str | None = Field(default=None, max_length=200)
+    address: str | None = Field(default=None, max_length=2000)
+    notes: str | None = Field(default=None, max_length=10000)
+
+    _blank = field_validator("phone", "email", "address", "notes", mode="before")(_blank_to_none)
+
+
+class CustomerPatch(CustomerIn):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+
+
+class ContactIn(_In):
+    channel: Literal["phone", "text", "email", "in_person", "other"] | None = None
+    note: str = Field(min_length=1, max_length=5000)
+
+
+class OwnerIn(_In):
+    customer_id: int | None
+    # Required: ownership changes are deliberate, never a side effect.
+    confirm: bool = False
+
+
+class CustomerEquipmentIn(_In):
+    name: str = Field(min_length=1, max_length=300)
+    manufacturer: str | None = Field(default=None, max_length=200)
+    model_number: str | None = Field(default=None, max_length=120)
+    serial_number: str | None = Field(default=None, max_length=120)
+    description: str | None = Field(default=None, max_length=5000)
+    category: str | None = Field(default=None, max_length=120)
+    container_id: int | None = None
+    location_id: int | None = None
+    notes: str | None = Field(default=None, max_length=5000)
+
+
+RepairStatus = Literal[
+    "received", "awaiting_diagnosis", "awaiting_approval", "waiting_for_parts", "in_progress", "completed", "returned", "cancelled"
+]
+
+
+class RepairJobFields(_In):
+    received_on: date | None = None
+    condition_received: str | None = Field(default=None, max_length=10000)
+    reported_problem: str | None = Field(default=None, max_length=10000)
+    diagnosis: str | None = Field(default=None, max_length=10000)
+    approval_notes: str | None = Field(default=None, max_length=10000)
+    estimate: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    labor_charge: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    parts_charge: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    completed_on: date | None = None
+    returned_on: date | None = None
+    notes: str | None = Field(default=None, max_length=10000)
+
+    _blank = field_validator("condition_received", "reported_problem", "diagnosis", "approval_notes", "notes", mode="before")(
+        _blank_to_none
+    )
+
+
+class RepairJobIn(RepairJobFields):
+    customer_id: int
+    item_id: int | None = None
+    new_equipment: CustomerEquipmentIn | None = None
+
+
+class RepairStatusIn(_In):
+    status: RepairStatus
+    note: str | None = Field(default=None, max_length=2000)

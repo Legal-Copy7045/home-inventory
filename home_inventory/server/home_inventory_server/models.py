@@ -292,6 +292,10 @@ class Attachment(Base):
     service_event_id: Mapped[int | None] = mapped_column(
         ForeignKey("service_events.id", ondelete="SET NULL", name="fk_attachments_service_event_id"), index=True
     )
+    # Photos of damage, quotes and paperwork for a repair job.
+    repair_job_id: Mapped[int | None] = mapped_column(
+        ForeignKey("repair_jobs.id", ondelete="SET NULL", name="fk_attachments_repair_job_id"), index=True
+    )
     original_name: Mapped[str | None] = mapped_column(String(255))
     # Path relative to the media directory.  Never user controlled.
     stored_path: Mapped[str] = mapped_column(String(255), unique=True)
@@ -539,6 +543,9 @@ class ServiceEvent(TimestampMixin, Base):
     work_performed: Mapped[str | None] = mapped_column(Text)
     notes: Mapped[str | None] = mapped_column(Text)
     performed_by: Mapped[str | None] = mapped_column(String(120))
+    repair_job_id: Mapped[int | None] = mapped_column(
+        ForeignKey("repair_jobs.id", ondelete="SET NULL", name="fk_service_events_repair_job_id"), index=True
+    )
     labor_cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     currency: Mapped[str | None] = mapped_column(String(3))
     snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSON)
@@ -566,3 +573,109 @@ class ServicePart(Base):
     unit_cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
 
     event: Mapped[ServiceEvent] = relationship(back_populates="parts")
+
+
+# ---------------------------------------------------------------------------
+# Customers and repair jobs
+# ---------------------------------------------------------------------------
+
+REPAIR_STATUSES = (
+    "received",
+    "awaiting_diagnosis",
+    "awaiting_approval",
+    "waiting_for_parts",
+    "in_progress",
+    "completed",
+    "returned",
+    "cancelled",
+)
+
+
+class Customer(TimestampMixin, Base):
+    """Someone whose equipment you look after (not part of the household)."""
+
+    __tablename__ = "customers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    phone: Mapped[str | None] = mapped_column(String(60))
+    email: Mapped[str | None] = mapped_column(String(200))
+    address: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(Text)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class CustomerContact(Base):
+    """Optional log of calls, messages and visits."""
+
+    __tablename__ = "customer_contacts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="CASCADE"), index=True)
+    contacted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    channel: Mapped[str | None] = mapped_column(String(20))
+    note: Mapped[str] = mapped_column(Text)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
+class ItemOwner(Base):
+    """Marks an item as belonging to a customer rather than the household.
+
+    A separate table (no row = household) so ownership can only change
+    through the dedicated, audited endpoint - never as a side effect of an
+    ordinary item edit - and so adding it needed no rebuild of ``items``.
+    """
+
+    __tablename__ = "item_owners"
+
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"), primary_key=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="RESTRICT"), index=True)
+    since: Mapped[date] = mapped_column(Date, default=date.today)
+
+
+class RepairJob(TimestampMixin, Base):
+    """A repair visit for a customer's equipment (a lightweight work order)."""
+
+    __tablename__ = "repair_jobs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN (" + ", ".join(f"'{s}'" for s in REPAIR_STATUSES) + ")", name="ck_repair_job_status"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    number: Mapped[str] = mapped_column(String(20), unique=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="RESTRICT"), index=True)
+    item_id: Mapped[int | None] = mapped_column(ForeignKey("items.id", ondelete="SET NULL"), index=True)
+    status: Mapped[str] = mapped_column(String(30), default="received", index=True)
+    received_on: Mapped[date] = mapped_column(Date, default=date.today)
+    condition_received: Mapped[str | None] = mapped_column(Text)
+    reported_problem: Mapped[str | None] = mapped_column(Text)
+    diagnosis: Mapped[str | None] = mapped_column(Text)
+    approval_notes: Mapped[str | None] = mapped_column(Text)
+    estimate: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    labor_charge: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    # Leave empty to use the cost of parts recorded in the job's service entries.
+    parts_charge: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    currency: Mapped[str | None] = mapped_column(String(3))
+    completed_on: Mapped[date | None] = mapped_column(Date)
+    returned_on: Mapped[date | None] = mapped_column(Date)
+    notes: Mapped[str | None] = mapped_column(Text)
+    # Customer and equipment as they were when the job was opened.
+    snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class RepairJobEvent(Base):
+    """Status history of a repair job."""
+
+    __tablename__ = "repair_job_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("repair_jobs.id", ondelete="CASCADE"), index=True)
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    status_from: Mapped[str | None] = mapped_column(String(30))
+    status_to: Mapped[str] = mapped_column(String(30))
+    note: Mapped[str | None] = mapped_column(Text)
+    user_name: Mapped[str | None] = mapped_column(String(128))
