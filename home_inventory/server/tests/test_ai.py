@@ -268,9 +268,9 @@ def test_ai_search_failure_falls_back(ai_env, fake_ai):
     assert res["ai_error"]
 
 
-def _shelf_item(name, qty=1, position=None, **kw):
+def _shelf_item(name, qty=1, position=None, box=None, **kw):
     return {"name": name, "description": None, "category": kw.get("category"), "manufacturer": kw.get("manufacturer"),
-            "model_number": None, "quantity": qty, "confidence": kw.get("confidence", 0.8), "position": position}
+            "model_number": None, "quantity": qty, "confidence": kw.get("confidence", 0.8), "position": position, "box": box}
 
 
 def test_shelf_photo_inventory_identifies_several_items(ai_env, fake_ai):
@@ -369,3 +369,30 @@ def test_scan_matches_do_not_name_customer_equipment_to_read_only(ai_env, fake_a
     seen = {s["name"]: s["match"] for s in viewer.ok("get", f"/api/v1/scans/{scan['id']}")["suggestions"]}
     assert seen["Household drill"]["item_id"] == drill["id"]
     assert seen["Pat's chainsaw"] is None
+
+
+def test_scan_items_get_cropped_photos_and_unseen_can_be_marked_missing(ai_env, fake_ai):
+    u = ai_env.admin
+    shelf = u.location("Shelf")
+    gone = u.item("Old paint", location_id=shelf["id"])
+    maybe = u.item("Spirit level", location_id=shelf["id"])
+    fake_ai.responses.append({"items": [
+        _shelf_item("Drill", box=[0.1, 0.1, 0.4, 0.5]),
+        {**_shelf_item("Tape"), "box": [0.5, 0.5, 5, 5]},   # nonsense box: dropped
+        _shelf_item("Pliers"),
+    ], "notes": None})
+    scan = u.ok("post", f"/api/v1/locations/{shelf['id']}/scans", files={"file": ("s.jpg", jpeg_bytes(size=(800, 600)))})
+    sugg = {s["name"]: s for s in scan["suggestions"]}
+    assert sugg["Drill"]["box"] == [0.1, 0.1, 0.4, 0.5] and "box" not in sugg["Tape"]
+    res = u.ok("post", f"/api/v1/scans/{scan['id']}/confirm", json={
+        "items": [{"action": "add", "name": "Drill", "box": sugg["Drill"]["box"]}, {"action": "add", "name": "Pliers"}],
+        "remove_item_ids": [gone["id"]], "missing_item_ids": [maybe["id"]],
+    })
+    assert res["removed"] == [gone["id"]] and res["missing"] == [maybe["id"]]
+    drill = u.ok("get", f"/api/v1/items/{res['created'][0]}")
+    pliers = u.ok("get", f"/api/v1/items/{res['created'][1]}")
+    assert drill["photo"]["id"] != scan["photo"]["id"]                 # its own cut-out
+    assert (drill["photo"]["width"], drill["photo"]["height"]) == (384, 348)  # x 0.06..0.54, y 0.06..0.64 of 800x600
+    assert pliers["photo"]["id"] == scan["photo"]["id"]                # no box: whole photo
+    assert u.ok("get", f"/api/v1/items/{maybe['id']}")["status"] == "missing"
+    assert u.ok("get", f"/api/v1/items/{gone['id']}")["deleted_at"]

@@ -258,12 +258,16 @@ class ScanItemIn(_In):
     quantity: int = Field(default=1, ge=1, le=10000)
     confidence: float | None = None
     notes: str | None = Field(default=None, max_length=5000)  # e.g. "top shelf, left"
+    # Where it is in the photo ([x, y, w, h] fractions): new items get that part as their photo.
+    box: list[float] | None = Field(default=None, min_length=4, max_length=4)
 
 
 class ScanConfirmIn(_In):
     items: list[ScanItemIn] = Field(max_length=500)
-    # Optionally remove items that are no longer in the container / on the shelf.
+    # Optionally remove items that are no longer in the container / on the shelf...
     remove_item_ids: list[int] = Field(default_factory=list)
+    # ...or mark them missing (kept, status "missing") when you're not sure.
+    missing_item_ids: list[int] = Field(default_factory=list)
 
 
 class MapIn(_In):
@@ -373,6 +377,9 @@ class EquipmentIn(_In):
     engine_serial: str | None = Field(default=None, max_length=120)
     fuel_type: str | None = Field(default=None, max_length=60)
     meter: Literal["none", "hours", "cycles", "both"] | None = None
+    # Home Assistant entity ids, e.g. sensor.mower_runtime ("" or null to stop).
+    hours_entity_id: str | None = Field(default=None, max_length=255, pattern=r"^$|^[a-z_]+\.[a-z0-9_]+$")
+    cycles_entity_id: str | None = Field(default=None, max_length=255, pattern=r"^$|^[a-z_]+\.[a-z0-9_]+$")
     specs: list[SpecEntry] | None = Field(default=None, max_length=60)
     notes: str | None = Field(default=None, max_length=10000)
     # When starting to track used equipment: schedules start from here.

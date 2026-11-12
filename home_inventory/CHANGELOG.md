@@ -17,6 +17,10 @@
 - **Inventory report** (menu → Inventory Report): everything you own grouped by room, with photos, maker, model, serial number, purchase details, recorded value and which items have receipts. Filter by place or category; print it (or save as PDF), or download **CSV** or **Excel** (with a value-by-room sheet). Customer equipment is never included. Spreadsheet formulas typed into item names are neutralised in downloads.
 - **Read receipts with AI:** adding a receipt photo to an item reads the purchase date, price, shop and any printed warranty length; tick what to copy to the item. Nothing is saved until you choose.
 - Docs: a ready-made Home Assistant automation for the existing warranty-ending event.
+- **Operating hours from Home Assistant:** in an item's equipment details, pick a runtime sensor (a smart plug's runtime, a `history_stats` sensor…) and/or a uses counter. They're read every 15 minutes (minutes and seconds are converted to hours) and maintenance due dates follow real use. A sensor that goes backwards (reset) isn't recorded; the item page says why. **Read now** checks straight away.
+- **Possible duplicates** (link under the Items list): pairs with the same barcode, the same maker and model, or very similar names. **Keep this one** merges the other into it — holdings, photos, shop links, restock settings and shopping-list lines move over and blank details are filled in; holdings stay in their own places. "Not the same thing" stops suggesting a pair.
+- **Photo inventory improvements:** each new item gets its own picture cut from the shelf or box photo (where the AI could say where it is), shown as a preview while reviewing. Things already recorded but not seen in the photo can be left alone, **marked missing**, or deleted.
+- Database: equipment profiles can name Home Assistant sensors (an automatic, additive migration with a snapshot first).
 - **Installable web app (PWA):** a manifest, icons and a service worker that caches the app itself (never your inventory data) for faster, flaky-signal loading. See the docs for where installing works.
 
 ## 0.9.0
