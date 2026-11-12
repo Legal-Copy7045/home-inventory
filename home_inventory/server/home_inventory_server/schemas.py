@@ -260,10 +260,30 @@ class ScanItemIn(_In):
     notes: str | None = Field(default=None, max_length=5000)  # e.g. "top shelf, left"
     # Where it is in the photo ([x, y, w, h] fractions): new items get that part as their photo.
     box: list[float] | None = Field(default=None, min_length=4, max_length=4)
+    # "container": a box/bin/tote - created as a container (name = its label), not an item.
+    kind: Literal["item", "container"] = "item"
+    container_type: str | None = Field(default=None, max_length=60)
+    # Area photos: which place in the area it goes on - an existing location under
+    # the scanned one, or a new one from ``new_locations`` (by key).  Default: the
+    # scanned location itself.
+    location_id: int | None = None
+    location_key: str | None = Field(default=None, max_length=40)
+
+
+class NewPlaceIn(_In):
+    """A rack or shelf to create while confirming an area photo."""
+
+    key: str = Field(min_length=1, max_length=40)
+    name: str = Field(min_length=1, max_length=200)
+    kind: str | None = Field(default=None, max_length=40)
+    # Under an existing place in the area, or under another new place (listed earlier).
+    parent_id: int | None = None
+    parent_key: str | None = Field(default=None, max_length=40)
 
 
 class ScanConfirmIn(_In):
     items: list[ScanItemIn] = Field(max_length=500)
+    new_locations: list[NewPlaceIn] = Field(default_factory=list, max_length=100)
     # Optionally remove items that are no longer in the container / on the shelf...
     remove_item_ids: list[int] = Field(default_factory=list)
     # ...or mark them missing (kept, status "missing") when you're not sure.
