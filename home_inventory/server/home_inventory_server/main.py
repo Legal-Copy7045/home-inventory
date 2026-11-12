@@ -29,6 +29,7 @@ from . import __version__
 from .ai import AIService
 from .api.customers import router as customers_router
 from .api.maintenance import router as maintenance_router
+from .api.relations import router as relations_router
 from .api.routes import router
 from .auth import AdminBootstrap, HaAdminDirectory, load_or_create_token
 from .config import Settings
@@ -133,6 +134,7 @@ def create_app(state: AppState, channel: str) -> FastAPI:
     app.include_router(router)
     app.include_router(maintenance_router)
     app.include_router(customers_router)
+    app.include_router(relations_router)
 
     def body_limit(path: str) -> int:
         if path.endswith("/backup/restore"):

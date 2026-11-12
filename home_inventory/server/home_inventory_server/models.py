@@ -679,3 +679,79 @@ class RepairJobEvent(Base):
     status_to: Mapped[str] = mapped_column(String(30))
     note: Mapped[str | None] = mapped_column(Text)
     user_name: Mapped[str | None] = mapped_column(String(128))
+
+
+# ---------------------------------------------------------------------------
+# Item relationships and kits
+# ---------------------------------------------------------------------------
+
+RELATION_TYPES = ("accessory_of", "component_of", "compatible_with", "stored_with", "replacement_for", "custom")
+
+
+class ItemRelation(Base):
+    """A directed link between two items, shown from both sides.
+
+    ``from`` is the accessory/component/replacement; ``to`` is the parent
+    or the thing it relates to.  Deleting a relation never touches either
+    item; items stay independent records with their own place and QR code.
+    """
+
+    __tablename__ = "item_relations"
+    __table_args__ = (
+        UniqueConstraint("from_item_id", "to_item_id", "relation_type", "custom_label", name="uq_item_relation"),
+        CheckConstraint("from_item_id != to_item_id", name="ck_relation_not_self"),
+        CheckConstraint(
+            "relation_type IN (" + ", ".join(f"'{t}'" for t in RELATION_TYPES) + ")", name="ck_relation_type"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    from_item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"), index=True)
+    to_item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"), index=True)
+    relation_type: Mapped[str] = mapped_column(String(30))
+    # For relation_type "custom": the user's own wording, e.g. "charger for".
+    custom_label: Mapped[str | None] = mapped_column(String(60))
+    note: Mapped[str | None] = mapped_column(String(300))
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Kit(TimestampMixin, Base):
+    """A named collection (e.g. "Air compressor kit").
+
+    Members keep their own placement; the kit's home container/location is
+    where they *should* be, used to show which are stored separately.
+    """
+
+    __tablename__ = "kits"
+    __table_args__ = (
+        CheckConstraint("NOT (container_id IS NOT NULL AND location_id IS NOT NULL)", name="ck_kit_single_home"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    container_id: Mapped[int | None] = mapped_column(ForeignKey("containers.id", ondelete="SET NULL"))
+    location_id: Mapped[int | None] = mapped_column(ForeignKey("locations.id", ondelete="SET NULL"))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    members: Mapped[list[KitMember]] = relationship(
+        back_populates="kit", cascade="all, delete-orphan", order_by="KitMember.id"
+    )
+
+
+class KitMember(Base):
+    __tablename__ = "kit_members"
+    __table_args__ = (
+        UniqueConstraint("kit_id", "item_id", name="uq_kit_member"),
+        CheckConstraint("quantity >= 1", name="ck_kit_member_quantity"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kit_id: Mapped[int] = mapped_column(ForeignKey("kits.id", ondelete="CASCADE"), index=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"), index=True)
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+    optional: Mapped[bool] = mapped_column(default=False)
+    note: Mapped[str | None] = mapped_column(String(300))
+
+    kit: Mapped[Kit] = relationship(back_populates="members")

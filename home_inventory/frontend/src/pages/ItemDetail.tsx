@@ -6,6 +6,7 @@ import { ItemFields, applyLinkDetails, toPayload, type ItemFormValue } from "../
 import { LinkImport } from "../components/LinkImport";
 import { PlacementPicker, type PlacementValue } from "../components/PlacementPicker";
 import { CustomerItemSection } from "./Customers";
+import { RelatedSection } from "./Kits";
 import { EquipmentSection } from "./Maintenance";
 import { ErrorBox, PathView, Section, Sheet, Spinner, StatusBadge, Stepper, Thumb, fmtDate, fmtWhen, money, useAction, useApi, useMe, useToast } from "../components/ui";
 
@@ -184,6 +185,7 @@ export default function ItemDetail() {
 
       {me.can_edit && <CustomerItemSection item={it} edit={edit} onChanged={refresh} />}
       <EquipmentSection itemId={it.id} edit={edit} onChanged={() => hist.reload()} />
+      <RelatedSection itemId={it.id} edit={edit} />
 
       <Section title="Receipts & documents" action={edit && <button className="btn small" onClick={() => setSheet("docs")}><Plus size={16} /> Add</button>}>
         {docs.length ? (

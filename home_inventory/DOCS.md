@@ -63,6 +63,14 @@ The **Maintenance** page lists what's overdue, what's due in the next 7, 30 or 9
 
 Service history is kept when tasks are changed or removed, and even when you stop tracking an item.
 
+## Related items and kits
+
+Keep accessories as separate items, each with its own place, QR label and search entry, and link them:
+
+- On an item, tap **Link**, then choose how they're related. The options are accessory, component, compatible with, stored with, replacement for, or your own words. The link shows on both items, and searching for one shows the others alongside it.
+- A **kit** (e.g. "Air compressor kit") groups items that belong together. Give it the container or shelf where it's kept. The kit then shows which items are *with the kit*, *stored separately*, *on loan*, *missing*, or short (not enough). You can mark an item as *Optional*.
+- Moving one item never moves another. Removing a link or deleting a kit never deletes items.
+
 ## Customers and repairs
 
 If you repair equipment for other people:
