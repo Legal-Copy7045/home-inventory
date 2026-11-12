@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown, ChevronUp, MapPin, Plus, Trash2 } from "lucide-react";
-import { api, type Item, type Scan } from "../api";
+import { api, url, type Item, type Scan } from "../api";
 import { PhotoViewer } from "./PhotoViewer";
 import { Sheet, Stepper, useAction } from "./ui";
 
@@ -28,7 +28,18 @@ type Row = {
   existing_item_id: number | null;
   match: string | null;
   open: boolean;
+  box: number[] | null;
 };
+
+/** Just this entry's part of the photo (CSS crop of the box). */
+function CropPreview({ src, box }: { src: string; box: number[] }) {
+  const [x, y, w, h] = box;
+  const pos = (v: number, size: number) => (size >= 1 ? 0 : (v / (1 - size)) * 100);
+  return (
+    <div className="crop-preview" aria-hidden="true"
+      style={{ backgroundImage: `url("${src}")`, backgroundSize: `${100 / w}% ${100 / h}%`, backgroundPosition: `${pos(x, w)}% ${pos(y, h)}%` }} />
+  );
+}
 
 const conf = (c: number | null) => (c === null ? "unknown" : c >= 0.8 ? "high" : c >= 0.5 ? "medium" : "low");
 
@@ -60,9 +71,11 @@ function Review({ scan, target, onClose }: { scan: Scan; target: ScanTarget; onC
       existing_item_id: s.match?.item_id || null,
       match: s.match ? `${s.match.name} (have ${s.match.quantity})` : null,
       open: false,
+      box: s.box || null,
     })),
   );
-  const [removeIds, setRemoveIds] = useState<number[]>([]);
+  // Things already recorded here that the photo didn't show.
+  const [unseen, setUnseen] = useState<Record<number, "keep" | "missing" | "remove">>({});
   const { busy, run } = useAction();
   const where = target.kind === "container" ? `in ${target.name}` : `on ${target.name}`;
   const addLink = target.kind === "container" ? `/add?container_id=${target.id}` : `/add?location_id=${target.id}`;
@@ -103,6 +116,7 @@ function Review({ scan, target, onClose }: { scan: Scan; target: ScanTarget; onC
         {rows.map((r) => (
           <div key={r.key} className="card" style={{ marginBottom: 0, opacity: r.action === "skip" ? 0.55 : 1 }}>
             <div className="row" style={{ alignItems: "flex-start" }}>
+              {r.box && scan.photo && <CropPreview src={url(scan.photo.url)} box={r.box} />}
               <input value={r.name} onChange={(e) => upd(r.key, { name: e.target.value })} style={{ fontWeight: 600 }} aria-label="Name" placeholder="Name" />
               <button
                 className="iconbtn"
@@ -143,7 +157,7 @@ function Review({ scan, target, onClose }: { scan: Scan; target: ScanTarget; onC
         <button
           className="btn"
           onClick={() =>
-            setRows([...rows, { key: Date.now(), action: "add", name: "", category: "", manufacturer: "", model_number: "", notes: "", position: null, quantity: 1, confidence: null, existing_item_id: null, match: null, open: true }])
+            setRows([...rows, { key: Date.now(), action: "add", name: "", category: "", manufacturer: "", model_number: "", notes: "", position: null, quantity: 1, confidence: null, existing_item_id: null, match: null, open: true, box: null }])
           }
         >
           <Plus size={18} /> Add something it missed
@@ -151,12 +165,16 @@ function Review({ scan, target, onClose }: { scan: Scan; target: ScanTarget; onC
         {notSeen.length > 0 && (
           <div className="card" style={{ marginBottom: 0 }}>
             <h3>Not seen in this photo</h3>
-            <p className="muted">Tick anything that is no longer {where}.</p>
+            <p className="muted">Already recorded {where}, but the AI didn't see them. They may just be hidden.</p>
             {notSeen.map((i) => (
-              <label key={i.id} className="check" style={{ padding: "6px 0" }}>
-                <input type="checkbox" checked={removeIds.includes(i.id)} onChange={(e) => setRemoveIds(e.target.checked ? [...removeIds, i.id] : removeIds.filter((x) => x !== i.id))} />
-                {i.quantity} × {i.display_name}
-              </label>
+              <div key={i.id} className="row between wrap" style={{ padding: "6px 0", gap: 6 }}>
+                <span>{i.quantity} × {i.display_name}</span>
+                <select value={unseen[i.id] || "keep"} onChange={(e) => setUnseen({ ...unseen, [i.id]: e.target.value as "keep" | "missing" | "remove" })} style={{ width: "auto" }} aria-label={`What to do with ${i.display_name}`}>
+                  <option value="keep">Still here</option>
+                  <option value="missing">Mark missing</option>
+                  <option value="remove">Gone — delete</option>
+                </select>
+              </div>
             ))}
           </div>
         )}
@@ -176,8 +194,10 @@ function Review({ scan, target, onClose }: { scan: Scan; target: ScanTarget; onC
                 notes: r.notes.trim() || null,
                 quantity: r.quantity,
                 confidence: r.confidence,
+                box: r.action === "add" ? r.box : null,
               }));
-            const res = await run(() => api.post<{ created: number[]; increased: number[]; removed: number[] }>(`scans/${scan.id}/confirm`, { items, remove_item_ids: removeIds }));
+            const pick = (v: string) => Object.entries(unseen).filter(([, a]) => a === v).map(([id]) => Number(id));
+            const res = await run(() => api.post<{ created: number[]; increased: number[]; removed: number[] }>(`scans/${scan.id}/confirm`, { items, remove_item_ids: pick("remove"), missing_item_ids: pick("missing") }));
             if (res) onClose();
           }}
         >

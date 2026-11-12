@@ -405,6 +405,7 @@ export interface Scan {
   suggestions: (AISuggestion & {
     quantity: number;
     position?: string | null;
+    box?: number[] | null;
     match: { item_id: number; name: string; quantity: number; similarity: number } | null;
     proposed_action: "add" | "increase" | "skip";
   })[];
@@ -543,6 +544,8 @@ export interface EquipmentProfile {
   engine_serial: string | null;
   fuel_type: string | null;
   meter: "none" | "hours" | "cycles" | "both";
+  hours_entity_id?: string | null;
+  cycles_entity_id?: string | null;
   specs: SpecRow[];
   notes: string | null;
 }
