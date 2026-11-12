@@ -55,7 +55,9 @@
       "maintenance_overdue": { "name": "Maintenance overdue" },
       "maintenance_due_soon": { "name": "Maintenance due soon" },
       "repairs_in_progress": { "name": "Repairs in progress" },
-      "repairs_awaiting_pickup": { "name": "Repairs awaiting pickup" }
+      "repairs_awaiting_pickup": { "name": "Repairs awaiting pickup" },
+      "replenishment_needed": { "name": "Supplies below minimum" },
+      "shopping_list_open": { "name": "Shopping list items" }
     },
     "binary_sensor": {
       "app_available": { "name": "Inventory app" }

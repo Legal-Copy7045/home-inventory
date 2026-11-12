@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { HashRouter, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Activity, ArrowLeft, Box, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings, Users, Wrench, ClipboardList, Boxes, Nfc } from "lucide-react";
+import { Activity, ArrowLeft, Box, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings, Users, Wrench, ClipboardList, Boxes, Nfc, ShoppingCart } from "lucide-react";
 import { api, appBaseUrl, labelRef, type Me, type QrTarget } from "./api";
 import { MeContext, Sheet, Spinner, ToastHost, useToast } from "./components/ui";
 import AddItem from "./pages/AddItem";
@@ -11,6 +11,7 @@ import { MapView, MapsPage } from "./pages/Maps";
 import { ActivityPage, LabelsPage, LoansPage, SettingsPage } from "./pages/Other";
 import { CustomerDetailPage, CustomersPage, RepairJobPage, RepairsPage, WorkOrderPage } from "./pages/Customers";
 import { KitPage, KitsPage } from "./pages/Kits";
+import { ShoppingPage } from "./pages/Shopping";
 import { TagScanPage, TagsPage } from "./pages/Tags";
 import { MaintenancePage } from "./pages/Maintenance";
 import QuickCapture from "./pages/QuickCapture";
@@ -25,6 +26,7 @@ const NAV = [
   { to: "/items", label: "Items", icon: Package },
   { to: "/to-finish", label: "To finish", icon: ListChecks },
   { to: "/maintenance", label: "Maintenance", icon: Wrench },
+  { to: "/shopping", label: "Restock", icon: ShoppingCart },
   { to: "/repairs", label: "Repairs", icon: ClipboardList, edit: true },
   { to: "/customers", label: "Customers", icon: Users, edit: true },
   { to: "/containers", label: "Containers", icon: Box },
@@ -41,7 +43,7 @@ const NAV = [
 const TITLES: [RegExp, string][] = [
   [/^\/$/, "Home Inventory"], [/^\/search/, "Search"], [/^\/add/, "Add item"], [/^\/scan/, "Scan"], [/^\/items\/\d+/, "Item"], [/^\/items/, "Items"],
   [/^\/containers\/\d+/, "Container"], [/^\/containers/, "Containers"], [/^\/locations/, "Locations"], [/^\/maps/, "Visual maps"], [/^\/labels/, "Labels"],
-  [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/maintenance/, "Maintenance"], [/^\/kits\/\d+/, "Kit"], [/^\/tags/, "NFC tags"], [/^\/tag\//, "Tag"], [/^\/kits/, "Kits"], [/^\/customers\/\d+/, "Customer"], [/^\/customers/, "Customers"], [/^\/repairs\/\d+\/print/, "Work order"], [/^\/repairs\/\d+/, "Repair job"], [/^\/repairs/, "Repairs"], [/^\/activity/, "Activity"], [/^\/loans/, "Loans & temporary"], [/^\/settings/, "Settings"],
+  [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/maintenance/, "Maintenance"], [/^\/kits\/\d+/, "Kit"], [/^\/tags/, "NFC tags"], [/^\/shopping/, "Restock & shopping"], [/^\/tag\//, "Tag"], [/^\/kits/, "Kits"], [/^\/customers\/\d+/, "Customer"], [/^\/customers/, "Customers"], [/^\/repairs\/\d+\/print/, "Work order"], [/^\/repairs\/\d+/, "Repair job"], [/^\/repairs/, "Repairs"], [/^\/activity/, "Activity"], [/^\/loans/, "Loans & temporary"], [/^\/settings/, "Settings"],
 ];
 
 /** QR labels can encode `<base>?c=CODE`; open the container when launched that way. */
@@ -149,7 +151,7 @@ function Shell({ me }: { me: Me }) {
   const [more, setMore] = useState(false);
   useEffect(() => { setMore(false); window.scrollTo(0, 0); }, [loc.pathname]);
   const title = TITLES.find(([re]) => re.test(loc.pathname))?.[1] || "Home Inventory";
-  const isRoot = ["/", "/search", "/scan", "/items", "/to-finish", "/maintenance", "/kits", "/tags", "/repairs", "/customers", "/containers", "/locations", "/maps", "/labels", "/activity", "/loans", "/settings"].includes(loc.pathname);
+  const isRoot = ["/", "/search", "/scan", "/items", "/to-finish", "/maintenance", "/kits", "/tags", "/shopping", "/repairs", "/customers", "/containers", "/locations", "/maps", "/labels", "/activity", "/loans", "/settings"].includes(loc.pathname);
   const items = NAV.filter((n) => !n.edit || me.can_edit);
   return (
     <div className="app">
@@ -177,6 +179,7 @@ function Shell({ me }: { me: Me }) {
           <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/kits" element={<KitsPage />} />
           <Route path="/tags" element={<TagsPage />} />
+          <Route path="/shopping" element={<ShoppingPage />} />
           <Route path="/tag/:ref" element={<TagScanPage />} />
           <Route path="/kits/:id" element={<KitPage />} />
           <Route path="/customers" element={<CustomersPage />} />
