@@ -17,7 +17,14 @@ PUBLIC = {"/api/health"}
 # The setup-code claim authenticates but skips the read-only rule (so it still
 # works with default_role: read_only); it refuses configured read-only users
 # and is only offered while no administrator exists (tests in test_auth.py).
-READ_ONLY_ALLOWED: set[tuple[str, str]] = {("POST", "/api/v1/setup/claim-admin")}
+#
+# Scanning a QR label or NFC tag is a lookup (POST only because the payload
+# is a link); read-only users may scan.
+READ_ONLY_ALLOWED: set[tuple[str, str]] = {
+    ("POST", "/api/v1/setup/claim-admin"),
+    ("POST", "/api/v1/qr/resolve"),
+    ("POST", "/api/v1/tags/resolve"),
+}
 
 
 def _routes(app):
@@ -25,8 +32,9 @@ def _routes(app):
     from home_inventory_server.api.maintenance import router as maintenance_router
     from home_inventory_server.api.relations import router as relations_router
     from home_inventory_server.api.routes import router
+    from home_inventory_server.api.tags import router as tags_router
 
-    routes = [r for rt in (router, maintenance_router, customers_router, relations_router) for r in rt.routes if isinstance(r, APIRoute)]
+    routes = [r for rt in (router, maintenance_router, customers_router, relations_router, tags_router) for r in rt.routes if isinstance(r, APIRoute)]
     assert len(routes) > 50, "route walk found too few routes"
     for r in routes:
         for method in r.methods - {"HEAD", "OPTIONS"}:

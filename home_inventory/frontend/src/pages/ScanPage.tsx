@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRightLeft, Box, ExternalLink, Minus, Plus, X } from "lucide-react";
-import { api, type BarcodeResult, type Container, type Item, type QrTarget } from "../api";
+import { api, labelRef, type BarcodeResult, type Container, type Item, type QrTarget } from "../api";
+import { ScanWithPhone, nfcSupport } from "./Tags";
 import { PlacementPicker } from "../components/PlacementPicker";
 import { Scanner, type Detection } from "../components/Scanner";
 import { Empty, Sheet, Thumb, useAction, useMe, useToast } from "../components/ui";
@@ -43,6 +44,11 @@ export default function ScanPage() {
 
   async function onDetect(d: Detection) {
     if (d.format === "qr_code" || isContainerCode(d.text)) {
+      const tagRef = labelRef(d.text);
+      if (tagRef?.kind === "N") {
+        nav(`/tag/${tagRef.code}`); // NFC tag link (e.g. its QR fallback)
+        return;
+      }
       try {
         const r = await api.post<QrTarget>("qr/resolve", { text: d.text });
         if (r.type === "location") {
@@ -100,6 +106,7 @@ export default function ScanPage() {
 
   return (
     <div className="page">
+      {nfcSupport() !== "no" && !container && <ScanWithPhone />}
       {container ? (
         <div className="scanbar">
           <Box size={20} />

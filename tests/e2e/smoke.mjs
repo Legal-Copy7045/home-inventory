@@ -214,6 +214,28 @@ await page.locator("li", { hasText: "Air hose 50 ft" }).getByText("Stored separa
 await page.locator("li", { hasText: "Air compressor" }).getByText("With the kit").waitFor();
 await shot("12-kit");
 
+// NFC: assign a tag (link workflow, as on iPhone/desktop), then scan it
+await page.goto(BASE + "#/items/" + mower.id);
+const tagsCard = page.locator(".card", { has: page.getByRole("heading", { name: "NFC tags" }) });
+await tagsCard.getByRole("button", { name: "Assign tag" }).click();
+const assign = page.getByRole("dialog");
+await assign.getByLabel("Label (optional)").fill("Handle");
+await assign.getByRole("button", { name: "Log hours" }).click();
+await assign.getByRole("button", { name: /Get the link/ }).click();
+await page.getByAltText("QR code of the tag link").waitFor();
+const tagUrl = await page.locator('input[readonly]').inputValue();
+await page.getByRole("button", { name: "Done" }).click();
+await tagsCard.getByText("Handle").waitFor();
+const ref = /\/n\/([A-Za-z0-9_-]+)/.exec(tagUrl)?.[1] || /HINV:N:(.+)$/.exec(tagUrl)?.[1];
+if (!ref || String(mower.id) === ref) throw new Error(`unexpected tag link ${tagUrl}`);
+await page.goto(BASE + "#/tag/" + ref);
+await page.getByRole("button", { name: "Log hours" }).first().waitFor();
+await shot("13-tag-scan");
+await page.getByRole("button", { name: "Log hours" }).first().click();
+await page.getByLabel(/Meter reading/).waitFor();
+const tags = await api(`tags?target_type=item&target_id=${mower.id}`);
+if (tags[0].scan_count !== 1 || tags[0].label !== "Handle") throw new Error(`tag not recorded: ${JSON.stringify(tags[0])}`);
+
 const after = await api(`containers/${box.id}`);
 const cord = after.items.find((i) => i.name === "Extension cord");
 if (!after.items.some((i) => i.name === "Hammer")) throw new Error("finished quick photo missing from box");

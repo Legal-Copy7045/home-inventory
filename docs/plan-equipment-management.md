@@ -1,6 +1,6 @@
 # Plan: security remediation and equipment management
 
-Status: **Phases 1–4 complete (0.2.0–0.5.0).** Phases 5–6 to follow. This document records verified findings, design decisions and the phase plan. Each phase ships as its own pull request with tests, and gets its own section below once it lands.
+Status: **Phases 1–5 complete (0.2.0–0.6.0).** Phase 6 to follow. This document records verified findings, design decisions and the phase plan. Each phase ships as its own pull request with tests, and gets its own section below once it lands.
 
 ## Ground rules
 
@@ -158,7 +158,19 @@ UI:
 - Items keep their own placement and QR code. Moving one item never moves another.
 - Search results gain "Related" chips, and the item page lists related items from both directions.
 
-## Phase 5: NFC
+## Phase 5: NFC (done, 0.6.0)
+
+**As built:**
+- **Migration `0006`** adds a `tags` table.
+- **Platform findings** are in `docs/nfc.md`. Web NFC works only in Chrome on Android, and only on top-level pages, so it can't run inside the Ingress frame; the UI offers to open the App in its own tab. iOS reads URL tags natively but can't write them from the web.
+- **Endpoints** (`api/tags.py`):
+  - `GET|POST /tags`, `GET /tags/check?hardware_id=`, `PATCH /tags/{id}` (reassign, status, action, label)
+  - `POST /tags/{id}/replace`, `DELETE /tags/{id}` (deactivate)
+  - `POST /tags/resolve`, `GET /tags/{id}/qr.svg`
+  - `/qr/resolve` also accepts tag links.
+  - Lookups authenticate without the read-only write rule. This also fixed read-only QR scanning.
+- **Tests:** `tests/test_tags.py` (12), the route walk, and the e2e assign → scan → action flow.
+
 
 - `tags`:
   - The tag itself: `ref`, 22 random URL-safe characters, unique and never derived from IDs. `id_type` is `url` (default) or `ndef_serial` (Android Web NFC). `hardware_id` is optional and unique among active tags.
