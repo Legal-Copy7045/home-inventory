@@ -145,6 +145,36 @@ if (unsortedLeft.total !== 0) throw new Error("photos still unsorted");
 const inShed = (await api(`items?location_id=${shed.id}&needs_details=true`)).items;
 if (inShed.length < 3) throw new Error(`expected the shelf photos in the shed, got ${inShed.length}`);
 
+// Items page: sort by location, multi-select, bulk move / edit / delete
+const rake = (await api("items", { method: "POST", data: { name: "Rake", location_id: garage.id } })).items[0];
+const hoe = (await api("items", { method: "POST", data: { name: "Hoe", location_id: garage.id } })).items[0];
+const trowel = (await api("items", { method: "POST", data: { name: "Trowel", location_id: garage.id } })).items[0];
+await page.goto(BASE + "#/items?sort=location");
+await page.locator(".list-head", { hasText: "Property › Garage" }).first().waitFor();
+await page.getByRole("button", { name: "Select", exact: true }).click();
+await page.getByRole("checkbox", { name: /Rake/ }).click();
+await page.getByRole("checkbox", { name: /Hoe/ }).click();
+await page.getByText("2 selected").waitFor();
+await shot("07d-multiselect");
+await page.getByRole("toolbar").getByRole("button", { name: "Move" }).click();
+await page.getByRole("dialog").getByText("#15 Box").click();
+await page.getByText("Moved 2 items").waitFor();
+if ((await api(`items/${rake.id}`)).placement.container?.id !== box.id) throw new Error("bulk move failed");
+await page.getByRole("button", { name: "Select", exact: true }).click();
+await page.getByRole("checkbox", { name: /Hoe/ }).click();
+await page.getByRole("checkbox", { name: /Trowel/ }).click();
+await page.getByRole("toolbar").getByRole("button", { name: "Edit" }).click();
+await page.getByLabel("Category").fill("Garden tools");
+await page.getByRole("button", { name: "Apply to 2 items" }).click();
+await page.getByText("Saved").first().waitFor();
+if ((await api(`items/${trowel.id}`)).category !== "Garden tools") throw new Error("bulk edit failed");
+await page.getByRole("button", { name: "Select", exact: true }).click();
+await page.getByRole("checkbox", { name: /Trowel/ }).click();
+await page.getByRole("toolbar").getByRole("button", { name: "Delete" }).click();
+await page.getByRole("button", { name: "Delete 1 item" }).click();
+await page.getByText("Deleted 1 item").waitFor();
+if (!(await api(`items/${trowel.id}`)).deleted_at) throw new Error("bulk delete failed");
+
 // Maintenance: track a mower, log hours, record the overdue oil change
 const mower = (await api("items", { method: "POST", data: { name: "Lawn mower", location_id: garage.id } })).items[0];
 await page.goto(BASE + "#/items/" + mower.id);

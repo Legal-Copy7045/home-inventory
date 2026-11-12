@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { TagsSection } from "./Tags";
 import { AlertTriangle, Box, Camera, ChevronDown, ChevronRight, Clock, FileSpreadsheet, Images, Map as MapIcon, MapPin, Package, Pencil, Plus, Printer, QrCode, ScanBarcode, Search as SearchIcon, Sparkles, Trash2 } from "lucide-react";
-import { api, qrImageUrl, type Dashboard, type Item, type LocationDetail, type LocationNode, type SearchResult } from "../api";
+import { api, qrImageUrl, type Dashboard, type Item, type LocationDetail, type LocationNode, type Scan, type SearchResult } from "../api";
+import { ScanReview, scanPlaceholder } from "../components/PhotoInventory";
+import { SelectableItems } from "../components/BulkActions";
 import { LocationImportSheet } from "../components/LocationImport";
 import { PlacementPicker } from "../components/PlacementPicker";
 import { ContainerFormSheet } from "./Containers";
-import { ContainerRow, Empty, ErrorBox, ItemRow, Section, Sheet, Spinner, fmtDate, fmtWhen, money, useAction, useApi, useMe } from "../components/ui";
+import { ContainerRow, Empty, ErrorBox, ItemRow, Section, Sheet, Spinner, fmtDate, fmtWhen, money, useAction, useApi, useMe, useToast } from "../components/ui";
 
 export function SearchBox({ hero, initial = "" }: { hero?: boolean; initial?: string }) {
   const [q, setQ] = useState(initial);
@@ -134,13 +136,13 @@ export function ItemsPage() {
           <option value="">Any status</option><option value="stored">In storage</option><option value="in_use">In use</option><option value="temporarily_relocated">Temporarily moved</option><option value="on_loan">Lent out</option><option value="missing">Missing</option>
         </select>
         <select value={sort} onChange={(e) => set("sort", e.target.value)} style={{ width: "auto", flex: 1 }}>
-          <option value="name">A–Z</option><option value="recent">Recently changed</option><option value="created">Newest</option><option value="value">Value</option><option value="warranty">Warranty end</option><option value="expiry">Expiry date</option>
+          <option value="name">A–Z</option><option value="location">Location</option><option value="recent">Recently changed</option><option value="created">Newest</option><option value="value">Value</option><option value="warranty">Warranty end</option><option value="expiry">Expiry date</option>
         </select>
         <label className="check"><input type="checkbox" checked={loose} onChange={(e) => set("loose", e.target.checked ? "1" : "")} /> Loose only</label>
       </div>
-      <div className="card tight">
-        {list.loading && !list.data ? <Spinner /> : list.data?.items.length ? <div className="list">{list.data.items.map((i) => <ItemRow key={i.id} item={i} />)}</div> : <Empty>No items.</Empty>}
-      </div>
+      {list.loading && !list.data ? <Spinner /> : list.data?.items.length ? (
+        <SelectableItems items={list.data.items} groupByPlace={sort === "location"} onChanged={list.reload} />
+      ) : <div className="card tight"><Empty>No items.</Empty></div>}
       {list.data && <p className="muted">{list.data.total} record{list.data.total === 1 ? "" : "s"}</p>}
     </div>
   );
@@ -216,11 +218,29 @@ export function LocationDetailPage() {
   const me = useMe();
   const nav = useNavigate();
   const d = useApi(() => api.get<LocationDetail>(`locations/${id}`), [id]);
-  const [sheet, setSheet] = useState<null | "child" | "edit" | "move" | "container" | "qr">(null);
+  const scans = useApi(() => api.get<Scan[]>(`locations/${id}/scans`), [id]);
+  const [sheet, setSheet] = useState<null | "child" | "edit" | "move" | "container" | "qr" | "scan">(null);
+  const [scan, setScan] = useState<Scan | null>(null);
   const { run } = useAction();
+  const toast = useToast();
   if (d.loading && !d.data) return <Spinner />;
   if (!d.data) return <div className="page"><ErrorBox error={d.error} /></div>;
   const l = d.data;
+  const pendingScan = scans.data?.find((s) => s.status === "ready");
+
+  async function analyse(file: File) {
+    setSheet("scan");
+    setScan(scanPlaceholder("location", l.id));
+    const f = new FormData();
+    f.append("file", file);
+    try {
+      setScan(await api.upload<Scan>(`locations/${l.id}/scans`, f));
+      scans.reload();
+    } catch (e) {
+      toast((e as Error).message, true);
+      setSheet(null);
+    }
+  }
   return (
     <div className="page">
       <div className="path" style={{ marginBottom: 4 }}>{l.path_parts.slice(0, -1).map((p) => <span key={p.id} className="row" style={{ gap: 4 }}><Link to={`/locations/${p.id}`}>{p.name}</Link><ChevronRight size={12} /></span>)}</div>
@@ -232,11 +252,26 @@ export function LocationDetailPage() {
       {me.can_edit && (
         <div className="quick" style={{ marginBottom: 14 }}>
           <Link to={`/add?location_id=${l.id}&return=/locations/${l.id}`}><span className="ico"><Package size={20} /></span>Add loose item</Link>
+          {me.app.ai.enabled && (
+            <label style={{ cursor: "pointer" }}>
+              <span className="ico"><Sparkles size={20} /></span>Photo inventory
+              <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) analyse(f); }} />
+            </label>
+          )}
           <Link to={`/capture?location_id=${l.id}`}><span className="ico"><Images size={20} /></span>Quick photos</Link>
           <button onClick={() => setSheet("container")}><span className="ico"><Box size={20} /></span>Add container</button>
           <button onClick={() => setSheet("child")}><span className="ico"><MapPin size={20} /></span>Add sub-location</button>
           <Link to={`/maps?location=${l.id}`}><span className="ico"><MapIcon size={20} /></span>Visual maps</Link>
         </div>
+      )}
+      {me.can_edit && pendingScan && sheet !== "scan" && (
+        <div className="notice row between">
+          <span>A photo inventory is waiting for review ({pendingScan.suggestions.length} suggestions).</span>
+          <button className="btn small" onClick={() => { setScan(pendingScan); setSheet("scan"); }}>Review</button>
+        </div>
+      )}
+      {me.can_edit && me.app.ai.enabled && !l.items!.length && !pendingScan && (
+        <p className="muted"><Sparkles size={14} /> Tip: <b>Photo inventory</b> lists everything on this shelf from one photo for you to check.</p>
       )}
       {l.children!.length > 0 && <Section title="Inside" tight><div className="list">{l.children!.map((c) => <Link key={c.id} to={`/locations/${c.id}`}><MapPin size={20} /><div className="grow"><div className="t">{c.name}</div>{c.kind && <div className="s">{c.kind}</div>}</div><ChevronRight size={18} /></Link>)}</div></Section>}
       {l.containers!.length > 0 && <Section title="Containers" tight><div className="list">{l.containers!.map((c) => <ContainerRow key={c.id} c={c} />)}</div></Section>}
@@ -260,6 +295,10 @@ export function LocationDetailPage() {
             <Link className="btn primary block" to={`/labels?locs=${l.id}`}><Printer size={18} /> Print label</Link>
           </div>
         </Sheet>
+      )}
+      {sheet === "scan" && scan && (
+        <ScanReview scan={scan} target={{ kind: "location", id: l.id, name: l.name, items: l.items || [] }}
+          onClose={() => { setSheet(null); setScan(null); d.reload(); scans.reload(); }} />
       )}
       {sheet === "child" && <LocationFormSheet parentId={l.id} onClose={() => setSheet(null)} onSaved={(nid) => nav(`/locations/${nid}`)} />}
       {sheet === "edit" && <LocationFormSheet loc={l} onClose={() => setSheet(null)} onSaved={() => { setSheet(null); d.reload(); }} />}

@@ -357,3 +357,23 @@ button.linkish { background: none; border: 0; padding: 0; color: var(--primary);
 .lightbox-prev, .lightbox-next { position: absolute; top: 50%; transform: translateY(-50%); }
 .lightbox-prev { left: 8px; }
 .lightbox-next { right: 8px; }
+
+/* Multi-select on item lists */
+.list > li.list-head { padding: 8px 16px; background: var(--surface-2); color: var(--muted); font-size: .8rem; font-weight: 700; }
+.list > li.selectable { cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
+.list > li.selectable.on { background: var(--primary-soft); }
+.list > li.selectable .tick { color: var(--primary); flex: none; }
+.selection-bar {
+  position: sticky; bottom: calc(var(--nav-h) + var(--safe-bottom) + 8px); z-index: 25;
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px;
+  padding: 10px 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border);
+  box-shadow: 0 6px 24px rgba(0,0,0,.18);
+}
+.selection-bar > b { flex-basis: 100%; }
+.selection-bar > .spacer { display: none; }
+.selection-bar > .btn { flex: 1; justify-content: center; }
+@media (min-width: 640px) {
+  .selection-bar > b { flex-basis: auto; }
+  .selection-bar > .spacer { display: block; }
+  .selection-bar > .btn { flex: none; }
+}

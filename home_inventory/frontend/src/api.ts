@@ -395,7 +395,8 @@ export interface SearchResult {
 
 export interface Scan {
   id: number;
-  container_id: number;
+  container_id: number | null;
+  location_id: number | null;
   status: "pending" | "analysing" | "ready" | "failed" | "confirmed" | "discarded";
   provider: string | null;
   model: string | null;
@@ -403,6 +404,7 @@ export interface Scan {
   photo: Attachment | null;
   suggestions: (AISuggestion & {
     quantity: number;
+    position?: string | null;
     match: { item_id: number; name: string; quantity: number; similarity: number } | null;
     proposed_action: "add" | "increase" | "skip";
   })[];

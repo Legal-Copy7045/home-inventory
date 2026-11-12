@@ -311,16 +311,21 @@ class Attachment(Base):
 
 
 class ContainerScan(Base):
-    """A photograph of an open container submitted for AI analysis.
+    """A photograph of an open container or a shelf submitted for AI analysis.
 
     Suggestions live here until a user reviews and confirms them; nothing is
     written to the inventory until then.
     """
 
     __tablename__ = "container_scans"
+    __table_args__ = (
+        CheckConstraint("(container_id IS NULL) != (location_id IS NULL)", name="ck_scan_single_target"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    container_id: Mapped[int] = mapped_column(ForeignKey("containers.id", ondelete="CASCADE"), index=True)
+    # A scan is of a container or of a location (a shelf, bench...), never both.
+    container_id: Mapped[int | None] = mapped_column(ForeignKey("containers.id", ondelete="CASCADE"), index=True)
+    location_id: Mapped[int | None] = mapped_column(ForeignKey("locations.id", ondelete="CASCADE"), index=True)
     photo_id: Mapped[int | None] = mapped_column(ForeignKey("attachments.id", ondelete="SET NULL"))
     status: Mapped[ScanStatus] = mapped_column(
         Enum(ScanStatus, native_enum=False, length=16), default=ScanStatus.pending
