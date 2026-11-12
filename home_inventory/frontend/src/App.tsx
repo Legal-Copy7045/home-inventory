@@ -17,6 +17,7 @@ import { MaintenancePage } from "./pages/Maintenance";
 import QuickCapture from "./pages/QuickCapture";
 import ScanPage from "./pages/ScanPage";
 import SortPhotos from "./pages/SortPhotos";
+import { startQueue, subscribe as subscribeUploads, waitingCount } from "./uploadQueue";
 import { RecentlyDeleted } from "./components/BulkActions";
 import ToFinish from "./pages/ToFinish";
 
@@ -149,6 +150,24 @@ function AdminSetup() {
   );
 }
 
+/** "3 photos waiting to upload": quick photos saved on this phone but not on the server yet. */
+function UploadIndicator() {
+  const [n, setN] = useState(0);
+  const loc = useLocation();
+  useEffect(() => {
+    startQueue();
+    const refresh = () => void waitingCount().then(setN);
+    refresh();
+    return subscribeUploads(refresh);
+  }, []);
+  if (!n || loc.pathname.startsWith("/capture")) return null;
+  return (
+    <NavLink to="/capture" className="upload-indicator" aria-live="polite">
+      {n} photo{n === 1 ? "" : "s"} waiting to upload
+    </NavLink>
+  );
+}
+
 function Shell({ me }: { me: Me }) {
   const loc = useLocation();
   const nav = useNavigate();
@@ -172,6 +191,7 @@ function Shell({ me }: { me: Me }) {
           {loc.pathname !== "/" && loc.pathname !== "/search" && <div style={{ maxWidth: 320, flex: 1 }} className="hide-sm"><SearchBox /></div>}
         </header>
         <DeepLink />
+        <UploadIndicator />
         {me.admin_setup && <AdminSetup />}
         <Routes>
           <Route path="/" element={<DashboardPage />} />
