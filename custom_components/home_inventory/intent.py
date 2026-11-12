@@ -34,6 +34,8 @@ from homeassistant.helpers import intent
 
 from .api import InventoryError
 from .const import DOMAIN
+from .names import key as name_key
+from .names import normalize
 
 INTENT_WHERE_IS = "HomeInventoryWhereIs"
 INTENT_CHOOSE = "HomeInventoryChoose"
@@ -82,17 +84,12 @@ def _where(item: dict[str, Any]) -> str:
     return f"in {where}"
 
 
-def _norm(s: str) -> str:
-    s = re.sub(r"[^a-z0-9 ]", " ", s.lower())
-    return " ".join(w[:-1] if len(w) > 3 and w.endswith("s") else w for w in s.split())
-
-
 def group_by_name(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Records of the same thing (same name) together, best match first."""
     groups: dict[str, dict[str, Any]] = {}
     for it in results:
         name = it.get("display_name") or it.get("name") or "That"
-        g = groups.setdefault(_norm(name), {"name": name, "items": []})
+        g = groups.setdefault(name_key(name), {"name": name, "items": []})
         g["items"].append(it)
     return list(groups.values())
 
@@ -146,7 +143,7 @@ def spoken_answer(query: str, results: list[dict[str, Any]]) -> tuple[str, list[
     if not results:
         return f"I couldn't find {query} in your inventory.", None
     groups = group_by_name(results)
-    exact = [g for g in groups if _norm(g["name"]) == _norm(query)]
+    exact = [g for g in groups if name_key(g["name"]) == name_key(query)]
     if len(groups) == 1 or len(exact) == 1:
         return answer_for(exact[0] if exact else groups[0]), None
     shown = groups[:MAX_CHOICES]
@@ -159,9 +156,9 @@ def spoken_answer(query: str, results: list[dict[str, Any]]) -> tuple[str, list[
 
 def pick(choice: str, groups: list[dict[str, Any]]) -> dict[str, Any] | None:
     """The group a reply refers to: by position ("the second one") or name."""
-    words = _norm(choice).split()
+    words = normalize(choice).split()
     for w in words:
-        if w in ORDINALS and ORDINALS[w] < len(groups) and not any(w in _norm(g["name"]).split() for g in groups):
+        if w in ORDINALS and ORDINALS[w] < len(groups) and not any(w in normalize(g["name"]).split() for g in groups):
             return groups[ORDINALS[w]]
     if "last" in words:
         return groups[-1]
@@ -170,7 +167,7 @@ def pick(choice: str, groups: list[dict[str, Any]]) -> dict[str, Any] | None:
         return None
     best, best_score = None, 0.0
     for g in groups:
-        name = _norm(g["name"])
+        name = normalize(g["name"])
         name_words = set(name.split())
         overlap = len(set(target.split()) & name_words) / max(1, len(set(target.split())))
         score = max(SequenceMatcher(None, target, name).ratio(), overlap)
