@@ -64,6 +64,7 @@ from ..schemas import (
     MapPatch,
     MarkersIn,
     MoveIn,
+    PlaceItemsIn,
     ReturnIn,
     ScanConfirmIn,
     SettingsIn,
@@ -82,7 +83,7 @@ from ..services import scans as scans_svc
 from ..services import search as search_svc
 from ..services import stats as stats_svc
 from ..services.media import MediaError
-from ..services.placement import PlacementError, Resolver
+from ..services.placement import PlacementError, Resolver, validate_item_target
 
 _LOGGER = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1")
@@ -635,14 +636,16 @@ async def quick_capture(
     file: UploadFile = File(...),
     container_id: int | None = Form(None),
     location_id: int | None = Form(None),
+    batch: str | None = Form(None, max_length=64),
+    group: int | None = Form(None, ge=1, le=1000),
     actor: Actor = Depends(require_member),
     db: Session = Depends(get_db),
 ):
-    """Quick photo: store the photo as a new item in the given place, flagged
-    as needing details, and queue an AI suggestion in the background."""
+    """Quick photo: store the photo as a new item, flagged as needing details,
+    and queue an AI suggestion in the background.  The place is optional:
+    photos taken without one are sorted onto shelves later (``/capture/place``)."""
     st = _state(request)
-    if container_id is None and location_id is None:
-        raise HTTPException(422, "Choose a container or location for quick photos")
+    _err(validate_item_target, db, container_id, location_id)  # before storing the file
     data = await file.read(st.media.max_bytes + 1)
     if len(data) > st.media.max_bytes:
         raise HTTPException(413, "File too large")
@@ -653,11 +656,36 @@ async def quick_capture(
     photo = Attachment(kind=AttachmentKind.photo, original_name=file.filename, created_by_id=actor.user_id, **stored.__dict__)
     db.add(photo)
     db.flush()
-    item = _err(capture_svc.capture, db, actor, photo, container_id, location_id, st.ai.enabled)
+    item = _err(capture_svc.capture, db, actor, photo, container_id, location_id, st.ai.enabled, batch, group)
     db.commit()
     if st.ai.enabled:
         st.capture_queue.put_nowait(item.id)
     return inv.item_out(item, _resolver(db), db)
+
+
+@router.get("/capture/unsorted")
+def capture_unsorted(actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    """Quick photos taken without a place, grouped as they were taken."""
+    r = _resolver(db)
+    items = capture_svc.unsorted_items(db)
+    return {
+        "total": len(items),
+        "groups": [{**g, "items": [inv.item_out(i, r, db) for i in g["items"]]} for g in capture_svc.unsorted_groups(items)],
+    }
+
+
+@router.post("/capture/place")
+def capture_place(data: PlaceItemsIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Put several items in one place at once (e.g. a whole shelf's photos)."""
+    if data.container_id is None and data.location_id is None:
+        raise HTTPException(422, "Choose a container or location")
+    _err(validate_item_target, db, data.container_id, data.location_id)
+    items = [_get_or_404(db, Item, i) for i in dict.fromkeys(data.item_ids)]
+    move = MoveIn(container_id=data.container_id, location_id=data.location_id)
+    moved = [_err(inv.move_item, db, actor, item, move) for item in items]
+    db.commit()
+    r = _resolver(db)
+    return {"items": [inv.item_out(i, r, db) for i in moved]}
 
 
 @router.get("/products/similar")

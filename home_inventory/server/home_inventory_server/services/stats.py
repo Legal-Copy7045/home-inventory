@@ -55,6 +55,10 @@ def stats(db: Session, warranty_days: int = 30, expiry_days: int = 14) -> dict[s
         "expired": sum(1 for i in items if i.quantity > 0 and i.expires_on and i.expires_on < today),
         "expiry_window_days": expiry_days,
         "needs_details": sum(1 for i in items if i.product.identification_status is IdentificationStatus.pending),
+        "unsorted_photos": sum(
+            1 for i in items
+            if i.container_id is None and i.location_id is None and isinstance((i.ai_metadata or {}).get("capture"), dict)
+        ),
         "low_stock": db.scalar(select(func.count()).select_from(Product).where(Product.deleted_at.is_(None), Product.low_stock_notified_at.is_not(None))) or 0,
         "warranty_window_days": warranty_days,
         "last_activity": (db.scalar(select(func.max(HistoryEvent.ts))) or None),

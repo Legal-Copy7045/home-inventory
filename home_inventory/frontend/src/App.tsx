@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { HashRouter, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Activity, ArrowLeft, Box, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings, Users, Wrench, ClipboardList, Boxes, Nfc, ShoppingCart } from "lucide-react";
+import { Activity, ArrowLeft, Box, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings, Users, Wrench, ClipboardList, Boxes, Nfc, ShoppingCart, Camera, Images } from "lucide-react";
 import { api, appBaseUrl, labelRef, type Me, type QrTarget } from "./api";
 import { MeContext, Sheet, Spinner, ToastHost, useToast } from "./components/ui";
 import AddItem from "./pages/AddItem";
@@ -16,6 +16,7 @@ import { TagScanPage, TagsPage } from "./pages/Tags";
 import { MaintenancePage } from "./pages/Maintenance";
 import QuickCapture from "./pages/QuickCapture";
 import ScanPage from "./pages/ScanPage";
+import SortPhotos from "./pages/SortPhotos";
 import ToFinish from "./pages/ToFinish";
 
 const NAV = [
@@ -24,6 +25,8 @@ const NAV = [
   { to: "/add", label: "Add Item", icon: Plus, edit: true },
   { to: "/scan", label: "Scan", icon: ScanLine },
   { to: "/items", label: "Items", icon: Package },
+  { to: "/capture", label: "Quick photos", icon: Camera, edit: true },
+  { to: "/sort", label: "To sort", icon: Images },
   { to: "/to-finish", label: "To finish", icon: ListChecks },
   { to: "/maintenance", label: "Maintenance", icon: Wrench },
   { to: "/shopping", label: "Restock", icon: ShoppingCart },
@@ -43,7 +46,7 @@ const NAV = [
 const TITLES: [RegExp, string][] = [
   [/^\/$/, "Home Inventory"], [/^\/search/, "Search"], [/^\/add/, "Add item"], [/^\/scan/, "Scan"], [/^\/items\/\d+/, "Item"], [/^\/items/, "Items"],
   [/^\/containers\/\d+/, "Container"], [/^\/containers/, "Containers"], [/^\/locations/, "Locations"], [/^\/maps/, "Visual maps"], [/^\/labels/, "Labels"],
-  [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/maintenance/, "Maintenance"], [/^\/kits\/\d+/, "Kit"], [/^\/tags/, "NFC tags"], [/^\/shopping/, "Restock & shopping"], [/^\/tag\//, "Tag"], [/^\/kits/, "Kits"], [/^\/customers\/\d+/, "Customer"], [/^\/customers/, "Customers"], [/^\/repairs\/\d+\/print/, "Work order"], [/^\/repairs\/\d+/, "Repair job"], [/^\/repairs/, "Repairs"], [/^\/activity/, "Activity"], [/^\/loans/, "Loans & temporary"], [/^\/settings/, "Settings"],
+  [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/sort/, "To sort"], [/^\/maintenance/, "Maintenance"], [/^\/kits\/\d+/, "Kit"], [/^\/tags/, "NFC tags"], [/^\/shopping/, "Restock & shopping"], [/^\/tag\//, "Tag"], [/^\/kits/, "Kits"], [/^\/customers\/\d+/, "Customer"], [/^\/customers/, "Customers"], [/^\/repairs\/\d+\/print/, "Work order"], [/^\/repairs\/\d+/, "Repair job"], [/^\/repairs/, "Repairs"], [/^\/activity/, "Activity"], [/^\/loans/, "Loans & temporary"], [/^\/settings/, "Settings"],
 ];
 
 /** QR labels can encode `<base>?c=CODE`; open the container when launched that way. */
@@ -151,7 +154,7 @@ function Shell({ me }: { me: Me }) {
   const [more, setMore] = useState(false);
   useEffect(() => { setMore(false); window.scrollTo(0, 0); }, [loc.pathname]);
   const title = TITLES.find(([re]) => re.test(loc.pathname))?.[1] || "Home Inventory";
-  const isRoot = ["/", "/search", "/scan", "/items", "/to-finish", "/maintenance", "/kits", "/tags", "/shopping", "/repairs", "/customers", "/containers", "/locations", "/maps", "/labels", "/activity", "/loans", "/settings"].includes(loc.pathname);
+  const isRoot = ["/", "/search", "/scan", "/items", "/capture", "/sort", "/to-finish", "/maintenance", "/kits", "/tags", "/shopping", "/repairs", "/customers", "/containers", "/locations", "/maps", "/labels", "/activity", "/loans", "/settings"].includes(loc.pathname);
   const items = NAV.filter((n) => !n.edit || me.can_edit);
   return (
     <div className="app">
@@ -175,6 +178,7 @@ function Shell({ me }: { me: Me }) {
           <Route path="/add" element={<AddItem />} />
           <Route path="/scan" element={<ScanPage />} />
           <Route path="/capture" element={<QuickCapture />} />
+          <Route path="/sort" element={<SortPhotos />} />
           <Route path="/to-finish" element={<ToFinish />} />
           <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/kits" element={<KitsPage />} />
