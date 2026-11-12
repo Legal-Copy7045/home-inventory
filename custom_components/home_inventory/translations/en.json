@@ -51,7 +51,9 @@
       "warranties_expiring": { "name": "Warranties expiring" },
       "expiring_soon": { "name": "Items expiring soon" },
       "expired": { "name": "Expired items" },
-      "low_stock": { "name": "Products running low" }
+      "low_stock": { "name": "Products running low" },
+      "maintenance_overdue": { "name": "Maintenance overdue" },
+      "maintenance_due_soon": { "name": "Maintenance due soon" }
     },
     "binary_sensor": {
       "app_available": { "name": "Inventory app" }

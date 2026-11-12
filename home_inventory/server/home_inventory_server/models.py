@@ -88,6 +88,18 @@ class ScanStatus(str, enum.Enum):
     discarded = "discarded"
 
 
+class MeterKind(str, enum.Enum):
+    hours = "hours"
+    cycles = "cycles"
+
+
+class ServiceOutcome(str, enum.Enum):
+    completed = "completed"
+    skipped = "skipped"
+    deferred = "deferred"
+    not_applicable = "not_applicable"
+
+
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
@@ -276,6 +288,10 @@ class Attachment(Base):
     product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), index=True)
     container_id: Mapped[int | None] = mapped_column(ForeignKey("containers.id", ondelete="CASCADE"), index=True)
     location_id: Mapped[int | None] = mapped_column(ForeignKey("locations.id", ondelete="CASCADE"), index=True)
+    # Photos and receipts recorded with a service/maintenance entry.
+    service_event_id: Mapped[int | None] = mapped_column(
+        ForeignKey("service_events.id", ondelete="SET NULL", name="fk_attachments_service_event_id"), index=True
+    )
     original_name: Mapped[str | None] = mapped_column(String(255))
     # Path relative to the media directory.  Never user controlled.
     stored_path: Mapped[str] = mapped_column(String(255), unique=True)
@@ -408,3 +424,145 @@ class Setting(Base):
 
     key: Mapped[str] = mapped_column(String(80), primary_key=True)
     value: Mapped[Any] = mapped_column(JSON)
+
+
+# ---------------------------------------------------------------------------
+# Equipment maintenance
+# ---------------------------------------------------------------------------
+
+
+class EquipmentProfile(TimestampMixin, Base):
+    """Optional maintenance details for an item (one per item).
+
+    Manufacturer, model and serial number stay on the product/item; this
+    adds what only matters for maintenance.  ``specs`` is a free list of
+    ``{"label", "value", "kind": "spec"|"part", "part_number"}`` entries so
+    any equipment type can record its own specifications and parts.
+    """
+
+    __tablename__ = "equipment_profiles"
+    __table_args__ = (CheckConstraint("meter IN ('none', 'hours', 'cycles', 'both')", name="ck_equipment_meter"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"), unique=True)
+    equipment_type: Mapped[str | None] = mapped_column(String(80), index=True)
+    engine_manufacturer: Mapped[str | None] = mapped_column(String(120))
+    engine_model: Mapped[str | None] = mapped_column(String(120))
+    engine_serial: Mapped[str | None] = mapped_column(String(120))
+    fuel_type: Mapped[str | None] = mapped_column(String(60))
+    # Which usage meter the equipment has: none, hours, cycles or both.
+    meter: Mapped[str] = mapped_column(String(10), default="hours")
+    specs: Mapped[list[Any] | None] = mapped_column(JSON)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
+class MaintenanceTask(TimestampMixin, Base):
+    """A recurring (or one-off) maintenance job for an item.
+
+    Any combination of calendar, hour and cycle intervals; whichever
+    threshold comes first makes the task due.  With no interval it is a
+    manual task with an optional ``next_due_on``.
+    """
+
+    __tablename__ = "maintenance_tasks"
+    __table_args__ = (
+        CheckConstraint("interval_days IS NULL OR interval_days > 0", name="ck_task_interval_days"),
+        CheckConstraint("interval_hours IS NULL OR interval_hours > 0", name="ck_task_interval_hours"),
+        CheckConstraint("interval_cycles IS NULL OR interval_cycles > 0", name="ck_task_interval_cycles"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    instructions: Mapped[str | None] = mapped_column(Text)
+    interval_days: Mapped[int | None] = mapped_column(Integer)
+    interval_hours: Mapped[Decimal | None] = mapped_column(Numeric(10, 1))
+    interval_cycles: Mapped[int | None] = mapped_column(Integer)
+    due_soon_days: Mapped[int] = mapped_column(Integer, default=14)
+    due_soon_hours: Mapped[Decimal] = mapped_column(Numeric(10, 1), default=Decimal("5"))
+    due_soon_cycles: Mapped[int] = mapped_column(Integer, default=2)
+    last_done_on: Mapped[date | None] = mapped_column(Date)
+    last_done_hours: Mapped[Decimal | None] = mapped_column(Numeric(10, 1))
+    last_done_cycles: Mapped[int | None] = mapped_column(Integer)
+    next_due_on: Mapped[date | None] = mapped_column(Date, index=True)
+    next_due_hours: Mapped[Decimal | None] = mapped_column(Numeric(10, 1))
+    next_due_cycles: Mapped[int | None] = mapped_column(Integer)
+    deferred_until: Mapped[date | None] = mapped_column(Date)
+    not_applicable: Mapped[bool] = mapped_column(default=False)
+    sort_order: Mapped[int] = mapped_column(default=0)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class MeterReading(Base):
+    """An operating-hours or usage-cycle reading (measured or estimated)."""
+
+    __tablename__ = "meter_readings"
+    __table_args__ = (
+        Index("ix_meter_item_kind_time", "item_id", "kind", "recorded_at"),
+        CheckConstraint("value >= 0", name="ck_meter_value_non_negative"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"))
+    kind: Mapped[MeterKind] = mapped_column(Enum(MeterKind, native_enum=False, length=10))
+    value: Mapped[Decimal] = mapped_column(Numeric(10, 1))
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # manual | estimated | service | sensor | correction
+    source: Mapped[str] = mapped_column(String(20), default="manual")
+    note: Mapped[str | None] = mapped_column(String(300))
+    service_event_id: Mapped[int | None] = mapped_column(ForeignKey("service_events.id", ondelete="SET NULL"))
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
+class ServiceEvent(TimestampMixin, Base):
+    """One entry in an item's service history.
+
+    History must outlive schedule changes: ``task_id`` is cleared (not
+    cascaded) when a task is removed, ``task_title`` keeps its name, and
+    ``snapshot`` records the equipment as it was (name, serial, owner).
+    Even permanently purging the item keeps the entry (``item_id`` NULL).
+    """
+
+    __tablename__ = "service_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    item_id: Mapped[int | None] = mapped_column(ForeignKey("items.id", ondelete="SET NULL"), index=True)
+    task_id: Mapped[int | None] = mapped_column(ForeignKey("maintenance_tasks.id", ondelete="SET NULL"), index=True)
+    task_title: Mapped[str | None] = mapped_column(String(200))
+    outcome: Mapped[ServiceOutcome] = mapped_column(
+        Enum(ServiceOutcome, native_enum=False, length=20), default=ServiceOutcome.completed
+    )
+    performed_on: Mapped[date] = mapped_column(Date, index=True)
+    hours: Mapped[Decimal | None] = mapped_column(Numeric(10, 1))
+    cycles: Mapped[int | None] = mapped_column(Integer)
+    title: Mapped[str] = mapped_column(String(200))
+    work_performed: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(Text)
+    performed_by: Mapped[str | None] = mapped_column(String(120))
+    labor_cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    currency: Mapped[str | None] = mapped_column(String(3))
+    snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    parts: Mapped[list[ServicePart]] = relationship(
+        back_populates="event", cascade="all, delete-orphan", order_by="ServicePart.id"
+    )
+
+
+class ServicePart(Base):
+    """A part or consumable used in a service entry."""
+
+    __tablename__ = "service_parts"
+    __table_args__ = (CheckConstraint("quantity > 0", name="ck_part_quantity_positive"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    service_event_id: Mapped[int] = mapped_column(ForeignKey("service_events.id", ondelete="CASCADE"), index=True)
+    # Optional link to the inventory holding the part was taken from.
+    item_id: Mapped[int | None] = mapped_column(ForeignKey("items.id", ondelete="SET NULL"))
+    description: Mapped[str] = mapped_column(String(300))
+    part_number: Mapped[str | None] = mapped_column(String(120))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("1"))
+    unit_cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+
+    event: Mapped[ServiceEvent] = relationship(back_populates="parts")

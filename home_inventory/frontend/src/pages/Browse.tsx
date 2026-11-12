@@ -40,6 +40,7 @@ export function DashboardPage() {
             <Link className="stat" to="/containers"><div className="v">{s.containers}</div><div className="l">Containers</div></Link>
             <Link className={`stat ${s.loans_overdue ? "alert" : ""}`} to="/loans"><div className="v">{s.on_loan}</div><div className="l">On loan{s.loans_overdue ? ` · ${s.loans_overdue} overdue` : ""}</div></Link>
             <Link className={`stat ${s.expired ? "alert" : ""}`} to="/loans?tab=expiry"><div className="v">{s.expiring_soon + s.expired}</div><div className="l">Expiring / expired</div></Link>
+            {(s.maintenance_overdue ?? 0) > 0 && <Link className="stat alert" to="/maintenance"><div className="v">{s.maintenance_overdue}</div><div className="l">Maintenance overdue</div></Link>}
             {s.needs_details > 0 && <Link className="stat" to="/to-finish"><div className="v" style={{ color: "var(--primary)" }}>{s.needs_details}</div><div className="l">To finish (quick photos)</div></Link>}
             {s.low_stock > 0 && <Link className="stat alert" to="/loans?tab=stock"><div className="v">{s.low_stock}</div><div className="l">Running low</div></Link>}
             {s.total_value > 0 && <div className="stat"><div className="v" style={{ fontSize: "1.2rem" }}>{money(s.total_value, s.currency)}</div><div className="l">Recorded value</div></div>}

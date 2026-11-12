@@ -17,6 +17,8 @@ There is one service device, **Home Inventory**, with summary entities only. Ind
 | `sensor.home_inventory_items_expiring_soon` | Holdings reaching their use-by date within `expiry_notice_days` |
 | `sensor.home_inventory_expired_items` | Holdings past their use-by date |
 | `sensor.home_inventory_products_running_low` | Products below their low-stock threshold |
+| `sensor.home_inventory_maintenance_overdue` | Maintenance tasks past their date, hours or uses |
+| `sensor.home_inventory_maintenance_due_soon` | Maintenance tasks within their "due soon" window |
 | `binary_sensor.home_inventory_inventory_app` | App availability (attribute `live_events`) |
 
 ## Actions
