@@ -79,8 +79,8 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          # "topics" only matters for listing in the default HACS store; this
-          # repository is added to HACS as a custom repository.
+          # Remove once the repository topics are set and the brands PR is
+          # merged (needed for the default HACS store, see docs/publishing.md).
           ignore: brands topics
 
   app-lint:
@@ -90,6 +90,8 @@ jobs:
       - uses: frenck/action-addon-linter@v2
         with:
           path: ./home_inventory
+      - name: Versions agree everywhere and have a changelog entry
+        run: python3 .github/scripts/check_versions.py
 
   app-build:
     runs-on: ubuntu-latest
