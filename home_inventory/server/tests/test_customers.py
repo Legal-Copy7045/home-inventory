@@ -151,10 +151,10 @@ def test_read_only_users_cannot_see_customer_information(env):
     for path in ("/api/v1/customers", f"/api/v1/customers/{c['id']}", "/api/v1/repair-jobs", f"/api/v1/repair-jobs/{job['id']}",
                  f"/api/v1/items/{job['item']['id']}/repair-jobs", "/api/v1/maintenance/dashboard?owner=customer"):
         assert viewer.get(path).status_code == 403, path
-    item = viewer.ok("get", f"/api/v1/items/{job['item']['id']}")
-    assert item["owner"] == {"kind": "customer", "customer_id": None, "name": None}
+    # Customer equipment is not visible to read-only users at all (0.7.1).
+    assert viewer.get(f"/api/v1/items/{job['item']['id']}").status_code == 404
     listed = viewer.ok("get", "/api/v1/items")["items"]
-    assert all("Pat" not in str(i.get("owner")) for i in listed)
+    assert all(i["id"] != job["item"]["id"] and not i.get("owner") for i in listed)
     events = viewer.ok("get", "/api/v1/history")["events"]
     assert not any("Pat" in e["summary"] for e in events), [e["summary"] for e in events]
     # members can see them

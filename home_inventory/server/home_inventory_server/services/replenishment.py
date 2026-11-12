@@ -26,7 +26,16 @@ from sqlalchemy.orm import Session
 from .. import audit
 from ..auth import Actor
 from ..events import queue_event
-from ..models import Item, ItemStatus, Product, ProductSource, ReplenishmentProfile, Setting, ShoppingListItem
+from ..models import (
+    Item,
+    ItemOwner,
+    ItemStatus,
+    Product,
+    ProductSource,
+    ReplenishmentProfile,
+    Setting,
+    ShoppingListItem,
+)
 from . import retailers
 from .customers import household_only
 from .inventory import adjust_quantity, product_total
@@ -327,6 +336,8 @@ def mark_purchased(db: Session, actor: Actor, entry: ShoppingListItem, quantity:
         raise ReplenishmentError("This entry is already closed")
     product = db.get(Product, entry.product_id)
     qty = quantity or entry.quantity
+    # Validate everything before changing anything.
+    target = _purchase_target(db, product, item_id) if add_to_stock else None
     entry.status = "purchased"
     entry.purchased_at = datetime.now(UTC)
     entry.purchased_quantity = qty
@@ -338,17 +349,33 @@ def mark_purchased(db: Session, actor: Actor, entry: ShoppingListItem, quantity:
     prof.last_purchased_on = date.today()
     if unit_price is not None:
         prof.last_price = unit_price
-    if add_to_stock:
-        target = db.get(Item, item_id) if item_id else db.scalar(
-            select(Item).where(Item.product_id == product.id, Item.deleted_at.is_(None), Item.status != ItemStatus.missing,
-                               household_only()).order_by(Item.id))
-        if target is None or target.product_id != product.id or target.deleted_at is not None:
-            raise ReplenishmentError("Choose which holding to add the purchase to")
+    if target is not None:
         adjust_quantity(db, actor, target, qty, "Bought (shopping list)")
     audit.record(db, actor, "shopping_purchased", "item", _first_item_id(db, product.id) or 0,
                  f"Bought {qty} × {product.name}" + (" and added to stock" if add_to_stock else ""))
     _event(db, actor, "purchased")
     return entry
+
+
+def _purchase_target(db: Session, product: Product, item_id: int | None) -> Item:
+    """The household holding a purchase is added to.
+
+    An explicitly chosen holding must exist, be live, be this product and
+    belong to the household; it is never silently swapped for another one.
+    Customer equipment is never topped up from household shopping.
+    """
+    if item_id is not None:
+        target = db.get(Item, item_id)
+        if target is None or target.deleted_at is not None or target.product_id != product.id:
+            raise ReplenishmentError("That holding isn't a current holding of this item")
+        if db.get(ItemOwner, target.id) is not None:
+            raise ReplenishmentError("That holding belongs to a customer; household purchases can't be added to it")
+        return target
+    target = db.scalar(select(Item).where(Item.product_id == product.id, Item.deleted_at.is_(None),
+                                          Item.status != ItemStatus.missing, household_only()).order_by(Item.id))
+    if target is None:
+        raise ReplenishmentError("Choose which holding to add the purchase to")
+    return target
 
 
 def entry_out(db: Session, e: ShoppingListItem, settings: dict[str, str]) -> dict[str, Any]:

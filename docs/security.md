@@ -23,7 +23,29 @@ Ingress alone does **not** pass identity to an App unless the App checks it. Her
 
 Roles are `admin`, `member` and `read_only`, enforced server-side on every endpoint. Writes require `member`. User management, settings, backup/restore and permanent deletion require `admin`. An administrator cannot remove their own admin role.
 
-`tests/test_authz_routes.py` walks the real route table, so new endpoints are covered automatically. It checks that every state-changing route refuses read-only users, that every route on the API port requires the token, and that every Ingress route refuses untrusted peers.
+### Customer data and read-only users (0.7.1)
+
+**Rule:** read-only users never see customer information or customer repair records. That covers customers, their equipment (including its name, photos, documents, notes, serial number, maintenance and meter history, NFC tags, related-item links and kit membership), repair jobs, and history entries about any of these. Household inventory is unaffected.
+
+Enforcement is central (`privacy.py`):
+- **ORM filter.** Every ORM query made for a read-only user gets `with_loader_criteria` filters that hide customer-owned items, products that only customers own, their attachments, service events and parts, meter readings, tasks, loans, links, kit members, tags, restock records and history, as well as all customers and repair jobs. This covers direct lookups (`Session.get`), lists, search, relationship loads and anything added later. Hidden records answer exactly like missing ones (404 / "Tag not recognised").
+- **Route checks.** Customer and repair routes also require the member role, even to read (403).
+- **Second-record history.** A history entry about one record that mentions another item (links, kit members, tag moves, parts taken from stock) says "customer equipment" instead of naming it.
+- **Home Assistant events.** Events about customer equipment never carry its name, because Home Assistant's event bus is visible to every Home Assistant user.
+- **Ownership is immutable from the household side.** Household purchases can't be added to a customer's holding, and service parts can't be taken from customer stock.
+
+| Endpoint group | Read-only users |
+|---|---|
+| Items, containers, locations, search, dashboard, loans, low stock, trash, labels, maps, kits, item links, history | Household records only |
+| Attachment file and thumbnail | Household attachments only; 404 for customer equipment and repair-job files |
+| Maintenance (item summary, dashboard) | Household equipment only; `owner=customer` returns 403 |
+| Restock, shopping list | Household products only |
+| NFC tag list and resolve, QR resolve | Allowed (lookups); customer equipment tags don't resolve |
+| Customers, customer equipment, repair jobs, item repair jobs | 403 |
+| Barcode lookup | 403 (unchanged: it can call paid external services) |
+| All writes | 403 |
+
+`tests/test_privacy.py` checks each path, and `tests/test_authz_routes.py` walks the real route table, so new endpoints are covered automatically. It checks that every state-changing route refuses read-only users, that every route on the API port requires the token, and that every Ingress route refuses untrusted peers.
 
 ## Secrets
 
