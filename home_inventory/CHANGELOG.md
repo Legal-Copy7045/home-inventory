@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.3
+
+- **Voice answers use "are" for plural names:** "Wood screws are in Basement…", "Pliers are lent to Sam", while "Axle stand is…" and "Box of screws is…" stay singular. It goes by the name, not the quantity.
+
 ## 0.10.2
 
 - **Voice answers say the box first.** "Kink Control Plus Water Hose 50ft is in Plastic tote number 1, labelled Hoses, located in Shed, Rear Right Shelving, Middle Shelf." instead of reading the whole path in one go. Boxes inside boxes are named innermost first. The box's type (set on the container, e.g. "Plastic tote") is used when it has one.
