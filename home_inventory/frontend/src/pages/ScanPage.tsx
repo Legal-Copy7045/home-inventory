@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowRightLeft, Box, ExternalLink, Minus, Plus, X } from "lucide-react";
+import { ArrowRightLeft, Box, ExternalLink, Hand, Minus, Plus, X } from "lucide-react";
 import { api, labelRef, type BarcodeResult, type Container, type Item, type QrTarget } from "../api";
 import { ScanWithPhone, nfcSupport } from "./Tags";
 import { PlacementPicker } from "../components/PlacementPicker";
 import { Scanner, type Detection } from "../components/Scanner";
+import { PhotoFind, PutAwaySheet, TakenStrip, takeItem, useTaken, type Place, type TakenItem } from "../components/TakeAway";
 import { Empty, Sheet, Thumb, useAction, useMe, useToast } from "../components/ui";
 
 type UseChoice = { item_id: number; name: string; quantity: number; path: string };
@@ -31,6 +32,9 @@ export default function ScanPage() {
   const [moving, setMoving] = useState<Item | null>(null);
   const { busy, run } = useAction();
   const containerId = params.get("container");
+  // Things you've taken: scanning a label offers to put them away there.
+  const taken = useTaken(me.can_edit);
+  const [putAway, setPutAway] = useState<{ place: Place; items: TakenItem[]; open: () => void; openText: string } | null>(null);
   // "Take one out": scanning a consumable's barcode uses one straight away.
   const useMode = params.get("mode") === "use";
   const [choices, setChoices] = useState<{ code: string; format: string; list: UseChoice[] } | null>(null);
@@ -77,12 +81,23 @@ export default function ScanPage() {
       }
       try {
         const r = await api.post<QrTarget>("qr/resolve", { text: d.text });
-        if (r.type === "location") {
-          nav(`/locations/${r.id}`);
+        const open = () => {
+          setPutAway(null);
+          if (r.type === "location") nav(`/locations/${r.id}`);
+          else { setParams({ container: String(r.id) }, { replace: true }); toast("Container opened"); }
+        };
+        // Ask the server, not the list loaded when the page opened: a label
+        // scanned straight after "Take it" must still offer to put it away.
+        const carrying = me.can_edit ? (await api.get<{ items: TakenItem[] }>("taken")).items.filter((i) => i.mine) : [];
+        if (carrying.length) {
+          taken.reload();
+          const label = r.type === "location" ? (await api.get<{ path: string }>(`locations/${r.id}`)).path
+                                              : (await api.get<{ path: string; name: string }>(`containers/${r.id}`)).name;
+          setPutAway({ place: { container_id: r.type === "location" ? null : r.id, location_id: r.type === "location" ? r.id : null, label },
+                       items: carrying, open, openText: r.type === "location" ? "Open this place" : "Open this box" });
           return;
         }
-        setParams({ container: String(r.id) }, { replace: true });
-        toast("Container opened");
+        open();
       } catch (e) {
         toast((e as Error).message, true);
       }
@@ -156,7 +171,13 @@ export default function ScanPage() {
       )}
       {useMode && <p className="muted" style={{ marginTop: 0 }}>Each barcode scanned takes one out of stock (from this container when one is open). Restock alerts update straight away.</p>}
 
-      <Scanner onDetect={onDetect} paused={!!barcode || !!moving || !!choices} hint={container ? "Scan a product barcode or another label" : "Scan a QR label or barcode"} />
+      <TakenStrip items={taken.items} />
+      <Scanner onDetect={onDetect} paused={!!barcode || !!moving || !!choices || !!putAway} hint={container ? "Scan a product barcode or another label" : "Scan a QR label or barcode"} />
+
+      {me.can_edit && me.app.ai.enabled && (
+        <PhotoFind here={container ? { container_id: container.id, location_id: null, label: container.name } : null}
+                   onChanged={() => { taken.reload(); if (container) loadContainer(container.id); }} />
+      )}
 
       {container && (
         <div className="card tight" style={{ marginTop: 14 }}>
@@ -205,6 +226,10 @@ export default function ScanPage() {
                 Add to shopping list
               </button>
             )}
+            {me.can_edit && barcode.result.inventory_matches.flatMap((m) => m.holdings).length === 1 && (() => {
+              const h = barcode.result.inventory_matches[0].holdings[0];
+              return <button className="btn block" disabled={busy} onClick={async () => { await run(() => takeItem(h.item_id), "Taken; scan a label to put it away"); setBarcode(null); taken.reload(); }}><Hand size={18} /> Take it</button>;
+            })()}
             {barcode.result.inventory_matches[0]?.holdings[0] && <Link className="btn block" to={`/items/${barcode.result.inventory_matches[0].holdings[0].item_id}`}>View item</Link>}
             <button className="btn ghost block" onClick={() => setBarcode(null)}>Keep scanning</button>
           </div>
@@ -221,6 +246,10 @@ export default function ScanPage() {
             ))}
           </div>
         </Sheet>
+      )}
+      {putAway && (
+        <PutAwaySheet place={putAway.place} items={putAway.items} onClose={() => setPutAway(null)} onChanged={() => { taken.reload(); if (container) loadContainer(container.id); }}
+                      openLabel={{ text: putAway.openText, onClick: putAway.open }} />
       )}
       {moving && (
         <PlacementPicker title={`Move ${moving.name} to…`} onClose={() => setMoving(null)} onPick={async (p) => {

@@ -68,6 +68,19 @@ Quick photos are saved on your phone before they upload. If you lose signal, or 
 
 Ask "Where is the hedge trimmer?", "What maintenance is due?", "What's running low?" or "What's lent out?". It works with Home Assistant Assist once you add a small sentences file, with Siri through an Apple Shortcut that hands your words to Assist, and with Alexa through your own custom skill ("Alexa, ask Home Inventory where the hedge trimmer is"). See `docs/voice.md` in the repository for the setup and the trade-offs (Alexa needs Home Assistant reachable from the internet).
 
+## Take it and put away
+
+For tools and other things you borrow from their place and bring back:
+
+1. **Take it.** On an item's page tap **Take it**. You can also take it after scanning its barcode (when you have just one of it), or after identifying it from a photo (below). The item is marked as with you (status *In use*), and its record still says where it lives. The Scan page shows what you're carrying.
+2. **Put it away.** On the Scan page, scan the label of the box or shelf where you're putting it. You're asked **Put away here?** for each thing you're carrying:
+   - if it's the item's own place, or the usual place it was temporarily moved from, it simply goes back;
+   - if it's somewhere new, choose **Move it here** (its new home) or **Just this once** (a temporary move: the item remembers its usual place, and *Put back* returns it there).
+
+   No label to hand? On the item page tap **Put away** and choose the place.
+
+**What is this? Identify by photo.** With AI set up, the Scan page has **What is this? Identify by photo**. Photograph the thing; the AI says what it is and lists your matching items. Pick the right one, then **Take it**, **Take one out** (to use one up), **Put away here** (when a box is open in Scan), or open it. If it isn't in your inventory, **None of these: add it** starts a new item with the name filled in. The photo isn't kept.
+
 ## Taking things out of stock by barcode
 
 **Scan → Take one out** turns the scanner into a "used one" button for consumables: every barcode scanned removes one from stock. With a container open in scan mode it takes from that container; otherwise, if you keep the product in more than one place, you're asked which. Low-stock alerts and the shopping list update immediately.
