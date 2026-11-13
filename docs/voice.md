@@ -34,7 +34,7 @@ Restart Home Assistant (or reload conversation). Then say or type "Where is the 
 
 If your words match several different things, it asks: *"I found 3 things for hose: Kink Control Plus Water Hose 50ft, Siphon pump hose and Siphon pump with hose and funnel. Which one did you mean?"* Answer with "the water hose one", "the siphon pump" or "the second one" (within two minutes). Voice devices keep listening after a question, so you can just answer.
 
-**Putting things back.** "Where does the hammer go?", "Tell me where to put the engine oil", "Where should I put my drill back?" or "Where does the jigsaw belong?" answer with the thing's usual place: *"Hammer goes in Garage, Tool wall."* If it isn't there right now, that's added: *"Saw goes in Shed. It's in Kitchen for now."*, *"Drill goes in Shed. Sam has it at the moment."* This works with Assist and Siri (through Assist); the Alexa skill is unchanged and answers "where is…" questions. After updating, copy the new sentences file again.
+**Putting things back.** "Where does the hammer go?", "Tell me where to put the engine oil", "Where should I put my drill back?" or "Where does the jigsaw belong?" answer with the thing's usual place: *"Hammer goes in Garage, Tool wall."* If it isn't there right now, that's added: *"Saw goes in Shed. It's in Kitchen for now."*, *"Drill goes in Shed. Sam has it at the moment."* This works with Assist, Siri (through Assist) and, from 0.22.1, Alexa ("Alexa, ask Home Inventory where the hammer goes", "…to tell me where to put the engine oil"). After updating, copy the new sentences file again, and update the Alexa skill (below).
 
 Three more questions need no item name: **"What maintenance is due?"** (overdue jobs and those due in the next two weeks), **"What's running low?"** (supplies below their minimum) and **"What's lent out?"** (and to whom). Long lists read the first five and say how many more.
 
@@ -154,7 +154,15 @@ The forwarder says what's wrong out loud:
 | "Sorry, I couldn't reach Home Assistant." | `HA_URL` is wrong, or Home Assistant isn't reachable from the internet. |
 | "…isn't set up yet…" | `HA_URL` or `HA_TOKEN` is empty. |
 | "I couldn't find X in your inventory." | It's working. Try the name as it's written in Home Inventory. Numbers can be said either way ("zero turn" finds "0-turn" and the other way round). |
-| "Sorry, I only know where things are" after answering "which one?" | Update the interaction model (it has a `HomeInventoryAnswer` intent for bare replies such as "zero turn") and the forwarder code from 0.19.0. |
+| "Sorry, I only know where things are" (or "Sorry, I didn't catch that") for "where does the hammer go?" | The skill is older than 0.22.1: update the interaction model and the forwarder code (see *Updating the skill* below). |
+| The same, after answering "which one?" | Update the interaction model (it has a `HomeInventoryAnswer` intent for bare replies such as "zero turn") and the forwarder code from 0.19.0. |
+
+### Updating the skill
+
+When a release changes `deploy/alexa/` (as 0.22.1 does, for "where does it go?"):
+
+1. Developer console → your skill → **Build → Interaction Model → JSON Editor**: paste the new `deploy/alexa/interaction-model.json`, **Save**, **Build skill**.
+2. **Code** tab: replace `lambda_function.py` with the new `deploy/alexa/lambda_function.py`, put your `HA_URL`, `HA_TOKEN` and `SKILL_ID` back near the top (Alexa-hosted), **Save**, **Deploy**. With your own AWS Lambda, paste the whole file; the settings stay in its environment variables.
 
 Home Assistant's own "Amazon Alexa Custom Skill" documentation describes the same `/api/alexa` endpoint if you want more background.
 

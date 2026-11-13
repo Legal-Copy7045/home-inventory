@@ -133,3 +133,28 @@ def test_fallback_closes_the_session_unless_a_question_is_open(monkeypatch, fake
     open_q = mod.lambda_handler(ev)
     assert open_q["response"]["shouldEndSession"] is False and "which one" in _text(open_q)
     assert seen == []
+
+
+def test_where_does_it_go_is_forwarded(monkeypatch, fake_ha):
+    url, seen = fake_ha
+    mod = _load(monkeypatch, url)
+    mod.lambda_handler(_event(intent="HomeInventoryWhereDoesItGo", item="hammer"))
+    intent_body = seen[-1][2]["request"]["intent"]
+    assert intent_body["name"] == "HomeInventoryWhereDoesItGo" and intent_body["slots"]["item"]["value"] == "hammer"
+
+
+def test_interaction_model_matches_the_forwarder(monkeypatch, fake_ha):
+    url, _seen = fake_ha
+    mod = _load(monkeypatch, url)
+    path = Path(__file__).parents[2] / "deploy" / "alexa" / "interaction-model.json"
+    model = json.loads(path.read_text(encoding="utf-8"))["interactionModel"]["languageModel"]
+    ours = {i["name"] for i in model["intents"] if i["name"].startswith("HomeInventory")}
+    assert ours == set(mod.FORWARDED) | {"HomeInventoryAnswer"}
+    seen_samples: dict[str, str] = {}
+    for i in model["intents"]:
+        for sample in i.get("samples", []):
+            key = sample.lower()
+            assert key not in seen_samples, f"{sample!r} is in {i['name']} and {seen_samples[key]}"
+            seen_samples[key] = i["name"]
+    goes = next(i for i in model["intents"] if i["name"] == "HomeInventoryWhereDoesItGo")
+    assert "where does the {item} go" in goes["samples"] and "to tell me where to put the {item}" in goes["samples"]

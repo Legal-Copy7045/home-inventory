@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.22.1
+
+- **Alexa: "where does it go?"** The Alexa skill now understands "Alexa, ask Home Inventory where the hammer goes", "…where does the hammer go", "…where to put the engine oil" and "…to tell me where to put the engine oil", and answers with where the thing belongs (as Assist does since 0.22.0). Before, Alexa answered "Sorry, I only know where things are". **Update the skill's interaction model and forwarder code** (`deploy/alexa/`, see *Updating the skill* in `docs/voice.md`). Help now mentions the new question.
+
 ## 0.22.0
 
 - **Voice: where does it go?** Ask Assist "Where does the hammer go?", "Tell me where to put the engine oil", "Where should I put my drill back?" or "Where does the jigsaw belong?" and it answers with the thing's usual place ("Hammer goes in Garage, Tool wall."), adding where it is now if it's out ("Saw goes in Shed. It's in Kitchen for now."). "Which one did you mean?" works as for "where is". **Update the Home Inventory integration and copy the new `deploy/assist/custom_sentences/en/home_inventory.yaml`** to your Home Assistant `custom_sentences/en/` folder, then reload conversation. The Alexa skill is unchanged.

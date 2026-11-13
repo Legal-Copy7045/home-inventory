@@ -32,6 +32,48 @@
           ]
         },
         {
+          "name": "HomeInventoryWhereDoesItGo",
+          "slots": [
+            {
+              "name": "item",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "where the {item} goes",
+            "where the {item} go",
+            "where the {item} belongs",
+            "where does the {item} go",
+            "where do the {item} go",
+            "where to put the {item}",
+            "where to put the {item} back",
+            "to tell me where to put the {item}",
+            "where I should put the {item}",
+            "where my {item} goes",
+            "where my {item} go",
+            "where my {item} belongs",
+            "where does my {item} go",
+            "where do my {item} go",
+            "where to put my {item}",
+            "where to put my {item} back",
+            "to tell me where to put my {item}",
+            "where I should put my {item}",
+            "where {item} goes",
+            "where {item} go",
+            "where {item} belongs",
+            "where does {item} go",
+            "where do {item} go",
+            "where to put {item}",
+            "where to put {item} back",
+            "to tell me where to put {item}",
+            "where I should put {item}",
+            "where the {item} lives",
+            "where the {item} goes back",
+            "where I put the {item} back",
+            "where to put away the {item}"
+          ]
+        },
+        {
           "name": "HomeInventoryChoose",
           "slots": [
             {
