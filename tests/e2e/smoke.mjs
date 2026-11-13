@@ -207,7 +207,10 @@ const putDrill = await api(`items/${drill.id}`);
 if (putDrill.status !== "temporarily_relocated" || putDrill.home_placement?.location?.id !== garage.id) throw new Error("put away just this once failed");
 // Take it again and scan the garage's label: it goes back home.
 await page.getByRole("button", { name: "Take it" }).click();
-await page.getByText(/^Taken;/).first().waitFor();
+for (let i = 0; (await api(`items/${drill.id}`)).status !== "in_use"; i++) {
+  if (i > 50) throw new Error("second take it failed");
+  await page.waitForTimeout(100);
+}
 await page.goto(BASE + "#/scan");
 await page.getByPlaceholder("Type a barcode or label code").fill(garage.qr_code);
 await page.getByPlaceholder("Type a barcode or label code").press("Enter");

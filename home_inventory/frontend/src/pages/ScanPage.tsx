@@ -5,7 +5,7 @@ import { api, labelRef, type BarcodeResult, type Container, type Item, type QrTa
 import { ScanWithPhone, nfcSupport } from "./Tags";
 import { PlacementPicker } from "../components/PlacementPicker";
 import { Scanner, type Detection } from "../components/Scanner";
-import { PhotoFind, PutAwaySheet, TakenStrip, takeItem, useTaken, type Place } from "../components/TakeAway";
+import { PhotoFind, PutAwaySheet, TakenStrip, takeItem, useTaken, type Place, type TakenItem } from "../components/TakeAway";
 import { Empty, Sheet, Thumb, useAction, useMe, useToast } from "../components/ui";
 
 type UseChoice = { item_id: number; name: string; quantity: number; path: string };
@@ -34,8 +34,7 @@ export default function ScanPage() {
   const containerId = params.get("container");
   // Things you've taken: scanning a label offers to put them away there.
   const taken = useTaken(me.can_edit);
-  const mineTaken = taken.items.filter((i) => i.mine);
-  const [putAway, setPutAway] = useState<{ place: Place; open: () => void; openText: string } | null>(null);
+  const [putAway, setPutAway] = useState<{ place: Place; items: TakenItem[]; open: () => void; openText: string } | null>(null);
   // "Take one out": scanning a consumable's barcode uses one straight away.
   const useMode = params.get("mode") === "use";
   const [choices, setChoices] = useState<{ code: string; format: string; list: UseChoice[] } | null>(null);
@@ -87,11 +86,15 @@ export default function ScanPage() {
           if (r.type === "location") nav(`/locations/${r.id}`);
           else { setParams({ container: String(r.id) }, { replace: true }); toast("Container opened"); }
         };
-        if (mineTaken.length) {
+        // Ask the server, not the list loaded when the page opened: a label
+        // scanned straight after "Take it" must still offer to put it away.
+        const carrying = me.can_edit ? (await api.get<{ items: TakenItem[] }>("taken")).items.filter((i) => i.mine) : [];
+        if (carrying.length) {
+          taken.reload();
           const label = r.type === "location" ? (await api.get<{ path: string }>(`locations/${r.id}`)).path
                                               : (await api.get<{ path: string; name: string }>(`containers/${r.id}`)).name;
           setPutAway({ place: { container_id: r.type === "location" ? null : r.id, location_id: r.type === "location" ? r.id : null, label },
-                       open, openText: r.type === "location" ? "Open this place" : "Open this box" });
+                       items: carrying, open, openText: r.type === "location" ? "Open this place" : "Open this box" });
           return;
         }
         open();
@@ -245,7 +248,7 @@ export default function ScanPage() {
         </Sheet>
       )}
       {putAway && (
-        <PutAwaySheet place={putAway.place} items={mineTaken} onClose={() => setPutAway(null)} onChanged={() => { taken.reload(); if (container) loadContainer(container.id); }}
+        <PutAwaySheet place={putAway.place} items={putAway.items} onClose={() => setPutAway(null)} onChanged={() => { taken.reload(); if (container) loadContainer(container.id); }}
                       openLabel={{ text: putAway.openText, onClick: putAway.open }} />
       )}
       {moving && (
