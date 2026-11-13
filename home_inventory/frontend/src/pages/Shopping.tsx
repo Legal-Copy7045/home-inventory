@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Check, ExternalLink, Plus, ShoppingCart, Star, Trash2 } from "lucide-react";
 import { api } from "../api";
@@ -253,16 +253,21 @@ interface RestockDetail {
   providers: ShoppingList["providers"];
 }
 
-export function RestockSection({ productId, edit }: { productId: number; edit: boolean }) {
+/** ``hideWhenEmpty``: nothing until a minimum or a shop is set (the item page
+ *  offers "Restock" in its Add row); ``request`` opens the settings. */
+export function RestockSection({ productId, edit, hideWhenEmpty, request }: { productId: number; edit: boolean; hideWhenEmpty?: boolean; request?: number }) {
   const me = useMe();
   const d = useApi(() => api.get<RestockDetail>(`products/${productId}/restock`), [productId]);
   const [sheet, setSheet] = useState<null | "settings" | "source">(null);
+  useEffect(() => { if (request) setSheet("settings"); }, [request]);
   const [editSource, setEditSource] = useState<Source | null>(null);
   const { busy, run } = useAction();
   if (!d.data) return null;
   const x = d.data;
   const tracked = x.status.minimum !== null || x.profile.configured;
-  if (!tracked && !x.sources.length && !edit) return null;
+  if (!tracked && !x.sources.length && (!edit || hideWhenEmpty)) {
+    return sheet === "settings" ? <RestockSettingsSheet productId={productId} detail={x} onClose={() => setSheet(null)} onDone={(n) => { d.setData(n); setSheet(null); }} /> : null;
+  }
   const addToList = async () => {
     if (await run(() => api.post("shopping-list", { product_id: productId }), "Added to the shopping list")) d.reload();
   };

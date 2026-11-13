@@ -93,6 +93,7 @@ export function ContainerDetail() {
   const scans = useApi(() => api.get<Scan[]>(`containers/${id}/scans`), [id]);
   const hist = useApi(() => api.get<{ events: HistoryEvent[] }>("history", { container_id: id, limit: 20 }), [id]);
   const [sheet, setSheet] = useState<null | "edit" | "move" | "qr" | "scan">(params.get("scan") ? "scan" : null);
+  const [tagReq, setTagReq] = useState(0);
   const [scan, setScan] = useState<Scan | null>(null);
   const { busy, run } = useAction();
   const toast = useToast();
@@ -181,7 +182,7 @@ export function ContainerDetail() {
         {ct.items?.length || ct.containers?.length ? (
           <>
             {ct.containers?.length ? <div className="list">{ct.containers.map((cc) => <ContainerRow key={`c${cc.id}`} c={cc} />)}</div> : null}
-            <SelectableItems bare items={ct.items || []} onChanged={refresh} />
+            <SelectableItems bare inPlace items={ct.items || []} onChanged={refresh} />
           </>
         ) : <Empty>Empty. Add items, or photograph the open container and let AI suggest what's inside.</Empty>}
       </Section>
@@ -193,7 +194,8 @@ export function ContainerDetail() {
       )}
       {ct.maps && ct.maps.length > 0 && <Section title="Visual maps">{ct.maps.map((m) => <Link key={m.id} className="btn" to={`/maps/${m.id}`}>{m.title}</Link>)}</Section>}
 
-      <TagsSection targetType="container" targetId={ct.id} name={ct.name} />
+      <TagsSection targetType="container" targetId={ct.id} name={ct.name} hideWhenEmpty request={tagReq} />
+      {edit && <div className="add-row"><span className="muted">Add:</span><button className="chip" onClick={() => setTagReq((n) => n + 1)}><Plus size={14} /> NFC tag</button></div>}
       <Section title="Activity" tight>
         <div className="list">{hist.data?.events.map((e) => <li key={e.id}><div className="grow"><div style={{ fontWeight: 500 }}>{e.summary}</div><div className="s">{e.user} · {fmtWhen(e.ts)}</div></div></li>)}</div>
       </Section>

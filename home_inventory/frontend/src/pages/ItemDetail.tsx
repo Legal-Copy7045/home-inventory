@@ -67,6 +67,9 @@ export default function ItemDetail() {
   // ?do=move (e.g. from an NFC tag) opens that action straight away.
   const doAction = params.get("do");
   useEffect(() => { setSheet(params.get("finish") ? "edit" : doAction === "move" ? "move" : null); }, [id, params, doAction]);
+  // Opening an empty optional section's form from the Add row.
+  const [addReq, setAddReq] = useState({ related: 0, restock: 0, tag: 0 });
+  const request = (k: keyof typeof addReq) => setAddReq((r) => ({ ...r, [k]: r[k] + 1 }));
   const { busy, run } = useAction();
   const toast = useToast();
 
@@ -103,9 +106,9 @@ export default function ItemDetail() {
       )}
       <div className="grid two">
         <div>
-          <PhotoViewer photos={photos} mainId={it.photo?.id} onMakeMain={edit ? (id) => act(() => api.patch(`items/${it.id}`, { primary_photo_id: id }), "Main photo set") : undefined} />
+          {photos.length > 0 && <PhotoViewer photos={photos} mainId={it.photo?.id} onMakeMain={edit ? (id) => act(() => api.patch(`items/${it.id}`, { primary_photo_id: id }), "Main photo set") : undefined} />}
           {edit && (
-            <label className="btn block" style={{ marginTop: 8 }}>
+            <label className={photos.length ? "btn block" : "btn block photo-empty"} style={{ marginTop: photos.length ? 8 : 0 }}>
               <Camera size={18} /> Add photo
               <input type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) await act(() => uploadPhoto(f, { item_id: it.id }), "Photo added"); }} />
             </label>
@@ -224,12 +227,23 @@ export default function ItemDetail() {
       {me.can_edit && <CustomerItemSection item={it} edit={edit} onChanged={refresh} startRepair={doAction === "repair"} />}
       <EquipmentSection itemId={it.id} edit={edit} onChanged={() => { hist.reload(); maint.reload(); }} initial={doAction === "meter" || doAction === "service" ? doAction : undefined}
         startTracking={trackOpen} onStartClosed={() => setTrackOpen(false)} />
-      <RelatedSection itemId={it.id} edit={edit} />
+      <RelatedSection itemId={it.id} edit={edit} hideWhenEmpty request={addReq.related} />
       {!it.owner && <PartDetailsSection productId={it.product_id} edit={edit} open={partOpen} setOpen={setPartOpen} />}
-      {!it.owner && <RestockSection productId={it.product_id} edit={edit} />}
-      {!it.deleted_at && <TagsSection targetType="item" targetId={it.id} name={it.display_name} />}
+      {!it.owner && <RestockSection productId={it.product_id} edit={edit} hideWhenEmpty request={addReq.restock} />}
+      {!it.deleted_at && <TagsSection targetType="item" targetId={it.id} name={it.display_name} hideWhenEmpty request={addReq.tag} />}
 
-      <Section title="Receipts & documents" action={edit && <button className="btn small" onClick={() => setSheet("docs")}><Plus size={16} /> Add</button>}>
+      {edit && (
+        // Optional extras, as one short row instead of a section each while they're empty.
+        <div className="add-row">
+          <span className="muted">Add:</span>
+          {!docs.length && <button className="chip" onClick={() => setSheet("docs")}><Plus size={14} /> Receipt or document</button>}
+          <button className="chip" onClick={() => request("related")}><Plus size={14} /> Related item</button>
+          {!it.owner && <button className="chip" onClick={() => request("restock")}><Plus size={14} /> Restock alert</button>}
+          <button className="chip" onClick={() => request("tag")}><Plus size={14} /> NFC tag</button>
+        </div>
+      )}
+
+      {(docs.length > 0 || !!it.warranty_expires || !edit) && <Section title="Receipts & documents" action={edit && <button className="btn small" onClick={() => setSheet("docs")}><Plus size={16} /> Add</button>}>
         {docs.length ? (
           <DocumentsList itemId={it.id} docs={docs} edit={edit} onChanged={refresh}
             onRemove={(d) => window.confirm("Remove this document?") && act(() => api.del(`attachments/${d.id}`), "Removed")} />
@@ -241,7 +255,7 @@ export default function ItemDetail() {
             Making a warranty claim? <a href={url(`api/v1/items/${it.id}/claim-pack.zip`)} download>Download the claim pack</a> (a summary with the serial number, purchase and warranty details, plus these documents and the photos).
           </p>
         )}
-      </Section>
+      </Section>}
 
       {(it.siblings?.length || 0) > 0 && (
         <Section title={`Also own (${it.siblings!.reduce((a, s) => a + s.quantity, 0)} more)`} tight>

@@ -76,7 +76,7 @@ export function DashboardPage() {
           )}
           <Section title="Recent activity" action={<Link to="/activity">All</Link>} tight>
             {d.data!.recent_activity.length ? (
-              <div className="list">{d.data!.recent_activity.map((e) => <li key={e.id}><Clock size={18} className="muted" /><div className="grow"><div style={{ fontWeight: 500 }}>{e.summary}</div><div className="s">{e.user} · {fmtWhen(e.ts)}</div></div></li>)}</div>
+              <div className="list">{d.data!.recent_activity.slice(0, 5).map((e) => <li key={e.id}><Clock size={18} className="muted" /><div className="grow"><div style={{ fontWeight: 500 }}>{e.summary}</div><div className="s">{e.user} · {fmtWhen(e.ts)}</div></div></li>)}</div>
             ) : <Empty>Nothing yet. Start by creating locations (e.g. House › Garage), then add containers and items.</Empty>}
           </Section>
         </>
@@ -240,6 +240,15 @@ function LocationFormSheet({ parentId, loc, onClose, onSaved }: { parentId?: num
   );
 }
 
+/** "Shelf · 2 boxes · 7 things" for a place inside another. */
+function childSummary(c: { kind?: string | null; container_count?: number; item_count?: number }): string {
+  const bits = [c.kind || ""];
+  if (c.container_count) bits.push(`${c.container_count} box${c.container_count === 1 ? "" : "es"}`);
+  if (c.item_count) bits.push(`${c.item_count} thing${c.item_count === 1 ? "" : "s"}`);
+  if (!c.container_count && !c.item_count) bits.push("empty");
+  return bits.filter(Boolean).join(" · ");
+}
+
 export function LocationDetailPage() {
   const { id } = useParams();
   const me = useMe();
@@ -248,6 +257,7 @@ export function LocationDetailPage() {
   const scans = useApi(() => api.get<Scan[]>(`locations/${id}/scans`), [id]);
   const [sheet, setSheet] = useState<null | "child" | "edit" | "move" | "container" | "qr" | "scan">(null);
   const [scan, setScan] = useState<Scan | null>(null);
+  const [tagReq, setTagReq] = useState(0);
   const { run } = useAction();
   const toast = useToast();
   if (d.loading && !d.data) return <Spinner />;
@@ -331,12 +341,15 @@ export function LocationDetailPage() {
       {me.can_edit && me.app.ai.enabled && !l.items!.length && !pendingScan && (
         <p className="muted"><Sparkles size={14} /> Tip: <b>Photo inventory</b> lists everything on this shelf from one photo for you to check.</p>
       )}
-      {l.children!.length > 0 && <Section title="Inside" tight><div className="list">{l.children!.map((c) => <Link key={c.id} to={`/locations/${c.id}`}><MapPin size={20} /><div className="grow"><div className="t">{c.name}</div>{c.kind && <div className="s">{c.kind}</div>}</div><ChevronRight size={18} /></Link>)}</div></Section>}
+      {l.children!.length > 0 && <Section title="Inside" tight><div className="list">{l.children!.map((c) => <Link key={c.id} to={`/locations/${c.id}`}><MapPin size={20} /><div className="grow"><div className="t">{c.name}</div><div className="s">{childSummary(c)}</div></div><ChevronRight size={18} /></Link>)}</div></Section>}
       {l.containers!.length > 0 && <Section title="Containers" tight><div className="list">{l.containers!.map((c) => <ContainerRow key={c.id} c={c} />)}</div></Section>}
-      <Section title="Loose items" tight>
-        <SelectableItems bare items={l.items!} onChanged={d.reload} empty={<Empty>No loose items here.</Empty>} />
-      </Section>
-      <TagsSection targetType="location" targetId={l.id} name={l.name} />
+      {(l.items!.length > 0 || (!l.children!.length && !l.containers!.length)) && (
+        <Section title={l.children!.length || l.containers!.length ? "Loose items" : "Items"} tight>
+          <SelectableItems bare inPlace items={l.items!} onChanged={d.reload} empty={<Empty>Nothing here yet.</Empty>} />
+        </Section>
+      )}
+      <TagsSection targetType="location" targetId={l.id} name={l.name} hideWhenEmpty request={tagReq} />
+      {me.can_edit && <div className="add-row"><span className="muted">Add:</span><button className="chip" onClick={() => setTagReq((n) => n + 1)}><Plus size={14} /> NFC tag</button></div>}
       {l.maps!.length > 0 && <Section title="Visual maps">{l.maps!.map((m) => <Link key={m.id} className="btn" to={`/maps/${m.id}`} style={{ marginRight: 8 }}>{m.title}</Link>)}</Section>}
       {me.can_edit && (
         <div className="row wrap">
