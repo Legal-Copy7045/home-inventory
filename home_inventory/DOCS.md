@@ -100,7 +100,7 @@ On **Items**, tap **Select**, tick the items you want (or **Select all**), then 
 
 For mowers, trimmers, saws, generators, pressure washers, snow blowers or anything else that needs servicing:
 
-1. Make sure the item's category is **Equipment** (the AI suggests it for powered machines), then open it and tap **Track maintenance** (next to *Details*). Only Equipment items get this link, and the **Maintenance** section only appears on items tracked this way, so other things stay uncluttered.
+1. Make sure the item's category is **Equipment** (the AI suggests it for powered machines), then open it and tap **Track maintenance** (at the foot of *Details*). Only Equipment items get this link, and the **Maintenance** section only appears on items tracked this way, so other things stay uncluttered.
 2. Pick the kind of equipment. Typical tasks are added as a starting point, such as oil every 50 hours or yearly, whichever comes first. Check them against your manual, then change, add or remove them.
 3. For a used machine, enter its current hours first, so it isn't shown as overdue for everything.
 
