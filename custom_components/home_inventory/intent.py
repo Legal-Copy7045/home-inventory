@@ -634,13 +634,47 @@ class OnLoanHandler(_QuestionHandler):
 QUESTION_HANDLERS = (MaintenanceDueHandler, RunningLowHandler, OnLoanHandler)
 
 
+async def _log(intent_obj: intent.Intent, response: intent.IntentResponse) -> None:
+    """Record the question and answer in the App's Voice history (Admin).
+    Never affects the answer: any problem is only logged here."""
+    try:
+        client, user = await _client_user(intent_obj)
+        if client is None:
+            return
+        speech = ((response.speech or {}).get("plain") or {}).get("speech")
+        slots = {k: str(v.get("value"))[:200] for k, v in (intent_obj.slots or {}).items() if isinstance(v, dict) and v.get("value") is not None}
+        await client.request("POST", "voice/history", user=user, timeout=10, json_body={
+            "source": intent_obj.platform, "device": intent_obj.device_id or intent_obj.satellite_id,
+            "intent": intent_obj.intent_type, "slots": slots, "text": intent_obj.text_input,
+            "answer": speech, "question": bool(response.reprompt),
+        })
+    except Exception as err:  # noqa: BLE001 - history is a nice-to-have
+        _LOGGER.debug("Couldn't record voice history: %s", err)
+
+
+def _logged(hass: HomeAssistant, handler: intent.IntentHandler) -> intent.IntentHandler:
+    inner = handler.async_handle
+
+    async def handle(intent_obj: intent.Intent) -> intent.IntentResponse:
+        response = await inner(intent_obj)
+        create = getattr(hass, "async_create_background_task", None)
+        if create is not None:
+            create(_log(intent_obj, response), "home_inventory voice history")
+        else:
+            hass.async_create_task(_log(intent_obj, response))
+        return response
+
+    handler.async_handle = handle  # type: ignore[method-assign]
+    return handler
+
+
 def async_setup_intents(hass: HomeAssistant) -> None:
-    intent.async_register(hass, WhereIsHandler())
-    intent.async_register(hass, WhereDoesItGoHandler())
-    intent.async_register(hass, MoveHandler())
-    intent.async_register(hass, ChooseHandler())
+    intent.async_register(hass, _logged(hass, WhereIsHandler()))
+    intent.async_register(hass, _logged(hass, WhereDoesItGoHandler()))
+    intent.async_register(hass, _logged(hass, MoveHandler()))
+    intent.async_register(hass, _logged(hass, ChooseHandler()))
     for handler in QUESTION_HANDLERS:
-        intent.async_register(hass, handler())
+        intent.async_register(hass, _logged(hass, handler()))
 
 
 def async_unload_intents(hass: HomeAssistant) -> None:

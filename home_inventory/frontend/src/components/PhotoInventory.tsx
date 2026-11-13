@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Box, ChevronDown, ChevronUp, Layers, MapPin, Plus, Trash2 } from "lucide-react";
 import { api, url, type Item, type Scan } from "../api";
 import { PhotoViewer } from "./PhotoViewer";
-import { Sheet, Stepper, useAction } from "./ui";
+import { Sheet, Stepper, useAction, useToast } from "./ui";
 import { CategorySelect } from "./CategorySelect";
 
 /** What was photographed: a container's contents, or a shelf / location. */
@@ -97,32 +97,38 @@ export function ScanReview(props: { scan: Scan; target: ScanTarget; onClose: () 
   return <Review key={`${props.scan.id}:${props.scan.status}`} {...props} />;
 }
 
+type Suggestion = Scan["suggestions"][number];
+
+function toRow(s: Suggestion, i: number): Row {
+  return {
+    key: i,
+    action: s.proposed_action,
+    name: s.name,
+    category: s.category || "",
+    manufacturer: s.manufacturer || "",
+    model_number: s.model_number || "",
+    notes: s.position || "",
+    position: s.position || null,
+    quantity: s.quantity || 1,
+    confidence: s.confidence,
+    existing_item_id: s.match?.item_id || null,
+    match: s.match ? `${s.match.name} (have ${s.match.quantity})` : null,
+    open: false,
+    box: s.box || null,
+    use_crop: true,
+    to_identify: s.identified === false,
+    kind: s.kind || "item",
+    container_type: s.container_type || "",
+    unit: s.unit ?? null,
+    shelf: s.shelf ?? null,
+    place: null,
+    };
+}
+
 function Review({ scan, target, onClose }: { scan: Scan; target: ScanTarget; onClose: () => void }) {
-  const [rows, setRows] = useState<Row[]>(() =>
-    scan.suggestions.map((s, i) => ({
-      key: i,
-      action: s.proposed_action,
-      name: s.name,
-      category: s.category || "",
-      manufacturer: s.manufacturer || "",
-      model_number: s.model_number || "",
-      notes: s.position || "",
-      position: s.position || null,
-      quantity: s.quantity || 1,
-      confidence: s.confidence,
-      existing_item_id: s.match?.item_id || null,
-      match: s.match ? `${s.match.name} (have ${s.match.quantity})` : null,
-      open: false,
-      box: s.box || null,
-      use_crop: true,
-      to_identify: s.identified === false,
-      kind: s.kind || "item",
-      container_type: s.container_type || "",
-      unit: s.unit ?? null,
-      shelf: s.shelf ?? null,
-      place: null,
-    })),
-  );
+  const [rows, setRows] = useState<Row[]>(() => scan.suggestions.map((s, i) => toRow(s, i)));
+  const [closer, setCloser] = useState(false);
+  const toast = useToast();
   const area = target.kind === "location" ? target.id : null;
   const [layout, setLayout] = useState<UnitPlan[]>(() => (area !== null ? initialLayout(scan, area) : []));
   const places: Place[] = scan.places || [];
@@ -342,6 +348,25 @@ function Review({ scan, target, onClose }: { scan: Scan; target: ScanTarget; onC
         >
           <Plus size={18} /> Add something it missed
         </button>
+        {scan.status === "ready" && (
+          <button className="btn" disabled={busy || closer} onClick={async () => {
+            setCloser(true);
+            try {
+              const r = await run(() => api.post<{ added: number; scan: Scan }>(`scans/${scan.id}/look-closer`));
+              if (r) {
+                const fresh = r.scan.suggestions.slice(scan.suggestions.length);
+                const known = new Set(rows.map((x) => x.name.toLowerCase()));
+                const extra = fresh.filter((x) => !known.has(x.name.toLowerCase())).map((x, i) => ({ ...toRow(x, Date.now() + i), open: true }));
+                setRows((cur) => [...cur, ...extra]);
+                toast(extra.length ? `Found ${extra.length} more — check them below` : "Nothing more found");
+              }
+            } finally {
+              setCloser(false);
+            }
+          }}>
+            <Layers size={18} /> {closer ? "Looking closer (a few AI requests)…" : "Look closer for missed things"}
+          </button>
+        )}
         {notSeen.length > 0 && (
           <div className="card" style={{ marginBottom: 0 }}>
             <h3>Not seen in this photo</h3>

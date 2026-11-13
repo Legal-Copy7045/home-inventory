@@ -249,6 +249,104 @@ def analyse(db: Session, scan: ContainerScan, ai, image: bytes) -> ContainerScan
     return scan
 
 
+# ---------------------------------------------------------------------------
+# "Look closer": a second pass over close-ups of the photo
+# ---------------------------------------------------------------------------
+
+
+def _tiles(width: int, height: int) -> list[tuple[float, float, float, float]]:
+    """Overlapping sections (x, y, w, h as fractions): 2 x 2 for a normal
+    photo, more across for a wide panorama."""
+    cols = max(2, min(4, round(width / max(1, height) * 1.3)))
+    rows = 2
+    tw, th = min(1.0, 1.25 / cols), min(1.0, 1.25 / rows)
+    xs = [i * (1 - tw) / (cols - 1) for i in range(cols)]
+    ys = [j * (1 - th) / (rows - 1) for j in range(rows)]
+    return [(x, y, tw, th) for y in ys for x in xs]
+
+
+def _overlap(a: list[float] | None, b: list[float] | None) -> float:
+    """Intersection over the smaller box (0-1); 0 when either is unknown."""
+    if not a or not b:
+        return 0.0
+    ix = max(0.0, min(a[0] + a[2], b[0] + b[2]) - max(a[0], b[0]))
+    iy = max(0.0, min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1]))
+    small = min(a[2] * a[3], b[2] * b[3]) or 1e-9
+    return (ix * iy) / small
+
+
+def _near(a: list[float], b: list[float], within: float = 0.08) -> bool:
+    """Centres close together (the same thing seen in two close-ups)."""
+    return abs((a[0] + a[2] / 2) - (b[0] + b[2] / 2)) <= within and abs((a[1] + a[3] / 2) - (b[1] + b[3] / 2)) <= within
+
+
+def _already_listed(entry: dict[str, Any], listed: list[dict[str, Any]]) -> bool:
+    for e in listed:
+        same_name = similarity(entry["name"], e.get("name") or "") >= 0.7
+        boxes = _overlap(entry.get("box"), e.get("box"))
+        if same_name and (boxes > 0.2 or not entry.get("box") or not e.get("box") or _near(entry["box"], e["box"])):
+            return True
+        if boxes > 0.6:  # the same thing under another name
+            return True
+    return False
+
+
+def look_closer(db: Session, scan: ContainerScan, ai, image: bytes) -> int:
+    """Ask the AI about overlapping close-ups of the photo and add what the
+    first pass missed to the suggestions (nothing is saved). Returns how
+    many were added."""
+    import io
+
+    from PIL import Image, ImageOps
+
+    if scan.status is not ScanStatus.ready:
+        raise inv.Conflict("Look closer works on a photo inventory waiting for review")
+    img = ImageOps.exif_transpose(Image.open(io.BytesIO(image))).convert("RGB")
+    w, h = img.size
+    if scan.container_id is not None:
+        container = db.get(Container, scan.container_id)
+        hint = f"Container: {container.name}" if container else None
+    else:
+        loc = db.get(Location, scan.location_id)
+        hint = f"Place: {loc.name}" if loc else None
+    hint = ((hint + ". ") if hint else "") + ("This is a close-up of one part of a larger photo. List every separate thing "
+                                               "you can see in it, including small ones, partly hidden ones and ones at the edges.")
+    listed = list(scan.suggestions or [])
+    current_items = _current_items(db, scan)
+    added: list[dict[str, Any]] = []
+    failures = 0
+    tiles = _tiles(w, h)
+    for (tx, ty, tw, th) in tiles:
+        crop = img.crop((int(tx * w), int(ty * h), int((tx + tw) * w), int((ty + th) * h)))
+        buf = io.BytesIO()
+        crop.save(buf, "JPEG", quality=88)
+        known = [e.get("name") for e in listed + added if e.get("name")][:80]
+        try:
+            res = ai.identify_container(buf.getvalue(), hint=hint, known=known)
+        except (AIFailed, AIUnavailable):
+            failures += 1
+            continue
+        for e in res.data.get("items") or []:
+            if e.get("box"):
+                bx, by, bw, bh = e["box"]
+                e["box"] = [round(tx + bx * tw, 4), round(ty + by * th, 4), round(bw * tw, 4), round(bh * th, 4)]
+            e.setdefault("kind", "item")
+            e["closer"] = True
+            if not _already_listed(e, listed + added):
+                added.append(e)
+    if failures == len(tiles):
+        raise AIFailed("The AI couldn't look at the close-ups. Try again in a minute.")
+    things = [e for e in added if e.get("kind", "item") == "item"]
+    boxes = [e for e in added if e.get("kind") == "container"]
+    new = match_existing(things, current_items) + boxes
+    # Already recorded here and already in the list: not new after all.
+    seen_ids = {e.get("match", {}).get("item_id") for e in listed if e.get("match")}
+    new = [e for e in new if not (e.get("match") and e["match"].get("item_id") in seen_ids)]
+    scan.suggestions = listed + new
+    db.commit()
+    return len(new)
+
+
 def confirm(db: Session, actor: Actor, scan: ContainerScan, data: ScanConfirmIn, crop=None) -> dict[str, Any]:
     """Apply the reviewed list.  ``crop(box)`` (optional) returns a new photo
     Attachment of that part of the scan photo, for each new item's picture."""

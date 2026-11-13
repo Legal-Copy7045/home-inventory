@@ -278,6 +278,29 @@ def list_location_scans(location_id: int, actor: Actor = Depends(current_actor),
     return [scans_svc.scan_out(s, db) for s in scans]
 
 
+@router.post("/scans/{scan_id}/look-closer")
+async def look_closer(scan_id: int, request: Request, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """A second, closer pass over the photo for things the first one missed.
+    New suggestions are added for review; nothing is saved."""
+    st = _state(request)
+    scan = db.get(ContainerScan, scan_id)
+    if scan is None or scan.photo_id is None:
+        raise HTTPException(404, "Scan not found")
+    if not st.ai.enabled:
+        raise HTTPException(503, "AI isn't set up")
+    _limit(request, actor, "ai")
+    att = db.get(Attachment, scan.photo_id)
+    try:
+        added = await asyncio.to_thread(scans_svc.look_closer, db, scan, st.ai, st.media.read(att.stored_path))
+    except inv.Conflict as err:
+        raise HTTPException(409, str(err)) from err
+    except AIUnavailable as err:
+        raise HTTPException(503, str(err)) from err
+    except AIFailed as err:
+        raise HTTPException(502, str(err)) from err
+    return {"added": added, "scan": scans_svc.scan_out(scan, db)}
+
+
 @router.get("/scans/{scan_id}")
 def get_scan(scan_id: int, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
     scan = db.get(ContainerScan, scan_id)

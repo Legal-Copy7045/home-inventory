@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.25.0
+
+- **Photo inventory: Look closer for missed things.** A button in the review has the AI look again at overlapping close-ups of the photo (2 × 2, more across a panorama) and adds what the first look missed (small, half-hidden and edge items) to the list for checking. Things already listed or already recorded there aren't added twice. A few AI requests, within your rate limits.
+- **Voice history** (Admin, administrators): each question asked by voice (Alexa, Assist, Siri through Assist) and its answer, with a filter for the ones it couldn't answer. The last 500 for 90 days, stored on your machine only; can be cleared. **Update the Home Inventory integration** for it to record questions.
+
 ## 0.24.0
 
 - **Categories are a fixed list.** Items choose a category from a list instead of typing one, so "Kitchenware" and "Kitchen and dining" no longer appear side by side by accident. The item form, bulk edit and the photo inventory review all use the list.
