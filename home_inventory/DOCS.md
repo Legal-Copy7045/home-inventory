@@ -20,6 +20,8 @@ The menu is grouped:
 - **Reports:** All reports (inventory report, maintenance plan, upcoming maintenance, restock & shopping, the maintenance guide and more), the inventory report, and Restock & Shopping.
 - **Admin:** Print labels, NFC tags, Activity history, Possible duplicates, Recently deleted and Settings.
 
+Tap a section's heading to fold it away or open it; the menu remembers your choice. The section with the page you're on always stays open.
+
 On an item page, **Previous** and **Next** step through the list you came from (the Items page with its search and filters, or the inventory report), or the whole inventory by name. In the inventory report, tap an item's name to open it.
 ## Configuration
 
@@ -66,7 +68,7 @@ Quick photos are saved on your phone before they upload. If you lose signal, or 
 
 ## Asking by voice
 
-Ask "Where is the hedge trimmer?", "What maintenance is due?", "What's running low?" or "What's lent out?". It works with Home Assistant Assist once you add a small sentences file, with Siri through an Apple Shortcut that hands your words to Assist, and with Alexa through your own custom skill ("Alexa, ask Home Inventory where the hedge trimmer is"). See `docs/voice.md` in the repository for the setup and the trade-offs (Alexa needs Home Assistant reachable from the internet).
+Ask "Where is the hedge trimmer?", "Where does the hammer go?" (where it belongs, for putting it back), "What maintenance is due?", "What's running low?" or "What's lent out?". It works with Home Assistant Assist once you add a small sentences file, with Siri through an Apple Shortcut that hands your words to Assist, and with Alexa through your own custom skill ("Alexa, ask Home Inventory where the hedge trimmer is"). See `docs/voice.md` in the repository for the setup and the trade-offs (Alexa needs Home Assistant reachable from the internet).
 
 ## Take it and put away
 

@@ -2,7 +2,8 @@
 #
 # Copy this file to <config>/custom_sentences/en/home_inventory.yaml (the
 # folder next to configuration.yaml), then restart Home Assistant or run the
-# "Conversation: Reload" action. Needs the Home Inventory integration 0.16.0+.
+# "Conversation: Reload" action. Needs the Home Inventory integration 0.16.0+
+# ("where does … go" needs 0.22.0+).
 # Siri uses these too when your Shortcut passes your words to Assist.
 language: "en"
 intents:
@@ -18,6 +19,20 @@ intents:
           - "find [the|my] {item}"
           - "have I got [a|any] {item}"
           - "do I have [a|any] {item}"
+
+  # "Where does the hammer go?" - where it belongs, for putting it back.
+  HomeInventoryWhereDoesItGo:
+    data:
+      - sentences:
+          - "where (does|do) [the|my] {item} go [back]"
+          - "where (does|do) [the|my] {item} (live|belong)"
+          - "where should [the|my] {item} go"
+          - "where (do|should) I put away [the|my] {item}"
+          - "where (do|should) I (put|store) [the|my] {item} [back|away]"
+          - "where should I keep [the|my] {item}"
+          - "where (do|should) I put [the|my] {item} (back|away)"
+          - "tell me where to (put|keep|store) [the|my] {item} [back|away]"
+          - "where (does|do) [the|my] {item} get put away"
 
   # The answer to "Which one did you mean?" (within two minutes).
   HomeInventoryChoose:

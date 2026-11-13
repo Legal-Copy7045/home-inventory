@@ -22,6 +22,7 @@ Copy [`deploy/assist/custom_sentences/en/home_inventory.yaml`](../deploy/assist/
 | Intent | Example | Answers with |
 |---|---|---|
 | `HomeInventoryWhereIs` | "Where is the hedge trimmer?" | where it is (or asks which one) |
+| `HomeInventoryWhereDoesItGo` | "Where does the hammer go?", "Tell me where to put the engine oil" | where it belongs, for putting it back (and where it is now, if it's out) |
 | `HomeInventoryChoose` | "The second one" | the answer for that one |
 | `HomeInventoryMaintenanceDue` | "What maintenance is due?" | overdue jobs and those due in two weeks |
 | `HomeInventoryRunningLow` | "What's running low?" | supplies below their minimum |
@@ -32,6 +33,8 @@ Add your own phrasings to it if you like; keep the intent names.
 Restart Home Assistant (or reload conversation). Then say or type "Where is the hedge trimmer?" to Assist.
 
 If your words match several different things, it asks: *"I found 3 things for hose: Kink Control Plus Water Hose 50ft, Siphon pump hose and Siphon pump with hose and funnel. Which one did you mean?"* Answer with "the water hose one", "the siphon pump" or "the second one" (within two minutes). Voice devices keep listening after a question, so you can just answer.
+
+**Putting things back.** "Where does the hammer go?", "Tell me where to put the engine oil", "Where should I put my drill back?" or "Where does the jigsaw belong?" answer with the thing's usual place: *"Hammer goes in Garage, Tool wall."* If it isn't there right now, that's added: *"Saw goes in Shed. It's in Kitchen for now."*, *"Drill goes in Shed. Sam has it at the moment."* This works with Assist and Siri (through Assist); the Alexa skill is unchanged and answers "where is…" questions. After updating, copy the new sentences file again.
 
 Three more questions need no item name: **"What maintenance is due?"** (overdue jobs and those due in the next two weeks), **"What's running low?"** (supplies below their minimum) and **"What's lent out?"** (and to whom). Long lists read the first five and say how many more.
 
