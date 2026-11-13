@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.18.0
+
+Less clutter, fewer taps.
+
+- **Adding an item** asks for what matters first: name, category, quantity, then **Where is it?**. Make, model, barcode, link, description, expiry and low-stock alert are under *Make, model, barcode & more details*, which opens by itself when AI, a barcode or a web link fills any of them. Importing from a web link moved to the end.
+- **It remembers where you put the last thing.** A new item starts in the same place as the last one you added (tap to change), so filling a shelf doesn't mean picking it every time.
+- **Item pages are shorter.** With no photo there's a small **Add photo** button instead of a big empty frame. Related items, restock alerts, NFC tags and documents only take up space once you use them; until then they're one row: *Add: Receipt or document · Related item · Restock alert · NFC tag*.
+- **Places say what's in them.** A rack's shelves show "1 box · 4 things" (counting everything on them, including in boxes and smaller places), and "No loose items here" no longer appears when the things are on its shelves.
+- **Box and shelf lists don't repeat the place.** Items in a box or on a shelf show their category instead of the place you're already looking at.
+- **Home** shows the last 5 changes (all of them under *All*).
+- Locations and boxes: NFC tags move to an *Add* row until one is assigned.
+
 ## 0.17.0
 
 - **Estimate values for many items at once.** On **Inventory report**, *Estimate values with AI* estimates replacement and second-hand values for **items without a price**, **items in a category**, or **everything**. It shows how many items and AI requests that is before you start; the same product kept in several places is estimated once, and items estimated in the last 30 days are skipped unless you include them. It runs in the background with a progress bar and can be stopped. Administrators only (it may cost money with a paid AI provider); customer equipment is never included.

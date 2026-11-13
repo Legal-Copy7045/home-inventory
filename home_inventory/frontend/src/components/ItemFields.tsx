@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { api, type LinkDetails } from "../api";
 import { useApi, useMe } from "./ui";
@@ -96,6 +96,12 @@ export function ItemFields({
 }) {
   const me = useMe();
   const cats = useApi(() => api.get<{ id: number; name: string }[]>("categories"), []);
+  // Name, category and quantity are all most things need; the rest opens on
+  // request (and is open already when any of it is filled in, e.g. by AI).
+  const hasDetails = !!(value.manufacturer || value.model_number || value.barcode || value.url
+    || value.description || value.expires_on || value.min_quantity);
+  const [details, setDetails] = useState(hasDetails);
+  useEffect(() => { if (hasDetails) setDetails(true); }, [hasDetails]);
   const [more, setMore] = useState(!!(value.purchase_price || value.warranty_expires || value.serial_number || value.retailer));
   const set = (k: keyof ItemFormValue) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     onChange({ ...value, [k]: e.target.value });
@@ -117,46 +123,53 @@ export function ItemFields({
           <input list="cat-list" value={value.category} onChange={set("category")} placeholder="Tools, Kitchen…" />
           <datalist id="cat-list">{cats.data?.map((c) => <option key={c.id} value={c.name} />)}</datalist>
         </label>
-        <label className="field">
-          Manufacturer
-          <input value={value.manufacturer} onChange={set("manufacturer")} />
-        </label>
-        <label className="field">
-          Model number
-          <input value={value.model_number} onChange={set("model_number")} />
-        </label>
-        <label className="field">
-          Barcode (UPC/EAN)
-          <input inputMode="numeric" value={value.barcode} onChange={set("barcode")} />
-        </label>
+        {showQuantity && (
+          <label className="field">
+            Quantity
+            <input type="number" inputMode="numeric" min={0} value={value.quantity} onChange={(e) => onChange({ ...value, quantity: Math.max(0, parseInt(e.target.value || "0", 10) || 0) })} />
+          </label>
+        )}
       </div>
-      <label className="field">
-        Product link
-        <span className="hint">Shop or manufacturer page for this product</span>
-        <input type="url" inputMode="url" value={value.url} onChange={set("url")} placeholder="https://…" />
-      </label>
-      <label className="field">
-        Description
-        <textarea value={value.description} onChange={set("description")} rows={2} />
-      </label>
-      {showQuantity && (
-        <label className="field">
-          Quantity
-          <input type="number" inputMode="numeric" min={0} value={value.quantity} onChange={(e) => onChange({ ...value, quantity: Math.max(0, parseInt(e.target.value || "0", 10) || 0) })} />
-        </label>
+      <button type="button" className="btn ghost" onClick={() => setDetails(!details)} style={{ justifyContent: "flex-start", paddingLeft: 0 }}>
+        {details ? <ChevronUp size={18} /> : <ChevronDown size={18} />} Make, model, barcode &amp; more details
+      </button>
+      {details && (
+        <div className="stack">
+          <div className="grid two">
+            <label className="field">
+              Manufacturer
+              <input value={value.manufacturer} onChange={set("manufacturer")} />
+            </label>
+            <label className="field">
+              Model number
+              <input value={value.model_number} onChange={set("model_number")} />
+            </label>
+            <label className="field">
+              Barcode (UPC/EAN)
+              <input inputMode="numeric" value={value.barcode} onChange={set("barcode")} />
+            </label>
+            <label className="field">
+              Low-stock alert below
+              <span className="hint">Total across all places (optional)</span>
+              <input type="number" inputMode="numeric" min={0} value={value.min_quantity} onChange={set("min_quantity")} placeholder="e.g. 4" />
+            </label>
+          </div>
+          <label className="field">
+            Expiry / use-by date
+            <span className="hint">Food, medicine, batteries, chemicals…</span>
+            <input type="date" value={value.expires_on} onChange={set("expires_on")} />
+          </label>
+          <label className="field">
+            Product link
+            <span className="hint">Shop or manufacturer page for this product</span>
+            <input type="url" inputMode="url" value={value.url} onChange={set("url")} placeholder="https://…" />
+          </label>
+          <label className="field">
+            Description
+            <textarea value={value.description} onChange={set("description")} rows={2} />
+          </label>
+        </div>
       )}
-      <div className="grid two">
-        <label className="field">
-          Expiry / use-by date
-          <span className="hint">Food, medicine, batteries, chemicals…</span>
-          <input type="date" value={value.expires_on} onChange={set("expires_on")} />
-        </label>
-        <label className="field">
-          Low-stock alert below
-          <span className="hint">Total across all places (optional)</span>
-          <input type="number" inputMode="numeric" min={0} value={value.min_quantity} onChange={set("min_quantity")} placeholder="e.g. 4" />
-        </label>
-      </div>
       <button type="button" className="btn ghost" onClick={() => setMore(!more)} style={{ justifyContent: "flex-start", paddingLeft: 0 }}>
         {more ? <ChevronUp size={18} /> : <ChevronDown size={18} />} Purchase, warranty &amp; more
       </button>
