@@ -110,3 +110,26 @@ def test_questions_without_a_slot_are_forwarded(monkeypatch, fake_ha):
         mod.lambda_handler(ev)
     assert [b["request"]["intent"]["name"] for _p, _a, b in seen] == [
         "HomeInventoryMaintenanceDue", "HomeInventoryRunningLow", "HomeInventoryOnLoan"]
+
+
+def test_bare_answers_are_forwarded_as_the_reply(monkeypatch, fake_ha):
+    url, seen = fake_ha
+    mod = _load(monkeypatch, url)
+    ev = _event(intent="HomeInventoryAnswer")
+    ev["request"]["intent"]["slots"] = {"answer": {"name": "answer", "value": "zero turn"}}
+    res = mod.lambda_handler(ev)
+    body = seen[-1][2]["request"]["intent"]
+    assert body["name"] == "HomeInventoryChoose" and body["slots"]["choice"]["value"] == "zero turn"
+    assert res["sessionAttributes"][mod.ASKING] is False  # Home Assistant gave a final answer
+
+
+def test_fallback_closes_the_session_unless_a_question_is_open(monkeypatch, fake_ha):
+    url, seen = fake_ha
+    mod = _load(monkeypatch, url)
+    plain = mod.lambda_handler(_event(intent="AMAZON.FallbackIntent"))
+    assert plain["response"]["shouldEndSession"] is True
+    ev = _event(intent="AMAZON.FallbackIntent")
+    ev["session"]["attributes"] = {mod.ASKING: True}
+    open_q = mod.lambda_handler(ev)
+    assert open_q["response"]["shouldEndSession"] is False and "which one" in _text(open_q)
+    assert seen == []

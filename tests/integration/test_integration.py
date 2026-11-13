@@ -286,17 +286,33 @@ async def test_voice_asks_which_one_and_understands_the_reply(hass: HomeAssistan
     answer = await intent.async_handle(hass, "alexa", "HomeInventoryChoose", {"choice": {"value": "the water hose one"}})
     assert answer.speech["plain"]["speech"] == "Kink Control Plus Water Hose 50ft is in Shed."
     assert not answer.reprompt
-    # The question has been answered: another reply has nothing to refer to
-    again = await intent.async_handle(hass, "alexa", "HomeInventoryChoose", {"choice": {"value": "the second one"}})
-    assert again.speech["plain"]["speech"].startswith("I'm not sure what you mean")
+    # The question has been answered: a bare name is now a question of its own
+    again = await intent.async_handle(hass, "alexa", "HomeInventoryChoose", {"choice": {"value": "siphon pump hose"}})
+    assert again.speech["plain"]["speech"] == "Siphon pump hose is in Shed."
     # Questions are per device: an Assist satellite's reply doesn't answer Alexa's question
     q = await intent.async_handle(hass, "alexa", "HomeInventoryWhereIs", {"item": {"value": "hose"}})
     listed = q.speech["plain"]["speech"].split(": ", 1)[1].removesuffix(". Which one did you mean?")
     second = listed.split(", ")[1].split(" and ")[0]  # order as spoken
     other = await intent.async_handle(hass, "conversation", "HomeInventoryChoose", {"choice": {"value": "the second one"}}, device_id="kitchen")
-    assert other.speech["plain"]["speech"].startswith("I'm not sure what you mean")
+    assert other.speech["plain"]["speech"].startswith("I couldn't find")  # not Alexa's question
     mine = await intent.async_handle(hass, "alexa", "HomeInventoryChoose", {"choice": {"value": "the second one"}})
     assert mine.speech["plain"]["speech"] == f"{second} is in Shed."
+
+
+async def test_zero_turn_said_as_digits_and_bare_answers(hass: HomeAssistant, inventory_app):
+    """Alexa writes "zero" as "0"; replies to "which one" are often just a name."""
+    from homeassistant.helpers import intent
+
+    shed = inventory_app.seed["shed"]
+    for name in ("Zero-turn lawn mower", "Toro Lawn Mower", "Lawn mower blade bracket"):
+        inventory_app.ui("POST", "items", {"name": name, "location_id": shed["id"]})
+    await _setup_via_user_flow(hass, inventory_app)
+    direct = await intent.async_handle(hass, "alexa", "HomeInventoryWhereIs", {"item": {"value": "0 turn mower"}})
+    assert direct.speech["plain"]["speech"] == "Zero-turn lawn mower is in Shed."
+    ask = await intent.async_handle(hass, "alexa", "HomeInventoryWhereIs", {"item": {"value": "lawn mower"}})
+    assert ask.speech["plain"]["speech"].endswith("Which one did you mean?")
+    pick_it = await intent.async_handle(hass, "alexa", "HomeInventoryChoose", {"choice": {"value": "0 turn"}})
+    assert pick_it.speech["plain"]["speech"] == "Zero-turn lawn mower is in Shed."
 
 
 async def test_alexa_custom_skill_request_is_answered(hass: HomeAssistant, inventory_app):

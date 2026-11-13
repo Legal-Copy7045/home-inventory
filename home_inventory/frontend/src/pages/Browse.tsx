@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { TagsSection } from "./Tags";
-import { AlertTriangle, Box, Camera, ChevronDown, ChevronRight, Clock, FileSpreadsheet, Images, Map as MapIcon, MapPin, Package, Pencil, Plus, Printer, QrCode, RotateCw, ScanBarcode, Search as SearchIcon, Sparkles, Trash2 } from "lucide-react";
+import { AlertTriangle, Box, Camera, ChevronDown, ChevronRight, FileSpreadsheet, Images, Map as MapIcon, MapPin, Package, Pencil, Plus, Printer, QrCode, RotateCw, ScanBarcode, Search as SearchIcon, Sparkles, Trash2 } from "lucide-react";
 import { api, qrImageUrl, type Dashboard, type Item, type LocationDetail, type LocationNode, type Scan, type SearchResult } from "../api";
 import { ScanReview, scanPlaceholder } from "../components/PhotoInventory";
 import { SelectableItems } from "../components/BulkActions";
 import { LocationImportSheet } from "../components/LocationImport";
 import { PlacementPicker } from "../components/PlacementPicker";
 import { ContainerFormSheet } from "./Containers";
-import { ContainerRow, Empty, ErrorBox, ItemRow, Section, Sheet, Spinner, fmtDate, fmtWhen, money, useAction, useApi, useMe, useToast } from "../components/ui";
+import { ContainerRow, Empty, ErrorBox, ItemRow, Section, Sheet, Spinner, fmtDate, money, useAction, useApi, useMe, useToast } from "../components/ui";
 
 export function SearchBox({ hero, initial = "" }: { hero?: boolean; initial?: string }) {
   const [q, setQ] = useState(initial);
@@ -74,11 +74,11 @@ export function DashboardPage() {
               <div className="list">{d.data!.warranties.map((i) => <ItemRow key={i.id} item={i} right={<div className="s">{fmtDate(i.warranty_expires)}</div>} />)}</div>
             </Section>
           )}
-          <Section title="Recent activity" action={<Link to="/activity">All</Link>} tight>
-            {d.data!.recent_activity.length ? (
-              <div className="list">{d.data!.recent_activity.slice(0, 5).map((e) => <li key={e.id}><Clock size={18} className="muted" /><div className="grow"><div style={{ fontWeight: 500 }}>{e.summary}</div><div className="s">{e.user} · {fmtWhen(e.ts)}</div></div></li>)}</div>
-            ) : <Empty>Nothing yet. Start by creating locations (e.g. House › Garage), then add containers and items.</Empty>}
-          </Section>
+          {s.total_items === 0 && (
+            <Section title="Getting started">
+              <p className="muted" style={{ margin: 0 }}>Create your places first (e.g. House › Garage › Rack 1) under <Link to="/locations">Locations</Link>, then add containers and items. Recent changes are under <Link to="/activity">Activity history</Link> in the menu.</p>
+            </Section>
+          )}
         </>
       )}
     </div>
@@ -356,7 +356,12 @@ export function LocationDetailPage() {
           <button className="btn" onClick={() => setSheet("edit")}><Pencil size={18} /> Edit</button>
           <button className="btn" onClick={() => setSheet("move")}>Move under…</button>
           <span className="spacer" />
-          <button className="btn danger" onClick={async () => { if (window.confirm(`Delete ${l.name}? It must be empty.`) && (await run(() => api.del(`locations/${l.id}`).then(() => true), "Deleted"))) nav("/locations"); }}><Trash2 size={18} /> Delete</button>
+          <button className="btn danger" onClick={async () => {
+            if (!(await run(() => api.del(`locations/${l.id}`).then(() => true)))) return;
+            const id = l.id;
+            toast(`Deleted ${l.name}`, false, async () => { await api.post(`locations/${id}/restore`); nav(`/locations/${id}`); });
+            nav("/locations");
+          }}><Trash2 size={18} /> Delete</button>
         </div>
       )}
       {sheet === "qr" && (

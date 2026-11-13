@@ -90,6 +90,17 @@ export default function ItemDetail() {
     return r;
   }
 
+  // Quick changes say what happened with an Undo, rather than asking first.
+  async function adjust(delta: number) {
+    const r = await run(() => api.post(`items/${it.id}/adjust`, { delta }));
+    if (r === undefined) return;
+    refresh();
+    toast(delta < 0 ? "Used one" : "Added one", false, async () => {
+      await api.post(`items/${it.id}/adjust`, { delta: -delta, note: "Undo" });
+      refresh();
+    });
+  }
+
   return (
     <div className="page">
       {it.needs_details && !it.deleted_at && (
@@ -138,8 +149,8 @@ export default function ItemDetail() {
               </div>
               {edit && (
                 <div className="row">
-                  <button className="btn" disabled={busy || it.quantity === 0} onClick={() => act(() => api.post(`items/${it.id}/adjust`, { delta: -1 }), "Used one")} aria-label="Use one"><Minus size={18} /> Use</button>
-                  <button className="btn" disabled={busy} onClick={() => act(() => api.post(`items/${it.id}/adjust`, { delta: 1 }), "Added one")} aria-label="Add one"><Plus size={18} /></button>
+                  <button className="btn" disabled={busy || it.quantity === 0} onClick={() => adjust(-1)} aria-label="Use one"><Minus size={18} /> Use</button>
+                  <button className="btn" disabled={busy} onClick={() => adjust(1)} aria-label="Add one"><Plus size={18} /></button>
                 </div>
               )}
             </div>
@@ -299,12 +310,13 @@ export default function ItemDetail() {
 
       {edit && (
         <button className="btn danger block" onClick={async () => {
-          const reason = window.prompt("Delete this item? It can be restored from the Trash. Optional reason:", "");
-          if (reason === null) return;
           try {
-            await api.del(`items/${it.id}`, { reason });
-            toast("Deleted — restore it from Trash in Settings if needed");
-            nav(-1);
+            await api.del(`items/${it.id}`, {});
+            const id = it.id;
+            toast(`Deleted ${it.display_name}`, false, async () => { await api.post(`items/${id}/restore`); nav(`/items/${id}`); });
+            // Go to where it was kept (the box or shelf), where you'd carry on.
+            const pl = it.placement;
+            nav(pl.container ? `/containers/${pl.container.id}` : pl.location ? `/locations/${pl.location.id}` : "/items", { replace: true });
           } catch (err) {
             toast((err as Error).message, true);
           }
@@ -328,7 +340,7 @@ export default function ItemDetail() {
           }}
         />
       )}
-      {sheet === "move" && <MoveSheet item={it} onClose={() => setSheet(null)} onDone={(newId) => { setSheet(null); if (newId !== it.id) nav(`/items/${newId}`); else refresh(); }} />}
+      {sheet === "move" && <MoveSheet item={it} onClose={() => setSheet(null)} onUndone={refresh} onDone={(newId) => { setSheet(null); if (newId !== it.id) nav(`/items/${newId}`); else refresh(); }} />}
       {sheet === "lend" && <LendSheet item={it} onClose={() => setSheet(null)} onDone={(newId) => { setSheet(null); if (newId !== it.id) nav(`/items/${newId}`); else refresh(); }} />}
       {sheet === "status" && <StatusSheet item={it} onClose={() => setSheet(null)} onDone={() => { setSheet(null); refresh(); }} />}
       {sheet === "docs" && <DocSheet item={it} onClose={() => setSheet(null)} onDone={() => { setSheet(null); refresh(); }} />}
@@ -367,7 +379,8 @@ function EditSheet({ item, onClose, onSaved, onSavedNext }: { item: Item; onClos
   );
 }
 
-function MoveSheet({ item, onClose, onDone }: { item: Item; onClose: () => void; onDone: (id: number) => void }) {
+function MoveSheet({ item, onClose, onDone, onUndone }: { item: Item; onClose: () => void; onDone: (id: number) => void; onUndone: () => void }) {
+  const toast = useToast();
   const [target, setTarget] = useState<PlacementValue | null>(null);
   const [picking, setPicking] = useState(true);
   const [qty, setQty] = useState(item.quantity);
@@ -384,8 +397,14 @@ function MoveSheet({ item, onClose, onDone }: { item: Item; onClose: () => void;
         )}
         <label className="check"><input type="checkbox" checked={temporary} onChange={(e) => setTemporary(e.target.checked)} /> Temporary move (remember where it normally lives)</label>
         <button className="btn primary block" disabled={!target || busy} onClick={async () => {
-          const r = await run(() => api.post<Item>(`items/${item.id}/move`, { container_id: target!.container_id, location_id: target!.location_id, quantity: qty < item.quantity ? qty : null, temporary }), "Moved");
-          if (r) onDone(r.id);
+          const whole = qty >= item.quantity;
+          const back = { container_id: item.placement.container?.id ?? null, location_id: item.placement.container ? null : item.placement.location?.id ?? null };
+          const r = await run(() => api.post<Item>(`items/${item.id}/move`, { container_id: target!.container_id, location_id: target!.location_id, quantity: whole ? null : qty, temporary }));
+          if (!r) return;
+          // Undo puts the whole item back where it was (a part moved off stays a separate record).
+          if (whole && !item.home_placement) toast(`Moved to ${target!.label}`, false, async () => { await api.post(`items/${r.id}/move`, { ...back, note: "Undo" }); onUndone(); });
+          else toast("Moved");
+          onDone(r.id);
         }}>Move</button>
       </div>
       {picking && <PlacementPicker onClose={() => setPicking(false)} onPick={(p) => { setTarget(p); setPicking(false); }} />}
@@ -419,13 +438,19 @@ function LendSheet({ item, onClose, onDone }: { item: Item; onClose: () => void;
 function StatusSheet({ item, onClose, onDone }: { item: Item; onClose: () => void; onDone: () => void }) {
   const [note, setNote] = useState(item.status_note || "");
   const { busy, run } = useAction();
+  const toast = useToast();
+  const before = { status: item.status, note: item.status_note || null };
   const options: ItemStatus[] = ["stored", "in_use", "temporarily_relocated", "awaiting_return", "missing"];
   return (
     <Sheet title="Status" onClose={onClose}>
       <label className="field" style={{ marginBottom: 10 }}>Note<input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional" /></label>
       <div className="stack">
         {options.map((s) => (
-          <button key={s} className={`btn block ${item.status === s ? "primary" : ""}`} disabled={busy} onClick={async () => { if (await run(() => api.post(`items/${item.id}/status`, { status: s, note: note || null }), "Updated")) onDone(); }}>
+          <button key={s} className={`btn block ${item.status === s ? "primary" : ""}`} disabled={busy} onClick={async () => {
+            if (!(await run(() => api.post(`items/${item.id}/status`, { status: s, note: note || null })))) return;
+            toast(`Marked ${STATUS_LABELS[s].toLowerCase()}`, false, async () => { await api.post(`items/${item.id}/status`, before); onDone(); });
+            onDone();
+          }}>
             {STATUS_LABELS[s]}
           </button>
         ))}

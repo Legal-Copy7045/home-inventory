@@ -43,6 +43,13 @@ configuration:
     description: Fire an expiry event this many days before an item's use-by date.
   max_upload_mb:
     name: Maximum upload size (MB)
+  photo_detail:
+    name: Photo detail
+    description: >-
+      "standard" suits a Raspberry Pi. "high" keeps larger photos (6144 px),
+      sharper wide-area panoramas and cut-outs, and sends the AI more detail;
+      it needs more memory and uses more AI tokens. Choose it on a powerful
+      machine or VM.
   backup_max_mb:
     name: Maximum backup size for restore (MB)
     description: Largest backup archive the Restore function accepts.
