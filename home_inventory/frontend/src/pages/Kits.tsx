@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Box, Link2, Package, Plus, Trash2, X } from "lucide-react";
 import { TagsSection } from "./Tags";
@@ -31,13 +31,18 @@ export function ItemPickerSheet({ title, exclude = [], onPick, onClose }: { titl
 
 // ---------------------------------------------------------------- item page section
 
-export function RelatedSection({ itemId, edit }: { itemId: number; edit: boolean }) {
+/** ``hideWhenEmpty``: show nothing until something is linked (the item page
+ *  offers "Related item" in its Add row instead); ``request`` opens the form. */
+export function RelatedSection({ itemId, edit, hideWhenEmpty, request }: { itemId: number; edit: boolean; hideWhenEmpty?: boolean; request?: number }) {
   const r = useApi(() => api.get<ItemRelations>(`items/${itemId}/relations`), [itemId]);
   const [adding, setAdding] = useState(false);
+  useEffect(() => { if (request) setAdding(true); }, [request]);
   const { run } = useAction();
   if (!r.data) return null;
   const { relations, kits } = r.data;
-  if (!relations.length && !kits.length && !edit) return null;
+  if (!relations.length && !kits.length && (!edit || hideWhenEmpty)) {
+    return adding ? <LinkSheet itemId={itemId} onClose={() => setAdding(false)} onDone={(d) => { r.setData(d); setAdding(false); }} /> : null;
+  }
   const remove = async (id: number) => {
     if (!window.confirm("Unlink these items? Neither item is deleted.")) return;
     await run(() => api.del(`relations/${id}`), "Unlinked");

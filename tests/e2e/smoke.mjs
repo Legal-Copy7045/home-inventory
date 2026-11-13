@@ -261,7 +261,7 @@ if (!cust.owner || cust.owner.name !== "Pat Neighbour") throw new Error("custome
 const compressor = (await api("items", { method: "POST", data: { name: "Air compressor", location_id: garage.id } })).items[0];
 const airHose = (await api("items", { method: "POST", data: { name: "Air hose 50 ft", container_id: box.id } })).items[0];
 await page.goto(BASE + "#/items/" + compressor.id);
-await page.getByRole("button", { name: "Link" }).click();
+await page.getByRole("button", { name: "Related item" }).click();  // the item page's "Add:" row
 await page.getByRole("button", { name: "Add an accessory for this…" }).click();
 await page.getByRole("button", { name: "Choose the item" }).click();
 await page.getByPlaceholder("Search your items").fill("air hose");
@@ -294,7 +294,7 @@ await shot("12-kit");
 // NFC: assign a tag (link workflow, as on iPhone/desktop), then scan it
 await page.goto(BASE + "#/items/" + mower.id);
 const tagsCard = page.locator(".card", { has: page.getByRole("heading", { name: "NFC tags" }) });
-await tagsCard.getByRole("button", { name: "Assign tag" }).click();
+await page.getByRole("button", { name: "NFC tag" }).click();  // no tags yet: from the "Add:" row
 const assign = page.getByRole("dialog");
 await assign.getByLabel("Label (optional)").fill("Handle");
 await assign.getByRole("button", { name: "Log hours" }).click();

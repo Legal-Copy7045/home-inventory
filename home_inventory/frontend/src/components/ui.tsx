@@ -176,14 +176,14 @@ export function PathView({ placement, link = true }: { placement: Placement | nu
   );
 }
 
-export function ItemRow({ item, right }: { item: Item; right?: ReactNode }) {
+export function ItemRow({ item, right, hidePlace }: { item: Item; right?: ReactNode; hidePlace?: boolean }) {
   const nav = useNavigate();
   return (
     <Link to={`/items/${item.id}`}>
       <Thumb src={item.photo?.thumb_url} />
       <div className="grow">
         <div className="t">{item.display_name}</div>
-        <div className="s">{item.placement.path}</div>
+        <div className="s">{hidePlace ? item.category || "" : item.placement.path}</div>
         <div className="row wrap" style={{ gap: 4, marginTop: 2 }}>
           <StatusBadge item={item} />
           {item.related?.map((r) => (

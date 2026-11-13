@@ -11,6 +11,14 @@ import { useAction, useMe, useToast } from "../components/ui";
  * Mobile-first add flow: photo → optional AI identification → review/edit →
  * place → save.  AI results only ever pre-fill the form.
  */
+const LAST_PLACE = "hinv.lastPlace";
+function lastPlace(): { container_id: number | null; location_id: number | null } | null {
+  try { return JSON.parse(window.localStorage.getItem(LAST_PLACE) || "null"); } catch { return null; }
+}
+function rememberPlace(p: { container_id: number | null; location_id: number | null }) {
+  try { window.localStorage.setItem(LAST_PLACE, JSON.stringify({ container_id: p.container_id, location_id: p.location_id })); } catch { /* private mode */ }
+}
+
 export default function AddItem() {
   const me = useMe();
   const nav = useNavigate();
@@ -19,7 +27,7 @@ export default function AddItem() {
   const [photos, setPhotos] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [value, setValue] = useState<ItemFormValue>(emptyItem(me.app.currency));
-  const [placement, setPlacement] = useState<PlacementValue>({ container_id: null, location_id: null, label: "Unassigned" });
+  const [placement, setPlacement] = useState<PlacementValue & { remembered?: boolean }>({ container_id: null, location_id: null, label: "Unassigned" });
   const [picking, setPicking] = useState(false);
   const [ai, setAi] = useState<{ suggestion: AISuggestion; metadata: Record<string, unknown> } | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
@@ -36,6 +44,12 @@ export default function AddItem() {
     const lid = params.get("location_id");
     if (cid) api.get<{ id: number; path: string }>(`containers/${cid}`).then((c) => setPlacement({ container_id: c.id, location_id: null, label: c.path }));
     else if (lid) api.get<{ id: number; path: string }>(`locations/${lid}`).then((l) => setPlacement({ location_id: l.id, container_id: null, label: l.path }));
+    else {
+      // Most things go where the last one went: start there (if it still exists).
+      const last = lastPlace();
+      if (last?.container_id) api.get<{ id: number; path: string }>(`containers/${last.container_id}`).then((c) => setPlacement({ container_id: c.id, location_id: null, label: c.path, remembered: true })).catch(() => undefined);
+      else if (last?.location_id) api.get<{ id: number; path: string }>(`locations/${last.location_id}`).then((l) => setPlacement({ location_id: l.id, container_id: null, label: l.path, remembered: true })).catch(() => undefined);
+    }
     const pid = params.get("product_id");
     if (pid) {
       setProductId(Number(pid));
@@ -132,6 +146,7 @@ export default function AddItem() {
     };
     const res = await run(() => api.post<{ items: Item[] }>("items", body), "Saved");
     if (!res) return;
+    if (placement.container_id || placement.location_id) rememberPlace(placement);
     if (addAnother) {
       setPhotos([]);
       setValue({ ...emptyItem(me.app.currency) });
@@ -149,26 +164,6 @@ export default function AddItem() {
   return (
     <div className="page">
       <h1>Add item</h1>
-
-      <div className="card">
-        <div className="card-title">
-          <h2>From a web link</h2>
-        </div>
-        <LinkImport
-          initialUrl={params.get("url") || ""}
-          onImported={(r) => {
-            setValue((v) => applyLinkDetails(v, r.details, !v.name.trim()));
-            if (r.photo) setPhotos((p) => [...p, r.photo!]);
-            const d = r.details;
-            setCatalog({
-              name: d.name ?? undefined, description: d.description ?? undefined, manufacturer: d.manufacturer ?? undefined,
-              model_number: d.model_number ?? undefined, category: d.category ?? undefined, image_url: d.image_url ?? undefined,
-              url: d.url, source: d.retailer || new URL(d.url).hostname,
-            });
-            if (r.existing_product) setProductId(r.existing_product.id);
-          }}
-        />
-      </div>
 
       <div className="card">
         <div className="card-title">
@@ -258,7 +253,29 @@ export default function AddItem() {
         <button className="btn block" style={{ justifyContent: "flex-start" }} onClick={() => setPicking(true)}>
           <MapPin size={18} /> {placement.label}
         </button>
+        {placement.remembered && <span className="hint">Same place as the last thing you added. Tap to change.</span>}
       </div>
+
+      <div className="card">
+        <div className="card-title">
+          <h2>Or fill it in from a web link</h2>
+        </div>
+        <LinkImport
+          initialUrl={params.get("url") || ""}
+          onImported={(r) => {
+            setValue((v) => applyLinkDetails(v, r.details, !v.name.trim()));
+            if (r.photo) setPhotos((p) => [...p, r.photo!]);
+            const d = r.details;
+            setCatalog({
+              name: d.name ?? undefined, description: d.description ?? undefined, manufacturer: d.manufacturer ?? undefined,
+              model_number: d.model_number ?? undefined, category: d.category ?? undefined, image_url: d.image_url ?? undefined,
+              url: d.url, source: d.retailer || new URL(d.url).hostname,
+            });
+            if (r.existing_product) setProductId(r.existing_product.id);
+          }}
+        />
+      </div>
+
 
       <div className="row" style={{ position: "sticky", bottom: "calc(var(--nav-h) + var(--safe-bottom) + 8px)" }}>
         <button className="btn" style={{ flex: 1 }} disabled={busy} onClick={() => save(true)}>

@@ -174,3 +174,17 @@ def test_panorama_shrinks_big_photos_before_joining():
 
     out = Image.open(io.BytesIO(stitch([big((200, 0, 0)), big((0, 0, 200))], height=1600)))
     assert out.height <= 1600 and out.width <= 8000
+
+
+def test_places_inside_a_location_say_what_they_hold(env):
+    u = env.admin
+    rack = u.location("Rack")
+    top = u.ok("post", "/api/v1/locations", json={"name": "Top shelf", "parent_id": rack["id"]})
+    tray = u.ok("post", "/api/v1/locations", json={"name": "Tray", "parent_id": top["id"]})
+    u.ok("post", "/api/v1/locations", json={"name": "Bottom shelf", "parent_id": rack["id"]})
+    box = u.container("Lights", location_id=top["id"])
+    u.item("Fairy lights", quantity=4, container_id=box["id"])
+    u.item("Tape", location_id=tray["id"])
+    kids = {c["name"]: c for c in u.ok("get", f"/api/v1/locations/{rack['id']}")["children"]}
+    assert (kids["Top shelf"]["container_count"], kids["Top shelf"]["item_count"]) == (1, 5)
+    assert (kids["Bottom shelf"]["container_count"], kids["Bottom shelf"]["item_count"]) == (0, 0)

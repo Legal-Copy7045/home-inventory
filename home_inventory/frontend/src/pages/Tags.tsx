@@ -132,13 +132,19 @@ export function targetPath(t: { target_type: TagTarget; target_id: number }) {
 
 // ---------------------------------------------------------------- tags on a record page
 
-export function TagsSection({ targetType, targetId, name }: { targetType: TagTarget; targetId: number; name: string }) {
+/** ``hideWhenEmpty``: show nothing until a tag is assigned (pages offer
+ *  "NFC tag" in their Add row instead); ``request`` opens the assign sheet. */
+export function TagsSection({ targetType, targetId, name, hideWhenEmpty, request }: { targetType: TagTarget; targetId: number; name: string; hideWhenEmpty?: boolean; request?: number }) {
   const me = useMe();
   const base = appBaseUrl();
   const tags = useApi(() => api.get<TagRow[]>("tags", { target_type: targetType, target_id: targetId, base: base || undefined }), [targetType, targetId]);
   const [assigning, setAssigning] = useState(false);
+  useEffect(() => { if (request) setAssigning(true); }, [request]);
   const active = (tags.data || []).filter((t) => t.status === "active");
   if (!me.can_edit && !active.length) return null;
+  if (hideWhenEmpty && !active.length) {
+    return assigning ? <AssignTagSheet targetType={targetType} targetId={targetId} name={name} onClose={() => setAssigning(false)} onDone={() => { setAssigning(false); tags.reload(); }} /> : null;
+  }
   return (
     <Section title="NFC tags" action={me.can_edit && <button className="btn small" onClick={() => setAssigning(true)}><Nfc size={16} /> Assign tag</button>}>
       {active.length ? (
