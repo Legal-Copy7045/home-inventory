@@ -1,6 +1,6 @@
 import { Fragment, Suspense, lazy, useEffect, useState, type ComponentType } from "react";
 import { HashRouter, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Activity, ArrowLeft, Box, Copy, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings, Trash2, Wrench, ClipboardList, Boxes, Nfc, ShoppingCart, Camera, FileText } from "lucide-react";
+import { Activity, ArrowLeft, Box, ChevronDown, ChevronRight, Copy, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings, Trash2, Wrench, ClipboardList, Boxes, Nfc, ShoppingCart, Camera, FileText } from "lucide-react";
 import { api, appBaseUrl, labelRef, type Me, type QrTarget } from "./api";
 import { MeContext, Sheet, Spinner, ToastHost, useToast } from "./components/ui";
 import { DashboardPage, ItemsPage, LocationDetailPage, LocationsPage, SearchBox, SearchPage } from "./pages/Browse";
@@ -226,14 +226,31 @@ function Shell({ me }: { me: Me }) {
   const isRoot = ["/", "/search", "/scan", "/items", "/capture", "/sort", "/report", "/to-finish", "/maintenance", "/kits", "/tags", "/shopping", "/repairs", "/customers", "/containers", "/locations", "/maps", "/labels", "/activity", "/loans", "/settings", "/todo", "/care", "/reports", "/deleted", "/duplicates"].includes(loc.pathname);
   const allowed = (n: NavEntry) => (!n.edit || me.can_edit) && (!n.admin || me.is_admin);
   const groups = NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter(allowed) })).filter((g) => g.items.length);
+  // Menu sections fold away; the one holding the current page is always open.
+  const [opened, setOpened] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem("hi.menu.open") || "{}") as Record<string, boolean>; } catch { return {}; }
+  });
+  const here = (g: { items: NavEntry[] }) => g.items.some((n) => (n.end ? loc.pathname === n.to : loc.pathname === n.to || loc.pathname.startsWith(n.to + "/")));
+  const isOpen = (g: { title: string | null; items: NavEntry[] }) => !g.title || g.items.length === 1 || here(g) || !!opened[g.title];
+  const toggle = (title: string) => setOpened((o) => {
+    const next = { ...o, [title]: !o[title] };
+    try { localStorage.setItem("hi.menu.open", JSON.stringify(next)); } catch { /* private mode */ }
+    return next;
+  });
+  const heading = (g: { title: string | null; items: NavEntry[] }, cls: string) => g.title && g.items.length > 1 && (
+    <button type="button" className={cls} aria-expanded={isOpen(g)} onClick={() => toggle(g.title!)} disabled={here(g)}>
+      {isOpen(g) ? <ChevronDown size={14} /> : <ChevronRight size={14} />} {g.title}
+      {!isOpen(g) && <span className="nav-count">{g.items.length}</span>}
+    </button>
+  );
   return (
     <div className="app">
       <nav className="sidebar" aria-label="Main">
         <div className="brand"><img src="./favicon.svg" alt="" width={30} height={30} /> Home Inventory</div>
         {groups.map((g) => (
           <Fragment key={g.title || "main"}>
-            {g.title && <div className="nav-group">{g.title}</div>}
-            {g.items.map((n) => (
+            {heading(g, "nav-group")}
+            {isOpen(g) && g.items.map((n) => (
               <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => (isActive ? "active" : "")}><n.icon size={20} /> {n.label}</NavLink>
             ))}
           </Fragment>
@@ -304,10 +321,12 @@ function Shell({ me }: { me: Me }) {
             const rows = g.items.filter((n) => !["/", "/search", "/add", "/scan"].includes(n.to));
             return rows.length ? (
               <Fragment key={g.title || "main"}>
-                {g.title && <div className="menu-group">{g.title}</div>}
-                <div className="quick" style={{ marginBottom: 8 }}>
-                  {rows.map((n) => <NavLink key={n.to} to={n.to}><span className="ico"><n.icon size={20} /></span>{n.label}</NavLink>)}
-                </div>
+                {heading({ ...g, items: rows }, "menu-group")}
+                {isOpen({ ...g, items: rows }) && (
+                  <div className="quick" style={{ marginBottom: 8 }}>
+                    {rows.map((n) => <NavLink key={n.to} to={n.to}><span className="ico"><n.icon size={20} /></span>{n.label}</NavLink>)}
+                  </div>
+                )}
               </Fragment>
             ) : null;
           })}
