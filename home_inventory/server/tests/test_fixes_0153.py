@@ -83,3 +83,16 @@ def test_document_upload_when_ai_busy_is_recorded_not_skipped(tmp_path):
 def test_one_plural_rule():
     assert [stem(w) for w in ("shelves", "batteries", "boxes", "brushes", "glass", "bus", "drills")] == [
         "shelf", "battery", "box", "brush", "glass", "bus", "drill"]
+
+
+def test_part_number_lookup_ignores_spaces_dashes_and_case(env):
+    from home_inventory_server.services import parts as parts_svc
+
+    env.admin.item("Air filter", model_number="AF-12 34")
+    db = env.state.db.SessionLocal()
+    try:
+        assert parts_svc.find_by_part_number(db, "af1234").name == "Air filter"
+        assert parts_svc.find_by_part_number(db, "AF.12.34").name == "Air filter"
+        assert parts_svc.find_by_part_number(db, "AF1235") is None
+    finally:
+        db.close()

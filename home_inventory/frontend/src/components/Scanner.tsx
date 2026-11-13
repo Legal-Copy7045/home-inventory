@@ -1,33 +1,31 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, Keyboard, SwitchCamera } from "lucide-react";
-import { BrowserMultiFormatReader, type IScannerControls } from "@zxing/browser";
-import { BarcodeFormat, DecodeHintType } from "@zxing/library";
+import type { IScannerControls } from "@zxing/browser";
 
 export interface Detection {
   text: string;
   format: string; // qr_code | ean_13 | ean_8 | upc_a | upc_e | code_128 | itf | ...
 }
 
-const ZX_FORMATS = [
-  BarcodeFormat.QR_CODE,
-  BarcodeFormat.EAN_13,
-  BarcodeFormat.EAN_8,
-  BarcodeFormat.UPC_A,
-  BarcodeFormat.UPC_E,
-  BarcodeFormat.CODE_128,
-  BarcodeFormat.ITF,
-];
 const NATIVE_FORMATS = ["qr_code", "ean_13", "ean_8", "upc_a", "upc_e", "code_128", "itf"];
 
-function zxReader() {
-  const hints = new Map();
-  hints.set(DecodeHintType.POSSIBLE_FORMATS, ZX_FORMATS);
-  hints.set(DecodeHintType.TRY_HARDER, true);
-  return new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 120 });
+// The barcode decoder is large, so it's only loaded when a scan needs it
+// (phones with a built-in barcode reader may never need it).
+export function loadZxing() {
+  return Promise.all([import("@zxing/browser"), import("@zxing/library")]);
 }
 
-function zxFormatName(f: BarcodeFormat): string {
-  return (BarcodeFormat[f] || "unknown").toLowerCase();
+async function zxReader() {
+  const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await loadZxing();
+  const hints = new Map();
+  hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+    BarcodeFormat.QR_CODE, BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A,
+    BarcodeFormat.UPC_E, BarcodeFormat.CODE_128, BarcodeFormat.ITF,
+  ]);
+  hints.set(DecodeHintType.TRY_HARDER, true);
+  const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 120 });
+  const name = (f: number) => (BarcodeFormat[f] || "unknown").toLowerCase();
+  return { reader, name };
 }
 
 type NativeDetector = { detect: (src: CanvasImageSource) => Promise<{ rawValue: string; format: string }[]> };
@@ -55,8 +53,9 @@ export async function decodeImageFile(file: File): Promise<Detection | null> {
       const r = await native.detect(img);
       if (r.length) return { text: r[0].rawValue, format: r[0].format };
     }
-    const res = await zxReader().decodeFromImageUrl(bmpUrl);
-    return { text: res.getText(), format: zxFormatName(res.getBarcodeFormat()) };
+    const { reader, name } = await zxReader();
+    const res = await reader.decodeFromImageUrl(bmpUrl);
+    return { text: res.getText(), format: name(res.getBarcodeFormat()) };
   } catch {
     return null;
   } finally {
@@ -127,8 +126,10 @@ export function Scanner({ onDetect, paused = false, hint = "Point at a QR label 
           };
           tick();
         } else {
-          controls = await zxReader().decodeFromVideoElement(video, (res) => {
-            if (res) emit({ text: res.getText(), format: zxFormatName(res.getBarcodeFormat()) });
+          const { reader, name } = await zxReader();
+          if (stopped) return;
+          controls = await reader.decodeFromVideoElement(video, (res) => {
+            if (res) emit({ text: res.getText(), format: name(res.getBarcodeFormat()) });
           });
         }
         setError(null);

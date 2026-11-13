@@ -27,12 +27,17 @@ from sqlalchemy import select
 
 from . import __version__
 from .ai import AIService
+from .api.admin import router as admin_router
+from .api.attachments import router as attachments_router
 from .api.customers import router as customers_router
+from .api.lookup import router as lookup_router
 from .api.maintenance import router as maintenance_router
+from .api.maps import router as maps_router
 from .api.parts import router as parts_router
 from .api.relations import router as relations_router
 from .api.replenishment import router as replenishment_router
 from .api.routes import router
+from .api.scans import router as scans_router
 from .api.tags import router as tags_router
 from .auth import AdminBootstrap, HaAdminDirectory, load_or_create_token
 from .config import Settings
@@ -138,6 +143,8 @@ def create_app(state: AppState, channel: str) -> FastAPI:
     app.state.write_lock = state.write_lock
     app.state.reopen_database = state.reopen_database
     app.include_router(router)
+    for extra in (attachments_router, scans_router, lookup_router, maps_router, admin_router):
+        app.include_router(extra)
     app.include_router(maintenance_router)
     app.include_router(parts_router)
     app.include_router(customers_router)

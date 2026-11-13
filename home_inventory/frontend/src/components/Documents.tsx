@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { FileText, Sparkles, Trash2 } from "lucide-react";
 import { api, url, type Attachment } from "../api";
-import { Sheet, fmtDate, useAction, useApi, useMe } from "./ui";
+import { Sheet, fmtDate, useAction, useApi, useMe, usePoll } from "./ui";
 
 interface FieldSuggestion { field: string; label: string; value: string; current: string | null; note: string | null; selected: boolean }
 
@@ -33,11 +33,7 @@ export function DocumentsList({ itemId, docs, edit, onChanged, onRemove }: {
   const [review, setReview] = useState<{ r: DocReading; doc: Attachment } | null>(null);
   const { busy, run } = useAction();
   const pending = readings.data?.some((r) => r.status === "pending");
-  useEffect(() => {
-    if (!pending) return;
-    const t = setInterval(() => readings.reload(), 3000);
-    return () => clearInterval(t);
-  }, [pending]); // eslint-disable-line react-hooks/exhaustive-deps
+  usePoll(!!pending, readings.reload);
   const byDoc = Object.fromEntries((readings.data || []).map((r) => [r.attachment_id, r]));
   const recognise = async (d: Attachment) => {
     if (await run(() => api.post(`attachments/${d.id}/recognise`))) readings.reload();
