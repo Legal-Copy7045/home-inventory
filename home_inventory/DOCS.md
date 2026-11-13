@@ -71,7 +71,7 @@ With an AI provider set up, one photo can add many things. Open a **location** o
 - lists everything, saying which rack and shelf each thing is on;
 - treats storage boxes, bins and totes as **containers**, named from their labels ("Party supplies", "Double bedding covers"), so you can open each one later and photograph what's inside.
 
-In the review, the **Layout** panel matches each rack and shelf to a place you already have, or creates it (rename it if you like). Each entry's **Put on** can be changed, and only places that something actually goes on are created. Photographing the same area again later reuses those places and recognises what's already recorded. Everything is saved together when you tap **Confirm inventory**: new places, containers (each with a cut-out photo) and items.
+In the review, the **Layout** panel matches each rack and shelf to a place you already have, or creates it (rename it if you like). Each entry's **Put on** can be changed, and only places that something actually goes on are created. Photographing the same area again later reuses those places and recognises what's already recorded. Everything is saved together when you tap **Confirm inventory**: new places, containers and items, each with a photo cut out of the big one. Each row shows its cut-out; if it shows the wrong part of the photo, untick **Photo** and that entry is saved without one.
 
 **One shelf or one box.** Open that shelf or container and photograph it; everything goes there.
 
@@ -87,7 +87,7 @@ With AI set up, each document is read in the background. A few seconds later the
 - You can correct a value before saving. The document can also be filed under the right type and named (e.g. "Lowe's receipt").
 - A document that's clearly about a different product isn't used to fill anything in.
 
-Values are only ever copied from what's printed, never guessed. A warranty end date is worked out only when the document gives both the purchase date and the warranty length. A scanned PDF has no text to read; add a photo of it instead. Files added from **Read the manual** are recognised too, so a receipt added there by mistake is flagged and can be filed correctly. **Dismiss** hides a suggestion, and **Read with AI** reads an older document.
+Values are only ever copied from what's printed, never guessed. A warranty end date is worked out only when the document gives both the purchase date and the warranty length. A scanned PDF is read from pictures of its first pages. Files added from **Read the manual** are recognised too, so a receipt added there by mistake is flagged and can be filed correctly. **Dismiss** hides a suggestion, and **Read with AI** reads an older document.
 
 ## Working with several items
 
@@ -113,7 +113,7 @@ Service history is kept when tasks are changed or removed, and even when you sto
 
 ### Reading the manual
 
-On equipment you track, **Read the manual** has the AI read its owner's manual. Choose the PDF attached to the item, or add one. For a paper or scanned manual, photograph the maintenance pages instead.
+On equipment you track, **Read the manual** has the AI read its owner's manual. Choose the PDF attached to the item, or add one. A scanned PDF is read page by page as pictures: the first 12 pages, or the pages you type in **Pages to read** (e.g. 18-26). For a paper manual, photograph the maintenance pages. If the item isn't tracked as equipment yet, reading its manual turns maintenance tracking on. Manual documents under **Receipts & documents** also have a button to read them.
 
 The AI picks out:
 - **each service and its interval**, such as "change oil every 50 hours or yearly, first at 5 hours";

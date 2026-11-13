@@ -15,6 +15,7 @@ from ..auth import Actor, current_actor, get_db, require_member
 from ..models import (
     Attachment,
     DocumentReading,
+    EquipmentProfile,
     Item,
     ItemOwner,
     MaintenanceTask,
@@ -82,6 +83,8 @@ class FitmentPatch(_In):
 
 class ManualReadIn(_In):
     attachment_ids: list[int] = Field(min_length=1, max_length=man.MAX_PHOTOS + 1)
+    # Which pages of a PDF to read, e.g. "18-26" (optional; for long scanned manuals).
+    pages: str | None = Field(default=None, max_length=100)
 
 
 class ManualPartChoice(_In):
@@ -322,7 +325,6 @@ def read_manual(item_id: int, data: ManualReadIn, request: Request, actor: Actor
     ``GET /manual-readings/{id}`` until the status isn't ``pending``."""
     st = request.app.state
     item = _item(db, actor, item_id)
-    _run(man.equipment_item, db, item)
     if not st.ai.enabled:
         raise HTTPException(422, "AI is not configured. Choose a provider in the App configuration.")
     for att_id in data.attachment_ids:
@@ -332,9 +334,15 @@ def read_manual(item_id: int, data: ManualReadIn, request: Request, actor: Actor
     running = man.running_for(db, item.id)
     if running is not None:
         return man.reading_out(running)  # one at a time per item
+    if db.scalar(select(EquipmentProfile).where(EquipmentProfile.item_id == item.id)) is None:
+        # Reading a manual says it's equipment: start tracking its maintenance.
+        from ..services import maintenance as mnt
+
+        mnt.save_profile(db, actor, item, {}, None)
     st.rate_limiter.check(actor.user_id, "ai")
+    pages = _run(man.parse_pages, data.pages)
     reading = ManualReading(item_id=item.id, attachment_ids=list(dict.fromkeys(data.attachment_ids)),
-                            created_by_id=actor.user_id)
+                            created_by_id=actor.user_id, result={"pages": pages} if pages else None)
     db.add(reading)
     db.commit()
     man.start(st, reading.id)

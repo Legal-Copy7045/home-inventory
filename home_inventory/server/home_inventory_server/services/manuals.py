@@ -39,8 +39,11 @@ _LOGGER = logging.getLogger(__name__)
 MAX_TEXT = 90_000  # characters sent to the AI
 MAX_PAGES = 800
 MAX_PHOTOS = 8
+# A scanned PDF (pictures of pages, no text) is read page by page as images.
+MAX_SCANNED_PAGES = 12
+MAX_CHOSEN_PAGES = 30
 # A reading still "pending" after this was interrupted (the App restarted).
-STALE_AFTER = timedelta(minutes=20)
+STALE_AFTER = timedelta(minutes=45)
 _KEYWORDS = ("maintenance", "service", "schedule", "interval", "every", "hours", "oil", "spark", "filter", "plug",
              "capacity", "specification", "part", "replace", "grease", "blade", "belt", "fuel", "lubric", "inspect")
 
@@ -69,6 +72,60 @@ def pdf_pages(data: bytes) -> list[tuple[int, str]]:
         return out
     except (PdfReadError, ValueError, KeyError) as err:
         raise ManualError(f"This PDF couldn't be read ({err}).") from err
+
+
+def page_count(data: bytes) -> int:
+    import pypdfium2 as pdfium
+
+    try:
+        return len(pdfium.PdfDocument(data))
+    except Exception:  # noqa: BLE001
+        return 0
+
+
+def page_images(data: bytes, pages: list[int], long_edge: int = 1800) -> list[tuple[int, bytes]]:
+    """(page number, JPEG) for each requested page (1-based) that exists.
+    Used for scanned PDFs, whose pages are pictures with no text."""
+    import pypdfium2 as pdfium
+
+    try:
+        pdf = pdfium.PdfDocument(data)
+    except Exception as err:  # noqa: BLE001
+        raise ManualError(f"This PDF couldn't be opened ({err}).") from err
+    out = []
+    try:
+        for n in pages:
+            if not 1 <= n <= len(pdf):
+                continue
+            page = pdf[n - 1]
+            w, h = page.get_size()
+            img = page.render(scale=long_edge / max(w, h, 1)).to_pil().convert("RGB")
+            buf = io.BytesIO()
+            img.save(buf, "JPEG", quality=85)
+            out.append((n, buf.getvalue()))
+    finally:
+        pdf.close()
+    return out
+
+
+def parse_pages(spec: str | None) -> list[int] | None:
+    """ "3, 18-26" -> [3, 18, ..., 26]; None when empty."""
+    if not spec or not spec.strip():
+        return None
+    out: list[int] = []
+    for part in re.split(r"[,\s]+", spec.strip()):
+        if not part:
+            continue
+        m = re.fullmatch(r"(\d+)(?:-(\d+))?", part)
+        if not m:
+            raise ManualError(f"Pages: “{part}” isn't a page or range like 18-26")
+        a, b = int(m.group(1)), int(m.group(2) or m.group(1))
+        if b < a:
+            a, b = b, a
+        out.extend(range(a, b + 1))
+        if len(out) > MAX_CHOSEN_PAGES:
+            raise ManualError(f"Choose at most {MAX_CHOSEN_PAGES} pages")
+    return sorted(set(out)) or None
 
 
 def select_text(pages: list[tuple[int, str]], limit: int = MAX_TEXT) -> str:
@@ -165,13 +222,29 @@ def analyse(db: Session, reading: ManualReading, ai, media, item: Item) -> Manua
         photos = [a for a in atts if a is not None and (a.mime_type or "").startswith("image/")]
         if not pdfs and not photos:
             raise ManualError("Choose the manual (a PDF) or photos of its pages.")
+        chosen = (reading.result or {}).get("pages")  # set when the reading was started
+        notes = []
         for att in pdfs:
-            pages = pdf_pages(media.read(att.stored_path))
-            if not pages:
-                raise ManualError(f"{att.original_name or 'This PDF'} has no readable text (it's probably scanned). "
-                                  "Photograph the maintenance pages and choose those photos instead.")
-            res = ai.read_manual(text=select_text(pages), equipment=hint)
-            results.append(res.data)
+            data = media.read(att.stored_path)
+            pages = pdf_pages(data)
+            if chosen:
+                pages = [p for p in pages if p[0] in chosen]
+            if pages:
+                res = ai.read_manual(text=select_text(pages), equipment=hint)
+                results.append(res.data)
+                continue
+            # No text: a scanned manual.  Read its pages as pictures.
+            total = page_count(data)
+            wanted = chosen or list(range(1, min(total, MAX_SCANNED_PAGES) + 1))
+            images = page_images(data, wanted)
+            if not images:
+                raise ManualError(f"{att.original_name or 'This PDF'} has no pages to read.")
+            for _n, img in images:
+                res = ai.read_manual(image=img, equipment=hint)
+                results.append(res.data)
+            if not chosen and total > MAX_SCANNED_PAGES:
+                notes.append(f"{att.original_name or 'The manual'} is scanned: pages 1-{MAX_SCANNED_PAGES} of {total} "
+                             "were read. If the maintenance schedule is further in, read again and choose its pages.")
         for att in photos[:MAX_PHOTOS]:
             res = ai.read_manual(image=media.read(att.stored_path), equipment=hint)
             results.append(res.data)
@@ -180,6 +253,8 @@ def analyse(db: Session, reading: ManualReading, ai, media, item: Item) -> Manua
         if not data["services"] and not data["parts"]:
             raise ManualError("No maintenance schedule or parts were found in this manual.")
         reading.result = annotate(db, item, data)
+        if notes:
+            reading.result["notes"] = notes
         reading.status = "ready"
         reading.error = None
     except (ManualError, AIFailed, AIUnavailable) as err:

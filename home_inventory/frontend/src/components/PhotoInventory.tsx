@@ -29,6 +29,8 @@ type Row = {
   match: string | null;
   open: boolean;
   box: number[] | null;
+  /** Save the cut-out as the item's photo (untick when the AI's box is off). */
+  use_crop: boolean;
   kind: "item" | "container";
   container_type: string;
   unit: number | null;
@@ -109,6 +111,7 @@ function Review({ scan, target, onClose }: { scan: Scan; target: ScanTarget; onC
       match: s.match ? `${s.match.name} (have ${s.match.quantity})` : null,
       open: false,
       box: s.box || null,
+      use_crop: true,
       kind: s.kind || "item",
       container_type: s.container_type || "",
       unit: s.unit ?? null,
@@ -241,7 +244,14 @@ function Review({ scan, target, onClose }: { scan: Scan; target: ScanTarget; onC
         {rows.map((r) => (
           <div key={r.key} className="card" style={{ marginBottom: 0, opacity: r.action === "skip" ? 0.55 : 1 }}>
             <div className="row" style={{ alignItems: "flex-start" }}>
-              {r.box && scan.photo && <CropPreview src={url(scan.photo.url)} box={r.box} />}
+              {r.box && scan.photo && (
+                <label className="crop-pick" title="Use this cut-out as the item's photo">
+                  <span style={{ opacity: r.use_crop ? 1 : 0.35 }}><CropPreview src={url(scan.photo.url)} box={r.box} /></span>
+                  <span className="crop-pick-label">
+                    <input type="checkbox" checked={r.use_crop} onChange={(e) => upd(r.key, { use_crop: e.target.checked })} /> Photo
+                  </span>
+                </label>
+              )}
               <input value={r.name} onChange={(e) => upd(r.key, { name: e.target.value })} style={{ fontWeight: 600 }} aria-label="Name" placeholder="Name" />
               <button
                 className="iconbtn"
@@ -304,7 +314,7 @@ function Review({ scan, target, onClose }: { scan: Scan; target: ScanTarget; onC
         <button
           className="btn"
           onClick={() =>
-            setRows([...rows, { key: Date.now(), action: "add", name: "", category: "", manufacturer: "", model_number: "", notes: "", position: null, quantity: 1, confidence: null, existing_item_id: null, match: null, open: true, box: null, kind: "item", container_type: "", unit: null, shelf: null, place: null }])
+            setRows([...rows, { key: Date.now(), action: "add", name: "", category: "", manufacturer: "", model_number: "", notes: "", position: null, quantity: 1, confidence: null, existing_item_id: null, match: null, open: true, box: null, use_crop: true, kind: "item", container_type: "", unit: null, shelf: null, place: null }])
           }
         >
           <Plus size={18} /> Add something it missed
@@ -342,7 +352,7 @@ function Review({ scan, target, onClose }: { scan: Scan; target: ScanTarget; onC
                 notes: r.notes.trim() || null,
                 quantity: r.quantity,
                 confidence: r.confidence,
-                box: r.action === "add" ? r.box : null,
+                box: r.action === "add" && r.use_crop ? r.box : null,
                 kind: r.kind,
                 container_type: r.kind === "container" ? r.container_type.trim() || null : null,
                 ...(area !== null && r.action === "add"

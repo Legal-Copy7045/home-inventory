@@ -210,9 +210,6 @@ def test_reading_a_manual_builds_the_plan(tmp_path):
     mower = u.item("Lawn mower", manufacturer="Honda", model_number="HRX217")
     pdf = u.upload(_pdf(["Contents", "Maintenance schedule\nEvery 50 hours: change engine oil (SAE 10W-30, 0.55 L)",
                          "Spark plug: NGK BPR6ES"]), kind="manual", filename="manual.pdf", item_id=mower["id"], recognise=False)
-    # Equipment only
-    r = u.post(f"/api/v1/items/{mower['id']}/manual-readings", json={"attachment_ids": [pdf["id"]]})
-    assert r.status_code == 422 and "equipment" in r.json()["detail"]
     u.ok("put", f"/api/v1/items/{mower['id']}/equipment", json={"meter": "hours", "current_hours": 2})
     u.item("Champion plug W20EPR-U", model_number="W20EPR-U", quantity=3)
     task = u.ok("post", f"/api/v1/items/{mower['id']}/maintenance-tasks", json={"title": "Replace spark plugs",
@@ -277,9 +274,16 @@ def test_scanned_manuals_and_photos_of_pages(tmp_path):
     env = Env(tmp_path, ai_provider=fake)
     u = env.admin
     gen = _equipment(u, "Generator")
-    blank = u.upload(_pdf([""]), kind="manual", filename="scan.pdf", item_id=gen["id"], recognise=False)
-    r = _read(u, gen["id"], [blank["id"]])
-    assert r["status"] == "failed" and "scanned" in r["error"] and fake.calls == []
+    # A scanned PDF (pages are pictures, no text) is read page by page as images
+    scan = u.upload(_pdf(["", ""]), kind="manual", filename="scan.pdf", item_id=gen["id"], recognise=False)
+    fake.responses += [{**MANUAL, "services": MANUAL["services"][:1], "parts": MANUAL["parts"][:1], "specs": []},
+                       {**MANUAL, "services": MANUAL["services"][1:2], "parts": MANUAL["parts"][1:2], "specs": []}]
+    r = _read(u, gen["id"], [scan["id"]])
+    assert r["status"] == "ready" and len(fake.calls) == 2 and all(c["image"] for c in fake.calls)
+    assert [s["title"] for s in r["result"]["services"]] == ["Change engine oil", "Replace spark plug"]
+    assert "notes" not in r["result"]
+    u.ok("post", f"/api/v1/manual-readings/{r['id']}/discard")
+    fake.calls.clear()
     p1 = u.upload(jpeg_bytes(), item_id=gen["id"])
     p2 = u.upload(jpeg_bytes((10, 10, 10)), item_id=gen["id"])
     page1 = {**MANUAL, "services": MANUAL["services"][:1], "parts": MANUAL["parts"][:1], "specs": []}
@@ -373,3 +377,45 @@ def test_reading_runs_in_the_background_one_at_a_time(tmp_path):
         stuck_id = stuck.id
     r = u.ok("get", f"/api/v1/manual-readings/{stuck_id}")
     assert r["status"] == "failed" and "interrupted" in r["error"]
+
+
+
+def test_reading_a_manual_starts_tracking_maintenance(tmp_path):
+    """A new mower with its manual attached: reading it turns it into equipment."""
+    fake = FakeProvider()
+    fake.responses.append(MANUAL)
+    env = Env(tmp_path, ai_provider=fake)
+    u = env.admin
+    toro = u.item("Toro TimeMaster 30", manufacturer="Toro")
+    pdf = u.upload(_pdf(["Maintenance: oil every 50 hours"]), kind="manual", filename="toro.pdf", item_id=toro["id"],
+                   recognise=False)
+    assert u.ok("get", f"/api/v1/items/{toro['id']}/maintenance")["profile"] is None
+    r = _read(u, toro["id"], [pdf["id"]])
+    assert r["status"] == "ready"
+    profile = u.ok("get", f"/api/v1/items/{toro['id']}/maintenance")["profile"]
+    assert profile is not None and profile["meter"] == "hours"
+
+
+
+def test_long_scanned_manuals_read_the_first_pages_or_the_chosen_ones(tmp_path):
+    fake = FakeProvider()
+    env = Env(tmp_path, ai_provider=fake)
+    u = env.admin
+    mower = _equipment(u, "Toro mower")
+    scan = u.upload(_pdf([""] * 15), kind="manual", filename="toro.pdf", item_id=mower["id"], recognise=False)
+    fake.responses += [{**MANUAL, "services": [], "parts": MANUAL["parts"][:1], "specs": []}] * 12
+    r = _read(u, mower["id"], [scan["id"]])
+    assert len(fake.calls) == 12 and "pages 1-12 of 15" in r["result"]["notes"][0]
+    u.ok("post", f"/api/v1/manual-readings/{r['id']}/discard")
+    fake.calls.clear()
+    fake.responses += [MANUAL, MANUAL]
+    r2 = u.ok("post", f"/api/v1/items/{mower['id']}/manual-readings", expected=202,
+              json={"attachment_ids": [scan["id"]], "pages": "14-15"})
+    for _ in range(200):
+        if r2["status"] != "pending":
+            break
+        time.sleep(0.05)
+        r2 = u.ok("get", f"/api/v1/manual-readings/{r2['id']}")
+    assert r2["status"] == "ready" and len(fake.calls) == 2 and "notes" not in r2["result"]
+    bad = u.post(f"/api/v1/items/{mower['id']}/manual-readings", json={"attachment_ids": [scan["id"]], "pages": "abc"})
+    assert bad.status_code == 422 and "isn't a page" in bad.json()["detail"]

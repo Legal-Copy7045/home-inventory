@@ -533,3 +533,20 @@ def test_area_photo_works_for_any_layout(ai_env, fake_ai):
     fake_ai.responses.append({"units": [{"name": "Workbench", "shelves": []}], "notes": None, "items": []})
     scan3 = u.ok("post", f"/api/v1/locations/{garage['id']}/scans", files={"file": ("g.jpg", jpeg_bytes())})
     assert {p["name"] for p in scan3["places"]} == {"Garage", "Workbench", "Pegboard"}
+
+
+def test_boxes_in_the_detection_format_are_converted():
+    """Vision models return [ymin, xmin, ymax, xmax] on 0-1000; crops need [x, y, w, h] fractions."""
+    from home_inventory_server.ai import _box_2d, _clean_item
+
+    # The Margaritaville box: top-left area, wider than tall
+    assert _box_2d([170, 290, 330, 370]) == [0.29, 0.17, 0.08, 0.16]
+    assert _box_2d([0.17, 0.29, 0.33, 0.37]) == [0.29, 0.17, 0.08, 0.16]  # given as fractions instead
+    assert _box_2d([330, 290, 170, 370]) is None  # upside down
+    assert _box_2d([0, 0, 2000, 500]) is None  # outside the photo
+    item = _clean_item({"name": "Box", "box_2d": [100, 100, 400, 300]})
+    assert item["box"] == [0.1, 0.1, 0.2, 0.3]
+    # A box covering most of the photo is not one entry: no crop
+    assert "box" not in _clean_item({"name": "Everything", "box_2d": [0, 0, 1000, 1000]})
+    # The old [x, y, w, h] form is still read
+    assert _clean_item({"name": "Old", "box": [0.1, 0.1, 0.2, 0.3]})["box"] == [0.1, 0.1, 0.2, 0.3]
