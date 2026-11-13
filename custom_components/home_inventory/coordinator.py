@@ -14,7 +14,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import InventoryAuthError, InventoryClient, InventoryError
-from .const import DOMAIN, EVENT_TYPES
+from .const import CONF_MAINTENANCE_NOTIFY, CONF_NOTIFY_SERVICE, DOMAIN, EVENT_TYPES, NAME
 
 _LOGGER = logging.getLogger(__name__)
 SIGNAL_CONNECTION = f"{DOMAIN}_connection"
@@ -95,5 +95,26 @@ class InventoryCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if etype not in EVENT_TYPES:
             return
         self.last_event = message
-        self.hass.bus.async_fire(f"{DOMAIN}_{etype}", message.get("data") or {})
+        data = message.get("data") or {}
+        self.hass.bus.async_fire(f"{DOMAIN}_{etype}", data)
+        if etype == "maintenance_due":
+            self._notify_maintenance(data)
         self.hass.async_create_task(self.async_request_refresh())
+
+    @callback
+    def _notify_maintenance(self, data: dict[str, Any]) -> None:
+        """Send a "maintenance due" notice to the phone, if that's turned on."""
+        opts = self.config_entry.options if self.config_entry else {}
+        service = opts.get(CONF_NOTIFY_SERVICE)
+        if not opts.get(CONF_MAINTENANCE_NOTIFY) or not service or not data.get("message"):
+            return
+
+        async def send() -> None:
+            try:
+                await self.hass.services.async_call(
+                    "notify", service, {"title": f"{NAME}: maintenance", "message": data["message"]}, blocking=False
+                )
+            except Exception as err:  # noqa: BLE001 - a notice must never break the event stream
+                _LOGGER.warning("Couldn't send the maintenance notice to notify.%s: %s", service, err)
+
+        self.hass.async_create_task(send())

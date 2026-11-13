@@ -38,16 +38,18 @@
           "sidebar_panel": "Add an Inventory sidebar panel (not needed with the App, which has its own)",
           "scan_interval": "Statistics refresh interval (seconds)",
           "voice_notify": "Also send voice answers to your phone",
-          "notify_service": "Notification action (for example mobile_app_your_phone)"
+          "notify_service": "Notification action (for example mobile_app_your_phone)",
+          "maintenance_notify": "Send maintenance reminders to your phone"
         },
         "data_description": {
           "voice_notify": "When you ask where something is, the answer (with where it is) is also sent as a notification, so you don't have to ask again. \"Which one did you mean?\" questions aren't sent, only the final answer.",
-          "notify_service": "The notify action that reaches your phone. The Home Assistant companion app adds one per phone, named mobile_app_ followed by the phone's name."
+          "notify_service": "The notify action that reaches your phone. The Home Assistant companion app adds one per phone, named mobile_app_ followed by the phone's name.",
+          "maintenance_notify": "When equipment becomes due for service, a notification says what's due and which parts you still need (missing parts are also added to the shopping list, unless that's turned off in the App's settings)."
         }
       }
     },
     "error": {
-      "notify_service_required": "Choose the notification action to send answers to.",
+      "notify_service_required": "Choose the notification action to send answers and reminders to.",
       "notify_service_unknown": "There's no notify action with this name. Check the name under Developer tools → Actions (notify.…)."
     }
   },

@@ -149,6 +149,36 @@ class MediaStore:
         return self.path(relative).read_bytes()
 
 
+MAX_PANORAMA = 4
+
+
+def stitch(photos: list[bytes], height: int = 1600, max_width: int = 8000) -> bytes:
+    """Photos of one wide area, taken left to right, side by side in one JPEG
+    (a simple panorama: the AI sees the whole area at once, and cut-outs are
+    taken from it as from any photo)."""
+    pics = []
+    for data in photos:
+        try:
+            img = Image.open(io.BytesIO(data))
+            img.load()
+        except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as err:
+            raise MediaError("Unsupported file type; upload JPEG, PNG or WebP photos") from err
+        pics.append(ImageOps.exif_transpose(img).convert("RGB"))
+    h = min(height, min(p.height for p in pics))
+    pics = [p.resize((max(1, round(p.width * h / p.height)), h), Image.Resampling.LANCZOS) for p in pics]
+    width = sum(p.width for p in pics)
+    sheet = Image.new("RGB", (width, h), "white")
+    x = 0
+    for p in pics:
+        sheet.paste(p, (x, 0))
+        x += p.width
+    if width > max_width:
+        sheet = sheet.resize((max_width, max(1, round(h * max_width / width))), Image.Resampling.LANCZOS)
+    out = io.BytesIO()
+    sheet.save(out, "JPEG", quality=88)
+    return out.getvalue()
+
+
 def crop_box(data: bytes, box: list[float], pad: float = 0.04) -> bytes | None:
     """JPEG of the part of a stored photo inside ``box`` = [x, y, w, h]
     (fractions of the width/height), with a little margin.  None if too small."""

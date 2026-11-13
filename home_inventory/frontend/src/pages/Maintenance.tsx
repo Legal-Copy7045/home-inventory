@@ -658,7 +658,7 @@ function TaskSheet({ itemId, task, onClose, onDone }: { itemId: number; task?: M
 
 export function MaintenancePage() {
   const me = useMe();
-  const [tab, setTab] = useState<"overdue" | "due" | "parts" | "missing" | "recent">("overdue");
+  const [tab, setTab] = useState<"overdue" | "due" | "season" | "parts" | "missing" | "recent">("overdue");
   const [within, setWithin] = useState(30);
   const [owner, setOwner] = useState<"all" | "household" | "customer">("all");
   const d = useApi(() => api.get<MaintDashboard>("maintenance/dashboard", { within, owner }), [within, owner]);
@@ -707,6 +707,7 @@ export function MaintenancePage() {
       <div className="tabs">
         <button className={tab === "overdue" ? "active" : ""} onClick={() => setTab("overdue")}>Overdue ({x.overdue.length})</button>
         <button className={tab === "due" ? "active" : ""} onClick={() => setTab("due")}>Due soon ({x.due.length})</button>
+        <button className={tab === "season" ? "active" : ""} onClick={() => setTab("season")}>This season</button>
         <button className={tab === "parts" ? "active" : ""} onClick={() => setTab("parts")}>Parts needed</button>
         <button className={tab === "missing" ? "active" : ""} onClick={() => setTab("missing")}>No records ({x.no_records.length})</button>
         <button className={tab === "recent" ? "active" : ""} onClick={() => setTab("recent")}>Recent</button>
@@ -720,6 +721,7 @@ export function MaintenancePage() {
           {taskList(x.due, `Nothing due in the next ${within} days.`)}
         </>
       )}
+      {tab === "season" && <SeasonalPanel onChanged={d.reload} />}
       {tab === "parts" && <ReadinessPanel />}
       {tab === "missing" && (x.no_records.length ? (
         <div className="list">
@@ -736,6 +738,55 @@ export function MaintenancePage() {
       ) : <div className="empty">No service recorded yet.</div>)}
       {x.equipment_count === 0 && (
         <p className="muted">To start, open an item such as a mower or generator and tap <b>Track maintenance</b>.</p>
+      )}
+    </div>
+  );
+}
+
+interface Seasonal {
+  season: string;
+  months: string[];
+  scheduled: { task_id: number; title: string; due_on: string; overdue: boolean; item: { id: number; name: string } }[];
+  suggestions: { key: number; title: string; why: string; month_name: string; due_on: string; this_season: boolean; item: { id: number; name: string } }[];
+}
+
+/** Yearly jobs for the next three months, and seasonal jobs to add. */
+function SeasonalPanel({ onChanged }: { onChanged: () => void }) {
+  const me = useMe();
+  const s = useApi(() => api.get<Seasonal>("maintenance/seasonal"), []);
+  const { busy, run } = useAction();
+  if (!s.data) return s.error ? <ErrorBox error={s.error} /> : <Spinner />;
+  const x = s.data;
+  const add = async (g: Seasonal["suggestions"][number]) => {
+    if (await run(() => api.post("maintenance/seasonal", { item_id: g.item.id, key: g.key }), `Added: ${g.title}, every year in ${g.month_name}`)) {
+      s.reload();
+      onChanged();
+    }
+  };
+  return (
+    <div className="stack">
+      <p className="muted" style={{ margin: 0 }}>{x.season} checklist: {x.months.join(", ")}.</p>
+      {x.scheduled.length ? (
+        <div className="list">
+          {x.scheduled.map((t) => (
+            <Link key={t.task_id} to={`/items/${t.item.id}`}>
+              <Wrench size={20} />
+              <div className="grow"><div className="t">{t.item.name} – {t.title}</div><div className="s">{t.overdue ? "Overdue since" : "Due"} {fmtDate(t.due_on)}</div></div>
+            </Link>
+          ))}
+        </div>
+      ) : <div className="empty">No dated maintenance in these months.</div>}
+      {x.suggestions.length > 0 && (
+        <Section title="Seasonal jobs to add">
+          <div className="list">
+            {x.suggestions.map((g) => (
+              <li key={`${g.item.id}-${g.key}`}>
+                <div className="grow"><div className="t">{g.item.name} – {g.title}</div><div className="s">Every {g.month_name}{g.this_season ? " (coming up)" : ""}. {g.why}</div></div>
+                {me.can_edit && <button className="btn small" disabled={busy} onClick={() => add(g)}><Plus size={16} /> Add</button>}
+              </li>
+            ))}
+          </div>
+        </Section>
       )}
     </div>
   );

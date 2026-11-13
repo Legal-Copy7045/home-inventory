@@ -273,11 +273,15 @@ export function LocationDetailPage() {
     }
   }
 
-  async function analyse(file: File) {
+  async function analyse(file: File | File[]) {
+    const list = Array.isArray(file) ? file : [file];
+    if (list.length > 4) { toast("Choose up to 4 photos of the area, left to right.", true); return; }
     setSheet("scan");
     setScan(scanPlaceholder("location", l.id));
     const f = new FormData();
-    f.append("file", file);
+    if (list.length === 1) f.append("file", list[0]);
+    // Several photos of a wide area, left to right: joined into one panorama.
+    else list.forEach((x) => f.append("files", x));
     try {
       setScan(await api.upload<Scan>(`locations/${l.id}/scans`, f));
       scans.reload();
@@ -301,6 +305,12 @@ export function LocationDetailPage() {
             <label style={{ cursor: "pointer" }}>
               <span className="ico"><Sparkles size={20} /></span>Photo inventory
               <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) analyse(f); }} />
+            </label>
+          )}
+          {me.app.ai.enabled && (
+            <label style={{ cursor: "pointer" }} title="Photograph a long wall or bench in 2-4 overlapping photos, left to right">
+              <span className="ico"><Images size={20} /></span>Wide area (2-4 photos)
+              <input type="file" accept="image/*" multiple hidden onChange={(e) => { const fs = Array.from(e.target.files || []); e.target.value = ""; if (fs.length) analyse(fs.sort((a, b) => a.lastModified - b.lastModified)); }} />
             </label>
           )}
           {me.app.ai.enabled && lastPhoto && (

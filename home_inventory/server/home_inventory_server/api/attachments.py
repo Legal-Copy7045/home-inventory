@@ -6,7 +6,7 @@ import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -164,3 +164,14 @@ def delete_attachment(attachment_id: int, request: Request, actor: Actor = Depen
     db.commit()
     for p in paths:
         st.media.delete(p)
+
+
+@router.get("/items/{item_id}/claim-pack.zip")
+def claim_pack(item_id: int, request: Request, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    """Warranty claim pack: a summary PDF plus the item's documents and photos."""
+    from ..models import Item
+    from ..services import claim_pack as claim_svc
+
+    item = _get_or_404(db, Item, item_id)
+    name, body = claim_svc.build(db, item, _state(request).media)
+    return Response(body, media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{name}"'})

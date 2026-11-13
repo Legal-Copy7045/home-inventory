@@ -51,7 +51,7 @@ Quick photos are saved on your phone before they upload. If you lose signal, or 
 
 ## Asking by voice
 
-"Where is the hedge trimmer?" works with Home Assistant Assist once you add a small sentences file, with Siri through an Apple Shortcut that hands your words to Assist, and with Alexa through your own custom skill ("Alexa, ask Home Inventory where the hedge trimmer is"). See `docs/voice.md` in the repository for the setup and the trade-offs (Alexa needs Home Assistant reachable from the internet).
+Ask "Where is the hedge trimmer?", "What maintenance is due?", "What's running low?" or "What's lent out?". It works with Home Assistant Assist once you add a small sentences file, with Siri through an Apple Shortcut that hands your words to Assist, and with Alexa through your own custom skill ("Alexa, ask Home Inventory where the hedge trimmer is"). See `docs/voice.md` in the repository for the setup and the trade-offs (Alexa needs Home Assistant reachable from the internet).
 
 ## Taking things out of stock by barcode
 
@@ -74,6 +74,10 @@ With an AI provider set up, one photo can add many things. Open a **location** o
 
 In the review, the **Layout** panel matches each rack and shelf to a place you already have, or creates it (rename it if you like). Each entry's **Put on** can be changed, and only places that something actually goes on are created. Photographing the same area again later reuses those places and recognises what's already recorded. Everything is saved together when you tap **Confirm inventory**: new places, containers and items, each with a photo cut out of the big one. Each row shows its cut-out; if it shows the wrong part of the photo, untick **Photo** and that entry is saved without one. For things already saved with a wrong cut-out, open any one of them and tap **Wrong part of the photo? Redo cut-outs**: the AI looks at the original photo again and makes new cut-outs for everything that photo inventory added (items and boxes). Anything it can't place shows the whole photo instead, and photos you added or chose yourself are kept.
 
+**A long wall or bench.** If one photo can't take it all in, tap **Wide area (2-4 photos)** and choose 2 to 4 photos taken left to right, overlapping a little. They're joined side by side into one panorama, and the AI looks at the whole area at once. Cut-outs and later photo inventories work as with a single photo.
+
+**Labels for new boxes.** When a photo inventory adds boxes, it offers to **Print labels** for them straight away, so they can be scanned later.
+
 **One shelf or one box.** Open that shelf or container and photograph it; everything goes there.
 
 **Look again without a new photo.** **Last photo again** has the AI go through the latest photo inventory photo of that place once more. This is useful after an update, or to pick up things it couldn't identify before. Things already recorded are recognised, so you only review what's new. Every photo button also lets you choose a photo from your library instead of taking one.
@@ -89,6 +93,10 @@ With AI set up, each document is read in the background. A few seconds later the
 - **Empty fields are ticked.** Anything that would replace a value you already have is shown with both values and left unticked, so nothing is overwritten unless you choose it.
 - You can correct a value before saving. The document can also be filed under the right type and named (e.g. "Lowe's receipt").
 - A document that's clearly about a different product isn't used to fill anything in.
+
+**Warranty claims.** **Download the claim pack** (under *Receipts & documents*) gives you a ZIP to send to the shop or maker: a one-page summary (make, model, serial number, where and when it was bought, price, warranty dates) plus the receipts, warranty documents, other documents and photos.
+
+**What it's worth.** With AI set up, **Estimate with AI** (next to *Value* in *Details*) gives a rough replacement price and a second-hand range, with what it assumed. It's marked as an AI estimate and dated. The **Inventory report** keeps it in its own column and shows a total for items without a price; a price you entered always comes first.
 
 Values are only ever copied from what's printed, never guessed. A warranty end date is worked out only when the document gives both the purchase date and the warranty length. A scanned PDF is read from pictures of its first pages. Files added from **Read the manual** are recognised too, so a receipt added there by mistake is flagged and can be filed correctly. **Dismiss** hides a suggestion, and **Read with AI** reads an older document.
 
@@ -114,6 +122,10 @@ On the item page:
 - **Log service** records unscheduled work or older history; past dates are fine.
 
 The **Maintenance** page lists what's overdue, what's due in the next 7, 30 or 90 days, equipment with no service recorded yet, and recent work.
+
+**This season** lists the dated jobs for the next three months, and suggests seasonal jobs your equipment doesn't have yet (soonest first), such as winterising the mower in October or a pre-season check in March. **Add** turns one into a yearly task, due on the 1st of its month. If you're in the southern hemisphere, choose it under **Settings → Seasons**.
+
+**Reminders.** Once a day, each task that has just become due soon or overdue sends one `home_inventory_maintenance_due` event to Home Assistant. It says whether the parts are in stock and which are missing. Parts it needs that aren't in stock are added to **Restock** (turn this off under **Settings → Add missing maintenance parts to the shopping list**). To get these on your phone, turn on **Send maintenance reminders to your phone** in the Home Inventory integration's options and choose your phone's notify action.
 
 Service history is kept when tasks are changed or removed, and even when you stop tracking an item.
 

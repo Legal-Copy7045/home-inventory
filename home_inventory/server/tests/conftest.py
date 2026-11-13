@@ -22,7 +22,7 @@ class FakeProvider:
         self.calls: list[dict[str, Any]] = []
 
     def generate_json(self, prompt, schema, image, timeout):
-        self.calls.append({"prompt": prompt, "image": image is not None})
+        self.calls.append({"prompt": prompt, "image": image is not None, "image_bytes": image})
         if not self.responses:
             raise AssertionError("unexpected AI call")
         r = self.responses.pop(0)

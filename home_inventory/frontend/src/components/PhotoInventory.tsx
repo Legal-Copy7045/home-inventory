@@ -128,9 +128,22 @@ function Review({ scan, target, onClose }: { scan: Scan; target: ScanTarget; onC
   // Things already recorded here that the photo didn't show.
   const [unseen, setUnseen] = useState<Record<number, "keep" | "missing" | "remove">>({});
   const { busy, run } = useAction();
+  // New boxes from a confirmed inventory: offer their labels before closing.
+  const [newBoxes, setNewBoxes] = useState<number[] | null>(null);
   const where = target.kind === "container" ? `in ${target.name}` : `on ${target.name}`;
   const addLink = target.kind === "container" ? `/add?container_id=${target.id}` : `/add?location_id=${target.id}`;
 
+  if (newBoxes) {
+    return (
+      <Sheet title="Inventory saved" onClose={onClose}>
+        <div className="stack">
+          <p style={{ margin: 0 }}>{newBoxes.length} new box{newBoxes.length === 1 ? " was" : "es were"} added {where}. Print {newBoxes.length === 1 ? "its label" : "their labels"} now, so {newBoxes.length === 1 ? "it" : "they"} can be scanned later?</p>
+          <Link className="btn primary block" to={`/labels?ids=${newBoxes.join(",")}`} onClick={onClose}>Print {newBoxes.length === 1 ? "label" : `${newBoxes.length} labels`}</Link>
+          <button className="btn ghost block" onClick={onClose}>Not now</button>
+        </div>
+      </Sheet>
+    );
+  }
   if (scan.status === "analysing" || scan.status === "pending") {
     return (
       <Sheet title="Analysing photo…" onClose={onClose}>
@@ -370,8 +383,9 @@ function Review({ scan, target, onClose }: { scan: Scan; target: ScanTarget; onC
                   : {}),
               }));
             const pick = (v: string) => Object.entries(unseen).filter(([, a]) => a === v).map(([id]) => Number(id));
-            const res = await run(() => api.post<{ created: number[]; increased: number[]; removed: number[] }>(`scans/${scan.id}/confirm`, { items, new_locations: area !== null ? newLocations(used) : [], remove_item_ids: pick("remove"), missing_item_ids: pick("missing") }));
-            if (res) onClose();
+            const res = await run(() => api.post<{ created: number[]; increased: number[]; removed: number[]; containers?: number[] }>(`scans/${scan.id}/confirm`, { items, new_locations: area !== null ? newLocations(used) : [], remove_item_ids: pick("remove"), missing_item_ids: pick("missing") }));
+            if (res?.containers?.length) setNewBoxes(res.containers);
+            else if (res) onClose();
           }}
         >
           Confirm inventory{kept ? ` (${kept})` : ""}
