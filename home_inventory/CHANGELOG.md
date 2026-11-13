@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.21.0
+
+- **Take it / put away.** **Take it** on an item (or after scanning its barcode) marks it as with you; the Scan page shows what you're carrying. Scan a box or shelf label to put things away: in its own place (or the usual place it was temporarily moved from) it simply goes back; somewhere new, choose **Move it here** or **Just this once** (a temporary move that remembers the usual place). Items also have **Put away** to choose the place without a label.
+- **What is this? Identify by photo** (Scan page, with AI): photograph something, the AI says what it is and lists your matching items; pick one to **Take it**, **Take one out**, put it in the open box, or open it. Not in your inventory: **None of these: add it** starts a new item with the name filled in. The photo isn't stored. One AI request per photo.
+
 ## 0.20.1
 
 - **Security:** error messages no longer pass on the internal details of a failure (code scanning alert *Information exposure through an exception*). When Home Assistant, an AI service or a PDF reader fails, the App shows a plain message ("Home Assistant didn't answer", "Gemini rejected the request (400)", "This PDF couldn't be read") and writes the details to the App log. A rejected API key or unknown model is still named, so you know what to fix.
