@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { TagsSection } from "./Tags";
-import { ArrowRightLeft, Camera, Home, Images, Pencil, Plus, Printer, QrCode, ScanLine, Sparkles, Trash2 } from "lucide-react";
+import { ArrowRightLeft, Camera, Home, Images, Pencil, Plus, Printer, QrCode, RotateCw, ScanLine, Sparkles, Trash2 } from "lucide-react";
 import { api, qrImageUrl, url, type Container, type HistoryEvent, type Scan } from "../api";
 import { PlacementPicker, type PlacementValue } from "../components/PlacementPicker";
 import { ScanReview, scanPlaceholder } from "../components/PhotoInventory";
@@ -104,6 +104,24 @@ export function ContainerDetail() {
   const refresh = () => { c.reload(); hist.reload(); scans.reload(); };
   const pending = scans.data?.find((s) => s.status === "ready");
 
+  // The newest confirmed photo inventory with its photo: can be looked at again
+  // (e.g. so the AI also lists things it couldn't identify the first time).
+  const lastPhoto = scans.data?.find((s) => s.status === "confirmed" && s.photo)?.photo || null;
+  async function analyseAgain() {
+    if (!lastPhoto || !window.confirm("Look at the last photo inventory photo again? Things already recorded are recognised; you review anything new before it's added.")) return;
+    setSheet("scan");
+    setScan(scanPlaceholder("container", ct.id));
+    const f = new FormData();
+    f.append("attachment_id", String(lastPhoto.id));
+    try {
+      setScan(await api.upload<Scan>(`containers/${ct.id}/scans`, f));
+      scans.reload();
+    } catch (e) {
+      toast((e as Error).message, true);
+      setSheet(null);
+    }
+  }
+
   async function analyse(file: File) {
     setSheet("scan");
     setScan(scanPlaceholder("container", ct.id));
@@ -141,8 +159,11 @@ export function ContainerDetail() {
           <Link to={`/add?container_id=${ct.id}&return=/containers/${ct.id}`}><span className="ico"><Plus size={20} /></span>Add item</Link>
           {me.app.ai.enabled && <label style={{ cursor: "pointer" }}>
             <span className="ico"><Sparkles size={20} /></span>Photo inventory
-            <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) analyse(f); }} />
+            <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) analyse(f); }} />
           </label>}
+          {me.app.ai.enabled && lastPhoto && (
+            <button onClick={analyseAgain}><span className="ico"><RotateCw size={20} /></span>Last photo again</button>
+          )}
           <button onClick={() => setSheet("move")}><span className="ico"><ArrowRightLeft size={20} /></span>Move</button>
           <Link to={`/capture?container_id=${ct.id}`}><span className="ico"><Images size={20} /></span>Quick photos</Link>
           <Link to={`/scan?container=${ct.id}`}><span className="ico"><ScanLine size={20} /></span>Scan mode</Link>

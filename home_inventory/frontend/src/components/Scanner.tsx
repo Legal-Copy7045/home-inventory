@@ -170,7 +170,7 @@ export function Scanner({ onDetect, paused = false, hint = "Point at a QR label 
       <div className="row wrap">
         <label className="btn" style={{ flex: 1 }}>
           <Camera size={18} /> Photo of code
-          <input type="file" accept="image/*" capture="environment" hidden onChange={onPhoto} />
+          <input type="file" accept="image/*" hidden onChange={onPhoto} />
         </label>
         {live && (
           <button className="btn" onClick={() => setFacing(facing === "environment" ? "user" : "environment")} aria-label="Switch camera">

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { TagsSection } from "./Tags";
-import { AlertTriangle, Box, Camera, ChevronDown, ChevronRight, Clock, FileSpreadsheet, Images, Map as MapIcon, MapPin, Package, Pencil, Plus, Printer, QrCode, ScanBarcode, Search as SearchIcon, Sparkles, Trash2 } from "lucide-react";
+import { AlertTriangle, Box, Camera, ChevronDown, ChevronRight, Clock, FileSpreadsheet, Images, Map as MapIcon, MapPin, Package, Pencil, Plus, Printer, QrCode, RotateCw, ScanBarcode, Search as SearchIcon, Sparkles, Trash2 } from "lucide-react";
 import { api, qrImageUrl, type Dashboard, type Item, type LocationDetail, type LocationNode, type Scan, type SearchResult } from "../api";
 import { ScanReview, scanPlaceholder } from "../components/PhotoInventory";
 import { SelectableItems } from "../components/BulkActions";
@@ -255,6 +255,24 @@ export function LocationDetailPage() {
   const l = d.data;
   const pendingScan = scans.data?.find((s) => s.status === "ready");
 
+  // The newest confirmed photo inventory with its photo: can be looked at again
+  // (e.g. so the AI also lists things it couldn't identify the first time).
+  const lastPhoto = scans.data?.find((s) => s.status === "confirmed" && s.photo)?.photo || null;
+  async function analyseAgain() {
+    if (!lastPhoto || !window.confirm("Look at the last photo inventory photo again? Things already recorded are recognised; you review anything new before it's added.")) return;
+    setSheet("scan");
+    setScan(scanPlaceholder("location", l.id));
+    const f = new FormData();
+    f.append("attachment_id", String(lastPhoto.id));
+    try {
+      setScan(await api.upload<Scan>(`locations/${l.id}/scans`, f));
+      scans.reload();
+    } catch (e) {
+      toast((e as Error).message, true);
+      setSheet(null);
+    }
+  }
+
   async function analyse(file: File) {
     setSheet("scan");
     setScan(scanPlaceholder("location", l.id));
@@ -282,8 +300,11 @@ export function LocationDetailPage() {
           {me.app.ai.enabled && (
             <label style={{ cursor: "pointer" }}>
               <span className="ico"><Sparkles size={20} /></span>Photo inventory
-              <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) analyse(f); }} />
+              <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) analyse(f); }} />
             </label>
+          )}
+          {me.app.ai.enabled && lastPhoto && (
+            <button onClick={analyseAgain}><span className="ico"><RotateCw size={20} /></span>Last photo again</button>
           )}
           <Link to={`/capture?location_id=${l.id}`}><span className="ico"><Images size={20} /></span>Quick photos</Link>
           <button onClick={() => setSheet("container")}><span className="ico"><Box size={20} /></span>Add container</button>
