@@ -2,7 +2,7 @@
 
 ## 0.15.2
 
-- **Maintenance only on equipment.** Equipment is now the only category with maintenance by default. The Maintenance section appears only on items tracked as equipment, and **Track maintenance** (a small link next to *Details*) only shows on items whose category is **Equipment**. Items already being tracked keep their section. The AI now suggests the Equipment category for powered machines such as mowers, generators and pressure washers. The setup screen offers **Read the manual** first (which sets up the schedule and parts) or a type of equipment.
+- **Maintenance only on equipment.** Equipment is now the only category with maintenance by default. The Maintenance section appears only on items tracked as equipment, and **Track maintenance** (a link at the foot of *Details*) only shows on items whose category is **Equipment**. Items already being tracked keep their section. The AI now suggests the Equipment category for powered machines such as mowers, generators and pressure washers. The setup screen offers **Read the manual** first (which sets up the schedule and parts) or a type of equipment.
 - Removed the extra "Read for the service schedule and parts" button from manual documents, which repeated **Read the manual** and overflowed on phones.
 
 ## 0.15.1

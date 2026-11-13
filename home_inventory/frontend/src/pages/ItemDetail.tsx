@@ -183,7 +183,6 @@ export default function ItemDetail() {
 
       <Section title="Details" action={edit && (
         <span className="row" style={{ gap: 4 }}>
-          {!isEquipment && isEquipmentCategory(it) && <button className="btn small ghost" onClick={() => setTrackOpen(true)}>Track maintenance</button>}
           {!it.owner && <button className="btn small ghost" onClick={() => setPartOpen(true)}>Part details</button>}
         </span>
       )}>
@@ -201,6 +200,11 @@ export default function ItemDetail() {
           {it.notes && (<><dt>Notes</dt><dd style={{ whiteSpace: "pre-line" }}>{it.notes}</dd></>)}
           <dt>Added</dt><dd>{fmtDate(it.created_at)}</dd>
         </dl>
+        {edit && !isEquipment && isEquipmentCategory(it) && (
+          <p className="muted" style={{ margin: "8px 0 0" }}>
+            Equipment. <button className="linkish" onClick={() => setTrackOpen(true)}>Track maintenance</button>
+          </p>
+        )}
       </Section>
 
       {me.can_edit && <CustomerItemSection item={it} edit={edit} onChanged={refresh} startRepair={doAction === "repair"} />}
