@@ -17,7 +17,7 @@ The menu is grouped:
 - **Top:** Dashboard, Search, Add item, Scan, Quick photos, **To sort & finish** (photos waiting to be put away, and items waiting for details, as two tabs) and **Maintenance & Repairs** (tabs for maintenance, repair jobs and customers).
 - **Inventory:** Items, Containers, Locations, Kits, Visual maps, Loans & temporary.
 - **Reports:** All reports (inventory report, maintenance plan, upcoming maintenance, restock & shopping, the maintenance guide and more), the inventory report, and Restock & Shopping.
-- **Admin:** Print labels, NFC tags, Activity history, Categories, Possible duplicates, Recently deleted and Settings.
+- **Admin:** Print labels, NFC tags, Activity history, Categories, Voice history, Possible duplicates, Recently deleted and Settings.
 
 Tap a section's heading to fold it away or open it; the menu remembers your choice. The section with the page you're on always stays open.
 
@@ -80,6 +80,8 @@ Quick photos are saved on your phone before they upload. If you lose signal, or 
 
 Ask "Where is the hedge trimmer?", "Where does the hammer go?" (where it belongs, for putting it back), "I've moved the engine oil to container number 5" (moves it, and asks if the place is unclear), "What maintenance is due?", "What's running low?" or "What's lent out?". It works with Home Assistant Assist once you add a small sentences file, with Siri through an Apple Shortcut that hands your words to Assist, and with Alexa through your own custom skill ("Alexa, ask Home Inventory where the hedge trimmer is"). See `docs/voice.md` in the repository for the setup and the trade-offs (Alexa needs Home Assistant reachable from the internet).
 
+**Voice history** (Admin, administrators): every question asked by voice (Alexa, Assist, Siri through Assist) with its answer, newest first, and a filter for the ones it couldn't answer. Useful to see which names it doesn't recognise. The last 500 are kept for 90 days, on your Home Assistant machine only; **Clear** empties it. Alexa's own "Sorry, I didn't catch that" isn't in it, because that question never reached Home Assistant; the Alexa app's voice history (Settings → Alexa Privacy) shows what Alexa heard.
+
 ## Take it and put away
 
 For tools and other things you borrow from their place and bring back:
@@ -119,6 +121,8 @@ In the review, the **Layout** panel matches each rack and shelf to a place you a
 **Labels for new boxes.** When a photo inventory adds boxes, it offers to **Print labels** for them straight away, so they can be scanned later.
 
 **One shelf or one box.** Open that shelf or container and photograph it; everything goes there.
+
+**Look closer for missed things.** In the review, **Look closer for missed things** has the AI look again at overlapping close-ups of the same photo (four for a normal photo, more across a wide panorama), which catches small and half-hidden things the first look missed. New finds are added to the list for you to check; things already listed or already recorded aren't added twice. It uses a few AI requests, so it's a button rather than automatic.
 
 **Look again without a new photo.** **Last photo again** has the AI go through the latest photo inventory photo of that place once more. This is useful after an update, or to pick up things it couldn't identify before. Things already recorded are recognised, so you only review what's new. Every photo button also lets you choose a photo from your library instead of taking one.
 

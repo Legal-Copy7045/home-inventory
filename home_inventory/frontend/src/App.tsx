@@ -1,6 +1,6 @@
 import { Fragment, Suspense, lazy, useEffect, useState, type ComponentType } from "react";
 import { HashRouter, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Activity, ArrowLeft, Box, Tags, ChevronDown, ChevronRight, Copy, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings, Trash2, Wrench, ClipboardList, Boxes, Nfc, ShoppingCart, Camera, FileText } from "lucide-react";
+import { Activity, ArrowLeft, Box, Mic, Tags, ChevronDown, ChevronRight, Copy, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings, Trash2, Wrench, ClipboardList, Boxes, Nfc, ShoppingCart, Camera, FileText } from "lucide-react";
 import { api, appBaseUrl, labelRef, type Me, type QrTarget } from "./api";
 import { MeContext, Sheet, Spinner, ToastHost, useToast } from "./components/ui";
 import { DashboardPage, ItemsPage, LocationDetailPage, LocationsPage, SearchBox, SearchPage } from "./pages/Browse";
@@ -49,6 +49,7 @@ const ReportPage = page(() => import("./pages/Report"), "default");
 const DuplicatesPage = page(() => import("./pages/Duplicates"), "default");
 const RecentlyDeleted = page(() => import("./components/BulkActions"), "RecentlyDeleted");
 const ToFinish = page(() => import("./pages/ToFinish"), "default");
+const VoiceHistoryPage = page(() => import("./pages/VoiceHistory"), "default");
 const CategoriesPage = page(() => import("./pages/Categories"), "default");
 const TodoPage = page(() => import("./pages/Hubs"), "TodoPage");
 const CarePage = page(() => import("./pages/Hubs"), "CarePage");
@@ -86,6 +87,7 @@ const NAV_GROUPS: { title: string | null; items: NavEntry[] }[] = [
     { to: "/tags", label: "NFC Tags", icon: Nfc, edit: true },
     { to: "/activity", label: "Activity History", icon: Activity },
     { to: "/categories", label: "Categories", icon: Tags },
+    { to: "/voice-history", label: "Voice History", icon: Mic, admin: true },
     { to: "/duplicates", label: "Possible Duplicates", icon: Copy, edit: true },
     { to: "/deleted", label: "Recently Deleted", icon: Trash2, edit: true },
     { to: "/settings", label: "Settings", icon: Settings },
@@ -96,7 +98,7 @@ const NAV_GROUPS: { title: string | null; items: NavEntry[] }[] = [
 const TITLES: [RegExp, string][] = [
   [/^\/$/, "Home Inventory"], [/^\/search/, "Search"], [/^\/add/, "Add item"], [/^\/scan/, "Scan"], [/^\/items\/\d+/, "Item"], [/^\/items/, "Items"],
   [/^\/containers\/\d+/, "Container"], [/^\/containers/, "Containers"], [/^\/locations/, "Locations"], [/^\/maps/, "Visual maps"], [/^\/labels/, "Labels"],
-  [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/sort/, "To sort"], [/^\/deleted/, "Recently deleted"], [/^\/report/, "Inventory report"], [/^\/duplicates/, "Possible duplicates"], [/^\/maintenance/, "Maintenance"], [/^\/kits\/\d+/, "Kit"], [/^\/tags/, "NFC tags"], [/^\/shopping/, "Restock & shopping"], [/^\/tag\//, "Tag"], [/^\/kits/, "Kits"], [/^\/customers\/\d+/, "Customer"], [/^\/customers/, "Customers"], [/^\/repairs\/\d+\/print/, "Work order"], [/^\/repairs\/\d+/, "Repair job"], [/^\/repairs/, "Repairs"], [/^\/activity/, "Activity"], [/^\/loans/, "Loans & temporary"], [/^\/settings/, "Settings"], [/^\/todo/, "To sort & finish"], [/^\/categories/, "Categories"], [/^\/care/, "Maintenance & repairs"], [/^\/reports\/maintenance-plan/, "Maintenance plan"], [/^\/reports/, "Reports"],
+  [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/sort/, "To sort"], [/^\/deleted/, "Recently deleted"], [/^\/report/, "Inventory report"], [/^\/duplicates/, "Possible duplicates"], [/^\/maintenance/, "Maintenance"], [/^\/kits\/\d+/, "Kit"], [/^\/tags/, "NFC tags"], [/^\/shopping/, "Restock & shopping"], [/^\/tag\//, "Tag"], [/^\/kits/, "Kits"], [/^\/customers\/\d+/, "Customer"], [/^\/customers/, "Customers"], [/^\/repairs\/\d+\/print/, "Work order"], [/^\/repairs\/\d+/, "Repair job"], [/^\/repairs/, "Repairs"], [/^\/activity/, "Activity"], [/^\/loans/, "Loans & temporary"], [/^\/settings/, "Settings"], [/^\/todo/, "To sort & finish"], [/^\/categories/, "Categories"], [/^\/voice-history/, "Voice history"], [/^\/care/, "Maintenance & repairs"], [/^\/reports\/maintenance-plan/, "Maintenance plan"], [/^\/reports/, "Reports"],
 ];
 
 /** QR labels can encode `<base>?c=CODE`; open the container when launched that way. */
@@ -223,7 +225,7 @@ function Shell({ me }: { me: Me }) {
   const [more, setMore] = useState(false);
   useEffect(() => { setMore(false); window.scrollTo(0, 0); }, [loc.pathname]);
   const title = TITLES.find(([re]) => re.test(loc.pathname))?.[1] || "Home Inventory";
-  const isRoot = ["/", "/search", "/scan", "/items", "/capture", "/sort", "/report", "/to-finish", "/maintenance", "/kits", "/tags", "/shopping", "/repairs", "/customers", "/containers", "/locations", "/maps", "/labels", "/activity", "/loans", "/settings", "/todo", "/categories", "/care", "/reports", "/deleted", "/duplicates"].includes(loc.pathname);
+  const isRoot = ["/", "/search", "/scan", "/items", "/capture", "/sort", "/report", "/to-finish", "/maintenance", "/kits", "/tags", "/shopping", "/repairs", "/customers", "/containers", "/locations", "/maps", "/labels", "/activity", "/loans", "/settings", "/todo", "/categories", "/voice-history", "/care", "/reports", "/deleted", "/duplicates"].includes(loc.pathname);
   const allowed = (n: NavEntry) => (!n.edit || me.can_edit) && (!n.admin || me.is_admin);
   const groups = NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter(allowed) })).filter((g) => g.items.length);
   // Menu sections fold away; the one holding the current page is always open.
@@ -279,6 +281,7 @@ function Shell({ me }: { me: Me }) {
           <Route path="/to-finish" element={<ToFinish />} />
           <Route path="/todo" element={<TodoPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
+          <Route path="/voice-history" element={<VoiceHistoryPage />} />
           <Route path="/care" element={<CarePage />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/reports/maintenance-plan" element={<MaintenancePlanPage />} />

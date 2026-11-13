@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..ai import AIFailed, AIUnavailable, confidence_label
-from ..auth import Actor, current_actor, get_db, require_member
+from ..auth import Actor, current_actor, get_db, require_admin, require_member
 from ..models import Item
 from ..services import inventory as inv
 from ..services import search as search_svc
@@ -104,3 +104,41 @@ async def identify_to_find(request: Request, file: UploadFile = File(...), hint:
                 seen.add(row["id"])
                 matches.append(row)
     return {"suggestion": s, "matches": matches[:10]}
+
+
+# ---------------------------------------------------------------------------
+# Voice history (Admin)
+# ---------------------------------------------------------------------------
+
+
+class VoiceEntryIn(BaseModel):
+    source: str | None = None
+    device: str | None = None
+    intent: str | None = None
+    slots: dict[str, str | None] = {}
+    text: str | None = None
+    answer: str | None = None
+    question: bool = False
+
+
+@router.post("/voice/history", status_code=201)
+def add_voice_entry(data: VoiceEntryIn, request: Request, actor: Actor = Depends(current_actor)):
+    """Written by the Home Assistant integration after a voice answer."""
+    from ..services import voicelog
+
+    _limit(request, actor, "voice_log")
+    return voicelog.add(_state(request).settings.data_dir, data.model_dump(), actor.name)
+
+
+@router.get("/voice/history")
+def voice_history(request: Request, limit: int = 200, actor: Actor = Depends(require_admin)):
+    from ..services import voicelog
+
+    return {"entries": voicelog.recent(_state(request).settings.data_dir, max(1, min(limit, 500)))}
+
+
+@router.delete("/voice/history", status_code=204)
+def clear_voice_history(request: Request, actor: Actor = Depends(require_admin)):
+    from ..services import voicelog
+
+    voicelog.clear(_state(request).settings.data_dir)

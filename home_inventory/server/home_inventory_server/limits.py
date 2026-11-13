@@ -108,4 +108,5 @@ DEFAULT_RATE_LIMITS = {
     "ai": (20, 60.0),
     "weblink": (10, 60.0),
     "barcode": (30, 60.0),
+    "voice_log": (60, 60.0),
 }
