@@ -4,7 +4,7 @@ AI is optional. It helps in these places:
 
 1. **Item identification**: suggest name, description, category, manufacturer and model from a photo.
 2. **Container, shelf and area contents**: list the distinct items and quantities visible in a photo of an open box, a shelf or a whole storage area (with its layout).
-3. **Receipts**: read the price, date and shop from a receipt photo.
+3. **Documents**: when a document is added to an item, work out what it is (receipt, warranty, manual...) and copy out what's printed for the item's fields (purchase date, price, shop, warranty, make, model, serial number). It runs in the background, and you choose what to apply.
 4. **Equipment manuals**: read the maintenance schedule, the parts and consumables, and what each service needs, from a manual's PDF text or from photos of its pages.
 5. **Search interpretation**: turn a question into search filters.
 
@@ -39,4 +39,4 @@ The App uses Home Assistant's API through the Supervisor (`homeassistant_api: tr
 
 ## Privacy
 
-Photos go to the provider you choose. Reading a manual sends the manual's text (for long manuals, only the pages about maintenance, up to about 90,000 characters) together with the equipment's make and model; never serial numbers or owner details. Google's free Gemini tier allows Google to use submitted content to improve its services. For full privacy, use `ollama` with a local model.
+Photos go to the provider you choose. Reading a document sends its first pages' text (about 12,000 characters) or its photo, with the item's name, make and model. Reading a manual sends the manual's text (for long manuals, only the pages about maintenance, up to about 90,000 characters) together with the equipment's make and model; never serial numbers or owner details. Google's free Gemini tier allows Google to use submitted content to improve its services. For full privacy, use `ollama` with a local model.

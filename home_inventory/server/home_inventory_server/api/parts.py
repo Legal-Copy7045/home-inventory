@@ -12,8 +12,19 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth import Actor, current_actor, get_db, require_member
-from ..models import Attachment, Item, ItemOwner, MaintenanceTask, ManualReading, Product, ProductLink, Role
+from ..models import (
+    Attachment,
+    DocumentReading,
+    Item,
+    ItemOwner,
+    MaintenanceTask,
+    ManualReading,
+    Product,
+    ProductLink,
+    Role,
+)
 from ..schemas import _In
+from ..services import documents as docs
 from ..services import manuals as man
 from ..services import parts as parts_svc
 
@@ -353,3 +364,101 @@ def discard_reading(reading_id: int, actor: Actor = Depends(require_member), db:
     reading.status = "discarded"
     db.commit()
     return man.reading_out(reading)
+
+
+# --------------------------------------------------------------------------- documents
+
+
+class DocumentApplyIn(_In):
+    values: dict[str, Any] = Field(default_factory=dict)
+    kind: Literal["receipt", "manual", "warranty", "document"] | None = None
+    caption: str | None = Field(default=None, max_length=300)
+
+
+def _doc_reading(db: Session, actor: Actor, reading_id: int) -> DocumentReading:
+    r = db.get(DocumentReading, reading_id)
+    if r is None:
+        raise HTTPException(404, "Not found")
+    _item(db, actor, r.item_id)
+    if docs.expire_if_stale(r):
+        db.commit()
+    return r
+
+
+def start_document_reading(request: Request, db: Session, actor: Actor | None, item: Item, att: Attachment,
+                           quiet: bool = False) -> DocumentReading | None:
+    """Recognise a document in the background.  ``quiet`` (after an upload):
+    skip silently when AI is off or busy instead of failing the upload."""
+    st = request.app.state
+    if not docs.readable(att):
+        if quiet:
+            return None
+        raise HTTPException(422, "AI can read PDFs and photos of documents")
+    if not st.ai.enabled:
+        if quiet:
+            return None
+        raise HTTPException(422, "AI is not configured. Choose a provider in the App configuration.")
+    running = docs.running_for(db, att.id)
+    if running is not None:
+        return running
+    try:
+        if actor is not None:
+            st.rate_limiter.check(actor.user_id, "ai")
+    except HTTPException:
+        if quiet:
+            return None
+        raise
+    r = docs.create(db, actor, item, att)
+    db.commit()
+    docs.start(st, r.id)
+    return r
+
+
+@router.post("/attachments/{attachment_id}/recognise", status_code=202)
+def recognise_document(attachment_id: int, request: Request, actor: Actor = Depends(require_member),
+                       db: Session = Depends(get_db)):
+    att = db.get(Attachment, attachment_id)
+    if att is None or att.item_id is None:
+        raise HTTPException(404, "Document not found on an item")
+    item = _item(db, actor, att.item_id)
+    r = start_document_reading(request, db, actor, item, att)
+    return docs.reading_out(db, r)
+
+
+@router.get("/items/{item_id}/document-readings")
+def item_document_readings(item_id: int, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    _item(db, actor, item_id)
+    rows = docs.latest_for_item(db, item_id)
+    if any([docs.expire_if_stale(r) for r in rows]):
+        db.commit()
+    return [docs.reading_out(db, r) for r in rows]
+
+
+@router.get("/document-readings/{reading_id}")
+def get_document_reading(reading_id: int, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    return docs.reading_out(db, _doc_reading(db, actor, reading_id))
+
+
+@router.post("/document-readings/{reading_id}/apply")
+def apply_document_reading(reading_id: int, data: DocumentApplyIn, actor: Actor = Depends(require_member),
+                           db: Session = Depends(get_db)):
+    from pydantic import ValidationError
+
+    r = _doc_reading(db, actor, reading_id)
+    try:
+        docs.apply(db, actor, r, data.values, data.kind, data.caption)
+    except docs.DocumentError as err:
+        raise HTTPException(422, str(err)) from err
+    except ValidationError as err:
+        raise HTTPException(422, "; ".join(f"{'.'.join(str(x) for x in e['loc'])}: {e['msg']}" for e in err.errors())) from err
+    db.commit()
+    return docs.reading_out(db, r)
+
+
+@router.post("/document-readings/{reading_id}/dismiss")
+def dismiss_document_reading(reading_id: int, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    r = _doc_reading(db, actor, reading_id)
+    if r.status in ("ready", "failed"):
+        r.status = "dismissed"
+        db.commit()
+    return docs.reading_out(db, r)

@@ -364,6 +364,17 @@ class AIService:
         res.data = clean_manual(res.data)
         return res
 
+    def read_document(self, item: str, text: str | None = None, image: bytes | None = None) -> AIResult:
+        """What a document attached to an item is, and values for the item's
+        fields (from its text or a photo).  Suggestions only."""
+        from .document import DOCUMENT_PROMPT, DOCUMENT_SCHEMA, clean_document
+
+        prompt = DOCUMENT_PROMPT.replace("{item}", item[:300])
+        prompt += f"\nDocument text:\n{text}" if text else "\nThe photo shows the document."
+        res = self._call(prompt, DOCUMENT_SCHEMA, image, timeout=max(self.settings.ai_timeout, 120))
+        res.data = clean_document(res.data)
+        return res
+
     def interpret_query(self, query: str) -> AIResult:
         res = self._call(SEARCH_PROMPT.format(query=query[:500]), SEARCH_SCHEMA, None)
         d = res.data

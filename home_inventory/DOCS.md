@@ -77,6 +77,18 @@ In the review, the **Layout** panel matches each rack and shelf to a place you a
 
 In every case nothing is saved until you confirm. Edit names and quantities, tap **Details** for category, maker, model, notes and whether it's an item or a box, remove anything wrong and **Add something it missed**. Things already recorded but not seen in the photo can be kept, marked missing or deleted. The AI's guesses can be wrong, especially counts, brands and partly hidden things, so check before confirming.
 
+## Receipts, warranties and other documents
+
+Add documents to an item under **Receipts & documents**. A document can be a PDF or a photo of a receipt, warranty card, invoice, order email, manual or certificate. If you're not sure what type it is, choose *Not sure – let AI work it out*.
+
+With AI set up, each document is read in the background. A few seconds later the document shows what it is (e.g. *Receipt – 6 things to fill in*). Tap **Review** to see what it found:
+- Purchase date, price, shop, warranty start and end, make, model and serial number, whichever are printed on it.
+- **Empty fields are ticked.** Anything that would replace a value you already have is shown with both values and left unticked, so nothing is overwritten unless you choose it.
+- You can correct a value before saving. The document can also be filed under the right type and named (e.g. "Lowe's receipt").
+- A document that's clearly about a different product isn't used to fill anything in.
+
+Values are only ever copied from what's printed, never guessed. A warranty end date is worked out only when the document gives both the purchase date and the warranty length. A scanned PDF has no text to read; add a photo of it instead. Files added from **Read the manual** are recognised too, so a receipt added there by mistake is flagged and can be filed correctly. **Dismiss** hides a suggestion, and **Read with AI** reads an older document.
+
 ## Working with several items
 
 On **Items**, tap **Select**, tick the items you want (or **Select all**), then use **Move**, **Edit** or **Delete** in the bar at the bottom. **Edit** changes only the fields you fill in. Choose **Sort: Location** to see items grouped by where they are.

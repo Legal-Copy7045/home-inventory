@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.13.0
+
+- **AI reads the documents you add to an item.** Add a receipt, warranty card, invoice, order email, manual or certificate (as a PDF or a photo). In the background, AI works out what it is and what's printed that belongs in the item's fields: purchase date, price, shop, warranty start and end, make, model and serial number. **Review** shows the suggestions.
+  - Empty fields are ticked.
+  - Anything that would replace an existing value is shown with both values and left unticked.
+  - Values can be corrected before saving, and the document can be filed under the right type and given a name.
+  - A document about a different product isn't used to fill anything in.
+  - Older documents can be read on request.
+- The document type list starts with *Not sure – let AI work it out* when AI is set up.
+- The old "read this receipt" step while uploading is replaced by the background reading, which also works for PDFs and every document type.
+- Database migration 0011 adds one table.
+
 ## 0.12.1
 
 - **Fixed: "Load failed" / "Failed to fetch" when reading a manual.** Reading a long manual can take minutes, longer than browsers, phones and proxies keep a request open. It now runs in the background: the app shows *Reading the manual…* and checks every few seconds. You can close it and come back; the result waits on the item. Asking again while one is running doesn't start a second reading. A reading cut off by an App restart is reported as interrupted, so it can't spin forever.
