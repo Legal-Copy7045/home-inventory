@@ -15,7 +15,7 @@ AI output is **never** saved without review. Identification only pre-fills the f
 | `ai_provider` | Cost | Key needed | Notes |
 |---|---|---|---|
 | `home_assistant` (default) | Whatever your HA AI integration costs. The Google Gemini free tier works. | No | Uses Home Assistant's **AI Task** (`ai_task.generate_data`) with the model you already set up, e.g. *Google Generative AI* (`ai_task.google_ai_task`). Images go through `/media` as a media-source attachment. |
-| `gemini` | Free tier available | `ai_api_key` from Google AI Studio | Direct REST call. Default model `gemini-2.5-flash`. |
+| `gemini` | Free tier available | `ai_api_key` from Google AI Studio | Direct REST call. Default model `gemini-flash-lite-latest` (follows Google's current Flash-Lite model). |
 | `ollama` | Free, local | No | Local vision model, e.g. `qwen2.5vl:7b`. Set `ai_base_url` (e.g. `http://192.168.1.20:11434/v1`). |
 | `openai` | Paid | Yes | Any OpenAI-compatible endpoint (`ai_base_url` for gateways such as OpenRouter or LM Studio). |
 | `anthropic` | Paid | Yes | Claude via the official SDK. Default model `claude-opus-5-5`. |

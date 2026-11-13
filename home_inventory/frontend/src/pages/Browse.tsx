@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { TagsSection } from "./Tags";
 import { AlertTriangle, Box, Camera, ChevronDown, ChevronRight, FileSpreadsheet, Images, Map as MapIcon, MapPin, Package, Pencil, Plus, Printer, QrCode, RotateCw, ScanBarcode, Search as SearchIcon, Sparkles, Trash2 } from "lucide-react";
 import { api, qrImageUrl, type Dashboard, type Item, type LocationDetail, type LocationNode, type Scan, type SearchResult } from "../api";
+import { rememberList } from "../browse";
 import { ScanReview, scanPlaceholder } from "../components/PhotoInventory";
 import { SelectableItems } from "../components/BulkActions";
 import { LocationImportSheet } from "../components/LocationImport";
@@ -122,6 +123,7 @@ export function ItemsPage() {
   const category = params.get("category") || "";
   const filters = { q, sort, status, category, loose: loose || undefined };
   const key = JSON.stringify(filters);
+  useEffect(() => { rememberList({ filters }); }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   const PAGE = 100;
   const list = useApi(() => api.get<{ total: number; items: Item[] }>("items", { ...filters, limit: PAGE }), [key]);
   // Further pages are appended to the first one ("Show more").

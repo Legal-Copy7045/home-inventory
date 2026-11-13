@@ -30,7 +30,7 @@ async function handle<T>(r: Response): Promise<T> {
   return (await r.blob()) as unknown as T;
 }
 
-type Query = Record<string, string | number | boolean | undefined | null>;
+export type Query = Record<string, string | number | boolean | undefined | null>;
 
 function qs(q?: Query): string {
   if (!q) return "";

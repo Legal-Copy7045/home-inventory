@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowRightLeft, Camera, FileText, Handshake, Home, Map as MapIcon, Minus, Pencil, Plus, Sparkles, Star, Trash2, Undo2 } from "lucide-react";
+import { ArrowRightLeft, Camera, ChevronLeft, ChevronRight, FileText, Handshake, Home, Map as MapIcon, Minus, Pencil, Plus, Sparkles, Star, Trash2, Undo2 } from "lucide-react";
 import { api, uploadPhoto, url, type HistoryEvent, type Item, type ItemStatus, STATUS_LABELS } from "../api";
+import { neighbours } from "../browse";
 import { ItemFields, applyLinkDetails, toPayload, type ItemFormValue } from "../components/ItemFields";
 import { LinkImport } from "../components/LinkImport";
 import { PlacementPicker, type PlacementValue } from "../components/PlacementPicker";
@@ -48,6 +49,26 @@ function toForm(it: Item): ItemFormValue {
 // "Track maintenance" link.  Items already being tracked keep their section.
 function isEquipmentCategory(it: Item): boolean {
   return (it.category || "").trim().toLowerCase() === "equipment";
+}
+
+/** Previous / next through the list the user last browsed (or the whole inventory by name). */
+function ItemSteps({ id }: { id: number }) {
+  const [n, setN] = useState<{ prev: number | null; next: number | null; pos: number; total: number } | null>(null);
+  const nav = useNavigate();
+  useEffect(() => {
+    let live = true;
+    neighbours(id).then((r) => live && setN(r)).catch(() => live && setN(null));
+    return () => { live = false; };
+  }, [id]);
+  if (!n || n.total < 2 || !n.pos) return null;
+  const go = (to: number | null) => to && nav(`/items/${to}`, { replace: true });
+  return (
+    <div className="row between item-steps">
+      <button className="btn small ghost" disabled={!n.prev} onClick={() => go(n.prev)} aria-label="Previous item"><ChevronLeft size={18} /> Previous</button>
+      <span className="muted small">{n.pos} of {n.total}</span>
+      <button className="btn small ghost" disabled={!n.next} onClick={() => go(n.next)} aria-label="Next item">Next <ChevronRight size={18} /></button>
+    </div>
+  );
 }
 
 export default function ItemDetail() {
@@ -103,6 +124,7 @@ export default function ItemDetail() {
 
   return (
     <div className="page">
+      <ItemSteps id={it.id} />
       {it.needs_details && !it.deleted_at && (
         <div className="notice row between">
           <span>Added with Quick photos — details still to add{it.capture?.suggestion ? `. AI thinks it's: ${it.capture.suggestion.name}` : ""}.</span>

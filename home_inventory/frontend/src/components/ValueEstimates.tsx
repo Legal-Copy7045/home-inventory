@@ -15,7 +15,7 @@ interface Job {
   error: string | null;
   started_by: string | null;
 }
-interface Preview { items: number; requests: number; too_many: boolean; max: number }
+interface Preview { items: number; requests: number; too_many: boolean; max: number; minutes: number | null; days: number | null }
 
 const SCOPE_LABEL = { unpriced: "items without a price", category: "a category", all: "the whole inventory" };
 
@@ -98,6 +98,7 @@ export function ValueEstimates({ onFinished }: { onFinished: () => void }) {
               {preview.data && (
                 <p className="muted" style={{ margin: 0 }}>
                   {preview.data.items ? `${preview.data.items} item${preview.data.items === 1 ? "" : "s"}, ${preview.data.requests} AI request${preview.data.requests === 1 ? "" : "s"} (the same product in several places is estimated once).` : "Nothing to estimate: these items all have a recent estimate."}
+                  {preview.data.items && preview.data.days && preview.data.days > 1 ? ` Within your AI limits that takes about ${preview.data.days} days; it carries on in the background.` : preview.data.items && preview.data.minutes && preview.data.minutes > 1 ? ` Within your AI limits that takes about ${preview.data.minutes} minutes.` : ""}
                   {preview.data.too_many ? ` That's more than ${preview.data.max} at once; choose a category.` : ""}
                 </p>
               )}
