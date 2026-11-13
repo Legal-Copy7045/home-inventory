@@ -109,7 +109,13 @@ def analyse(db: Session, reading: DocumentReading, ai, media) -> DocumentReading
         if att.mime_type == "application/pdf":
             pages = pdf_pages(data)
             if not pages:
-                raise DocumentError("This PDF has no readable text (it's probably a scan). A photo of it can be read instead.")
+                # A scan: read its first page or two as a picture.
+                res = ai.read_document(_item_text(item), image=_scan_image(data))
+                reading.provider, reading.model = res.provider, res.model
+                reading.result = res.data
+                reading.status, reading.error = "ready", None
+                db.commit()
+                return reading
             text, used = [], 0
             for n, t in pages:
                 if used >= MAX_TEXT:
@@ -127,6 +133,29 @@ def analyse(db: Session, reading: DocumentReading, ai, media) -> DocumentReading
         reading.status, reading.error = "failed", str(err)
     db.commit()
     return reading
+
+
+def _scan_image(data: bytes) -> bytes:
+    """The first two pages of a scanned PDF, one above the other, as a JPEG."""
+    import io
+
+    from PIL import Image
+
+    from .manuals import ManualError, page_images
+
+    images = page_images(data, [1, 2], long_edge=1600)
+    if not images:
+        raise ManualError("This PDF has no pages to read.")
+    pics = [Image.open(io.BytesIO(b)).convert("RGB") for _n, b in images]
+    width = max(p.width for p in pics)
+    sheet = Image.new("RGB", (width, sum(p.height for p in pics)), "white")
+    top = 0
+    for p in pics:
+        sheet.paste(p, (0, top))
+        top += p.height
+    buf = io.BytesIO()
+    sheet.save(buf, "JPEG", quality=85)
+    return buf.getvalue()
 
 
 def expire_if_stale(r: DocumentReading) -> bool:

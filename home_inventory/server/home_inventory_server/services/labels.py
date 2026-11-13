@@ -136,17 +136,58 @@ class LabelData:
     number: str | None
     location: str | None
     contents: list[str] = field(default_factory=list)
+    description: str | None = None
 
 
-def _fit(c: canvas.Canvas, text: str, font: str, size: float, max_width: float) -> tuple[str, float]:
-    while size > 5 and c.stringWidth(text, font, size) > max_width:
-        size -= 0.5
-    while c.stringWidth(text, font, size) > max_width and len(text) > 3:
-        text = text[:-2] + "…"
-    return text, size
+def _lines(c: canvas.Canvas, text: str, font: str, size: float, width: float) -> list[tuple[str, float]]:
+    """Text broken at spaces into lines no wider than ``width`` - never inside a
+    word.  A single word wider than the line gets a smaller size of its own."""
+    out: list[tuple[str, float]] = []
+    line = ""
+    for word in text.split():
+        trial = f"{line} {word}" if line else word
+        if c.stringWidth(trial, font, size) <= width:
+            line = trial
+            continue
+        if line:
+            out.append((line, size))
+        if c.stringWidth(word, font, size) <= width:
+            line = word
+        else:  # one very long word: shrink just this line
+            ws = size
+            while ws > 4 and c.stringWidth(word, font, ws) > width:
+                ws -= 0.25
+            out.append((word, ws))
+            line = ""
+    if line:
+        out.append((line, size))
+    return out
+
+
+def _wrap(c: canvas.Canvas, text: str, font: str, size: float, width: float, max_lines: int,
+          min_scale: float = 0.85) -> list[tuple[str, float]]:
+    """Wrapped lines, at full size when they fit in ``max_lines``; otherwise a
+    little smaller (down to ``min_scale``), and only then cut after the last
+    whole word that fits, with "…"."""
+    s = size
+    while True:
+        lines = _lines(c, text, font, s, width)
+        if len(lines) <= max_lines or s <= size * min_scale:
+            break
+        s -= 0.25
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]
+        last, ls = lines[-1]
+        words = last.split()
+        while words and c.stringWidth(" ".join(words) + " …", font, ls) > width:
+            words.pop()
+        lines[-1] = ((" ".join(words) + " …") if words else "…", ls)
+    return lines
 
 
 def _draw_label(c: canvas.Canvas, x: float, y: float, w: float, h: float, d: LabelData) -> None:
+    """Number (large), title, description, contents; where it is at the foot.
+    Text wraps between words and keeps its size where it can."""
     pad = 2.5 * mm
     portrait = h > w * 1.3
     qr_size = min(h - 2 * pad, (w - 2 * pad) * (0.9 if portrait else 0.45))
@@ -156,36 +197,54 @@ def _draw_label(c: canvas.Canvas, x: float, y: float, w: float, h: float, d: Lab
         tx, ty, tw = x + pad, qy - 3 * mm, w - 2 * pad
     else:
         qx, qy = x + pad, y + (h - qr_size) / 2
-        tx, ty, tw = qx + qr_size + 2 * mm, y + h - pad - 2 * mm, w - qr_size - 2 * pad - 2 * mm
+        tx, ty, tw = qx + qr_size + 2 * mm, y + h - pad - 1 * mm, w - qr_size - 2 * pad - 2 * mm
     c.drawImage(qr_img, qx, qy, qr_size, qr_size)
     big = 22 if h > 45 * mm else 16 if h > 30 * mm else 12
-    if d.number:
-        num, s = _fit(c, f"#{d.number}", "Helvetica-Bold", big, tw)
-        c.setFont("Helvetica-Bold", s)
-        c.drawString(tx, ty - s * 0.7, num)
-        ty -= s + 1.5
-    title, s = _fit(c, d.title, "Helvetica-Bold", big * 0.6, tw)
-    c.setFont("Helvetica-Bold", s)
-    c.drawString(tx, ty - s * 0.8, title)
-    ty -= s + 2
     small = max(6, big * 0.38)
+    code_size = max(5, small * 0.8)
+
+    def draw(lines: list[tuple[str, float]], font: str, gap: float) -> None:
+        nonlocal ty
+        for text, s in lines:
+            c.setFont(font, s)
+            c.drawString(tx, ty - s * 0.8, text)
+            ty -= s + gap
+
+    # Bottom: the code, and where it is (reserved first, so it never disappears).
+    bottom = y + pad * 0.6
+    c.setFont("Helvetica", code_size)
+    c.drawRightString(x + w - pad, bottom, d.code)
+    floor = bottom + code_size + 1
     if d.location:
-        loc, s2 = _fit(c, d.location, "Helvetica", small, tw)
-        c.setFont("Helvetica", s2)
-        c.drawString(tx, ty - s2, loc)
-        ty -= s2 + 2
-    c.setFont("Helvetica", small)
-    floor = y + pad + small
-    for line in d.contents:
-        if ty - small < floor:
-            c.drawString(tx, ty - small, "…")
+        loc_size = small * 0.95
+        loc_lines = _wrap(c, d.location, "Helvetica", loc_size, tw, 2)
+        ly = floor + (len(loc_lines) - 1) * (loc_lines[0][1] + 1)
+        for text, s in loc_lines:
+            c.setFont("Helvetica", s)
+            c.setFillGray(0.3)
+            c.drawString(tx, ly, text)
+            c.setFillGray(0)
+            ly -= s + 1
+        floor += len(loc_lines) * (loc_lines[0][1] + 1) + 1
+
+    def room(size: float) -> int:
+        return max(0, int((ty - floor) // (size + 1.5)))
+
+    if d.number:
+        draw(_wrap(c, f"#{d.number}", "Helvetica-Bold", big, tw, 1, min_scale=0.6), "Helvetica-Bold", 1.5)
+    title_size = big * 0.6
+    draw(_wrap(c, d.title, "Helvetica-Bold", title_size, tw, max(1, min(3, room(title_size)))), "Helvetica-Bold", 1.5)
+    ty -= 1
+    if d.description and room(small) >= 1:
+        draw(_wrap(c, d.description, "Helvetica-Oblique", small, tw, min(2, room(small))), "Helvetica-Oblique", 1)
+    for i, line in enumerate(d.contents):
+        left = room(small)
+        if left < 1:
             break
-        text, s3 = _fit(c, f"• {line}", "Helvetica", small, tw)
-        c.setFont("Helvetica", s3)
-        c.drawString(tx, ty - s3, text)
-        ty -= s3 + 1
-    c.setFont("Helvetica", max(5, small * 0.8))
-    c.drawRightString(x + w - pad, y + pad * 0.6, d.code)
+        if left == 1 and i < len(d.contents) - 1:
+            draw([(f"+ {len(d.contents) - i} more", small)], "Helvetica", 1)
+            break
+        draw(_wrap(c, f"• {line}", "Helvetica", small, tw, 1, min_scale=0.9), "Helvetica", 1)
 
 
 def render_pdf(labels: list[LabelData], template_key: str, copies: int = 1, start_position: int = 1) -> bytes:

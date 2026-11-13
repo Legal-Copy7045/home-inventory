@@ -66,10 +66,11 @@ CONTAINER_SCHEMA: dict[str, Any] = {
                     "confidence": {"type": "number"},
                     # Where in the photo, e.g. "top shelf, left" (shelf photos).
                     "position": _NULLABLE_STR,
-                    # [x, y, width, height] as fractions of the photo, for a cropped item photo.
-                    "box": {"type": ["array", "null"], "items": {"type": "number"}},
+                    # [ymin, xmin, ymax, xmax] on a 0-1000 scale (the detection format vision
+                    # models are trained on), for a cropped item photo.
+                    "box_2d": {"type": ["array", "null"], "items": {"type": "number"}},
                 },
-                "required": ["name", "description", "category", "manufacturer", "model_number", "quantity", "confidence", "position", "box"],
+                "required": ["name", "description", "category", "manufacturer", "model_number", "quantity", "confidence", "position", "box_2d"],
                 "additionalProperties": False,
             },
         },
@@ -112,7 +113,8 @@ CONTAINER_PROMPT = """You help catalogue a household inventory. The photo shows 
 container. List every distinct kind of object you can see, grouping identical objects with a quantity.
 Return JSON only. Use null when unsure; never invent brands or model numbers. Use short everyday names.
 "confidence" is 0..1 for each entry. Ignore the container itself and packing material.
-"box" is [x, y, width, height] of the entry in the photo as fractions 0..1 from the top-left (null if unsure).{hint}"""
+"box_2d" is the entry's bounding box as [ymin, xmin, ymax, xmax], each 0-1000 relative to the photo's height and
+width (0,0 = top-left); draw it tightly around that one entry only (null if unsure).{hint}"""
 
 RECEIPT_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -148,7 +150,7 @@ _AREA_ENTRY = {
         "quantity": {"type": "integer"},
         "confidence": {"type": "number"},
         "position": _NULLABLE_STR,
-        "box": {"type": ["array", "null"], "items": {"type": "number"}},
+        "box_2d": {"type": ["array", "null"], "items": {"type": "number"}},
         "kind": {"type": "string", "enum": ["item", "container"]},
         "label": _NULLABLE_STR,
         "container_type": _NULLABLE_STR,
@@ -156,7 +158,7 @@ _AREA_ENTRY = {
         "shelf": {"type": ["integer", "null"]},
     },
     "required": ["name", "description", "category", "manufacturer", "model_number", "quantity", "confidence",
-                 "position", "box", "kind", "label", "container_type", "unit", "shelf"],
+                 "position", "box_2d", "kind", "label", "container_type", "unit", "shelf"],
     "additionalProperties": False,
 }
 AREA_SCHEMA: dict[str, Any] = {
@@ -195,7 +197,8 @@ racks, a bench, a wall or a corner, possibly several units side by side with sev
    Everything else is "kind": "item", with "label" null.
 Return JSON only. Use null when unsure; never invent brands or model numbers. Short everyday names; read
 packaging where legible. "confidence" is 0..1. Ignore the shelving, walls, pipes, ducts and the floor itself.
-"box" is [x, y, width, height] of the entry in the photo as fractions 0..1 from the top-left (null if unsure).{hint}"""
+"box_2d" is the entry's bounding box as [ymin, xmin, ymax, xmax], each 0-1000 relative to the photo's height and
+width (0,0 = top-left); draw it tightly around that one entry only (null if unsure).{hint}"""
 
 SHELF_PROMPT = """You help catalogue a household inventory. The photo shows a shelf, shelving unit, bench, wall
 or other storage space, possibly with several shelves. List every distinct kind of object you can see, grouping
@@ -204,7 +207,8 @@ Return JSON only. Use null when unsure; never invent brands or model numbers. Us
 labels and packaging where legible. "position" says where it is, e.g. "top shelf, left" or "second shelf, middle"
 (null if unclear). "confidence" is 0..1 for each entry. Ignore the shelving itself, walls and the floor.
 Closed boxes and bins: list them as one entry each named for the box (e.g. "Blue plastic storage bin").
-"box" is [x, y, width, height] of the entry in the photo as fractions 0..1 from the top-left (null if unsure).{hint}"""
+"box_2d" is the entry's bounding box as [ymin, xmin, ymax, xmax], each 0-1000 relative to the photo's height and
+width (0,0 = top-left); draw it tightly around that one entry only (null if unsure).{hint}"""
 
 SEARCH_PROMPT = """Convert a household inventory question into search filters. Return JSON only.
 intent: "count" for how-many questions, "loans" for lending/borrowing questions, "warranty" for warranty
@@ -389,6 +393,20 @@ class AIService:
         return res
 
 
+def _box_2d(v: Any) -> list[float] | None:
+    """[ymin, xmin, ymax, xmax] on 0-1000 (or 0-1) -> [x, y, w, h] fractions."""
+    if not isinstance(v, list) or len(v) != 4:
+        return None
+    try:
+        ymin, xmin, ymax, xmax = (float(n) for n in v)
+    except (TypeError, ValueError):
+        return None
+    scale = 1.0 if max(ymin, xmin, ymax, xmax) <= 1.0 else 1000.0
+    if ymax <= ymin or xmax <= xmin:
+        return None
+    return _clean_box([xmin / scale, ymin / scale, (xmax - xmin) / scale, (ymax - ymin) / scale])
+
+
 def _clean_box(v: Any) -> list[float] | None:
     """[x, y, w, h] within the photo, or None."""
     if not isinstance(v, list) or len(v) != 4:
@@ -464,8 +482,8 @@ def _clean_item(d: dict[str, Any]) -> dict[str, Any]:
         out["quantity"] = d["quantity"]
     if d.get("position"):
         out["position"] = s("position", 120)
-    box = _clean_box(d.get("box"))
-    if box:
+    box = _box_2d(d.get("box_2d")) if d.get("box_2d") is not None else _clean_box(d.get("box"))
+    if box and box[2] * box[3] <= 0.6:  # one entry never fills most of the photo
         out["box"] = box
     if d.get("notes"):
         out["notes"] = s("notes", 1000)

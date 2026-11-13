@@ -312,12 +312,20 @@ def list_containers(
     actor: Actor = Depends(current_actor),
     db: Session = Depends(get_db),
 ):
+    from ..services.textmatch import matches_words
+
     r = _resolver(db)
-    stmt = select(Container).where(Container.deleted_at.is_(None))
-    if q:
-        like = f"%{q.strip()}%"
-        stmt = stmt.where(or_(Container.name.ilike(like), Container.number.ilike(like), Container.qr_code == q.strip().upper(), Container.description.ilike(like)))
-    containers = db.scalars(stmt).all()
+    containers = db.scalars(select(Container).where(Container.deleted_at.is_(None))).all()
+    if q and q.strip():
+        # Words in any order, matched across the name, number, type,
+        # description and where it is ("tote shed front right").
+        code = q.strip().upper()
+        containers = [
+            c for c in containers
+            if c.qr_code == code or matches_words(q, " ".join(filter(None, (
+                c.name, c.number, f"#{c.number}" if c.number else None, c.container_type, c.description,
+                r.describe(c.parent_container_id, c.location_id)["path"]))))
+        ]
     if location_id:
         within = r.containers_in_location_tree(location_id)
         containers = [c for c in containers if c.id in within]
@@ -338,6 +346,21 @@ def create_container(data: ContainerIn, actor: Actor = Depends(require_member), 
     c = _err(inv.create_container, db, actor, data)
     db.commit()
     return inv.container_out(c, _resolver(db), db, detail=True)
+
+
+@router.get("/containers/numbers")
+def container_numbers(actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    """The next free container number (one more than the highest number in
+    use) and the numbers already taken, so a form can suggest one and warn
+    about duplicates."""
+    used: dict[str, dict] = {}
+    highest = 0
+    for c in db.scalars(select(Container).where(Container.deleted_at.is_(None), Container.number.is_not(None))):
+        key = c.number.strip().lstrip("#").lower()
+        used.setdefault(key, {"id": c.id, "name": c.name, "number": c.number})
+        if key.isdigit():
+            highest = max(highest, int(key))
+    return {"next": str(highest + 1), "used": used}
 
 
 @router.get("/containers/lookup")
@@ -1466,6 +1489,7 @@ def labels_pdf(data: LabelRequest, request: Request, actor: Actor = Depends(curr
                 payload=labels_svc.qr_payload(c.qr_code, base, "C"),
                 title=c.name,
                 number=c.number,
+                description=c.description,
                 location=place["path"] if data.include_location and (c.location_id or c.parent_container_id) else None,
                 contents=contents,
             )
@@ -1488,6 +1512,7 @@ def labels_pdf(data: LabelRequest, request: Request, actor: Actor = Depends(curr
                 payload=labels_svc.qr_payload(loc.qr_code, base, "L"),
                 title=loc.name,
                 number=None,
+                description=loc.description,
                 location=parent if data.include_location else None,
                 contents=contents,
             )

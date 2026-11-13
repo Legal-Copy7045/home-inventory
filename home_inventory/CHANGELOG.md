@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.14.0
+
+- **Fixed: photo inventory cut-outs showing the wrong part of the photo.** The AI is now asked for each thing's position in the box format vision models are trained on (`[ymin, xmin, ymax, xmax]` on 0–1000), and it's converted in one place. A box that covers most of the photo is ignored. In the review, each row's cut-out has a **Photo** tick: untick it when the cut-out is wrong and the entry is saved without one.
+- **Scanned PDFs can be read.** A PDF that's only pictures of pages is now read as pictures:
+  - a manual page by page, the first 12 pages or the ones you choose in **Pages to read** (e.g. 18-26);
+  - a receipt or warranty from its first page or two.
+- **Read the manual is always available** for items with AI set up, including new equipment that isn't tracked yet. Reading a manual turns maintenance tracking on. Manual documents also have a **Read for the service schedule and parts** button.
+- **Labels:**
+  - Titles and locations wrap onto more lines between words, at full size; words are never split, and the location is never cut off.
+  - The order is number (large), title, description, contents, with the location at the foot.
+  - When contents don't fit, "+ N more" is shown.
+- **Container numbers:** a new container starts with the next free number, and you're warned (and asked to confirm) when a number is already used by another container.
+- **Search by words in any order:** "shed right front shelf" finds *Shed › Front Right Shelving › Right Bottom Shelf*. This works in the place picker (Move, new container…) and the Containers search, across the whole path, with plurals and word endings handled ("shelf" finds "Shelving").
+
 ## 0.13.1
 
 - **Fixed: "The update could not be started: [object Object]".** Home Assistant was building the App on your own machine at every update (installing build tools and compiling the web app), and that build could fail. The App now uses the ready-made image published with each release, so updates just download it: they're faster and don't depend on building locally.

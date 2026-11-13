@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { matchesWords } from "../match";
 import { Box, MapPin, Plus } from "lucide-react";
 import { api, type Container, type FlatLocation } from "../api";
 import { Sheet, Spinner, useApi, useToast } from "./ui";
@@ -34,11 +35,11 @@ export function PlacementPicker({
   const toast = useToast();
 
   const ql = q.trim().toLowerCase();
-  const filteredLocs = useMemo(() => (locs.data || []).filter((l) => !ql || l.path.toLowerCase().includes(ql)), [locs.data, ql]);
+  const filteredLocs = useMemo(() => (locs.data || []).filter((l) => !ql || matchesWords(ql, l.path)), [locs.data, ql]);
   const filteredConts = useMemo(
     () =>
       (conts.data || []).filter(
-        (c) => c.id !== excludeContainerId && (!ql || `${c.name} ${c.number ?? ""} ${c.path}`.toLowerCase().includes(ql)),
+        (c) => c.id !== excludeContainerId && (!ql || matchesWords(ql, `${c.name} ${c.number ?? ""} #${c.number ?? ""} ${c.path}`)),
       ),
     [conts.data, ql, excludeContainerId],
   );
