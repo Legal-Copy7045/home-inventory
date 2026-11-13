@@ -586,7 +586,7 @@ def list_items(
         )
     }
     page = [loaded[i] for i in page_ids if i in loaded]
-    return {"total": total, "offset": offset, "items": [inv.item_out(i, r, db) for i in page]}
+    return {"total": total, "offset": offset, "items": inv.items_out(page, r, db)}
 
 
 def _report(db: Session, r: Resolver, q, status, category, container_id, location_id):
@@ -656,7 +656,7 @@ def create_item(data: ItemCreate, actor: Actor = Depends(require_member), db: Se
     items = _err(inv.create_items, db, actor, data)
     db.commit()
     r = _resolver(db)
-    return {"items": [inv.item_out(i, r, db, detail=True) for i in items]}
+    return {"items": inv.items_out(items, r, db, detail=True)}
 
 
 @router.get("/items/{item_id}")
@@ -711,7 +711,7 @@ def expiring(
     )
     if not include_expired:
         stmt = stmt.where(Item.expires_on >= today)
-    return [inv.item_out(i, r, db) for i in db.scalars(stmt.order_by(Item.expires_on))]
+    return inv.items_out(db.scalars(stmt.order_by(Item.expires_on)), r, db)
 
 
 @router.get("/low-stock")
@@ -790,7 +790,7 @@ def capture_unsorted(actor: Actor = Depends(current_actor), db: Session = Depend
     items = capture_svc.unsorted_items(db)
     return {
         "total": len(items),
-        "groups": [{**g, "items": [inv.item_out(i, r, db) for i in g["items"]]} for g in capture_svc.unsorted_groups(items)],
+        "groups": [{**g, "items": inv.items_out(g["items"], r, db)} for g in capture_svc.unsorted_groups(items)],
     }
 
 
@@ -807,7 +807,7 @@ def capture_place(data: PlaceItemsIn, actor: Actor = Depends(require_member), db
     moved = [_err(inv.move_item, db, actor, item, move) for item in items]
     db.commit()
     r = _resolver(db)
-    return {"items": [inv.item_out(i, r, db) for i in moved]}
+    return {"items": inv.items_out(moved, r, db)}
 
 
 def _bulk_items(db: Session, ids: list[int]) -> list[Item]:
@@ -827,7 +827,7 @@ def bulk_edit_items(data: BulkEditIn, actor: Actor = Depends(require_member), db
             _err(inv.set_status, db, actor, item, data.status, None)
     db.commit()
     r = _resolver(db)
-    return {"items": [inv.item_out(i, r, db) for i in items]}
+    return {"items": inv.items_out(items, r, db)}
 
 
 @router.post("/items/bulk-lend")
@@ -849,7 +849,7 @@ def deleted_items(limit: int = Query(200, ge=1, le=500), actor: Actor = Depends(
         select(Item).options(selectinload(Item.product), selectinload(Item.loans))
         .where(Item.deleted_at.is_not(None)).order_by(Item.deleted_at.desc(), Item.id.desc()).limit(limit)
     ).all()
-    return {"items": [inv.item_out(i, r, db) for i in items]}
+    return {"items": inv.items_out(items, r, db)}
 
 
 @router.post("/items/bulk-restore")
@@ -966,7 +966,7 @@ def temporary(actor: Actor = Depends(current_actor), db: Session = Depends(get_d
         )
     ).all()
     containers = db.scalars(select(Container).where(Container.deleted_at.is_(None), Container.temporarily_moved.is_(True))).all()
-    return {"items": [inv.item_out(i, r, db) for i in items], "containers": [inv.container_out(c, r, db) for c in containers]}
+    return {"items": inv.items_out(items, r, db), "containers": [inv.container_out(c, r, db) for c in containers]}
 
 
 @router.get("/warranties")
@@ -977,7 +977,7 @@ def warranties(days: int = Query(90, ge=0, le=3650), include_expired: bool = Fal
     if not include_expired:
         stmt = stmt.where(Item.warranty_expires >= today)
     stmt = stmt.where(Item.warranty_expires <= today + timedelta(days=days))
-    return [inv.item_out(i, r, db) for i in db.scalars(stmt.order_by(Item.warranty_expires))]
+    return inv.items_out(db.scalars(stmt.order_by(Item.warranty_expires)), r, db)
 
 
 # ---------------------------------------------------------------------------
@@ -1087,6 +1087,10 @@ async def upload_attachment(
         audit.record(db, actor, "photo_added", "container", container_id, "Added a photo", related_containers=[container_id])
     db.commit()
     out = inv.attachment_out(att)
+    if att.mime_type.startswith("image/"):
+        from ..services.media import taken_on
+
+        out["taken_on"] = taken_on(data)
     if recognise and item_id and job is None and kind is not AttachmentKind.photo:
         # A document on an item: AI works out what it is and what it can fill in.
         from .parts import start_document_reading
@@ -1720,7 +1724,7 @@ def trash(actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
     containers = db.scalars(select(Container).where(Container.deleted_at.is_not(None)).order_by(Container.deleted_at.desc()).limit(200)).all()
     locations = db.scalars(select(Location).where(Location.deleted_at.is_not(None)).order_by(Location.deleted_at.desc()).limit(200)).all()
     return {
-        "items": [inv.item_out(i, r, db) for i in items],
+        "items": inv.items_out(items, r, db),
         "containers": [inv.container_out(c, r, db) for c in containers],
         "locations": [inv.location_out(loc, r, db) for loc in locations],
     }
