@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.1
+
+- **Fixed: "Load failed" / "Failed to fetch" when reading a manual.** Reading a long manual can take minutes, longer than browsers, phones and proxies keep a request open. It now runs in the background: the app shows *Reading the manual…* and checks every few seconds. You can close it and come back; the result waits on the item. Asking again while one is running doesn't start a second reading. A reading cut off by an App restart is reported as interrupted, so it can't spin forever.
+
 ## 0.12.0
 
 - **Read the manual (equipment).** The AI reads an equipment's owner's manual (its PDF, or photos of the pages for a paper or scanned manual). It finds each service and its interval, including first/break-in services, and what *that* service needs: the 50-hour service and the 100-hour service can need different parts. It also lists the parts and consumables, with part numbers and grades exactly as printed and their page numbers. You review and edit everything before it's saved. Matching tasks are updated rather than duplicated, and parts already in your inventory are reused.

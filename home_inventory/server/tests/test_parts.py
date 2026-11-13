@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import time
 
 from reportlab.pdfgen import canvas
 
@@ -147,6 +148,18 @@ def test_units_that_cannot_be_compared_are_uncertain(env):
 # --------------------------------------------------------------------------- manuals
 
 
+def _read(u, item_id, attachment_ids):
+    """Start reading a manual and wait for the background job."""
+    r = u.ok("post", f"/api/v1/items/{item_id}/manual-readings", expected=202, json={"attachment_ids": attachment_ids})
+    assert r["status"] in ("pending", "ready", "failed")
+    for _ in range(200):
+        if r["status"] != "pending":
+            return r
+        time.sleep(0.05)
+        r = u.ok("get", f"/api/v1/manual-readings/{r['id']}")
+    raise AssertionError("the reading never finished")
+
+
 def _pdf(pages: list[str]) -> bytes:
     buf = io.BytesIO()
     c = canvas.Canvas(buf)
@@ -206,7 +219,7 @@ def test_reading_a_manual_builds_the_plan(tmp_path):
                                                                                "interval_hours": 200})
 
     fake.responses.append(MANUAL)
-    reading = u.ok("post", f"/api/v1/items/{mower['id']}/manual-readings", json={"attachment_ids": [pdf["id"]]})
+    reading = _read(u, mower["id"], [pdf["id"]])
     assert reading["status"] == "ready", reading
     prompt = fake.calls[0]["prompt"]
     assert "[page 2]" in prompt and "Every 50 hours" in prompt and "Honda" in prompt
@@ -265,14 +278,14 @@ def test_scanned_manuals_and_photos_of_pages(tmp_path):
     u = env.admin
     gen = _equipment(u, "Generator")
     blank = u.upload(_pdf([""]), kind="manual", filename="scan.pdf", item_id=gen["id"])
-    r = u.ok("post", f"/api/v1/items/{gen['id']}/manual-readings", json={"attachment_ids": [blank["id"]]})
+    r = _read(u, gen["id"], [blank["id"]])
     assert r["status"] == "failed" and "scanned" in r["error"] and fake.calls == []
     p1 = u.upload(jpeg_bytes(), item_id=gen["id"])
     p2 = u.upload(jpeg_bytes((10, 10, 10)), item_id=gen["id"])
     page1 = {**MANUAL, "services": MANUAL["services"][:1], "parts": MANUAL["parts"][:1], "specs": []}
     page2 = {**MANUAL, "services": MANUAL["services"][:2], "parts": MANUAL["parts"][:2], "specs": []}
     fake.responses += [page1, page2]
-    r = u.ok("post", f"/api/v1/items/{gen['id']}/manual-readings", json={"attachment_ids": [p1["id"], p2["id"]]})
+    r = _read(u, gen["id"], [p1["id"], p2["id"]])
     assert r["status"] == "ready" and all(c["image"] for c in fake.calls)
     assert [s["title"] for s in r["result"]["services"]] == ["Change engine oil", "Replace spark plug"]  # merged
     assert [p["key"] for p in r["result"]["parts"]] == ["engine_oil", "spark_plug"]
@@ -312,3 +325,51 @@ def test_adding_a_part_you_dont_have_yet(env):
     assert again["id"] == p["id"]  # same part number: the same part
     found = u.ok("get", "/api/v1/parts/search", params={"q": "72511"})
     assert [x["id"] for x in found] == [p["id"]]
+
+
+
+def test_reading_runs_in_the_background_one_at_a_time(tmp_path):
+    """Reading can take minutes: the request returns at once and the app polls."""
+    import threading
+
+    from home_inventory_server.models import ManualReading
+    from home_inventory_server.services import manuals as man
+
+    gate = threading.Event()
+
+    class SlowAI(FakeProvider):
+        def generate_json(self, prompt, schema, image, timeout):
+            gate.wait(5)
+            return super().generate_json(prompt, schema, image, timeout)
+
+    fake = SlowAI()
+    fake.responses.append(MANUAL)
+    env = Env(tmp_path, ai_provider=fake)
+    u = env.admin
+    gen = _equipment(u, "Generator")
+    pdf = u.upload(_pdf(["Maintenance: oil every 50 hours"]), kind="manual", filename="m.pdf", item_id=gen["id"])
+    first = u.ok("post", f"/api/v1/items/{gen['id']}/manual-readings", expected=202, json={"attachment_ids": [pdf["id"]]})
+    assert first["status"] == "pending"
+    # Asking again while it runs returns the same reading, not a second AI call
+    again = u.ok("post", f"/api/v1/items/{gen['id']}/manual-readings", expected=202, json={"attachment_ids": [pdf["id"]]})
+    assert again["id"] == first["id"]
+    gate.set()
+    for _ in range(200):
+        r = u.ok("get", f"/api/v1/manual-readings/{first['id']}")
+        if r["status"] != "pending":
+            break
+        time.sleep(0.05)
+    assert r["status"] == "ready" and len(fake.calls) == 1
+    assert [x["status"] for x in u.ok("get", f"/api/v1/items/{gen['id']}/manual-readings")] == ["ready"]
+
+    # A reading left pending by a restart is reported as interrupted
+    from datetime import UTC, datetime
+
+    with env.state.db.SessionLocal() as db:
+        stuck = ManualReading(item_id=gen["id"], attachment_ids=[pdf["id"]], status="pending",
+                              created_at=datetime.now(UTC) - man.STALE_AFTER * 2)
+        db.add(stuck)
+        db.commit()
+        stuck_id = stuck.id
+    r = u.ok("get", f"/api/v1/manual-readings/{stuck_id}")
+    assert r["status"] == "failed" and "interrupted" in r["error"]
