@@ -187,6 +187,39 @@ await page.getByRole("button", { name: "Lend 2 items" }).click();
 await page.getByText("Lent 2 items to Pat").first().waitFor();
 if ((await api(`items/${hoe.id}`)).status !== "on_loan") throw new Error("bulk lend failed");
 
+// Take it / put away: take the drill from the garage, put it in the shed just this once.
+const drill = (await api("items", { method: "POST", data: { name: "Cordless drill", location_id: garage.id } })).items[0];
+await page.goto(BASE + "#/items/" + drill.id);
+await page.getByRole("button", { name: "Take it" }).click();
+await page.getByText(/^Taken;/).first().waitFor();
+if ((await api(`items/${drill.id}`)).status !== "in_use") throw new Error("take it failed");
+await page.goto(BASE + "#/scan");
+await page.getByText("With you:").waitFor();
+await shot("09b-taken");
+await page.goto(BASE + "#/items/" + drill.id);
+await page.getByRole("button", { name: "Put away" }).click();
+await page.getByRole("dialog").getByPlaceholder("Search by name, number or place…").fill("Shed");
+await page.getByRole("dialog").getByText("Shed", { exact: false }).first().click();
+await page.getByRole("button", { name: "Put away here" }).click();
+await page.getByRole("button", { name: "Just this once" }).click();
+await page.getByText(/Here for now/).first().waitFor();
+const putDrill = await api(`items/${drill.id}`);
+if (putDrill.status !== "temporarily_relocated" || putDrill.home_placement?.location?.id !== garage.id) throw new Error("put away just this once failed");
+// Take it again and scan the garage's label: it goes back home.
+await page.getByRole("button", { name: "Take it" }).click();
+await page.getByText(/^Taken;/).first().waitFor();
+await page.goto(BASE + "#/scan");
+await page.getByPlaceholder("Type a barcode or label code").fill(garage.qr_code);
+await page.getByPlaceholder("Type a barcode or label code").press("Enter");
+const putSheet = page.getByRole("dialog");
+await putSheet.getByText(/Put away in/).waitFor();
+await shot("09c-put-away");
+await putSheet.getByRole("button", { name: "Put away here" }).click();
+await page.getByText(/Back home/).first().waitFor();
+const homeDrill = await api(`items/${drill.id}`);
+if (homeDrill.status !== "stored" || homeDrill.placement.location?.id !== garage.id) throw new Error("scan-to-put-away failed");
+await putSheet.getByRole("button", { name: "Done" }).click();
+
 // Maintenance: track a mower, log hours, record the overdue oil change
 const mower = (await api("items", { method: "POST", data: { name: "Lawn mower", category: "Equipment", location_id: garage.id } })).items[0];
 await page.goto(BASE + "#/items/" + mower.id);

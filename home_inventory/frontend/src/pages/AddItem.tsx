@@ -50,6 +50,8 @@ export default function AddItem() {
       if (last?.container_id) api.get<{ id: number; path: string }>(`containers/${last.container_id}`).then((c) => setPlacement({ container_id: c.id, location_id: null, label: c.path, remembered: true })).catch(() => undefined);
       else if (last?.location_id) api.get<{ id: number; path: string }>(`locations/${last.location_id}`).then((l) => setPlacement({ location_id: l.id, container_id: null, label: l.path, remembered: true })).catch(() => undefined);
     }
+    const name = params.get("name");
+    if (name) setValue((v) => ({ ...v, name: name.slice(0, 200) }));
     const pid = params.get("product_id");
     if (pid) {
       setProductId(Number(pid));
