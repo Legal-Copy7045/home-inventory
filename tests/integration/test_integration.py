@@ -330,6 +330,29 @@ async def test_voice_move_clear_place_and_box_number(hass: HomeAssistant, invent
         "I couldn't find a place called the moon, so I haven't moved Engine oil.")
 
 
+async def test_voice_questions_are_kept_in_voice_history(hass: HomeAssistant, inventory_app):
+    import json
+
+    from homeassistant.helpers import intent
+
+    await _setup_via_user_flow(hass, inventory_app)
+    await intent.async_handle(hass, "alexa", "HomeInventoryWhereIs", {"item": {"value": "flux capacitor"}}, device_id="hall-echo")
+    import asyncio
+
+    path, last = inventory_app.data_dir / "voice_history.json", None
+    for _ in range(50):  # written in the background, after the answer
+        await hass.async_block_till_done()
+        mine = [e for e in json.loads(path.read_text()) if e.get("device") == "hall-echo"] if path.exists() else []
+        if mine:
+            last = mine[-1]
+            break
+        await asyncio.sleep(0.1)
+    assert last is not None
+    assert last["source"] == "alexa" and last["device"] == "hall-echo" and last["intent"] == "HomeInventoryWhereIs"
+    assert last["slots"] == {"item": "flux capacitor"} and last["answer"] == "I couldn't find flux capacitor in your inventory."
+    assert last["question"] is False
+
+
 async def test_voice_move_asks_when_unclear(hass: HomeAssistant, inventory_app):
     from homeassistant.helpers import intent
 

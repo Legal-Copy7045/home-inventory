@@ -22,6 +22,7 @@ def _free_port() -> int:
 
 class AppProcess:
     def __init__(self, data_dir: Path) -> None:
+        self.data_dir = data_dir
         self.ingress_port = _free_port()
         self.api_port = _free_port()
         env = {

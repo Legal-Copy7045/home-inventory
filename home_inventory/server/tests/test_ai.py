@@ -658,3 +658,37 @@ def test_boxes_redo_cutouts_and_rescans_reuse_recorded_names(ai_env, fake_ai):
     assert "Plastic container" in fake_ai.calls[-1]["prompt"] and "use exactly that name" in fake_ai.calls[-1]["prompt"]
     sug = again["suggestions"][0]
     assert sug["container_match"]["container_id"] == box_id and sug["proposed_action"] == "skip"
+
+
+def test_look_closer_adds_what_the_first_pass_missed(ai_env, fake_ai):
+    u = ai_env.admin
+    shelf = u.location("Workbench")
+    recorded = u.item("Tape measure", location_id=shelf["id"])
+    fake_ai.responses.append({"items": [dict(_shelf_item("Paint tins", 3, "left"), box_2d=[0, 0, 400, 400])], "notes": None})
+    scan = u.ok("post", f"/api/v1/locations/{shelf['id']}/scans", files={"file": ("s.jpg", jpeg_bytes(size=(800, 600)))})
+    assert [s["name"] for s in scan["suggestions"]] == ["Paint tins"]
+
+    def tile(*items):
+        return {"items": [dict(_shelf_item(n, 1, None), box_2d=b) for n, b in items], "notes": None}
+    # Four close-ups (2 x 2): the paint again (already listed), two new things
+    # (one seen in two overlapping close-ups), and the recorded tape measure.
+    fake_ai.responses += [
+        tile(("Paint tins", [0, 0, 600, 600]), ("Stanley knife", [700, 700, 800, 800])),
+        tile(("Stanley knife", [700, 120, 800, 220])),
+        tile(("Tape measure", [100, 100, 300, 300])),
+        tile(("Spirit level", [500, 500, 900, 900])),
+    ]
+    res = u.ok("post", f"/api/v1/scans/{scan['id']}/look-closer")
+    names = [s["name"] for s in res["scan"]["suggestions"]]
+    assert names[0] == "Paint tins" and res["added"] == 3, names
+    assert sorted(names[1:]) == ["Spirit level", "Stanley knife", "Tape measure"]
+    new = {s["name"]: s for s in res["scan"]["suggestions"][1:]}
+    assert all(s["closer"] for s in new.values())
+    assert new["Tape measure"]["match"]["item_id"] == recorded["id"]  # recorded already: not added twice
+    assert new["Stanley knife"]["proposed_action"] == "add"
+    # Each close-up was a separate, smaller image; boxes are in whole-photo terms
+    assert len(fake_ai.calls) == 5 and all(c["image"] for c in fake_ai.calls[1:])
+    knife = new["Stanley knife"]["box"]
+    assert 0.3 < knife[0] < 0.6 and 0.3 < knife[1] < 0.6
+    # Only while the inventory is waiting for review
+    u.ok("post", f"/api/v1/scans/{scan['id']}/discard", expected=(200, 204, 404, 405))

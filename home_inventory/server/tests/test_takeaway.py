@@ -103,3 +103,23 @@ def test_places_resolve_spoken_names_and_box_numbers(env):
     res = r("small engine pair")
     assert res["candidates"][0]["id"] == sem["id"]
     assert r("unicorn stable")["candidates"] == []
+
+
+def test_voice_history_is_kept_for_admins(env):
+    hook = env.integration()
+    for i in range(3):
+        hook.ok("post", "/api/v1/voice/history", json={
+            "source": "alexa", "device": "kitchen", "intent": "HomeInventoryWhereIs",
+            "slots": {"item": f"thing {i}"}, "answer": f"I couldn't find thing {i} in your inventory.", "question": False})
+    entries = env.admin.ok("get", "/api/v1/voice/history")["entries"]
+    assert [e["slots"]["item"] for e in entries] == ["thing 2", "thing 1", "thing 0"]  # newest first
+    assert entries[0]["source"] == "alexa" and entries[0]["answer"].startswith("I couldn't find")
+    member = env.user("u-mem", "Mo Member")
+    assert member.get("/api/v1/voice/history").status_code == 403
+    assert member.delete("/api/v1/voice/history").status_code == 403
+    env.admin.ok("delete", "/api/v1/voice/history")
+    assert env.admin.ok("get", "/api/v1/voice/history")["entries"] == []
+    # Long text is trimmed, not refused
+    hook.ok("post", "/api/v1/voice/history", json={"answer": "x" * 5000, "slots": {"item": "y" * 900}})
+    e = env.admin.ok("get", "/api/v1/voice/history")["entries"][0]
+    assert len(e["answer"]) == 600 and len(e["slots"]["item"]) == 200

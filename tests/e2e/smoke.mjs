@@ -454,6 +454,14 @@ await page.getByText("Merged Kitchenware into Kitchen & Dining").first().waitFor
 await shot("15f-categories");
 if ((await api(`items/${whisk.id}`)).category !== "Kitchen & Dining") throw new Error("category merge failed");
 
+// Admin → Voice history
+await api("voice/history", { method: "POST", data: { source: "alexa", device: "Kitchen Echo", intent: "HomeInventoryWhereIs", slots: { item: "flux capacitor" }, answer: "I couldn't find flux capacitor in your inventory." } });
+await page.goto(BASE + "#/voice-history");
+await page.getByText("“flux capacitor”", { exact: false }).waitFor();
+await page.getByText("Only questions it couldn't answer").click();
+await page.getByText("not found").first().waitFor();
+await shot("15g-voice-history");
+
 const csvRes = await page.request.fetch(BASE + "api/v1/reports/inventory.csv");
 if (!csvRes.ok() || !(await csvRes.text()).includes("Serial number")) throw new Error("CSV export failed");
 const xlsxRes = await page.request.fetch(BASE + "api/v1/reports/inventory.xlsx");
