@@ -7,6 +7,7 @@ which the API maps to HTTP errors.
 
 from __future__ import annotations
 
+import re
 import secrets
 from datetime import UTC, date, datetime
 from typing import Any
@@ -98,7 +99,43 @@ def new_qr_code(db: Session) -> str:
             return code
 
 
+def category_key(name: str | None) -> str:
+    """What two spellings of one category share: "Kitchen & Dining" ==
+    "kitchen and dining"; "Tools" == "tool"."""
+    s = re.sub(r"&", " and ", (name or "").lower())
+    words = [w[:-1] if len(w) > 3 and w.endswith("s") and not w.endswith("ss") else w for w in re.findall(r"[a-z0-9]+", s)]
+    return " ".join(words)
+
+
+# Categories the App relies on (maintenance is for "Equipment"): always there.
+SYSTEM_CATEGORIES = ("Equipment",)
+
+
+def match_category(db: Session, name: str | None) -> Category | None:
+    """The existing category a name means: same name, the same words spelled
+    differently, or one of its synonyms ("kitchenware" after a merge).
+    None when it isn't a category; categories aren't made up on the fly."""
+    if not name or not name.strip():
+        return None
+    name = name.strip()
+    cat = db.scalar(select(Category).where(func.lower(Category.name) == name.lower()))
+    if cat is not None:
+        return cat
+    key = category_key(name)
+    cats = db.scalars(select(Category)).all()
+    for c in cats:
+        if category_key(c.name) == key:
+            return c
+    for c in cats:
+        if any(category_key(syn) == key for syn in (c.synonyms or "").split(",") if syn.strip()):
+            return c
+    if name.lower() in (n.lower() for n in SYSTEM_CATEGORIES):
+        return get_or_create_category(db, name.title())
+    return None
+
+
 def get_or_create_category(db: Session, name: str | None) -> Category | None:
+    """Only for adding a category on purpose (Admin → Categories)."""
     if not name:
         return None
     name = name.strip()
@@ -108,6 +145,12 @@ def get_or_create_category(db: Session, name: str | None) -> Category | None:
         db.add(cat)
         db.flush()
     return cat
+
+
+def category_or_none(db: Session, name: str | None) -> str | None:
+    """A suggested category (AI, a barcode catalogue) as one of yours, or None."""
+    cat = match_category(db, name)
+    return cat.name if cat else None
 
 
 def _get(db: Session, model, obj_id: int, include_deleted: bool = False):
@@ -330,7 +373,11 @@ def restore_container(db: Session, actor: Actor, c: Container) -> None:
 
 def _apply_product_fields(db: Session, product: Product, fields: dict[str, Any]) -> None:
     if "category" in fields:
-        cat = get_or_create_category(db, fields.pop("category"))
+        wanted = fields.pop("category")
+        cat = match_category(db, wanted)
+        if wanted and wanted.strip() and cat is None:
+            raise Conflict(f"\"{wanted.strip()[:60]}\" isn't one of your categories. Choose one from the list, "
+                           "or ask an administrator to add it under Admin → Categories.")
         product.category_id = cat.id if cat else None
     fmt = fields.pop("barcode_format", None)
     for k in PRODUCT_FIELDS:
@@ -1158,3 +1205,62 @@ def location_tree(db: Session) -> list[dict[str, Any]]:
 
     sort(roots)
     return roots
+
+
+# ---------------------------------------------------------------------------
+# Category management (Admin → Categories)
+# ---------------------------------------------------------------------------
+
+
+def _category_items(db: Session, cat: Category) -> int:
+    return db.scalar(select(func.count(Item.id)).join(Product).where(Product.category_id == cat.id, Item.deleted_at.is_(None))) or 0
+
+
+def rename_category(db: Session, actor: Actor, cat: Category, name: str, synonyms: str | None) -> Category:
+    name = name.strip()
+    clash = next((c for c in db.scalars(select(Category).where(Category.id != cat.id))
+                  if category_key(c.name) == category_key(name)), None)
+    if clash:
+        raise Conflict(f"There's already a category called {clash.name}. Merge into it instead.")
+    before = {"name": cat.name, "synonyms": cat.synonyms}
+    cat.name, cat.synonyms = name[:120], (synonyms or None)
+    if before["name"] != cat.name:
+        audit.record(db, actor, "renamed", "category", cat.id, f"Renamed category {before['name']} to {cat.name}",
+                     before, {"name": cat.name, "synonyms": cat.synonyms})
+    return cat
+
+
+def merge_category(db: Session, actor: Actor, src: Category, into: Category) -> int:
+    """Everything in ``src`` moves to ``into``; ``src`` goes, and its name
+    becomes a synonym of ``into`` so later suggestions land there too."""
+    if src.id == into.id:
+        raise Conflict("Choose a different category to merge into")
+    if src.name.lower() in (n.lower() for n in SYSTEM_CATEGORIES):
+        raise Conflict(f"{src.name} is used by maintenance and can't be merged away")
+    moved = _category_items(db, src)
+    for p in db.scalars(select(Product).where(Product.category_id == src.id)):
+        p.category_id = into.id
+    syns = [x.strip() for x in (into.synonyms or "").split(",") if x.strip()]
+    for extra in [src.name, *[x.strip() for x in (src.synonyms or "").split(",") if x.strip()]]:
+        if all(category_key(extra) != category_key(x) for x in syns) and category_key(extra) != category_key(into.name):
+            syns.append(extra)
+    into.synonyms = ", ".join(syns)[:2000] or None
+    audit.record(db, actor, "merged", "category", into.id,
+                 f"Merged category {src.name} into {into.name} ({moved} item{'s' if moved != 1 else ''})",
+                 {"name": src.name}, {"name": into.name})
+    db.delete(src)
+    db.flush()
+    return moved
+
+
+def delete_category(db: Session, actor: Actor, cat: Category) -> None:
+    if cat.name.lower() in (n.lower() for n in SYSTEM_CATEGORIES):
+        raise Conflict(f"{cat.name} is used by maintenance and can't be deleted")
+    n = _category_items(db, cat)
+    if n:
+        raise Conflict(f"{cat.name} has {n} item{'s' if n != 1 else ''}. Merge it into another category instead.")
+    for p in db.scalars(select(Product).where(Product.category_id == cat.id)):  # deleted items' products
+        p.category_id = None
+    audit.record(db, actor, "deleted", "category", cat.id, f"Deleted category {cat.name}", {"name": cat.name}, None)
+    db.delete(cat)
+    db.flush()

@@ -4,6 +4,7 @@ import { Box, ChevronDown, ChevronUp, Layers, MapPin, Plus, Trash2 } from "lucid
 import { api, url, type Item, type Scan } from "../api";
 import { PhotoViewer } from "./PhotoViewer";
 import { Sheet, Stepper, useAction } from "./ui";
+import { CategorySelect } from "./CategorySelect";
 
 /** What was photographed: a container's contents, or a shelf / location. */
 export interface ScanTarget {
@@ -325,7 +326,7 @@ function Review({ scan, target, onClose }: { scan: Scan; target: ScanTarget; onC
                   </select>
                 </label>
                 {r.kind === "container" && <label>Box type<input value={r.container_type} onChange={(e) => upd(r.key, { container_type: e.target.value })} placeholder="Clear plastic tote" /></label>}
-                <label>Category<input value={r.category} onChange={(e) => upd(r.key, { category: e.target.value })} /></label>
+                <label>Category<CategorySelect value={r.category} onChange={(category) => upd(r.key, { category })} /></label>
                 <label>Maker / brand<input value={r.manufacturer} onChange={(e) => upd(r.key, { manufacturer: e.target.value })} /></label>
                 <label>Model number<input value={r.model_number} onChange={(e) => upd(r.key, { model_number: e.target.value })} /></label>
                 <label>Notes (e.g. which shelf)<input value={r.notes} onChange={(e) => upd(r.key, { notes: e.target.value })} /></label>

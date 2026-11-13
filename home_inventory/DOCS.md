@@ -17,7 +17,7 @@ The menu is grouped:
 - **Top:** Dashboard, Search, Add item, Scan, Quick photos, **To sort & finish** (photos waiting to be put away, and items waiting for details, as two tabs) and **Maintenance & Repairs** (tabs for maintenance, repair jobs and customers).
 - **Inventory:** Items, Containers, Locations, Kits, Visual maps, Loans & temporary.
 - **Reports:** All reports (inventory report, maintenance plan, upcoming maintenance, restock & shopping, the maintenance guide and more), the inventory report, and Restock & Shopping.
-- **Admin:** Print labels, NFC tags, Activity history, Possible duplicates, Recently deleted and Settings.
+- **Admin:** Print labels, NFC tags, Activity history, Categories, Possible duplicates, Recently deleted and Settings.
 
 Tap a section's heading to fold it away or open it; the menu remembers your choice. The section with the page you're on always stays open.
 
@@ -56,6 +56,17 @@ The first administrator comes from Home Assistant: anyone who is a Home Assistan
 - **Read-only**: view and search only.
 
 People are identified by their Home Assistant login, and the history records who made each change.
+
+## Categories
+
+Items choose their category from a fixed list; you can't type a new one on an item. Administrators keep the list under **Admin → Categories**:
+
+- **Add** a category, **rename** one, or add **"also known as"** names (used by search and to match suggestions).
+- **Merge** two that mean the same: merging *Kitchenware* into *Kitchen & Dining* moves every Kitchenware item across and keeps "Kitchenware" as an also-known-as name, so later AI or barcode suggestions of "Kitchenware" go into Kitchen & Dining.
+- **Delete** a category with no items (otherwise merge it).
+- *Equipment* is always there (maintenance uses it) and can't be merged away or deleted.
+
+When AI, a barcode lookup or a photo inventory suggests a category, it's matched to yours: the same name spelled differently ("kitchen and dining") or an also-known-as name. If there's no match the item is left without a category and the form says what was suggested; administrators can add it from the category list with **＋ New category…**.
 
 ## Quick photos
 

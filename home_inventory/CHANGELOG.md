@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.24.0
+
+- **Categories are a fixed list.** Items choose a category from a list instead of typing one, so "Kitchenware" and "Kitchen and dining" no longer appear side by side by accident. The item form, bulk edit and the photo inventory review all use the list.
+- **Admin → Categories** (administrators): add, rename, give "also known as" names, **merge** (moves every item across and keeps the old name as an also-known-as name) and delete empty categories. Equipment is always available, because maintenance uses it.
+- AI, barcode and photo inventory suggestions are matched to your categories (other spellings and also-known-as names count); anything else is left blank and shown as a suggestion. Administrators can add a category straight from the list with **＋ New category…**.
+- Adding, renaming or deleting categories now needs an administrator (members could before). Saving an item with a category that isn't on the list is refused with a clear message.
+- Existing categories are kept as they are: merge the duplicates under Admin → Categories.
+
 ## 0.23.0
 
 - **Voice: "I've moved the engine oil to small engine repair".** Tell Home Inventory you've moved something ("Alexa, tell Home Inventory that I've moved the engine oil to container number 5"; with Assist: "I've moved…", "I put the drill in the garage", "The hedge trimmer is now in the shed"). It finds the item and the place, both forgivingly: a location by name, or a container by number ("container number 5", "box five") or name. A clear match is moved and confirmed ("Done. I've moved Engine oil to Small Engine Repair, in Shed."). If the place is uncertain it asks "Did you mean…?" (answer yes or no, or say the right place). If there are several places, or several items, it asks which. The move is permanent and is recorded in Activity history; to move it back, say so again or use Move on the item page.
