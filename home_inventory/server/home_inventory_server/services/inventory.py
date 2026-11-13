@@ -876,7 +876,40 @@ def loan_out(loan: Loan, today: date | None = None) -> dict[str, Any]:
     }
 
 
-def item_out(item: Item, r: Resolver, db: Session | None = None, detail: bool = False) -> dict[str, Any]:
+def prefetch(db: Session, items: list[Item]) -> set[int]:
+    """Load what ``item_out`` needs for many items in a few queries instead of
+    several per item: photos, loans, product categories and owners.  Rows end
+    up in the session, so the per-item lookups are answered from memory."""
+    from ..models import Customer, ItemOwner, Product
+
+    ids = [i.id for i in items if i.id is not None]
+    household: set[int] = set(ids)
+    if not ids:
+        return household
+    by_id = {i.id: i for i in items}
+    for chunk in range(0, len(ids), 500):
+        part = ids[chunk:chunk + 500]
+        list(db.scalars(select(Item).where(Item.id.in_(part))
+                        .options(selectinload(Item.loans), selectinload(Item.product).selectinload(Product.category))))
+        photo_ids = [by_id[i].primary_photo_id for i in part if by_id[i].primary_photo_id]
+        if photo_ids:
+            list(db.scalars(select(Attachment).where(Attachment.id.in_(photo_ids))))
+        owners = list(db.scalars(select(ItemOwner).where(ItemOwner.item_id.in_(part))))
+        if owners:
+            list(db.scalars(select(Customer).where(Customer.id.in_({o.customer_id for o in owners}))))
+        household -= {o.item_id for o in owners}
+    return household
+
+
+def items_out(items: list[Item], r: Resolver, db: Session, detail: bool = False) -> list[dict[str, Any]]:
+    items = list(items)
+    household = prefetch(db, items)
+    return [item_out(i, r, db, detail, household=i.id in household) for i in items]
+
+
+def item_out(item: Item, r: Resolver, db: Session | None = None, detail: bool = False,
+             household: bool = False) -> dict[str, Any]:
+    """``household=True`` (from ``items_out``) means it's known to have no customer owner."""
     photo = db.get(Attachment, item.primary_photo_id) if (db is not None and item.primary_photo_id) else None
     loan = active_loan(item)
     today = date.today()
@@ -916,7 +949,7 @@ def item_out(item: Item, r: Resolver, db: Session | None = None, detail: bool = 
     if db is not None:
         from .customers import owner_out
 
-        out["owner"] = owner_out(db, item.id)
+        out["owner"] = None if household else owner_out(db, item.id)
     if detail and db is not None:
         out["product"] = product_out(item.product)
         out.update(
@@ -1009,7 +1042,7 @@ def container_out(c: Container, r: Resolver, db: Session, detail: bool = False) 
             .where(Container.parent_container_id == c.id, Container.deleted_at.is_(None))
             .order_by(Container.number, Container.name)
         ).all()
-        out["items"] = [item_out(i, r, db) for i in items]
+        out["items"] = items_out(items, r, db)
         out["containers"] = [container_out(ch, r, db) for ch in children]
         out["photos"] = [
             attachment_out(a)
@@ -1049,7 +1082,7 @@ def location_out(loc: Location, r: Resolver, db: Session, detail: bool = False) 
         containers = db.scalars(
             select(Container).where(Container.location_id == loc.id, Container.deleted_at.is_(None)).order_by(Container.number, Container.name)
         ).all()
-        out["items"] = [item_out(i, r, db) for i in items]
+        out["items"] = items_out(items, r, db)
         out["containers"] = [container_out(c, r, db) for c in containers]
         out["maps"] = maps_for(db, location_ids=[loc.id] + [x.id for x in r.location_chain(loc.id)])
     return out

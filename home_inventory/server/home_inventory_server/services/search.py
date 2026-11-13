@@ -20,8 +20,9 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..models import Category, Item, ItemStatus, Product, Setting
 from . import gtin as gtin_mod
-from .inventory import active_loan, item_out
+from .inventory import active_loan, items_out
 from .placement import Resolver
+from .textmatch import stem
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,15 +60,9 @@ TERM_ALIASES = {"dewalt": "dewalt", "de walt": "dewalt"}
 
 
 def singular(word: str) -> str:
-    if len(word) <= 3 or word.endswith("ss"):
-        return word
-    if word.endswith("ies") and len(word) > 4:
-        return word[:-3] + "y"
-    if word.endswith(("ches", "shes", "xes", "zes", "sses")):
-        return word[:-2]
-    if word.endswith("s") and not word.endswith("us"):
-        return word[:-1]
-    return word
+    """The singular of a term (its last word), by the shared rule in ``textmatch.stem``."""
+    head, _, last = word.rpartition(" ")
+    return f"{head} {stem(last)}" if head else stem(last)
 
 
 def normalise_text(text: str | None) -> str:
@@ -285,7 +280,7 @@ def run_search(db: Session, query: Query, limit: int = 50) -> dict[str, Any]:
         scored.append((total, it))
 
     scored.sort(key=lambda x: (-x[0], x[1].product.name.lower(), x[1].id))
-    results = [item_out(it, r, db) for _, it in scored[:limit]]
+    results = items_out([it for _, it in scored[:limit]], r, db)
     for res, (_, it) in zip(results, scored[:limit]):
         from .inventory import maps_for
 

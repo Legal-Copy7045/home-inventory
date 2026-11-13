@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, selectinload
 from ..events import queue_event
 from ..models import Container, HistoryEvent, IdentificationStatus, Item, ItemStatus, Loan, Location, Product, Setting
 from .customers import household_only
-from .inventory import item_out, loan_out
+from .inventory import item_out, items_out, loan_out
 from .placement import Resolver
 
 
@@ -97,11 +97,11 @@ def dashboard(db: Session, warranty_days: int = 30, expiry_days: int = 14) -> di
     ).all()
     return {
         "stats": st,
-        "expiring": [item_out(i, r, db) for i in expiring],
+        "expiring": items_out(expiring, r, db),
         "low_stock": [low_stock_out(db, p) for p in low],
         "recent_activity": [history_out(h) for h in recent],
         "loans": [{**loan_out(lo, today), "item": item_out(lo.item, r, db)} for lo in loans if lo.item.deleted_at is None],
-        "warranties": [item_out(i, r, db) for i in warr],
+        "warranties": items_out(warr, r, db),
     }
 
 

@@ -396,7 +396,7 @@ def _doc_reading(db: Session, actor: Actor, reading_id: int) -> DocumentReading:
 def start_document_reading(request: Request, db: Session, actor: Actor | None, item: Item, att: Attachment,
                            quiet: bool = False) -> DocumentReading | None:
     """Recognise a document in the background.  ``quiet`` (after an upload):
-    skip silently when AI is off or busy instead of failing the upload."""
+    don't fail the upload: skip when AI is off, and record a busy AI as a failed reading to retry."""
     st = request.app.state
     if not docs.readable(att):
         if quiet:
@@ -413,9 +413,14 @@ def start_document_reading(request: Request, db: Session, actor: Actor | None, i
         if actor is not None:
             st.rate_limiter.check(actor.user_id, "ai")
     except HTTPException:
-        if quiet:
-            return None
-        raise
+        if not quiet:
+            raise
+        # After an upload: don't fail the upload, but show why it wasn't
+        # read, with "Try again" on the document.
+        r = docs.create(db, actor, item, att)
+        r.status, r.error = "failed", "AI was busy with other requests. Try again in a minute."
+        db.commit()
+        return r
     r = docs.create(db, actor, item, att)
     db.commit()
     docs.start(st, r.id)

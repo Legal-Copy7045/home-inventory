@@ -76,7 +76,7 @@ export async function uploadPhoto(file: Blob, opts: { kind?: string; item_id?: n
   if (opts.location_id) f.append("location_id", String(opts.location_id));
   if (opts.repair_job_id) f.append("repair_job_id", String(opts.repair_job_id));
   if (opts.recognise === false) f.append("recognise", "false");
-  return api.upload<Attachment>("attachments", f);
+  return api.upload<Attachment & { taken_on?: string | null }>("attachments", f);
 }
 
 // ---------------------------------------------------------------- types
