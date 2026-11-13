@@ -334,6 +334,10 @@ class LabelRequest(_In):
     include_location: bool = True
     copies: int = Field(default=1, ge=1, le=20)
     start_position: int = Field(default=1, ge=1, le=200)
+    # Optional arrow on a label, pointing to where the shelf or box is:
+    # {"C12": "up", "L5": "down_left"} (C = container id, L = location id).
+    arrows: dict[str, Literal["up", "down", "left", "right", "up_left", "up_right", "down_left", "down_right"]] = Field(
+        default_factory=dict, max_length=1000)
 
     @model_validator(mode="after")
     def _something(self):

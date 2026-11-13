@@ -16,7 +16,15 @@ export function LabelsPage() {
   const [locSel, setLocSel] = useState<Set<number>>(ids("locs"));
   const [tab, setTab] = useState<"containers" | "locations">(params.get("locs") && !params.get("ids") ? "locations" : "containers");
   const [template, setTemplate] = useState(() => localStorageGet("labelTemplate") || me.app.label_templates[0]?.key || "avery_l7160");
-  const [contents, setContents] = useState(false);
+  // Shelf labels opened from a location list what's kept there by default.
+  const [contents, setContents] = useState(!!params.get("locs") && !params.get("ids"));
+  // Optional arrow on each label pointing to the shelf/box: key "C<id>" or "L<id>".
+  const [arrows, setArrows] = useState<Record<string, string>>({});
+  const setArrow = (key: string, v: string) => setArrows((a) => { const n = { ...a }; if (v) n[key] = v; else delete n[key]; return n; });
+  const setAllArrows = (v: string) => {
+    const keys = [...[...sel].map((id) => `C${id}`), ...[...locSel].map((id) => `L${id}`)];
+    setArrows((a) => { const n = { ...a }; keys.forEach((k) => { if (v) n[k] = v; else delete n[k]; }); return n; });
+  };
   const [location, setLocation] = useState(true);
   const [copies, setCopies] = useState(1);
   const [start, setStart] = useState(1);
@@ -26,7 +34,7 @@ export function LabelsPage() {
   const total = sel.size + locSel.size;
 
   async function print() {
-    const blob = await run(() => api.blob("POST", "labels/pdf", { container_ids: [...sel], location_ids: [...locSel], base_url: appBaseUrl(), template, include_contents: contents, include_location: location, copies, start_position: start }));
+    const blob = await run(() => api.blob("POST", "labels/pdf", { container_ids: [...sel], location_ids: [...locSel], base_url: appBaseUrl(), template, include_contents: contents, include_location: location, copies, start_position: start, arrows: Object.fromEntries(Object.entries(arrows).filter(([k]) => (k[0] === "C" ? sel : locSel).has(Number(k.slice(1))))) }));
     if (!blob) return;
     const href = URL.createObjectURL(blob);
     const w = window.open(href, "_blank");
@@ -51,7 +59,15 @@ export function LabelsPage() {
           <label className="field">Start at label position<span className="hint">Reuse a partly used sheet</span><input type="number" min={1} value={start} onChange={(e) => setStart(Math.max(1, Number(e.target.value) || 1))} /></label>
         </div>
         <label className="check"><input type="checkbox" checked={location} onChange={(e) => setLocation(e.target.checked)} /> Print location</label>
-        <label className="check"><input type="checkbox" checked={contents} onChange={(e) => setContents(e.target.checked)} /> Print contents list</label>
+        <label className="check"><input type="checkbox" checked={contents} onChange={(e) => setContents(e.target.checked)} /> <span>Print contents list<span className="hint" style={{ display: "block" }}>For a shelf: the places, boxes and items kept on it, so things go back where they belong.</span></span></label>
+        <label className="field">Arrow on the selected labels
+          <span className="hint">Points to where the shelf or box is, e.g. a label on the end of a rack pointing up to the top shelf. You can also set one per label below.</span>
+          <select value="" onChange={(e) => { setAllArrows(e.target.value); e.target.value = ""; }} disabled={!total} style={{ width: "auto" }}>
+            <option value="" disabled>Set for all selected…</option>
+            <option value="">No arrow</option>
+            {ARROW_CHOICES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+          </select>
+        </label>
       </div>
       <div className="tabs">
         <button className={tab === "containers" ? "active" : ""} onClick={() => setTab("containers")}>Containers{sel.size ? ` (${sel.size})` : ""}</button>
@@ -71,7 +87,7 @@ export function LabelsPage() {
               <label key={c.id} className="row" style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
                 <input type="checkbox" checked={sel.has(c.id)} onChange={() => toggleIn(sel, setSel, c.id)} />
                 <div className="grow" style={{ flex: 1 }}><b>{c.number ? `#${c.number} ` : ""}{c.name}</b><div className="muted" style={{ fontSize: ".85rem" }}>{c.placement?.path || "Unassigned"}</div></div>
-                <span className="mono muted">{c.qr_code}</span>
+                {sel.has(c.id) ? <ArrowPick value={arrows[`C${c.id}`] || ""} onChange={(v) => setArrow(`C${c.id}`, v)} /> : <span className="mono muted">{c.qr_code}</span>}
               </label>
             ))}
             {!all.data?.length && <Empty>Create containers first.</Empty>}
@@ -83,7 +99,7 @@ export function LabelsPage() {
               <label key={l.id} className="row" style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
                 <input type="checkbox" checked={locSel.has(l.id)} onChange={() => toggleIn(locSel, setLocSel, l.id)} />
                 <div className="grow" style={{ flex: 1 }}><b>{l.name}</b><div className="muted" style={{ fontSize: ".85rem" }}>{l.path}</div></div>
-                <span className="mono muted">{l.qr_code}</span>
+                {locSel.has(l.id) ? <ArrowPick value={arrows[`L${l.id}`] || ""} onChange={(v) => setArrow(`L${l.id}`, v)} /> : <span className="mono muted">{l.qr_code}</span>}
               </label>
             ))}
             {!locs.data?.length && <Empty>Create locations first.</Empty>}
@@ -93,6 +109,21 @@ export function LabelsPage() {
       {!appBaseUrl() && !me.app.qr_base_url && <div className="notice" style={{ marginTop: 10 }}>Open this page from the Home Assistant sidebar (or set the QR label link in Settings) so labels open in your phone's camera app.</div>}
       <button className="btn primary big block" disabled={!total || busy} onClick={print}><Printer size={20} /> Create PDF</button>
     </div>
+  );
+}
+
+const ARROW_CHOICES: [string, string][] = [
+  ["up", "↑ Up"], ["down", "↓ Down"], ["left", "← Left"], ["right", "→ Right"],
+  ["up_left", "↖ Up left"], ["up_right", "↗ Up right"], ["down_left", "↙ Down left"], ["down_right", "↘ Down right"],
+];
+
+/** Compact arrow choice for one label. */
+function ArrowPick({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <select aria-label="Arrow" value={value} onClick={(e) => e.stopPropagation()} onChange={(e) => onChange(e.target.value)} style={{ width: "auto", padding: "4px 6px" }}>
+      <option value="">No arrow</option>
+      {ARROW_CHOICES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+    </select>
   );
 }
 

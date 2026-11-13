@@ -137,6 +137,39 @@ class LabelData:
     location: str | None
     contents: list[str] = field(default_factory=list)
     description: str | None = None
+    # Optional arrow pointing to where the shelf/box is: one of ARROWS.
+    arrow: str | None = None
+
+
+# Direction -> angle (degrees, anticlockwise from pointing right).
+ARROWS = {"right": 0, "up_right": 45, "up": 90, "up_left": 135, "left": 180, "down_left": 225, "down": 270,
+          "down_right": 315}
+
+
+def _draw_arrow(c: canvas.Canvas, cx: float, cy: float, size: float, direction: str) -> None:
+    """A bold filled arrow centred on (cx, cy), fitting a ``size`` square."""
+    angle = ARROWS.get(direction)
+    if angle is None:
+        return
+    half = size / 2 * (0.82 if angle % 90 else 0.95)  # diagonals fit the square too
+    shaft = half * 0.34
+    head_len = half * 0.95
+    head_w = half * 0.9
+    c.saveState()
+    c.translate(cx, cy)
+    c.rotate(angle)
+    path = c.beginPath()
+    path.moveTo(-half, -shaft)
+    path.lineTo(half - head_len, -shaft)
+    path.lineTo(half - head_len, -head_w)
+    path.lineTo(half, 0)
+    path.lineTo(half - head_len, head_w)
+    path.lineTo(half - head_len, shaft)
+    path.lineTo(-half, shaft)
+    path.close()
+    c.setFillGray(0)
+    c.drawPath(path, stroke=0, fill=1)
+    c.restoreState()
 
 
 def _lines(c: canvas.Canvas, text: str, font: str, size: float, width: float) -> list[tuple[str, float]]:
@@ -190,14 +223,25 @@ def _draw_label(c: canvas.Canvas, x: float, y: float, w: float, h: float, d: Lab
     Text wraps between words and keeps its size where it can."""
     pad = 2.5 * mm
     portrait = h > w * 1.3
+    arrow = d.arrow if d.arrow in ARROWS else None
     qr_size = min(h - 2 * pad, (w - 2 * pad) * (0.9 if portrait else 0.45))
+    if portrait and arrow:
+        qr_size = min(qr_size, (w - 2 * pad) * 0.58)  # QR on the left, arrow beside it
     qr_img = ImageReader(io.BytesIO(qr_png(d.payload, scale=8)))
     if portrait:
-        qx, qy = x + (w - qr_size) / 2, y + h - pad - qr_size
+        qx = x + pad if arrow else x + (w - qr_size) / 2
+        qy = y + h - pad - qr_size
         tx, ty, tw = x + pad, qy - 3 * mm, w - 2 * pad
+        if arrow:
+            room_w = x + w - pad - (qx + qr_size + 2 * mm)
+            _draw_arrow(c, qx + qr_size + 2 * mm + room_w / 2, qy + qr_size / 2, min(room_w, qr_size), arrow)
     else:
         qx, qy = x + pad, y + (h - qr_size) / 2
         tx, ty, tw = qx + qr_size + 2 * mm, y + h - pad - 1 * mm, w - qr_size - 2 * pad - 2 * mm
+        if arrow:
+            a = min(h - 2 * pad - 3 * mm, tw * 0.3)
+            tw -= a + 2 * mm
+            _draw_arrow(c, x + w - pad - a / 2, y + h / 2 + 1.5 * mm, a, arrow)
     c.drawImage(qr_img, qx, qy, qr_size, qr_size)
     big = 22 if h > 45 * mm else 16 if h > 30 * mm else 12
     small = max(6, big * 0.38)
@@ -244,7 +288,8 @@ def _draw_label(c: canvas.Canvas, x: float, y: float, w: float, h: float, d: Lab
         if left == 1 and i < len(d.contents) - 1:
             draw([(f"+ {len(d.contents) - i} more", small)], "Helvetica", 1)
             break
-        draw(_wrap(c, f"• {line}", "Helvetica", small, tw, 1, min_scale=0.9), "Helvetica", 1)
+        bullet = "" if line.startswith("› ") else "• "  # "› Top shelf": a place within this one
+        draw(_wrap(c, f"{bullet}{line}", "Helvetica", small, tw, 1, min_scale=0.9), "Helvetica", 1)
 
 
 def render_pdf(labels: list[LabelData], template_key: str, copies: int = 1, start_position: int = 1) -> bytes:

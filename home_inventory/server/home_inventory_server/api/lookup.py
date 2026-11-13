@@ -168,6 +168,7 @@ def labels_pdf(data: LabelRequest, request: Request, actor: Actor = Depends(curr
                 description=c.description,
                 location=place["path"] if data.include_location and (c.location_id or c.parent_container_id) else None,
                 contents=contents,
+                arrow=data.arrows.get(f"C{c.id}"),
             )
         )
     for lid in data.location_ids:
@@ -177,6 +178,9 @@ def labels_pdf(data: LabelRequest, request: Request, actor: Actor = Depends(curr
             db.commit()
         contents = []
         if data.include_contents:
+            # What belongs here: shelves within it, boxes, then loose items.
+            for child in db.scalars(select(Location).where(Location.parent_id == loc.id, Location.deleted_at.is_(None)).order_by(Location.name)):
+                contents.append(f"› {child.name}")
             for c in db.scalars(select(Container).where(Container.location_id == loc.id, Container.deleted_at.is_(None)).order_by(Container.number, Container.name)):
                 contents.append(f"#{c.number} {c.name}" if c.number else c.name)
             for it in db.scalars(select(Item).where(Item.location_id == loc.id, Item.deleted_at.is_(None)).order_by(Item.id)):
@@ -191,6 +195,7 @@ def labels_pdf(data: LabelRequest, request: Request, actor: Actor = Depends(curr
                 description=loc.description,
                 location=parent if data.include_location else None,
                 contents=contents,
+                arrow=data.arrows.get(f"L{loc.id}"),
             )
         )
     pdf = labels_svc.render_pdf(out, data.template, data.copies, data.start_position)
