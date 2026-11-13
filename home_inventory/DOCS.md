@@ -87,7 +87,7 @@ With AI set up, each document is read in the background. A few seconds later the
 - You can correct a value before saving. The document can also be filed under the right type and named (e.g. "Lowe's receipt").
 - A document that's clearly about a different product isn't used to fill anything in.
 
-Values are only ever copied from what's printed, never guessed. A warranty end date is worked out only when the document gives both the purchase date and the warranty length. A scanned PDF has no text to read; add a photo of it instead. Documents added from **Read the manual** aren't read twice. **Dismiss** hides a suggestion, and **Read with AI** reads an older document.
+Values are only ever copied from what's printed, never guessed. A warranty end date is worked out only when the document gives both the purchase date and the warranty length. A scanned PDF has no text to read; add a photo of it instead. Files added from **Read the manual** are recognised too, so a receipt added there by mistake is flagged and can be filed correctly. **Dismiss** hides a suggestion, and **Read with AI** reads an older document.
 
 ## Working with several items
 

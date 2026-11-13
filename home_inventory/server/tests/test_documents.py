@@ -103,3 +103,15 @@ def test_without_ai_uploads_work_as_before(env):
     att = u.upload(_pdf(["Receipt"]), kind="receipt", filename="r.pdf", item_id=item["id"])
     assert att["reading_id"] is None
     assert u.post(f"/api/v1/attachments/{att['id']}/recognise").status_code == 422
+
+
+def test_files_added_as_manuals_are_recognised_too(tmp_path):
+    """A receipt added through "Read the manual" by mistake is still identified."""
+    fake = FakeProvider()
+    env = Env(tmp_path, ai_provider=fake)
+    u = env.admin
+    mower = u.item("Zero-turn mower")
+    fake.responses.append(RECEIPT)
+    att = u.upload(_pdf(["LOWE'S receipt"]), kind="manual", filename="manual.pdf", item_id=mower["id"])
+    r = _wait(u, att["reading_id"])
+    assert r["result"]["document_type"] == "receipt" and r["suggestions"]["kind"] == "receipt"
