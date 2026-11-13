@@ -341,6 +341,8 @@ export interface AISuggestion {
   confidence: number | null;
   confidence_label: string;
   quantity?: number;
+  /** false: something is there but the AI couldn't tell what. */
+  identified?: boolean;
 }
 
 export interface SimilarProduct {

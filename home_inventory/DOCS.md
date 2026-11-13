@@ -69,11 +69,14 @@ With an AI provider set up, one photo can add many things. Open a **location** o
 
 - works out the **layout**: each rack or unit, left to right, and its shelves from the top down, including things sitting on top;
 - lists everything, saying which rack and shelf each thing is on;
+- lists things it can see but can't identify too, marked **Unidentified – to finish**. They're saved with their own cut-out photo on the **To finish** list, so you can say what they are later (untick the badge if you name one in the review);
 - treats storage boxes, bins and totes as **containers**, named from their labels ("Party supplies", "Double bedding covers"), so you can open each one later and photograph what's inside.
 
 In the review, the **Layout** panel matches each rack and shelf to a place you already have, or creates it (rename it if you like). Each entry's **Put on** can be changed, and only places that something actually goes on are created. Photographing the same area again later reuses those places and recognises what's already recorded. Everything is saved together when you tap **Confirm inventory**: new places, containers and items, each with a photo cut out of the big one. Each row shows its cut-out; if it shows the wrong part of the photo, untick **Photo** and that entry is saved without one. For things already saved with a wrong cut-out, open any one of them and tap **Wrong part of the photo? Redo cut-outs**: the AI looks at the original photo again and makes new cut-outs for everything that photo inventory added (items and boxes). Anything it can't place shows the whole photo instead, and photos you added or chose yourself are kept.
 
 **One shelf or one box.** Open that shelf or container and photograph it; everything goes there.
+
+**Look again without a new photo.** **Last photo again** has the AI go through the latest photo inventory photo of that place once more. This is useful after an update, or to pick up things it couldn't identify before. Things already recorded are recognised, so you only review what's new. Every photo button also lets you choose a photo from your library instead of taking one.
 
 In every case nothing is saved until you confirm. Edit names and quantities, tap **Details** for category, maker, model, notes and whether it's an item or a box, remove anything wrong and **Add something it missed**. Things already recorded but not seen in the photo can be kept, marked missing or deleted. The AI's guesses can be wrong, especially counts, brands and partly hidden things, so check before confirming.
 

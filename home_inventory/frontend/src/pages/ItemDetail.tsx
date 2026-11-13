@@ -97,7 +97,7 @@ export default function ItemDetail() {
           {edit && (
             <label className="btn block" style={{ marginTop: 8 }}>
               <Camera size={18} /> Add photo
-              <input type="file" accept="image/*" capture="environment" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) await act(() => uploadPhoto(f, { item_id: it.id }), "Photo added"); }} />
+              <input type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) await act(() => uploadPhoto(f, { item_id: it.id }), "Photo added"); }} />
             </label>
           )}
           {edit && me.app.ai.enabled && it.photo?.caption === "Cut from photo inventory" && (
