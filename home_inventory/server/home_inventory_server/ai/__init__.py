@@ -69,8 +69,10 @@ CONTAINER_SCHEMA: dict[str, Any] = {
                     # [ymin, xmin, ymax, xmax] on a 0-1000 scale (the detection format vision
                     # models are trained on), for a cropped item photo.
                     "box_2d": {"type": ["array", "null"], "items": {"type": "number"}},
+                    # False: an object is there but the model can't tell what it is.
+                    "identified": {"type": "boolean"},
                 },
-                "required": ["name", "description", "category", "manufacturer", "model_number", "quantity", "confidence", "position", "box_2d"],
+                "required": ["name", "description", "category", "manufacturer", "model_number", "quantity", "confidence", "position", "box_2d", "identified"],
                 "additionalProperties": False,
             },
         },
@@ -113,6 +115,9 @@ CONTAINER_PROMPT = """You help catalogue a household inventory. The photo shows 
 container. List every distinct kind of object you can see, grouping identical objects with a quantity.
 Return JSON only. Use null when unsure; never invent brands or model numbers. Use short everyday names.
 "confidence" is 0..1 for each entry. Ignore the container itself and packing material.
+Objects you can see but can't identify are listed too, never left out: give them "identified": false and a
+plain descriptive name of what is visible ("Black hard case", "Small white box", "Coiled grey cable"); everything
+you can name has "identified": true.
 "box_2d" is the entry's bounding box as [ymin, xmin, ymax, xmax], each 0-1000 relative to the photo's height and
 width (0,0 = top-left); draw it tightly around that one entry only (null if unsure).{hint}"""
 
@@ -156,9 +161,10 @@ _AREA_ENTRY = {
         "container_type": _NULLABLE_STR,
         "unit": {"type": ["integer", "null"]},
         "shelf": {"type": ["integer", "null"]},
+        "identified": {"type": "boolean"},
     },
     "required": ["name", "description", "category", "manufacturer", "model_number", "quantity", "confidence",
-                 "position", "box_2d", "kind", "label", "container_type", "unit", "shelf"],
+                 "position", "box_2d", "kind", "label", "container_type", "unit", "shelf", "identified"],
     "additionalProperties": False,
 }
 AREA_SCHEMA: dict[str, Any] = {
@@ -197,6 +203,9 @@ racks, a bench, a wall or a corner, possibly several units side by side with sev
    Everything else is "kind": "item", with "label" null.
 Return JSON only. Use null when unsure; never invent brands or model numbers. Short everyday names; read
 packaging where legible. "confidence" is 0..1. Ignore the shelving, walls, pipes, ducts and the floor itself.
+Objects you can see but can't identify are listed too, never left out: give them "identified": false and a
+plain descriptive name of what is visible ("Black hard case", "Small white box", "Coiled grey cable"); everything
+you can name has "identified": true.
 "box_2d" is the entry's bounding box as [ymin, xmin, ymax, xmax], each 0-1000 relative to the photo's height and
 width (0,0 = top-left); draw it tightly around that one entry only (null if unsure).{hint}"""
 
@@ -207,6 +216,9 @@ Return JSON only. Use null when unsure; never invent brands or model numbers. Us
 labels and packaging where legible. "position" says where it is, e.g. "top shelf, left" or "second shelf, middle"
 (null if unclear). "confidence" is 0..1 for each entry. Ignore the shelving itself, walls and the floor.
 Closed boxes and bins: list them as one entry each named for the box (e.g. "Blue plastic storage bin").
+Objects you can see but can't identify are listed too, never left out: give them "identified": false and a
+plain descriptive name of what is visible ("Black hard case", "Small white box", "Coiled grey cable"); everything
+you can name has "identified": true.
 "box_2d" is the entry's bounding box as [ymin, xmin, ymax, xmax], each 0-1000 relative to the photo's height and
 width (0,0 = top-left); draw it tightly around that one entry only (null if unsure).{hint}"""
 
@@ -517,6 +529,8 @@ def _clean_item(d: dict[str, Any]) -> dict[str, Any]:
     box = _box_2d(d.get("box_2d")) if d.get("box_2d") is not None else _clean_box(d.get("box"))
     if box and box[2] * box[3] <= 0.6:  # one entry never fills most of the photo
         out["box"] = box
+    if d.get("identified") is False:
+        out["identified"] = False
     if d.get("notes"):
         out["notes"] = s("notes", 1000)
     return out

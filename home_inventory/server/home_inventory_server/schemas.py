@@ -268,6 +268,9 @@ class ScanItemIn(_In):
     # scanned location itself.
     location_id: int | None = None
     location_key: str | None = Field(default=None, max_length=40)
+    # False: the AI saw something it couldn't identify; it's saved for the
+    # "To finish" list so a person can say what it is.
+    identified: bool = True
 
 
 class NewPlaceIn(_In):
