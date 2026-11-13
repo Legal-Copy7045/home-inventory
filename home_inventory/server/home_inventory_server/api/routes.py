@@ -1319,17 +1319,12 @@ async def retry_scan(scan_id: int, request: Request, actor: Actor = Depends(requ
     return scans_svc.scan_out(scan, db)
 
 
-@router.post("/scans/{scan_id}/confirm")
-def confirm_scan(scan_id: int, data: ScanConfirmIn, request: Request, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
-    scan = db.get(ContainerScan, scan_id)
-    if scan is None:
-        raise HTTPException(404, "Scan not found")
-    st = _state(request)
+def _cropper(st, db: Session, actor: Actor, scan: ContainerScan):
+    """``crop(box)``: a new photo of just that part of the scan photo, or None."""
     photo = db.get(Attachment, scan.photo_id) if scan.photo_id else None
     source: list[bytes] = []
 
     def crop(box: list[float]) -> Attachment | None:
-        """A photo of just this entry, cut from the scan photo."""
         if photo is None:
             return None
         try:
@@ -1341,11 +1336,64 @@ def confirm_scan(scan_id: int, data: ScanConfirmIn, request: Request, actor: Act
             stored = st.media.save(part, False)
         except Exception:  # noqa: BLE001 - fall back to the whole photo
             return None
-        att = Attachment(kind=AttachmentKind.photo, caption="Cut from photo inventory", created_by_id=actor.user_id, **stored.__dict__)
+        att = Attachment(kind=AttachmentKind.photo, caption=scans_svc.CUT_CAPTION, created_by_id=actor.user_id,
+                         **stored.__dict__)
         db.add(att)
         db.flush()
         return att
 
+    return crop
+
+
+async def _recrop(request: Request, actor: Actor, db: Session, scan: ContainerScan) -> dict:
+    st = _state(request)
+    if not st.ai.enabled:
+        raise HTTPException(422, "AI is not configured. Choose a provider in the App configuration.")
+    photo = db.get(Attachment, scan.photo_id) if scan.photo_id else None
+    if photo is None:
+        raise HTTPException(404, "The photo of this photo inventory is no longer there")
+    _limit(request, actor, "ai")
+    crop = _cropper(st, db, actor, scan)
+    image = st.media.read(photo.stored_path)
+    try:
+        out = await asyncio.to_thread(scans_svc.recrop, db, actor, scan, st.ai, image, crop, st.media)
+    except (AIUnavailable, AIFailed) as err:
+        db.rollback()
+        raise HTTPException(502, str(err)) from err
+    except inv.Conflict as err:
+        db.rollback()
+        raise HTTPException(409, str(err)) from err
+    db.commit()
+    return out
+
+
+@router.post("/scans/{scan_id}/recrop")
+async def recrop_scan(scan_id: int, request: Request, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Redo the cut-out photos of a confirmed photo inventory."""
+    scan = db.get(ContainerScan, scan_id)
+    if scan is None:
+        raise HTTPException(404, "Scan not found")
+    return await _recrop(request, actor, db, scan)
+
+
+@router.post("/items/{item_id}/redo-cutouts")
+async def redo_item_cutouts(item_id: int, request: Request, actor: Actor = Depends(require_member),
+                            db: Session = Depends(get_db)):
+    """Redo the cut-outs of the photo inventory this item came from (all of its items and boxes)."""
+    item = _get_or_404(db, Item, item_id)
+    scan_id = (item.ai_metadata or {}).get("scan_id")
+    scan = db.get(ContainerScan, scan_id) if scan_id else None
+    if scan is None:
+        raise HTTPException(404, "This item didn't come from a photo inventory")
+    return await _recrop(request, actor, db, scan)
+
+
+@router.post("/scans/{scan_id}/confirm")
+def confirm_scan(scan_id: int, data: ScanConfirmIn, request: Request, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    scan = db.get(ContainerScan, scan_id)
+    if scan is None:
+        raise HTTPException(404, "Scan not found")
+    crop = _cropper(_state(request), db, actor, scan)
     result = _err(scans_svc.confirm, db, actor, scan, data, crop)
     db.commit()
     return result
