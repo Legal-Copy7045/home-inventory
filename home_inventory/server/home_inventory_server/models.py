@@ -533,6 +533,10 @@ class MeterReading(Base):
     source: Mapped[str] = mapped_column(String(20), default="manual")
     note: Mapped[str | None] = mapped_column(String(300))
     service_event_id: Mapped[int | None] = mapped_column(ForeignKey("service_events.id", ondelete="SET NULL"))
+    # A photo of the meter showing this reading (read by AI or by eye).
+    photo_id: Mapped[int | None] = mapped_column(
+        ForeignKey("attachments.id", ondelete="SET NULL", name="fk_meter_readings_photo_id")
+    )
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
 
 
