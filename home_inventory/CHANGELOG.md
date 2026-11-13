@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.1
+
+- **Unidentified things are kept for later.** A photo inventory now also lists objects the AI can see but can't identify, with a plain description ("Black hard case") and the badge **Unidentified – to finish**. When you confirm, they're saved with their own cut-out photo on the **To finish** list, where you can say what they are. Untick the badge if you name one during the review.
+
 ## 0.15.0
 
 - **Photograph the hour meter.** In **Log hours** on equipment, take a photo of the hour meter (or use counter). AI reads the number, including the tenths drum on mechanical meters, and you check it before saving. The photo is kept with the reading.

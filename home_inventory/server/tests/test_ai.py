@@ -591,3 +591,28 @@ def test_redo_cutouts_of_a_confirmed_photo_inventory(ai_env, fake_ai):
     # Not from a photo inventory
     other = u.item("Hammer")
     assert u.post(f"/api/v1/items/{other['id']}/redo-cutouts").status_code == 404
+
+
+def test_unidentified_things_go_to_the_to_finish_list(ai_env, fake_ai):
+    """Something in the photo the AI can't name is kept, with its cut-out, for a person to identify."""
+    u = ai_env.admin
+    garage = u.location("Garage")
+    fake_ai.responses.append({**BASEMENT, "items": [
+        {**_area_entry("Cordless drill", 0, 1), "identified": True},
+        {**_area_entry("Black hard case", 0, 2), "box": None, "box_2d": [500, 100, 700, 400], "identified": False},
+    ]})
+    scan = u.ok("post", f"/api/v1/locations/{garage['id']}/scans", files={"file": ("a.jpg", jpeg_bytes(size=(800, 600)))})
+    assert "can't identify" in fake_ai.calls[-1]["prompt"]
+    sugg = {s["name"]: s for s in scan["suggestions"]}
+    assert sugg["Black hard case"]["identified"] is False and "identified" not in sugg["Cordless drill"]
+    res = u.ok("post", f"/api/v1/scans/{scan['id']}/confirm", json={"items": [
+        {"action": "add", "name": "Cordless drill"},
+        {"action": "add", "name": "Black hard case", "identified": False, "box": sugg["Black hard case"]["box"]},
+    ]})
+    items = {u.ok("get", f"/api/v1/items/{i}")["name"]: u.ok("get", f"/api/v1/items/{i}") for i in res["created"]}
+    case, drill = items["Black hard case"], items["Cordless drill"]
+    assert case["needs_details"] and not drill["needs_details"]
+    assert case["photo"]["caption"] == "Cut from photo inventory"  # its own picture, to identify it from
+    to_finish = u.ok("get", "/api/v1/items", params={"needs_details": True})
+    rows = to_finish["items"] if isinstance(to_finish, dict) else to_finish
+    assert [i["name"] for i in rows] == ["Black hard case"]
