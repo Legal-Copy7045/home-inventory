@@ -191,7 +191,7 @@ export default function AddItem() {
         <div className="row wrap">
           <label className="btn primary big" style={{ flex: 1 }}>
             <Camera size={20} /> Take photo
-            <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => addPhotos(e.target.files)} />
+            <input type="file" accept="image/*" hidden onChange={(e) => addPhotos(e.target.files)} />
           </label>
           <label className="btn big" style={{ flex: 1 }}>
             <ImagePlus size={20} /> Upload

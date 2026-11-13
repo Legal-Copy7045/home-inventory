@@ -76,6 +76,8 @@ In the review, the **Layout** panel matches each rack and shelf to a place you a
 
 **One shelf or one box.** Open that shelf or container and photograph it; everything goes there.
 
+**Look again without a new photo.** **Last photo again** has the AI go through the latest photo inventory photo of that place once more. This is useful after an update, or to pick up things it couldn't identify before. Things already recorded are recognised, so you only review what's new. Every photo button also lets you choose a photo from your library instead of taking one.
+
 In every case nothing is saved until you confirm. Edit names and quantities, tap **Details** for category, maker, model, notes and whether it's an item or a box, remove anything wrong and **Add something it missed**. Things already recorded but not seen in the photo can be kept, marked missing or deleted. The AI's guesses can be wrong, especially counts, brands and partly hidden things, so check before confirming.
 
 ## Receipts, warranties and other documents

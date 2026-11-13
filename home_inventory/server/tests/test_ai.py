@@ -616,3 +616,19 @@ def test_unidentified_things_go_to_the_to_finish_list(ai_env, fake_ai):
     to_finish = u.ok("get", "/api/v1/items", params={"needs_details": True})
     rows = to_finish["items"] if isinstance(to_finish, dict) else to_finish
     assert [i["name"] for i in rows] == ["Black hard case"]
+
+
+def test_the_last_photo_can_be_looked_at_again(ai_env, fake_ai):
+    """Re-running an earlier photo finds what's already recorded and adds only what's new."""
+    u = ai_env.admin
+    shelf = u.location("Garage shelf")
+    fake_ai.responses.append({"items": [_shelf_item("Cordless drill")], "notes": None})
+    scan = u.ok("post", f"/api/v1/locations/{shelf['id']}/scans", files={"file": ("a.jpg", jpeg_bytes())})
+    u.ok("post", f"/api/v1/scans/{scan['id']}/confirm", json={"items": [{"action": "add", "name": "Cordless drill"}]})
+    fake_ai.responses.append({"items": [_shelf_item("Cordless drill"),
+                                        {**_shelf_item("Black hard case"), "identified": False}], "notes": None})
+    again = u.ok("post", f"/api/v1/locations/{shelf['id']}/scans", data={"attachment_id": str(scan["photo"]["id"])})
+    assert again["photo"]["id"] == scan["photo"]["id"]  # the same photo, no new upload
+    sugg = {s["name"]: s for s in again["suggestions"]}
+    assert sugg["Cordless drill"]["match"]["name"] == "Cordless drill"   # already recorded
+    assert sugg["Black hard case"]["identified"] is False and not sugg["Black hard case"].get("match")

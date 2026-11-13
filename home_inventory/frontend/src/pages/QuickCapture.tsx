@@ -165,7 +165,7 @@ export default function QuickCapture() {
         )}
         <label className="btn" style={{ flex: 1 }}>
           <ImagePlus size={18} /> {cameraAvailable() && !camError ? "From gallery" : "Take / choose photos"}
-          <input type="file" accept="image/*" multiple {...(cameraAvailable() && !camError ? {} : { capture: "environment" as const })} hidden
+          <input type="file" accept="image/*" multiple hidden
             onChange={(e) => { Array.from(e.target.files || []).forEach(add); e.target.value = ""; }} />
         </label>
       </div>

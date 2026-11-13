@@ -3,6 +3,8 @@
 ## 0.15.1
 
 - **Unidentified things are kept for later.** A photo inventory now also lists objects the AI can see but can't identify, with a plain description ("Black hard case") and the badge **Unidentified – to finish**. When you confirm, they're saved with their own cut-out photo on the **To finish** list, where you can say what they are. Untick the badge if you name one during the review.
+- **Last photo again.** On a location or container, **Last photo again** has the AI look at the latest photo inventory photo once more, without taking a new one. Things already recorded are recognised, and anything new (such as unidentified objects) is offered for review.
+- **Choose photos from the library everywhere.** Every photo button (item photos, photo inventory, the barcode photo, the hour meter, new items, and Quick photos without the live camera) lets you take a photo or pick one from your library; none forces the camera.
 
 ## 0.15.0
 
