@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import calendar
 import logging
-import threading
+from concurrent.futures import Future
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -32,6 +32,7 @@ from .. import audit
 from ..ai import AIFailed, AIUnavailable
 from ..auth import Actor
 from ..models import Attachment, AttachmentKind, DocumentReading, Item
+from . import jobs
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -75,12 +76,12 @@ def create(db: Session, actor: Actor | None, item: Item, att: Attachment) -> Doc
     return r
 
 
-def start(state, reading_id: int) -> threading.Thread:
+def start(state, reading_id: int) -> Future:
     def run() -> None:
         db = state.db.SessionLocal()
         try:
             reading = db.get(DocumentReading, reading_id)
-            if reading is not None:
+            if reading is not None and reading.status == "pending":
                 analyse(db, reading, state.ai, state.media)
         except Exception:  # noqa: BLE001 - recorded on the reading
             _LOGGER.exception("Reading document %s failed", reading_id)
@@ -92,9 +93,7 @@ def start(state, reading_id: int) -> threading.Thread:
         finally:
             db.close()
 
-    t = threading.Thread(target=run, name=f"document-reading-{reading_id}", daemon=True)
-    t.start()
-    return t
+    return jobs.submit(run, f"document-reading-{reading_id}")
 
 
 def analyse(db: Session, reading: DocumentReading, ai, media) -> DocumentReading:

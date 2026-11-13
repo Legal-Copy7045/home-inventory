@@ -31,11 +31,12 @@ from ..models import Attachment, Container, ContainerScan, IdentificationStatus,
 from ..schemas import ContainerIn, ItemCreate, ItemPatch, LocationIn, ScanConfirmIn
 from . import inventory as inv
 from .placement import Resolver
+from .textmatch import stem
 
 
 def _norm(s: str | None) -> str:
     s = re.sub(r"[^a-z0-9 ]", " ", (s or "").lower())
-    return " ".join(w[:-1] if w.endswith("s") and len(w) > 3 else w for w in s.split())
+    return " ".join(stem(w) for w in s.split())
 
 
 def similarity(a: str, b: str) -> float:
