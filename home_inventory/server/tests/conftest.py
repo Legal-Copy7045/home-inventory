@@ -70,10 +70,22 @@ class Env:
             self.admin.get("/api/v1/me").raise_for_status()
 
     def user(self, ha_id: str, name: str) -> UserClient:
-        return UserClient(self._ingress, {"X-Remote-User-Id": ha_id, "X-Remote-User-Name": name.split()[0].lower(), "X-Remote-User-Display-Name": name})
+        return UserClient(self._ingress, {"X-Remote-User-Id": ha_id, "X-Remote-User-Name": name.split()[0].lower(), "X-Remote-User-Display-Name": name},
+                          self.add_categories)
 
     def integration(self, **extra) -> UserClient:
-        return UserClient(self._api, {"Authorization": f"Bearer {self.state.api_token}", **extra})
+        return UserClient(self._api, {"Authorization": f"Bearer {self.state.api_token}", **extra}, self.add_categories)
+
+    def add_categories(self, *names: str) -> None:
+        """Categories are a fixed list an administrator keeps.  Tests that use
+        one just get it (the way the household would have set it up)."""
+        from home_inventory_server.services.inventory import get_or_create_category, match_category
+
+        with self.state.db.SessionLocal() as db:
+            for n in names:
+                if n and n.strip() and match_category(db, n) is None:
+                    get_or_create_category(db, n)
+            db.commit()
 
     def raw_ingress(self) -> TestClient:
         return self._ingress
@@ -83,13 +95,31 @@ class Env:
 
 
 class UserClient:
-    def __init__(self, client: TestClient, headers: dict[str, str]) -> None:
+    def __init__(self, client: TestClient, headers: dict[str, str], add_categories=None) -> None:
         self.client = client
         self.headers = headers
+        self._add_categories = add_categories
+        self.auto_categories = True  # test_categories.py turns this off to test the rules
 
     def _h(self, kw):
         kw.setdefault("headers", {})
         kw["headers"] = {**self.headers, **kw["headers"]}
+        if self.auto_categories and self._add_categories:
+            names: list[str] = []
+
+            def walk(v):
+                if isinstance(v, dict):
+                    for k, x in v.items():
+                        if k == "category" and isinstance(x, str):
+                            names.append(x)
+                        else:
+                            walk(x)
+                elif isinstance(v, list):
+                    for x in v:
+                        walk(x)
+            walk(kw.get("json"))
+            if names:
+                self._add_categories(*names)
         return kw
 
     def get(self, url, **kw):

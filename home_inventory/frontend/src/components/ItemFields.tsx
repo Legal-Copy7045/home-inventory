@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { api, type LinkDetails } from "../api";
-import { useApi, useMe } from "./ui";
+import { type LinkDetails } from "../api";
+import { useMe } from "./ui";
+import { CategorySelect } from "./CategorySelect";
 
 export interface ItemFormValue {
   name: string;
@@ -95,7 +96,6 @@ export function ItemFields({
   sharedCount?: number;
 }) {
   const me = useMe();
-  const cats = useApi(() => api.get<{ id: number; name: string }[]>("categories"), []);
   // Name, category and quantity are all most things need; the rest opens on
   // request (and is open already when any of it is filled in, e.g. by AI).
   const hasDetails = !!(value.manufacturer || value.model_number || value.barcode || value.url
@@ -120,8 +120,7 @@ export function ItemFields({
       <div className="grid two">
         <label className="field">
           Category
-          <input list="cat-list" value={value.category} onChange={set("category")} placeholder="Tools, Kitchen…" />
-          <datalist id="cat-list">{cats.data?.map((c) => <option key={c.id} value={c.name} />)}</datalist>
+          <CategorySelect value={value.category} onChange={(category) => onChange({ ...value, category })} />
         </label>
         {showQuantity && (
           <label className="field">
