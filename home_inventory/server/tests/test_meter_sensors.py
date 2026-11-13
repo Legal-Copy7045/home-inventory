@@ -112,3 +112,16 @@ def test_meter_sensor_validation_and_access(env, fake_ha):
 def test_no_home_assistant_api(env, monkeypatch):
     monkeypatch.setattr(ha_api.HAClient, "maybe", classmethod(lambda cls, settings: None))
     assert env.admin.get("/api/v1/ha/meter-sensors").status_code == 503
+
+
+def test_sync_failure_does_not_expose_error_details(env, fake_ha, monkeypatch):
+    u = env.admin
+    item = _mower(u)
+
+    def boom(entity_id):
+        raise ha_api.HAUnavailable("secret-host:8123 connection refused\nTraceback ...")
+
+    monkeypatch.setattr(fake_ha, "state", boom)
+    res = u.ok("post", f"/api/v1/items/{item['id']}/meter-sync")["results"]
+    assert res and all(r["recorded"] is False for r in res)
+    assert all("secret-host" not in r["problem"] and "Traceback" not in r["problem"] for r in res)

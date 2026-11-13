@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.20.1
+
+- **Security:** error messages no longer pass on the internal details of a failure (code scanning alert *Information exposure through an exception*). When Home Assistant, an AI service or a PDF reader fails, the App shows a plain message ("Home Assistant didn't answer", "Gemini rejected the request (400)", "This PDF couldn't be read") and writes the details to the App log. A rejected API key or unknown model is still named, so you know what to fix.
+
 ## 0.20.0
 
 - **AI rate limits.** New App options `ai_requests_per_minute` (15), `ai_tokens_per_minute` (250000) and `ai_requests_per_day` (500), set to Gemini's free tier by default. Every AI request waits its turn so they're never exceeded, and the day's count survives restarts. Background work (manuals, documents, value estimates) waits as long as it takes and finishes over time; something you're waiting for gives up after 30 seconds and says when to try again. If the provider still says "too many requests", everything pauses for `ai_retry_cooldown` seconds (default 60) and tries again. **Settings → AI** shows what's been used.
