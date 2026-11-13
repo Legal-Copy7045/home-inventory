@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "home-inventory-server"
-version = "0.12.0"
+version = "0.12.1"
 description = "Backend for the Home Inventory Home Assistant App"
 readme = "README.md"
 requires-python = ">=3.12"
