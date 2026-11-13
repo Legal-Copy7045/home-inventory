@@ -44,6 +44,12 @@ function toForm(it: Item): ItemFormValue {
   };
 }
 
+// Maintenance is for equipment: only items in the "Equipment" category get the
+// "Track maintenance" link.  Items already being tracked keep their section.
+function isEquipmentCategory(it: Item): boolean {
+  return (it.category || "").trim().toLowerCase() === "equipment";
+}
+
 export default function ItemDetail() {
   const { id } = useParams();
   const me = useMe();
@@ -52,6 +58,10 @@ export default function ItemDetail() {
   const hist = useApi(() => api.get<{ events: HistoryEvent[] }>("history", { entity_type: "item", entity_id: id, limit: 30 }), [id]);
   const [params] = useSearchParams();
   const [partOpen, setPartOpen] = useState(false);
+  const [trackOpen, setTrackOpen] = useState(false);
+  // Equipment = maintenance is tracked; only then does the Maintenance section show.
+  const maint = useApi(() => api.get<{ profile: unknown; tasks: unknown[]; history: unknown[] }>(`items/${id}/maintenance`), [id]);
+  const isEquipment = !!maint.data && (!!maint.data.profile || maint.data.tasks.length > 0 || maint.data.history.length > 0);
   const [sheet, setSheet] = useState<null | "edit" | "move" | "lend" | "status" | "docs">(params.get("finish") ? "edit" : null);
   // Moving to another item reuses this page: close any sheet from the previous one.
   // ?do=move (e.g. from an NFC tag) opens that action straight away.
@@ -171,7 +181,11 @@ export default function ItemDetail() {
         </div>
       </div>
 
-      <Section title="Details" action={edit && !it.owner && <button className="btn small ghost" onClick={() => setPartOpen(true)}>Part details</button>}>
+      <Section title="Details" action={edit && (
+        <span className="row" style={{ gap: 4 }}>
+          {!it.owner && <button className="btn small ghost" onClick={() => setPartOpen(true)}>Part details</button>}
+        </span>
+      )}>
         <dl className="kv">
           {it.manufacturer && (<><dt>Manufacturer</dt><dd>{it.manufacturer}</dd></>)}
           {it.model_number && (<><dt>Model</dt><dd>{it.model_number}</dd></>)}
@@ -186,10 +200,16 @@ export default function ItemDetail() {
           {it.notes && (<><dt>Notes</dt><dd style={{ whiteSpace: "pre-line" }}>{it.notes}</dd></>)}
           <dt>Added</dt><dd>{fmtDate(it.created_at)}</dd>
         </dl>
+        {edit && !isEquipment && isEquipmentCategory(it) && (
+          <p className="muted" style={{ margin: "8px 0 0" }}>
+            Equipment. <button className="linkish" onClick={() => setTrackOpen(true)}>Track maintenance</button>
+          </p>
+        )}
       </Section>
 
       {me.can_edit && <CustomerItemSection item={it} edit={edit} onChanged={refresh} startRepair={doAction === "repair"} />}
-      <EquipmentSection itemId={it.id} edit={edit} onChanged={() => hist.reload()} initial={doAction === "meter" || doAction === "service" ? doAction : undefined} />
+      <EquipmentSection itemId={it.id} edit={edit} onChanged={() => { hist.reload(); maint.reload(); }} initial={doAction === "meter" || doAction === "service" ? doAction : undefined}
+        startTracking={trackOpen} onStartClosed={() => setTrackOpen(false)} />
       <RelatedSection itemId={it.id} edit={edit} />
       {!it.owner && <PartDetailsSection productId={it.product_id} edit={edit} open={partOpen} setOpen={setPartOpen} />}
       {!it.owner && <RestockSection productId={it.product_id} edit={edit} />}

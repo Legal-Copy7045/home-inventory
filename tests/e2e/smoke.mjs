@@ -188,9 +188,11 @@ await page.getByText("Lent 2 items to Pat").first().waitFor();
 if ((await api(`items/${hoe.id}`)).status !== "on_loan") throw new Error("bulk lend failed");
 
 // Maintenance: track a mower, log hours, record the overdue oil change
-const mower = (await api("items", { method: "POST", data: { name: "Lawn mower", location_id: garage.id } })).items[0];
+const mower = (await api("items", { method: "POST", data: { name: "Lawn mower", category: "Equipment", location_id: garage.id } })).items[0];
 await page.goto(BASE + "#/items/" + mower.id);
-await page.getByRole("button", { name: "Track maintenance" }).click();
+const track = page.getByRole("button", { name: "Track maintenance" });
+await track.scrollIntoViewIfNeeded();
+await track.click();
 await page.getByRole("button", { name: /Lawn mower/ }).click();
 const maint = page.locator(".card", { has: page.getByRole("heading", { name: /^Maintenance/ }) });
 const oilRow = maint.locator("li", { hasText: "Engine oil change" });

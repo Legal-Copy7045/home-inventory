@@ -108,7 +108,8 @@ ITEM_PROMPT = """You help catalogue a household inventory. Identify the single m
 Return JSON only. Use null for anything you cannot read or infer with reasonable confidence; never guess
 model numbers. "name" is a short, searchable everyday name (e.g. "Cordless drill", "USB-C charger 65W").
 "category" is a broad household category (e.g. Tools, Electronics, Kitchen, Garden, Holiday decorations,
-Automotive, Sports, Toys, Clothing, Cleaning, Documents, Hardware, Camping).
+Automotive, Sports, Toys, Clothing, Cleaning, Documents, Hardware, Camping). Use "Equipment" for powered or
+engine-driven machines that need servicing (mowers, generators, pressure washers, chainsaws, compressors).
 "confidence" is 0..1 for the name.{hint}"""
 
 CONTAINER_PROMPT = """You help catalogue a household inventory. The photo shows the open contents of a storage
