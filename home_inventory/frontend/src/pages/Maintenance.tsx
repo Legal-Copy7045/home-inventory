@@ -385,14 +385,11 @@ function MeterSheet({ itemId, summary, onClose, onDone }: { itemId: number; summ
   };
   const snap = async (file: File | undefined) => {
     if (!file) return;
-    // A photo picked from the gallery keeps the day it was taken.
-    const taken = new Date(file.lastModified);
-    if (!Number.isNaN(taken.getTime())) {
-      const d = taken.toISOString().slice(0, 10);
-      if (d <= today()) setOn(d);
-    }
     const att = await run(() => uploadPhoto(file, { item_id: itemId }));
     if (!att) return;
+    // A photo picked from the library keeps the day it was taken (from the
+    // photo's own EXIF date; the file's modified date isn't reliable).
+    if (att.taken_on && att.taken_on <= today()) setOn(att.taken_on);
     setPhoto({ id: att.id, thumb: att.thumb_url || undefined });
     if (!me.app.ai.enabled) return;
     setReading(true);

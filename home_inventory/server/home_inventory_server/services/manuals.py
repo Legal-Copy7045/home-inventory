@@ -18,7 +18,7 @@ from __future__ import annotations
 import io
 import logging
 import re
-import threading
+from concurrent.futures import Future
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from difflib import SequenceMatcher
@@ -32,6 +32,7 @@ from ..ai import AIFailed, AIUnavailable
 from ..ai.manual import merge
 from ..auth import Actor
 from ..models import Attachment, EquipmentProfile, Item, MaintenanceTask, ManualReading, Product, TaskPart
+from . import jobs
 from . import parts as parts_svc
 
 _LOGGER = logging.getLogger(__name__)
@@ -163,7 +164,7 @@ def _equipment_name(item: Item, profile: EquipmentProfile) -> str:
     return ", ".join(b for b in bits if b)
 
 
-def start(state, reading_id: int) -> threading.Thread:
+def start(state, reading_id: int) -> Future:
     """Read in a background thread with its own database session.  The
     request that started it returns at once: reading a long manual can take
     minutes, longer than phones and proxies keep a request open."""
@@ -173,7 +174,7 @@ def start(state, reading_id: int) -> threading.Thread:
         try:
             reading = db.get(ManualReading, reading_id)
             item = db.get(Item, reading.item_id) if reading else None
-            if reading is None or item is None:
+            if reading is None or item is None or reading.status != "pending":
                 return
             analyse(db, reading, state.ai, state.media, item)
         except Exception:  # noqa: BLE001 - recorded on the reading, never lost silently
@@ -186,9 +187,7 @@ def start(state, reading_id: int) -> threading.Thread:
         finally:
             db.close()
 
-    t = threading.Thread(target=run, name=f"manual-reading-{reading_id}", daemon=True)
-    t.start()
-    return t
+    return jobs.submit(run, f"manual-reading-{reading_id}")
 
 
 def _aware(d: datetime) -> datetime:

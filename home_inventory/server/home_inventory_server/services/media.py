@@ -39,6 +39,30 @@ class StoredFile:
     height: int | None
 
 
+def taken_on(data: bytes) -> str | None:
+    """The day a photo was taken, from its EXIF data, as YYYY-MM-DD.
+
+    Read before the photo is re-encoded (which strips EXIF).  ``None`` when
+    there's no usable date - a screenshot, an edited copy, a PDF.
+    """
+    if data[:5] == b"%PDF-":
+        return None
+    try:
+        with Image.open(io.BytesIO(data)) as img:
+            exif = img.getexif()
+            raw = exif.get_ifd(0x8769).get(36867) or exif.get(306)  # DateTimeOriginal, else DateTime
+    except Exception:  # noqa: BLE001 - any unreadable EXIF just means "no date"
+        return None
+    if not isinstance(raw, str) or len(raw) < 10:
+        return None
+    from datetime import date
+
+    try:
+        return date(int(raw[0:4]), int(raw[5:7]), int(raw[8:10])).isoformat()
+    except ValueError:
+        return None
+
+
 class MediaStore:
     def __init__(self, root: Path, max_bytes: int, max_image_px: int) -> None:
         self.root = root

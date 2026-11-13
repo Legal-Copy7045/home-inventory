@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.15.3
+
+- **Photo dates.** A meter photo picked from your library now takes its date from the photo itself (when it was taken), not from the file's modified date, which is often the day it was copied or shared. Photos are still stored without their location data.
+- **AI jobs queue up.** Reading manuals and documents now runs on a small shared pool (three at a time); more wait their turn instead of all starting at once.
+- **No silent skips.** If AI was too busy to read a document you uploaded, the document now says so, with **Try again**, instead of quietly not being read.
+- **Consistent plurals.** Search, photo inventory matching and location search now share one rule for plurals ("shelves" = "shelf", "boxes" = "box").
+- **Faster lists.** Item lists, search results and the dashboard load photos, loans, categories and owners in a few queries instead of several per item.
+
 ## 0.15.2
 
 - **Maintenance only on equipment.** Equipment is now the only category with maintenance by default. The Maintenance section appears only on items tracked as equipment, and **Track maintenance** (a link at the foot of *Details*) only shows on items whose category is **Equipment**. Items already being tracked keep their section. The AI now suggests the Equipment category for powered machines such as mowers, generators and pressure washers. The setup screen offers **Read the manual** first (which sets up the schedule and parts) or a type of equipment.
