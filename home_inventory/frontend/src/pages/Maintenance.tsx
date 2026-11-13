@@ -92,7 +92,11 @@ function ServiceRow({ e, currency, showItem }: { e: ServiceEntry; currency: stri
 
 // ---------------------------------------------------------------- item page section
 
-export function EquipmentSection({ itemId, edit, onChanged, initial }: { itemId: number; edit: boolean; onChanged?: () => void; initial?: "meter" | "service" }) {
+export function EquipmentSection({ itemId, edit, onChanged, initial, startTracking, onStartClosed }: {
+  itemId: number; edit: boolean; onChanged?: () => void; initial?: "meter" | "service";
+  /** Not equipment yet: open the "Track maintenance" setup (from the item page's link). */
+  startTracking?: boolean; onStartClosed?: () => void;
+}) {
   const me = useMe();
   const s = useApi(() => api.get<MaintenanceSummary>(`items/${itemId}/maintenance`), [itemId]);
   const parts = useApi(() => api.get<ItemParts>(`items/${itemId}/parts`), [itemId]);
@@ -110,20 +114,15 @@ export function EquipmentSection({ itemId, edit, onChanged, initial }: { itemId:
   if (s.error || !s.data) return <ErrorBox error={s.error} />;
   const d = s.data;
 
+  // Only equipment has a Maintenance section.  Anything else starts tracking
+  // from the item page's "Track maintenance" link (startTracking).
   if (!d.profile && !d.tasks.length && !d.history.length) {
-    if (!edit) return null;
-    return (
-      <Section title="Maintenance">
-        <p className="muted" style={{ marginTop: 0 }}>Track service schedules, operating hours and repairs for equipment such as mowers, generators and saws.</p>
-        <div className="row wrap" style={{ gap: 8 }}>
-          <button className="btn" onClick={() => setSheet({ kind: "setup" })}><Wrench size={18} /> Track maintenance</button>
-          {me.app.ai.enabled && <button className="btn" onClick={() => setSheet({ kind: "manual" })}><BookOpen size={18} /> Read the manual</button>}
-        </div>
-        {me.app.ai.enabled && <p className="muted" style={{ marginBottom: 0 }}>Reading the manual sets up the service schedule and parts for you, and starts tracking.</p>}
-        {sheet?.kind === "setup" && <SetupSheet itemId={itemId} onClose={close} onDone={done} />}
-        {sheet?.kind === "manual" && <ManualSheet itemId={itemId} onClose={close} onDone={() => done()} />}
-      </Section>
-    );
+    if (!edit || !startTracking) return null;
+    const closeStart = () => { setSheet(null); onStartClosed?.(); };
+    return sheet?.kind === "manual"
+      ? <ManualSheet itemId={itemId} onClose={closeStart} onDone={() => { done(); onStartClosed?.(); }} />
+      : <SetupSheet itemId={itemId} onClose={closeStart} onDone={(x) => { done(x); onStartClosed?.(); }}
+          onReadManual={me.app.ai.enabled ? () => setSheet({ kind: "manual" }) : undefined} />;
   }
 
   const meter = d.profile?.meter ?? "hours";
@@ -219,7 +218,7 @@ function ProfileView({ p }: { p: EquipmentProfile }) {
 
 // ---------------------------------------------------------------- sheets
 
-function SetupSheet({ itemId, onClose, onDone }: { itemId: number; onClose: () => void; onDone: (d: MaintenanceSummary) => void }) {
+function SetupSheet({ itemId, onClose, onDone, onReadManual }: { itemId: number; onClose: () => void; onDone: (d: MaintenanceSummary) => void; onReadManual?: () => void }) {
   const presets = useApi(() => api.get<MaintPreset[]>("maintenance/presets"), []);
   const { busy, run } = useAction();
   const [current, setCurrent] = useState("");
@@ -232,7 +231,13 @@ function SetupSheet({ itemId, onClose, onDone }: { itemId: number; onClose: () =
   };
   return (
     <Sheet title="What kind of equipment?" onClose={onClose}>
-      <p className="muted" style={{ marginTop: 0 }}>This adds typical service tasks as a starting point. Check them against your manual. You can change or remove any of them.</p>
+      {onReadManual && (
+        <div className="notice stack" style={{ gap: 6, marginBottom: 12 }}>
+          <span>Have its manual? The AI reads the service schedule and parts from it and sets everything up.</span>
+          <button className="btn" onClick={onReadManual}><BookOpen size={18} /> Read the manual</button>
+        </div>
+      )}
+      <p className="muted" style={{ marginTop: 0 }}>{onReadManual ? "Or pick a type to start with its typical service tasks." : "This adds typical service tasks as a starting point."} Check them against your manual. You can change or remove any of them.</p>
       <label className="field" style={{ marginBottom: 12 }}>
         Current hours or uses (optional)
         <input type="number" inputMode="decimal" step="0.1" min={0} value={current} onChange={(e) => setCurrent(e.target.value)} placeholder="e.g. 212 for a used machine" />

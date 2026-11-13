@@ -100,7 +100,7 @@ On **Items**, tap **Select**, tick the items you want (or **Select all**), then 
 
 For mowers, trimmers, saws, generators, pressure washers, snow blowers or anything else that needs servicing:
 
-1. Open the item and tap **Track maintenance**.
+1. Make sure the item's category is **Equipment** (the AI suggests it for powered machines), then open it and tap **Track maintenance** (at the foot of *Details*). Only Equipment items get this link, and the **Maintenance** section only appears on items tracked this way, so other things stay uncluttered.
 2. Pick the kind of equipment. Typical tasks are added as a starting point, such as oil every 50 hours or yearly, whichever comes first. Check them against your manual, then change, add or remove them.
 3. For a used machine, enter its current hours first, so it isn't shown as overdue for everything.
 
@@ -119,7 +119,7 @@ Service history is kept when tasks are changed or removed, and even when you sto
 
 ### Reading the manual
 
-On equipment you track, **Read the manual** has the AI read its owner's manual. Choose the PDF attached to the item, or add one. A scanned PDF is read page by page as pictures: the first 12 pages, or the pages you type in **Pages to read** (e.g. 18-26). For a paper manual, photograph the maintenance pages. If the item isn't tracked as equipment yet, reading its manual turns maintenance tracking on. Manual documents under **Receipts & documents** also have a button to read them.
+On equipment you track, **Read the manual** has the AI read its owner's manual. Choose the PDF attached to the item, or add one. A scanned PDF is read page by page as pictures: the first 12 pages, or the pages you type in **Pages to read** (e.g. 18-26). For a paper manual, photograph the maintenance pages. For equipment you haven't set up yet, **Track maintenance** offers **Read the manual** first: reading it sets up the schedule and parts and turns tracking on.
 
 The AI picks out:
 - **each service and its interval**, such as "change oil every 50 hours or yearly, first at 5 hours";
