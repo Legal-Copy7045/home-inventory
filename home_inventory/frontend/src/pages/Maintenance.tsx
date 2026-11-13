@@ -408,8 +408,8 @@ function MeterSheet({ itemId, summary, onClose, onDone }: { itemId: number; summ
           </div>
         )}
         <label className="btn block">
-          <Camera size={18} /> {photo ? "Take another photo" : `Photograph the ${kind === "hours" ? "hour meter" : "counter"}`}
-          <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; snap(f); }} />
+          <Camera size={18} /> {photo ? "Use another photo" : `Photograph the ${kind === "hours" ? "hour meter" : "counter"} (or choose a photo)`}
+          <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; snap(f); }} />
         </label>
         {photo && (
           <div className="row" style={{ gap: 10 }}>

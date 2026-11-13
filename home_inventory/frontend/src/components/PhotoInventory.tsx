@@ -32,6 +32,8 @@ type Row = {
   /** Save the cut-out as the item's photo (untick when the AI's box is off). */
   use_crop: boolean;
   kind: "item" | "container";
+  /** Unidentified things are saved for the To finish list. */
+  to_identify: boolean;
   container_type: string;
   unit: number | null;
   shelf: number | null;
@@ -112,6 +114,7 @@ function Review({ scan, target, onClose }: { scan: Scan; target: ScanTarget; onC
       open: false,
       box: s.box || null,
       use_crop: true,
+      to_identify: s.identified === false,
       kind: s.kind || "item",
       container_type: s.container_type || "",
       unit: s.unit ?? null,
@@ -265,7 +268,13 @@ function Review({ scan, target, onClose }: { scan: Scan; target: ScanTarget; onC
               {r.kind === "container"
                 ? <span className="badge blue"><Box size={12} /> Box{r.container_type ? ` · ${r.container_type}` : ""}</span>
                 : <Stepper value={r.quantity} min={1} onChange={(n) => upd(r.key, { quantity: n })} />}
-              {r.confidence !== null && <span className={`badge conf-${conf(r.confidence)}`}>{conf(r.confidence)} confidence</span>}
+              {r.kind === "item" && r.to_identify
+                ? (
+                  <label className="badge warn" style={{ cursor: "pointer" }} title="Saved with its photo on the To finish list, so you can say what it is later">
+                    <input type="checkbox" checked onChange={() => upd(r.key, { to_identify: false })} style={{ margin: "0 4px 0 0" }} /> Unidentified – to finish
+                  </label>
+                )
+                : r.confidence !== null && <span className={`badge conf-${conf(r.confidence)}`}>{conf(r.confidence)} confidence</span>}
               {r.position && <span className="badge"><MapPin size={12} /> {r.position}</span>}
               {r.match && (
                 <select value={r.action} onChange={(e) => upd(r.key, { action: e.target.value as Row["action"] })} style={{ width: "auto" }} aria-label="What to do">
@@ -314,7 +323,7 @@ function Review({ scan, target, onClose }: { scan: Scan; target: ScanTarget; onC
         <button
           className="btn"
           onClick={() =>
-            setRows([...rows, { key: Date.now(), action: "add", name: "", category: "", manufacturer: "", model_number: "", notes: "", position: null, quantity: 1, confidence: null, existing_item_id: null, match: null, open: true, box: null, use_crop: true, kind: "item", container_type: "", unit: null, shelf: null, place: null }])
+            setRows([...rows, { key: Date.now(), action: "add", name: "", category: "", manufacturer: "", model_number: "", notes: "", position: null, quantity: 1, confidence: null, existing_item_id: null, match: null, open: true, box: null, use_crop: true, to_identify: false, kind: "item", container_type: "", unit: null, shelf: null, place: null }])
           }
         >
           <Plus size={18} /> Add something it missed
@@ -354,6 +363,7 @@ function Review({ scan, target, onClose }: { scan: Scan; target: ScanTarget; onC
                 confidence: r.confidence,
                 box: r.action === "add" && r.use_crop ? r.box : null,
                 kind: r.kind,
+                identified: !(r.kind === "item" && r.to_identify),
                 container_type: r.kind === "container" ? r.container_type.trim() || null : null,
                 ...(area !== null && r.action === "add"
                   ? placeOf(r).startsWith("new:") ? { location_key: placeOf(r).slice(4) } : { location_id: Number(placeOf(r).slice(4)) }
