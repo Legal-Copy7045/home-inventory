@@ -72,7 +72,8 @@ def pdf_pages(data: bytes) -> list[tuple[int, str]]:
                 out.append((n, text))
         return out
     except (PdfReadError, ValueError, KeyError) as err:
-        raise ManualError(f"This PDF couldn't be read ({err}).") from err
+        _LOGGER.info("PDF text extraction failed: %s", err)
+        raise ManualError("This PDF couldn't be read.") from err
 
 
 def page_count(data: bytes) -> int:
@@ -92,7 +93,8 @@ def page_images(data: bytes, pages: list[int], long_edge: int = 1800) -> list[tu
     try:
         pdf = pdfium.PdfDocument(data)
     except Exception as err:  # noqa: BLE001
-        raise ManualError(f"This PDF couldn't be opened ({err}).") from err
+        _LOGGER.info("PDF could not be opened: %s", err)
+        raise ManualError("This PDF couldn't be opened.") from err
     out = []
     try:
         for n in pages:
@@ -259,10 +261,10 @@ def analyse(db: Session, reading: ManualReading, ai, media, item: Item) -> Manua
     except (ManualError, AIFailed, AIUnavailable) as err:
         reading.status = "failed"
         reading.error = str(err)
-    except Exception as err:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         _LOGGER.exception("Reading manual %s failed", reading.id)
         reading.status = "failed"
-        reading.error = f"Reading the manual failed: {err}"
+        reading.error = "Reading the manual failed. The App log has the details."
     db.commit()
     return reading
 

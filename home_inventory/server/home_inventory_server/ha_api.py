@@ -6,11 +6,14 @@ standalone it uses ``ha_url`` + ``ha_token``.  Only reads entity states.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import httpx
 
 from .config import Settings
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class HAUnavailable(RuntimeError):
@@ -39,7 +42,8 @@ class HAClient:
         try:
             r = httpx.get(f"{self.base}{path}", headers={"Authorization": f"Bearer {self.token}"}, timeout=timeout)
         except httpx.HTTPError as err:
-            raise HAUnavailable(f"Home Assistant didn't answer: {err}") from err
+            _LOGGER.warning("Home Assistant API request to %s failed: %s", path, err)
+            raise HAUnavailable("Home Assistant didn't answer") from err
         if r.status_code == 404:
             return None
         if r.status_code >= 400:

@@ -70,7 +70,9 @@ def sync_profile(db: Session, client: HAClient, profile: EquipmentProfile, actor
         try:
             value, problem = to_value(client.state(entity), kind)
         except HAUnavailable as err:
-            out.append({"kind": kind.value, "entity_id": entity, "recorded": False, "problem": str(err)})
+            _LOGGER.info("Reading %s failed: %s", entity, err)
+            out.append({"kind": kind.value, "entity_id": entity, "recorded": False,
+                        "problem": "Home Assistant didn't answer; try again later"})
             continue
         last = mt.current_meter(db, item.id, kind)
         recorded = False
