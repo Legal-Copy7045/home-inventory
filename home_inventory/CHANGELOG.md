@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.1
+
+- **Fixed: "The update could not be started: [object Object]".** Home Assistant was building the App on your own machine at every update (installing build tools and compiling the web app), and that build could fail. The App now uses the ready-made image published with each release, so updates just download it: they're faster and don't depend on building locally.
+
 ## 0.13.0
 
 - **AI reads the documents you add to an item.** Add a receipt, warranty card, invoice, order email, manual or certificate (as a PDF or a photo). In the background, AI works out what it is and what's printed that belongs in the item's fields: purchase date, price, shop, warranty start and end, make, model and serial number. **Review** shows the suggestions.
