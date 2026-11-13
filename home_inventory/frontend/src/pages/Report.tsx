@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FileSpreadsheet, FileText, MapPin, Printer, X } from "lucide-react";
 import { api, url } from "../api";
 import { PlacementPicker } from "../components/PlacementPicker";
+import { ValueEstimates } from "../components/ValueEstimates";
 import { ErrorBox, Spinner, Thumb, fmtDate, money, useApi } from "../components/ui";
 
 interface Row {
@@ -19,6 +20,7 @@ interface Row {
   unit_price: string | null;
   currency: string | null;
   value: string | null;
+  estimated_value?: string | null;
   warranty_expires: string | null;
   photos: number;
   receipts: number;
@@ -64,7 +66,7 @@ export default function ReportPage() {
           <a className="btn small" href={file("xlsx")} download><FileSpreadsheet size={16} /> Excel</a>
         </div>
       </div>
-      <p className="muted no-print">For insurance or a record of what you own. Values are the prices you recorded, times quantity. Customer equipment is never included.</p>
+      <p className="muted no-print">For insurance or a record of what you own. Values are the prices you recorded, times quantity; where there's no price, an AI estimate (≈) is shown if you've made one. Customer equipment is never included.</p>
       <div className="row wrap no-print" style={{ margin: "10px 0" }}>
         <button className="btn small" onClick={() => setPicking(true)}><MapPin size={16} /> {place ? place.label : "Everywhere"}</button>
         {place && <button className="btn small ghost" onClick={() => setPlace(null)} aria-label="Everywhere"><X size={16} /></button>}
@@ -73,6 +75,7 @@ export default function ReportPage() {
           {cats.data?.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
         </select>
       </div>
+      <div className="no-print"><ValueEstimates onFinished={rep.reload} /></div>
       <ErrorBox error={rep.error} />
       {rep.loading && !r ? <Spinner /> : r && (
         <>
@@ -102,7 +105,7 @@ export default function ReportPage() {
                       <div className="s">{it.place}{it.purchase_date ? ` · bought ${fmtDate(it.purchase_date)}` : ""}{it.retailer ? ` at ${it.retailer}` : ""}{it.warranty_expires ? ` · warranty to ${fmtDate(it.warranty_expires)}` : ""}</div>
                       <div className="s">{it.receipts ? `${it.receipts} receipt${it.receipts === 1 ? "" : "s"}` : "No receipt"}{it.documents ? ` · ${it.documents} document${it.documents === 1 ? "" : "s"}` : ""}</div>
                     </div>
-                    <div style={{ textAlign: "right", fontWeight: 600 }}>{it.value ? money(it.value, it.currency || r.currency) : <span className="muted">—</span>}</div>
+                    <div style={{ textAlign: "right", fontWeight: 600 }}>{it.value ? money(it.value, it.currency || r.currency) : it.estimated_value ? <span className="muted" title="AI estimate to replace">≈ {money(it.estimated_value, r.currency)}</span> : <span className="muted">—</span>}</div>
                   </li>
                 ))}
               </ul>

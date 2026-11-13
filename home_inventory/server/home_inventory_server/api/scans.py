@@ -6,16 +6,15 @@ import asyncio
 import calendar
 import logging
 from datetime import date
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import audit
 from ..ai import AIFailed, AIUnavailable, confidence_label
-from ..auth import Actor, current_actor, get_db, require_member
+from ..auth import Actor, current_actor, get_db, require_admin, require_member
 from ..models import (
     Attachment,
     AttachmentKind,
@@ -108,34 +107,77 @@ async def estimate_value(item_id: int, request: Request, actor: Actor = Depends(
                          db: Session = Depends(get_db)):
     """AI estimates the item's replacement and second-hand value (from its
     details and photo).  Kept with the item, marked as an AI estimate."""
-    from datetime import UTC, datetime
-
     from ..services import stats as stats_svc
+    from ..services import valuation
 
     st = _state(request)
     item = _get_or_404(db, Item, item_id)
     if not st.ai.enabled:
         raise HTTPException(422, "AI is not configured. Choose a provider in the App configuration.")
     _limit(request, actor, "ai")
-    p = item.product
-    bits = [p.name, p.manufacturer and f"make {p.manufacturer}", p.model_number and f"model {p.model_number}",
-            p.category and f"category {p.category.name}", item.purchase_date and f"bought {item.purchase_date.isoformat()}",
-            item.purchase_price is not None and f"paid {item.purchase_price} {item.currency or ''}".strip(),
-            p.description]
-    photo = db.get(Attachment, item.primary_photo_id) if item.primary_photo_id else None
-    image = st.media.read(photo.stored_path) if photo is not None else None
-    currency = stats_svc.currency(db)
     try:
-        res = await asyncio.to_thread(st.ai.estimate_value, ", ".join(str(b) for b in bits if b), currency, image)
+        est = await asyncio.to_thread(valuation.estimate, db, st.ai, st.media, item, stats_svc.currency(db))
     except AIUnavailable as err:
         raise HTTPException(503, str(err)) from err
     except AIFailed as err:
         raise HTTPException(502, str(err)) from err
-    est = {**res.data, "estimated_on": datetime.now(UTC).date().isoformat(), "provider": res.provider, "model": res.model}
-    item.ai_metadata = {**(item.ai_metadata or {}), "value_estimate": est}
-    audit.record(db, actor, "value_estimated", "item", item.id, f"{p.name}: AI value estimate")
+    valuation.save(db, actor, item, est)
     db.commit()
     return est
+
+
+class ValueEstimatesIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    scope: Literal["unpriced", "category", "all"] = "unpriced"
+    category_id: int | None = None
+    redo_recent: bool = False
+
+
+@router.get("/value-estimates/preview")
+def value_estimates_preview(scope: Literal["unpriced", "category", "all"] = "unpriced", category_id: int | None = None,
+                            redo_recent: bool = False, actor: Actor = Depends(require_member),
+                            db: Session = Depends(get_db)):
+    """How many items an estimate run would cover, and how many AI requests that is."""
+    from ..services import valuation
+
+    try:
+        return valuation.preview(db, scope, category_id, redo_recent)
+    except valuation.ValuationError as err:
+        raise HTTPException(422, str(err)) from err
+
+
+@router.get("/value-estimates")
+def value_estimates_job(actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """The current (or last) run of value estimates, with its progress."""
+    from ..services import valuation
+
+    j = valuation.job(db)
+    if j and j.get("status") in ("pending", "running") and not valuation.running(db):
+        j["status"], j["error"] = "failed", "Estimating was interrupted (the App restarted). Start it again."
+    return {"job": j}
+
+
+@router.post("/value-estimates", status_code=202)
+def start_value_estimates(data: ValueEstimatesIn, request: Request, actor: Actor = Depends(require_admin)):
+    """Estimate many items' values in the background (administrators: it uses
+    one AI request per product, which may cost money)."""
+    from ..services import valuation
+
+    st = _state(request)
+    if not st.ai.enabled:
+        raise HTTPException(422, "AI is not configured. Choose a provider in the App configuration.")
+    try:
+        return {"job": valuation.start(st, actor, data.scope,
+                                       data.category_id, data.redo_recent)}
+    except valuation.ValuationError as err:
+        raise HTTPException(409 if isinstance(err, valuation.AlreadyRunning) else 422, str(err)) from err
+
+
+@router.post("/value-estimates/cancel")
+def cancel_value_estimates(actor: Actor = Depends(require_admin), db: Session = Depends(get_db)):
+    from ..services import valuation
+
+    return {"job": valuation.cancel(db)}
 
 
 async def _new_scan(

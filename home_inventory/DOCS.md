@@ -98,6 +98,8 @@ With AI set up, each document is read in the background. A few seconds later the
 
 **What it's worth.** With AI set up, **Estimate with AI** (next to *Value* in *Details*) gives a rough replacement price and a second-hand range, with what it assumed. It's marked as an AI estimate and dated. The **Inventory report** keeps it in its own column and shows a total for items without a price; a price you entered always comes first.
 
+To estimate many items at once, open **Inventory report → Estimate values with AI** (administrators). Choose **Items without a price**, **Items in a category** or **Everything**; it shows how many items and AI requests that is before you start. The same product kept in several places is estimated once, and items estimated in the last 30 days are skipped unless you tick *Include items estimated in the last 30 days*. It runs in the background with a progress bar, so you can leave the page, and **Stop** ends it early. Customer equipment is never included.
+
 Values are only ever copied from what's printed, never guessed. A warranty end date is worked out only when the document gives both the purchase date and the warranty length. A scanned PDF is read from pictures of its first pages. Files added from **Read the manual** are recognised too, so a receipt added there by mistake is flagged and can be filed correctly. **Dismiss** hides a suggestion, and **Read with AI** reads an older document.
 
 ## Working with several items
