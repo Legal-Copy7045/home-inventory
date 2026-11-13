@@ -3,7 +3,6 @@ readiness, and reading equipment manuals."""
 
 from __future__ import annotations
 
-import asyncio
 from decimal import Decimal
 from typing import Any, Literal
 
@@ -289,20 +288,27 @@ def _reading(db: Session, actor: Actor, reading_id: int) -> ManualReading:
     if r is None:
         raise HTTPException(404, "Manual reading not found")
     _item(db, actor, r.item_id)
+    if man.expire_if_stale(r):
+        db.commit()
     return r
 
 
 @router.get("/items/{item_id}/manual-readings")
 def list_readings(item_id: int, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
     _item(db, actor, item_id)
-    rows = db.scalars(select(ManualReading).where(ManualReading.item_id == item_id)
-                      .order_by(ManualReading.id.desc()).limit(10))
+    rows = list(db.scalars(select(ManualReading).where(ManualReading.item_id == item_id)
+                           .order_by(ManualReading.id.desc()).limit(10)))
+    if any([man.expire_if_stale(r) for r in rows]):
+        db.commit()
     return [man.reading_out(r) for r in rows]
 
 
-@router.post("/items/{item_id}/manual-readings", status_code=201)
-async def read_manual(item_id: int, data: ManualReadIn, request: Request, actor: Actor = Depends(require_member),
-                      db: Session = Depends(get_db)) -> dict[str, Any]:
+@router.post("/items/{item_id}/manual-readings", status_code=202)
+def read_manual(item_id: int, data: ManualReadIn, request: Request, actor: Actor = Depends(require_member),
+                db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Start reading a manual.  It runs in the background (it can take
+    minutes, longer than a phone or proxy keeps a request open); poll
+    ``GET /manual-readings/{id}`` until the status isn't ``pending``."""
     st = request.app.state
     item = _item(db, actor, item_id)
     _run(man.equipment_item, db, item)
@@ -312,12 +318,15 @@ async def read_manual(item_id: int, data: ManualReadIn, request: Request, actor:
         att = db.get(Attachment, att_id)
         if att is None or att.item_id != item.id:
             raise HTTPException(404, "Choose a manual or photo attached to this item")
+    running = man.running_for(db, item.id)
+    if running is not None:
+        return man.reading_out(running)  # one at a time per item
     st.rate_limiter.check(actor.user_id, "ai")
     reading = ManualReading(item_id=item.id, attachment_ids=list(dict.fromkeys(data.attachment_ids)),
                             created_by_id=actor.user_id)
     db.add(reading)
     db.commit()
-    await asyncio.to_thread(man.analyse, db, reading, st.ai, st.media, item)
+    man.start(st, reading.id)
     return man.reading_out(reading)
 
 

@@ -189,9 +189,18 @@ export function ManualSheet({ itemId, onClose, onDone }: { itemId: number; onClo
   const [reading, setReading] = useState<ManualReading | null>(null);
   const { busy, run } = useAction();
   useEffect(() => {
-    const open = past.data?.find((r) => r.status === "ready");
+    // Pick up a reading that's still running or waiting for review.
+    const open = past.data?.find((r) => r.status === "pending" || r.status === "ready");
     if (open && !reading) setReading(open);
   }, [past.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Reading runs in the background (it can take minutes): check every few seconds.
+  useEffect(() => {
+    if (reading?.status !== "pending") return;
+    const t = setInterval(() => {
+      api.get<ManualReading>(`manual-readings/${reading.id}`).then((r) => r.status !== "pending" && setReading(r)).catch(() => undefined);
+    }, 3000);
+    return () => clearInterval(t);
+  }, [reading?.id, reading?.status]);
   const files = (item.data?.attachments || []).filter((a) => a.mime_type === "application/pdf" || a.mime_type.startsWith("image/"));
   const upload = async (list: FileList | null) => {
     for (const file of Array.from(list || [])) {
@@ -215,6 +224,13 @@ export function ManualSheet({ itemId, onClose, onDone }: { itemId: number; onClo
           A PDF manual works best. For a paper or scanned manual, photograph the maintenance pages.
         </p>
         {reading?.status === "failed" && <div className="error">{reading.error}</div>}
+        {reading?.status === "pending" && (
+          <div className="notice stack" style={{ gap: 6 }}>
+            <Spinner />
+            <b>Reading the manual…</b>
+            <span>This can take a few minutes for a long manual. You can close this and come back: the result waits on this item.</span>
+          </div>
+        )}
         {item.loading ? <Spinner /> : (
           <ul className="list">
             {files.map((a) => (
@@ -229,9 +245,11 @@ export function ManualSheet({ itemId, onClose, onDone }: { itemId: number; onClo
           </ul>
         )}
         <label className="btn">Add the manual (PDF) or photos of its pages<input type="file" accept="application/pdf,image/*" multiple hidden onChange={(e) => upload(e.target.files)} /></label>
-        <button className="btn primary block" disabled={busy || !chosen.length} onClick={read}>
-          {busy ? "Reading… this can take a minute" : <><BookOpen size={18} /> Read it</>}
-        </button>
+        {reading?.status !== "pending" && (
+          <button className="btn primary block" disabled={busy || !chosen.length} onClick={read}>
+            <BookOpen size={18} /> Read it
+          </button>
+        )}
       </div>
     </Sheet>
   );
