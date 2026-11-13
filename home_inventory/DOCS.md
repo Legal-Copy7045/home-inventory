@@ -99,6 +99,43 @@ The **Maintenance** page lists what's overdue, what's due in the next 7, 30 or 9
 
 Service history is kept when tasks are changed or removed, and even when you stop tracking an item.
 
+### Reading the manual
+
+On equipment you track, **Read the manual** has the AI read its owner's manual. Choose the PDF attached to the item, or add one. For a paper or scanned manual, photograph the maintenance pages instead.
+
+The AI picks out:
+- **each service and its interval**, such as "change oil every 50 hours or yearly, first at 5 hours";
+- **what that particular service needs**, since the 50-hour service may need oil only while the 100-hour service also needs a plug and an air filter;
+- **the parts and consumables**, with part numbers and grades exactly as printed and the page they're on.
+
+You then review the result:
+- Untick anything you don't want, and correct anything that's wrong.
+- A service that matches one of your tasks updates it instead of adding a copy.
+- A part that's already in your inventory, matched by part number, is reused.
+- Oil or grease given only by its grade becomes a **standard** (see below).
+
+Nothing is saved until you tap **Save the plan**. Part numbers are only copied from the manual, never guessed.
+
+### Parts, consumables and standards
+
+Each task can list the parts it uses: tap **+ Parts** under the task. Each part shows whether you have enough:
+- **In stock**;
+- **Not enough**;
+- **None in stock**;
+- **Check**: something might do, but you haven't confirmed it yet.
+
+**Standards (any brand will do).** A standard is a grade rather than a brand, such as "Engine oil SAE 10W-30".
+- A task that needs a standard can use any brand you've confirmed as meeting it.
+- A task that names a brand can also use equivalents, unless you untick **Or an equivalent** (for example, if the warranty requires that brand).
+- To link a product to a standard, open it and tap **Part details**. Enter its pack size (e.g. 1 L) and specifications (e.g. Viscosity: 10W-30). Matching standards are then *suggested*, and you **Confirm** each one. Nothing counts as equivalent until you confirm it.
+- **It's been replaced by…** records a superseded part number. The newer part counts too, but only one step: a part that replaced the replacement isn't counted.
+
+**Parts needed.** On the **Maintenance** page, this tab adds up the parts for everything due across all your equipment. If the mower and the generator both need 10W-30, one bottle of Castrol counts once for both. Anything short can be added to the shopping list.
+
+**When you complete a service**, its parts are filled in from your stock:
+- Pieces such as plugs and filters are taken out of stock.
+- For oil and other liquids, tick *used up* when a bottle is empty.
+
 ## Restocking
 
 Set a minimum and a restock level in an item's **Restock** section, and add where to buy it (Amazon, Lowe's, Tractor Supply or any shop). The **Restock** page lists what's running low with suggested quantities, and keeps a shopping list grouped by shop.

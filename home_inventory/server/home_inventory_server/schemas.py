@@ -443,6 +443,9 @@ class PartIn(_In):
     item_id: int | None = None
     # Take the quantity out of that inventory holding.
     deduct_stock: bool = False
+    # Whole holdings to take out when that differs from the amount used
+    # (0.55 L of oil used; the bottle is now empty -> take out 1).
+    deduct_quantity: int | None = Field(default=None, ge=1, le=100000)
 
 
 class ServiceIn(_In):

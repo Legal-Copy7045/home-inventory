@@ -209,6 +209,16 @@ class Product(TimestampMixin, Base):
     # Consumables: warn when the total quantity across all holdings drops
     # below this number (NULL = not tracked).
     min_quantity: Mapped[int | None] = mapped_column(Integer)
+    # Parts and consumables.  A *generic* product is a standard rather than
+    # a brand ("Engine oil SAE 10W-30, API SN"): branded products that meet
+    # it (a confirmed "meets" link) count as stock for it.  ``specs`` holds
+    # comparable properties ({"Viscosity": "10W-30", "Standard": "API SN"}).
+    # ``content_quantity``/``content_unit``: how much one holding contains
+    # (a 5 L bottle -> 5, "L"); NULL means it's counted in pieces.
+    is_generic: Mapped[bool] = mapped_column(default=False, server_default="0")
+    specs: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    content_quantity: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
+    content_unit: Mapped[str | None] = mapped_column(String(10))
     low_stock_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     catalog_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     ai_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON)
@@ -889,3 +899,120 @@ class ShoppingListItem(TimestampMixin, Base):
     purchased_quantity: Mapped[int | None] = mapped_column(Integer)
     purchase_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
+# ---------------------------------------------------------------------------
+# Parts: what fits what, standards, and what each service needs
+# ---------------------------------------------------------------------------
+
+LINK_STATUSES = ("suggested", "confirmed", "rejected")
+
+
+class ProductLink(Base):
+    """Between two products.
+
+    * ``meets``: ``product`` meets the standard ``target`` (a generic
+      product): Castrol GTX 10W-30 meets "Engine oil 10W-30, API SN".
+    * ``replaced_by``: the part number ``product`` was superseded by
+      ``target``.
+
+    Only *confirmed* links count as stock for something else; suggestions
+    (from a label, a manual or matching specs) wait for a person.  Links are
+    never followed more than one step.
+    """
+
+    __tablename__ = "product_links"
+    __table_args__ = (
+        UniqueConstraint("product_id", "target_id", "kind", name="uq_product_link"),
+        CheckConstraint("kind IN ('meets', 'replaced_by')", name="ck_product_link_kind"),
+        CheckConstraint("status IN ('suggested', 'confirmed', 'rejected')", name="ck_product_link_status"),
+        CheckConstraint("product_id != target_id", name="ck_product_link_not_self"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    target_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(12))
+    status: Mapped[str] = mapped_column(String(10), default="suggested")
+    # user | manual | label | specs
+    source: Mapped[str] = mapped_column(String(12), default="user")
+    note: Mapped[str | None] = mapped_column(String(300))
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PartFitment(Base):
+    """A part or consumable that a model of equipment takes.
+
+    Belongs to the equipment's *product* (its model), so every machine of
+    that model shares it.  ``source_ref`` says where it came from ("Owner's
+    manual, page 14").
+    """
+
+    __tablename__ = "part_fitments"
+    __table_args__ = (
+        UniqueConstraint("equipment_product_id", "part_product_id", "role", name="uq_part_fitment"),
+        CheckConstraint("status IN ('suggested', 'confirmed', 'rejected')", name="ck_fitment_status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    equipment_product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    part_product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String(80), default="")
+    quantity: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
+    unit: Mapped[str | None] = mapped_column(String(10))
+    status: Mapped[str] = mapped_column(String(10), default="suggested")
+    source: Mapped[str] = mapped_column(String(12), default="user")
+    source_ref: Mapped[str | None] = mapped_column(String(200))
+    note: Mapped[str | None] = mapped_column(String(300))
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TaskPart(Base):
+    """What one maintenance task uses each time it's done.
+
+    ``product`` can be a specific part or a standard (generic product).
+    With ``allow_equivalent`` a specific product may be replaced by anything
+    that meets the same standard, or by its confirmed replacement.
+    ``unit`` NULL means the product's own unit (pieces, or its content unit).
+    """
+
+    __tablename__ = "task_parts"
+    __table_args__ = (CheckConstraint("quantity > 0", name="ck_task_part_quantity"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("maintenance_tasks.id", ondelete="CASCADE"), index=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(10, 3), default=Decimal("1"))
+    unit: Mapped[str | None] = mapped_column(String(10))
+    allow_equivalent: Mapped[bool] = mapped_column(default=True)
+    note: Mapped[str | None] = mapped_column(String(200))
+
+    product: Mapped[Product] = relationship()
+
+
+class ManualReading(Base):
+    """An equipment manual (PDF or photos of pages) read by AI.
+
+    The result is a suggestion: services with intervals and what each one
+    needs, parts, consumables and capacities.  Nothing changes until a
+    person reviews and applies it.
+    """
+
+    __tablename__ = "manual_readings"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'ready', 'failed', 'applied', 'discarded')", name="ck_manual_reading_status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"), index=True)
+    attachment_ids: Mapped[list[Any]] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(10), default="pending")
+    provider: Mapped[str | None] = mapped_column(String(40))
+    model: Mapped[str | None] = mapped_column(String(120))
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

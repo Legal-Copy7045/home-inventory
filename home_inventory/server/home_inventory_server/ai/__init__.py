@@ -253,7 +253,7 @@ class AIService:
             return {"enabled": False, "error": str(err)}
         return {"enabled": True, "provider": p.name, "model": p.model}
 
-    def _call(self, prompt: str, schema: dict[str, Any], image: bytes | None) -> AIResult:
+    def _call(self, prompt: str, schema: dict[str, Any], image: bytes | None, timeout: float | None = None) -> AIResult:
         img = None
         if image is not None:
             img = downscale_for_ai(image, self.settings.ai_max_image_px)
@@ -262,7 +262,7 @@ class AIService:
         for attempt in range(attempts):
             start = time.monotonic()
             try:
-                raw = self.provider.generate_json(prompt, schema, img, timeout=self.settings.ai_timeout)
+                raw = self.provider.generate_json(prompt, schema, img, timeout=timeout or self.settings.ai_timeout)
                 data = raw if isinstance(raw, dict) else json.loads(raw)
                 return AIResult(
                     data=data,
@@ -350,6 +350,18 @@ class AIService:
         )
         res = self._call(prompt, ITEM_SCHEMA, None)
         res.data = _clean_item(res.data)
+        return res
+
+    def read_manual(self, text: str | None = None, image: bytes | None = None, equipment: str | None = None) -> AIResult:
+        """Services, parts and consumables from an equipment manual: its text
+        (with [page N] markers) or a photo of a page.  Suggestions only."""
+        from .manual import MANUAL_PROMPT, MANUAL_SCHEMA, clean_manual
+
+        about = f"\nThe equipment: {equipment[:200]}" if equipment else ""
+        source = f"\nManual text:\n{text}" if text else "\nThe photo shows one or more pages of the manual."
+        res = self._call(MANUAL_PROMPT + about + source, MANUAL_SCHEMA, image,
+                         timeout=max(self.settings.ai_timeout, 180))
+        res.data = clean_manual(res.data)
         return res
 
     def interpret_query(self, query: str) -> AIResult:

@@ -10,6 +10,7 @@ import { RelatedSection } from "./Kits";
 import { RestockSection } from "./Shopping";
 import { TagsSection } from "./Tags";
 import { EquipmentSection } from "./Maintenance";
+import { PartDetailsSection } from "../components/Parts";
 import { PhotoViewer } from "../components/PhotoViewer";
 import { ErrorBox, PathView, Section, Sheet, Spinner, StatusBadge, Stepper, fmtDate, fmtWhen, money, useAction, useApi, useMe, useToast } from "../components/ui";
 
@@ -49,6 +50,7 @@ export default function ItemDetail() {
   const item = useApi(() => api.get<Item>(`items/${id}`), [id]);
   const hist = useApi(() => api.get<{ events: HistoryEvent[] }>("history", { entity_type: "item", entity_id: id, limit: 30 }), [id]);
   const [params] = useSearchParams();
+  const [partOpen, setPartOpen] = useState(false);
   const [sheet, setSheet] = useState<null | "edit" | "move" | "lend" | "status" | "docs">(params.get("finish") ? "edit" : null);
   // Moving to another item reuses this page: close any sheet from the previous one.
   // ?do=move (e.g. from an NFC tag) opens that action straight away.
@@ -159,7 +161,7 @@ export default function ItemDetail() {
         </div>
       </div>
 
-      <Section title="Details">
+      <Section title="Details" action={edit && !it.owner && <button className="btn small ghost" onClick={() => setPartOpen(true)}>Part details</button>}>
         <dl className="kv">
           {it.manufacturer && (<><dt>Manufacturer</dt><dd>{it.manufacturer}</dd></>)}
           {it.model_number && (<><dt>Model</dt><dd>{it.model_number}</dd></>)}
@@ -179,6 +181,7 @@ export default function ItemDetail() {
       {me.can_edit && <CustomerItemSection item={it} edit={edit} onChanged={refresh} startRepair={doAction === "repair"} />}
       <EquipmentSection itemId={it.id} edit={edit} onChanged={() => hist.reload()} initial={doAction === "meter" || doAction === "service" ? doAction : undefined} />
       <RelatedSection itemId={it.id} edit={edit} />
+      {!it.owner && <PartDetailsSection productId={it.product_id} edit={edit} open={partOpen} setOpen={setPartOpen} />}
       {!it.owner && <RestockSection productId={it.product_id} edit={edit} />}
       {!it.deleted_at && <TagsSection targetType="item" targetId={it.id} name={it.display_name} />}
 
