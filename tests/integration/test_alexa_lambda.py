@@ -158,3 +158,25 @@ def test_interaction_model_matches_the_forwarder(monkeypatch, fake_ha):
             seen_samples[key] = i["name"]
     goes = next(i for i in model["intents"] if i["name"] == "HomeInventoryWhereDoesItGo")
     assert "where does the {item} go" in goes["samples"] and "to tell me where to put the {item}" in goes["samples"]
+
+
+def test_move_and_yes_no_are_forwarded(monkeypatch, fake_ha):
+    url, seen = fake_ha
+    mod = _load(monkeypatch, url)
+    ev = _event(intent="HomeInventoryMove")
+    ev["request"]["intent"]["slots"] = {"item": {"name": "item", "value": "engine oil"}, "place": {"name": "place", "value": "garage"}}
+    mod.lambda_handler(ev)
+    sent = seen[-1][2]["request"]["intent"]
+    assert sent["name"] == "HomeInventoryMove" and sent["slots"]["place"]["value"] == "garage"
+    missing = _event(intent="HomeInventoryMove")
+    missing["request"]["intent"]["slots"] = {"item": {"name": "item", "value": "engine oil"}, "place": {"name": "place"}}
+    assert _text(mod.lambda_handler(missing)).startswith("What did you move, and where to?")
+    # "Did you mean...?" answered yes: forwarded as the reply
+    yes = _event(intent="AMAZON.YesIntent")
+    yes["session"]["attributes"] = {mod.ASKING: True}
+    mod.lambda_handler(yes)
+    sent = seen[-1][2]["request"]["intent"]
+    assert sent["name"] == "HomeInventoryChoose" and sent["slots"]["choice"]["value"] == "yes"
+    before = len(seen)
+    assert _text(mod.lambda_handler(_event(intent="AMAZON.NoIntent"))) == "Okay."  # nothing was asked
+    assert len(seen) == before

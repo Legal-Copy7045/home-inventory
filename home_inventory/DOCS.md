@@ -14,9 +14,8 @@ A household inventory you open from the Home Assistant sidebar.
 
 The menu is grouped:
 
-- **Top:** Dashboard, Search, Add item, Scan, Quick photos, and **To sort & finish** (photos waiting to be put away, and items waiting for details, as two tabs).
+- **Top:** Dashboard, Search, Add item, Scan, Quick photos, **To sort & finish** (photos waiting to be put away, and items waiting for details, as two tabs) and **Maintenance & Repairs** (tabs for maintenance, repair jobs and customers).
 - **Inventory:** Items, Containers, Locations, Kits, Visual maps, Loans & temporary.
-- **Care:** **Maintenance & Repairs**, with tabs for maintenance, repair jobs and customers.
 - **Reports:** All reports (inventory report, maintenance plan, upcoming maintenance, restock & shopping, the maintenance guide and more), the inventory report, and Restock & Shopping.
 - **Admin:** Print labels, NFC tags, Activity history, Possible duplicates, Recently deleted and Settings.
 
@@ -68,7 +67,7 @@ Quick photos are saved on your phone before they upload. If you lose signal, or 
 
 ## Asking by voice
 
-Ask "Where is the hedge trimmer?", "Where does the hammer go?" (where it belongs, for putting it back), "What maintenance is due?", "What's running low?" or "What's lent out?". It works with Home Assistant Assist once you add a small sentences file, with Siri through an Apple Shortcut that hands your words to Assist, and with Alexa through your own custom skill ("Alexa, ask Home Inventory where the hedge trimmer is"). See `docs/voice.md` in the repository for the setup and the trade-offs (Alexa needs Home Assistant reachable from the internet).
+Ask "Where is the hedge trimmer?", "Where does the hammer go?" (where it belongs, for putting it back), "I've moved the engine oil to container number 5" (moves it, and asks if the place is unclear), "What maintenance is due?", "What's running low?" or "What's lent out?". It works with Home Assistant Assist once you add a small sentences file, with Siri through an Apple Shortcut that hands your words to Assist, and with Alexa through your own custom skill ("Alexa, ask Home Inventory where the hedge trimmer is"). See `docs/voice.md` in the repository for the setup and the trade-offs (Alexa needs Home Assistant reachable from the internet).
 
 ## Take it and put away
 
