@@ -28,14 +28,14 @@ READ_ONLY_ALLOWED: set[tuple[str, str]] = {
 
 
 def _routes(app):
-    from home_inventory_server.api.customers import router as customers_router
-    from home_inventory_server.api.maintenance import router as maintenance_router
-    from home_inventory_server.api.relations import router as relations_router
-    from home_inventory_server.api.replenishment import router as replenishment_router
-    from home_inventory_server.api.routes import router
-    from home_inventory_server.api.tags import router as tags_router
+    # Every router in the api package, so a new module can't be missed.
+    import importlib
+    import pkgutil
 
-    routes = [r for rt in (router, maintenance_router, customers_router, relations_router, tags_router, replenishment_router) for r in rt.routes if isinstance(r, APIRoute)]
+    import home_inventory_server.api as api_pkg
+
+    routers = [importlib.import_module(f"{api_pkg.__name__}.{m.name}").router for m in pkgutil.iter_modules(api_pkg.__path__)]
+    routes = [r for rt in routers for r in rt.routes if isinstance(r, APIRoute)]
     assert len(routes) > 50, "route walk found too few routes"
     for r in routes:
         for method in r.methods - {"HEAD", "OPTIONS"}:

@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import false, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import Category, Item, ItemStatus, Product, Setting
@@ -246,6 +246,19 @@ def run_search(db: Session, query: Query, limit: int = 50) -> dict[str, Any]:
     if query.barcode:
         norm = gtin_mod.normalise(query.barcode)
         stmt = stmt.where((Product.gtin == norm) if norm else (Product.barcode == query.barcode))
+    # Cheap filters in SQL; words are matched below (they also match places
+    # and allow typos, which SQL can't).
+    if query.status:
+        try:
+            stmt = stmt.where(Item.status == ItemStatus(query.status))
+        except ValueError:
+            stmt = stmt.where(false())  # not a status: nothing matches
+    if query.intent == "loans" and not query.terms:
+        stmt = stmt.where(Item.status.in_([ItemStatus.on_loan, ItemStatus.awaiting_return]))
+    if query.intent == "warranty":
+        stmt = stmt.where(Item.warranty_expires.is_not(None))
+    if query.intent == "expiry":
+        stmt = stmt.where(Item.expires_on.is_not(None))
     items = db.scalars(stmt).all()
 
     scored: list[tuple[float, Item]] = []

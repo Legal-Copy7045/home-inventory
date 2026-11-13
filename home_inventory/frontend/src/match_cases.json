@@ -1,0 +1,21 @@
+{
+  "_comment": "Shared by the server (textmatch.py) and the web app (match.ts) tests, so both search the same way.",
+  "match": [
+    ["shed right front shelf", "Shed › Front Right Shelving › Right Bottom Shelf"],
+    ["shed right front shelf", "Shed › Front Right Shelving"],
+    ["front shelves shed", "Shed › Front Right Shelving › Right Bottom Shelf"],
+    ["rig sh", "Shed › Front Right Shelving › Right Bottom Shelf"],
+    ["shelving", "Basement › Server Shelf Left"],
+    ["batteries", "AA battery"],
+    ["boxes", "Storage box"],
+    ["#7", "Box #7"],
+    ["cafe", "Café shelf"],
+    ["", "anything"]
+  ],
+  "no_match": [
+    ["garage shelf", "Shed › Front Right Shelving › Right Bottom Shelf"],
+    ["frog", "Shed › Front Right Shelving › Right Bottom Shelf"],
+    ["basement", "Shed"],
+    ["drill bits", "Drill"]
+  ]
+}

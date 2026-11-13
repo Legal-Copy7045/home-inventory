@@ -36,6 +36,7 @@ jobs:
           cache: npm
           cache-dependency-path: home_inventory/frontend/package-lock.json
       - run: npm ci
+      - run: npm test
       - run: npm run build
 
   integration:
