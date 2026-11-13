@@ -17,44 +17,17 @@ Anything that can hand Home Assistant an intent can use it. You need the integra
 
 ## 1. Assist (recommended)
 
-Create `custom_sentences/en/home_inventory.yaml` in your Home Assistant configuration folder (next to `configuration.yaml`):
+Copy [`deploy/assist/custom_sentences/en/home_inventory.yaml`](../deploy/assist/custom_sentences/en/home_inventory.yaml) to `custom_sentences/en/home_inventory.yaml` in your Home Assistant configuration folder (next to `configuration.yaml`; create the folders if they don't exist). It holds every Home Inventory question:
 
-```yaml
-language: "en"
-intents:
-  HomeInventoryWhereIs:
-    data:
-      - sentences:
-          - "where is [the|my] {item}"
-          - "where are [the|my] {item}"
-          - "where did I (put|leave) [the|my] {item}"
-          - "find [the|my] {item}"
-  HomeInventoryChoose:
-    data:
-      - sentences:
-          - "the {choice} [one]"
-          - "I meant [the] {choice}"
-  HomeInventoryMaintenanceDue:
-    data:
-      - sentences:
-          - "what maintenance is due"
-          - "what (needs|is due for) servicing"
-  HomeInventoryRunningLow:
-    data:
-      - sentences:
-          - "what('s| is) running low"
-          - "what do I need to (buy|restock)"
-  HomeInventoryOnLoan:
-    data:
-      - sentences:
-          - "what('s| is| have I) lent out"
-          - "who has my stuff"
-lists:
-  item:
-    wildcard: true
-  choice:
-    wildcard: true
-```
+| Intent | Example | Answers with |
+|---|---|---|
+| `HomeInventoryWhereIs` | "Where is the hedge trimmer?" | where it is (or asks which one) |
+| `HomeInventoryChoose` | "The second one" | the answer for that one |
+| `HomeInventoryMaintenanceDue` | "What maintenance is due?" | overdue jobs and those due in two weeks |
+| `HomeInventoryRunningLow` | "What's running low?" | supplies below their minimum |
+| `HomeInventoryOnLoan` | "What's lent out?" | what's on loan, and to whom |
+
+Add your own phrasings to it if you like; keep the intent names.
 
 Restart Home Assistant (or reload conversation). Then say or type "Where is the hedge trimmer?" to Assist.
 
