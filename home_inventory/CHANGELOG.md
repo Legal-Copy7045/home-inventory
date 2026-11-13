@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.15.2
+
+- **Maintenance only on equipment.** The Maintenance section now appears only on items tracked as equipment. For anything else, **Track maintenance** is a small link next to *Details*; its setup screen offers **Read the manual** first (which sets up the schedule and parts) or a type of equipment.
+- Removed the extra "Read for the service schedule and parts" button from manual documents, which repeated **Read the manual** and overflowed on phones.
+
 ## 0.15.1
 
 - **Unidentified things are kept for later.** A photo inventory now also lists objects the AI can see but can't identify, with a plain description ("Black hard case") and the badge **Unidentified – to finish**. When you confirm, they're saved with their own cut-out photo on the **To finish** list, where you can say what they are. Untick the badge if you name one during the review.
