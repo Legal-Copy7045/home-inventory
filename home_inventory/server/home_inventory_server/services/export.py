@@ -38,6 +38,7 @@ COLUMNS = [
     ("unit_price", "Price each"),
     ("currency", "Currency"),
     ("value", "Value (price × quantity)"),
+    ("estimated_value", "AI estimate (replacement × quantity)"),
     ("warranty_expires", "Warranty until"),
     ("photos", "Photos"),
     ("receipts", "Receipts"),
@@ -66,6 +67,7 @@ def build(db: Session, item_ids: list[int], r: Resolver) -> dict[str, Any]:
     rows = []
     groups: OrderedDict[str, dict[str, Any]] = OrderedDict()
     total = Decimal(0)
+    estimated_total = Decimal(0)
     unvalued = 0
     for item_id in item_ids:
         it = items.get(item_id)
@@ -79,6 +81,10 @@ def build(db: Session, item_ids: list[int], r: Resolver) -> dict[str, Any]:
             unvalued += 1
         else:
             total += value
+        est = ((it.ai_metadata or {}).get("value_estimate") or {}).get("replacement")
+        estimated = (Decimal(str(est)) * it.quantity).quantize(Decimal("0.01")) if est else None
+        if value is None and estimated is not None:
+            estimated_total += estimated  # only fills gaps: a price paid always wins
         photo = db.get(Attachment, it.primary_photo_id) if it.primary_photo_id else None
         row = {
             "item_id": it.id,
@@ -96,6 +102,7 @@ def build(db: Session, item_ids: list[int], r: Resolver) -> dict[str, Any]:
             "unit_price": str(it.purchase_price) if it.purchase_price is not None else None,
             "currency": it.currency or (cur if it.purchase_price is not None else None),
             "value": str(value) if value is not None else None,
+            "estimated_value": str(estimated) if estimated is not None else None,
             "warranty_expires": it.warranty_expires.isoformat() if it.warranty_expires else None,
             "photos": counts.get((it.id, AttachmentKind.photo.value), 0),
             "receipts": counts.get((it.id, AttachmentKind.receipt.value), 0),
@@ -113,6 +120,8 @@ def build(db: Session, item_ids: list[int], r: Resolver) -> dict[str, Any]:
         "count": len(rows),
         "total_value": str(total),
         "unvalued": unvalued,
+        # AI replacement estimates for items without a price (a guide, not a valuation).
+        "estimated_unvalued_total": str(estimated_total),
         "rows": rows,
         "groups": [{**g, "value": str(g["value"])} for g in groups.values()],
     }

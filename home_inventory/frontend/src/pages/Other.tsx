@@ -193,7 +193,7 @@ export function LoansPage() {
 
 // ---------------------------------------------------------------- settings
 
-interface SettingsData { currency: string; qr_base_url: string; amazon_domain: string | null; amazon_associate_tag: string | null; synonyms: Record<string, string[]>; ai: { enabled: boolean; provider?: string; model?: string; error?: string }; barcode_providers: string[]; mode: string; version: string }
+interface SettingsData { currency: string; qr_base_url: string; amazon_domain: string | null; amazon_associate_tag: string | null; synonyms: Record<string, string[]>; ai: { enabled: boolean; provider?: string; model?: string; error?: string }; barcode_providers: string[]; mode: string; version: string; maintenance_auto_shopping: boolean; hemisphere: "north" | "south" }
 interface UserRow { id: number; name: string; username: string | null; ha_is_admin: boolean; role: string; role_override: string | null; last_seen: string }
 
 export function SettingsPage() {
@@ -206,6 +206,8 @@ export function SettingsPage() {
   const [syn, setSyn] = useState("");
   const [amazonDomain, setAmazonDomain] = useState("");
   const [amazonTag, setAmazonTag] = useState("");
+  const [autoShop, setAutoShop] = useState(true);
+  const [hemi, setHemi] = useState<"north" | "south">("north");
   const { busy, run } = useAction();
   const toast = useToast();
   useEffect(() => {
@@ -214,6 +216,8 @@ export function SettingsPage() {
       setQrBase(s.data.qr_base_url);
       setAmazonDomain(s.data.amazon_domain || "");
       setAmazonTag(s.data.amazon_associate_tag || "");
+      setAutoShop(s.data.maintenance_auto_shopping !== false);
+      setHemi(s.data.hemisphere || "north");
       setSyn(Object.entries(s.data.synonyms || {}).map(([k, v]) => `${k}: ${v.join(", ")}`).join("\n"));
     }
   }, [s.data]);
@@ -228,6 +232,7 @@ export function SettingsPage() {
     await run(() => api.patch("settings", {
       currency: currency.toUpperCase(), qr_base_url: qrBase.trim(), synonyms,
       amazon_domain: amazonDomain.trim() || null, amazon_associate_tag: amazonTag.trim() || null,
+      maintenance_auto_shopping: autoShop, hemisphere: hemi,
     }), "Settings saved");
   }
 
@@ -264,6 +269,19 @@ export function SettingsPage() {
             <label className="field">Amazon Associates tag (optional)
               <span className="hint">Only if you have your own Associates account; added to links you open.</span>
               <input value={amazonTag} onChange={(e) => setAmazonTag(e.target.value)} />
+            </label>
+            <label className="row" style={{ gap: 8, alignItems: "flex-start" }}>
+              <input type="checkbox" checked={autoShop} onChange={(e) => setAutoShop(e.target.checked)} />
+              <span>Add missing maintenance parts to the shopping list
+                <span className="hint" style={{ display: "block" }}>When equipment becomes due for service, parts it needs that aren't in stock are added to Restock (once per service).</span>
+              </span>
+            </label>
+            <label className="field">Seasons
+              <span className="hint">For the seasonal maintenance checklist.</span>
+              <select value={hemi} onChange={(e) => setHemi(e.target.value as "north" | "south")} style={{ width: "auto" }}>
+                <option value="north">Northern hemisphere (winter in December)</option>
+                <option value="south">Southern hemisphere (winter in June)</option>
+              </select>
             </label>
             <button className="btn primary" disabled={busy} onClick={saveSettings}>Save</button>
           </div>

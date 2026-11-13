@@ -152,9 +152,13 @@ export interface Product {
   ai_metadata: Record<string, unknown> | null;
 }
 
+export interface ValueEstimate { replacement: number | null; used_low: number | null; used_high: number | null; basis: string | null; currency: string; estimated_on: string }
+
 export interface Item {
   id: number;
   product_id: number;
+  /** AI notes on this item (detail view), e.g. its value estimate. */
+  ai_metadata?: { value_estimate?: ValueEstimate } & Record<string, unknown> | null;
   name: string;
   /** Set when the item belongs to a customer, not the household. */
   owner?: ItemOwner | null;

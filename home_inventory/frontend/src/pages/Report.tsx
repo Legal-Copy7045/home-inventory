@@ -30,6 +30,7 @@ interface Report {
   count: number;
   total_value: string;
   unvalued: number;
+  estimated_unvalued_total?: string;
   groups: { room: string; count: number; value: string; items: Row[] }[];
 }
 
@@ -81,6 +82,7 @@ export default function ReportPage() {
               <div className="stat"><div className="v">{r.count}</div><div className="l">Items</div></div>
               <div className="stat"><div className="v" style={{ fontSize: "1.2rem" }}>{money(r.total_value, r.currency)}</div><div className="l">Recorded value</div></div>
               {r.unvalued > 0 && <div className="stat"><div className="v">{r.unvalued}</div><div className="l">Without a price</div></div>}
+              {Number(r.estimated_unvalued_total || 0) > 0 && <div className="stat"><div className="v" style={{ fontSize: "1.2rem" }}>≈ {money(r.estimated_unvalued_total!, r.currency)}</div><div className="l">AI estimate for items without a price</div></div>}
             </div>
             <p className="muted print-only">Generated {new Date().toLocaleString()}</p>
           </div>

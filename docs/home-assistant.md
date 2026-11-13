@@ -74,6 +74,7 @@ script:
 | `home_inventory_item_expiring` | item_id, name, quantity, expires_on, days_left, expired, location |
 | `home_inventory_low_stock` | product_id, name, quantity, min_quantity |
 | `home_inventory_maintenance_completed` | item_id, name, task, performed_on, hours, next_due_on, next_due_hours, user |
+| `home_inventory_maintenance_due` | item_id, item_name, task_id, title, status (due_soon/overdue), next_due_on, days_left, hours_left, estimated_due_on, parts_ready, parts_missing, added_to_shopping_list, message |
 | `home_inventory_repair_job_status` | job_id, number, status, previous, user (no customer details) |
 | `home_inventory_tag_scanned` | tag_id, target_type, target_id, default_action, user |
 | `home_inventory_shopping_list_updated` | reason (added, opened_at_shop, in_cart, purchased…), open_items, user |

@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -316,3 +317,27 @@ def meter_sync(item_id: int, request: Request, actor: Actor = Depends(require_me
     results = sensor_meters.sync_profile(db, _ha(request), profile)
     db.commit()
     return {"results": results}
+
+
+class SeasonalIn(BaseModel):
+    item_id: int
+    key: int = Field(ge=0)
+
+
+@router.get("/maintenance/seasonal")
+def seasonal_checklist(actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    """This season's jobs: yearly maintenance due in the next three months, and
+    seasonal jobs suggested for your equipment."""
+    from ..services import seasonal
+
+    return seasonal.checklist(db)
+
+
+@router.post("/maintenance/seasonal", status_code=201)
+def add_seasonal(data: SeasonalIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    from ..services import seasonal
+
+    item = _item(db, data.item_id)
+    task = _run(seasonal.add, db, actor, item, data.key)
+    db.commit()
+    return {"task_id": task.id}

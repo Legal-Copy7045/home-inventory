@@ -33,7 +33,8 @@ SKILL_ID = os.environ.get("SKILL_ID", "")  # amzn1.ask.skill.xxxxxxxx
 
 TIMEOUT = 6  # seconds; Alexa gives up after about 8
 # Intents answered by Home Assistant, and the slot each one needs.
-FORWARDED = {"HomeInventoryWhereIs": "item", "HomeInventoryChoose": "choice"}
+FORWARDED = {"HomeInventoryWhereIs": "item", "HomeInventoryChoose": "choice",
+             "HomeInventoryMaintenanceDue": None, "HomeInventoryRunningLow": None, "HomeInventoryOnLoan": None}
 
 
 def _say(text: str, end: bool = True, reprompt: str | None = None) -> dict:
@@ -94,12 +95,14 @@ def lambda_handler(event: dict, context=None) -> dict:
 
     name = (request.get("intent") or {}).get("name")
     if name in FORWARDED:
-        slot = ((request.get("intent") or {}).get("slots") or {}).get(FORWARDED[name]) or {}
+        needed = FORWARDED[name]
+        slot = (((request.get("intent") or {}).get("slots") or {}).get(needed) or {}) if needed else {"value": True}
         if not slot.get("value"):
             return _say("What should I look for?", end=False, reprompt="Say, for example: where is the drill.")
         return _forward(event)
     if name == "AMAZON.HelpIntent":
-        return _say("Ask where something is kept, for example: where is the hedge trimmer.", end=False,
+        return _say("Ask where something is kept, for example: where is the hedge trimmer. You can also ask what "
+                    "maintenance is due, what's running low, or what's lent out.", end=False,
                     reprompt="What are you looking for?")
     if name in ("AMAZON.StopIntent", "AMAZON.CancelIntent", "AMAZON.NavigateHomeIntent"):
         return _say("Okay.")

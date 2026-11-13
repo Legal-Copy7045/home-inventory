@@ -33,6 +33,7 @@ EVENT_TYPES = {
     "item_expiring",
     "low_stock",
     "maintenance_completed",
+    "maintenance_due",
     "repair_job_status",
     "tag_scanned",
     "shopping_list_updated",
