@@ -12,7 +12,17 @@ from sqlalchemy.orm import Session
 
 from ..auth import Actor, current_actor, get_db, require_member
 from ..models import Attachment, EquipmentProfile, Item, MaintenanceTask, MeterKind, Role, ServiceEvent
-from ..schemas import DeferIn, EquipmentIn, MeterReadingIn, NotApplicableIn, ServiceIn, SkipIn, TaskFields, TaskIn
+from ..schemas import (
+    DeferIn,
+    EquipmentIn,
+    MeterPhotoIn,
+    MeterReadingIn,
+    NotApplicableIn,
+    ServiceIn,
+    SkipIn,
+    TaskFields,
+    TaskIn,
+)
 from ..services import inventory as inv
 from ..services import maintenance as mnt
 from ..services import stats as stats_svc
@@ -183,11 +193,57 @@ def not_applicable(task_id: int, data: NotApplicableIn, actor: Actor = Depends(r
 
 @router.post("/items/{item_id}/meter-readings", status_code=201)
 def add_reading(item_id: int, data: MeterReadingIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    from datetime import UTC, datetime
+    from datetime import time as dtime
+
     item = _item(db, item_id)
-    _run(mnt.add_reading, db, actor, item, MeterKind(data.kind), Decimal(data.value),
-         source="estimated" if data.estimated else "manual", note=data.note, correction=data.correction)
+    if data.photo_id is not None:
+        att = db.get(Attachment, data.photo_id)
+        if att is None or att.item_id != item.id:
+            raise HTTPException(404, "Photo not found on this item")
+    when = None
+    if data.recorded_on is not None:
+        if data.recorded_on > date.today():
+            raise HTTPException(422, "The date can't be in the future")
+        # A past day counts as the end of that day; today counts as now.
+        when = (datetime.now(UTC) if data.recorded_on == date.today()
+                else datetime.combine(data.recorded_on, dtime(23, 59), tzinfo=UTC))
+    source = "photo" if data.photo_id and not data.estimated else "estimated" if data.estimated else "manual"
+    _run(mnt.add_reading, db, actor, item, MeterKind(data.kind), Decimal(data.value), source=source, note=data.note,
+         correction=data.correction, recorded_at=when, photo_id=data.photo_id)
     db.commit()
     return _summary(db, item)
+
+
+@router.post("/items/{item_id}/meter-photo")
+async def read_meter_photo(item_id: int, data: MeterPhotoIn, request: Request, actor: Actor = Depends(require_member),
+                           db: Session = Depends(get_db)):
+    """AI reads the number on a photo of the hour meter (a suggestion; nothing is saved)."""
+    import asyncio
+
+    from ..ai import AIFailed, AIUnavailable
+
+    st = request.app.state
+    item = _item(db, item_id)
+    att = db.get(Attachment, data.attachment_id)
+    if att is None or att.item_id != item.id or not (att.mime_type or "").startswith("image/"):
+        raise HTTPException(404, "Photo not found on this item")
+    st.rate_limiter.check(actor.user_id, "ai")
+    last = mnt.current_meter(db, item.id, MeterKind(data.kind))
+    try:
+        res = await asyncio.to_thread(st.ai.read_meter, st.media.read(att.stored_path), data.kind,
+                                      float(last) if last is not None else None)
+    except AIUnavailable as err:
+        raise HTTPException(503, str(err)) from err
+    except AIFailed as err:
+        raise HTTPException(502, str(err)) from err
+    if not att.caption:
+        att.caption = "Hour meter" if data.kind == "hours" else "Use counter"
+        db.commit()
+    out = dict(res.data)
+    out["last"] = float(last) if last is not None else None
+    out["lower_than_last"] = out["value"] is not None and last is not None and out["value"] < float(last)
+    return out
 
 
 @router.post("/items/{item_id}/service-events", status_code=201)

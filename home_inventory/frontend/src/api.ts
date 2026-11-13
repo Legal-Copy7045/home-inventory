@@ -510,6 +510,8 @@ export interface MaintTask {
   days_left: number | null;
   hours_left: number | null;
   cycles_left: number | null;
+  /** When an hours/uses threshold is reached at the recent rate of use. */
+  estimated_due_on?: string | null;
   item?: { id: number; name: string; label: string | null };
 }
 
@@ -564,7 +566,8 @@ export interface EquipmentProfile {
 export interface MaintenanceSummary {
   profile: EquipmentProfile | null;
   meters: { hours: number | null; cycles: number | null };
-  readings: { id: number; kind: string; value: number; recorded_at: string; source: string; note: string | null }[];
+  readings: { id: number; kind: string; value: number; recorded_at: string; source: string; note: string | null; photo: { id: number; url: string; thumb_url: string } | null }[];
+  usage?: Record<"hours" | "cycles", MeterUsage>;
   tasks: MaintTask[];
   history: ServiceEntry[];
 }
@@ -817,4 +820,11 @@ export interface ManualReading {
     notes?: string[];
   } | null;
   created_at: string;
+}
+
+export interface MeterUsage {
+  kind: "hours" | "cycles";
+  points: { date: string; value: number; source: string; photo: boolean }[];
+  per_day: number | null;
+  per_week: number | null;
 }
