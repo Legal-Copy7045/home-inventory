@@ -512,6 +512,8 @@ class MaintenanceTask(TimestampMixin, Base):
     deferred_until: Mapped[date | None] = mapped_column(Date)
     not_applicable: Mapped[bool] = mapped_column(default=False)
     sort_order: Mapped[int] = mapped_column(default=0)
+    # Which due point (date/hours/uses) the last "maintenance due" notice was for.
+    due_notified_key: Mapped[str | None] = mapped_column(String(80))
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 

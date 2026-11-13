@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.16.0
+
+- **Maintenance reminders.** Once a day, a task that has just become due soon or overdue sends one `home_inventory_maintenance_due` event (once per service interval), saying whether its parts are in stock and which are missing. The integration can send it to your phone: turn on **Send maintenance reminders to your phone** in its options.
+- **Parts onto the shopping list.** Parts a due task needs that aren't in stock are added to **Restock** automatically, with a note saying which job they're for (Settings → *Add missing maintenance parts to the shopping list*; on by default).
+- **This season.** A new tab on the Maintenance page lists dated jobs for the next three months and suggests seasonal jobs your equipment doesn't have yet (winterise the mower in October, pre-season check in March...). **Add** makes it a yearly task. Northern or southern hemisphere under Settings → Seasons.
+- **Wide areas.** On a location, **Wide area (2-4 photos)** joins photos taken left to right into one panorama for the photo inventory.
+- **Labels for new boxes.** After a photo inventory adds boxes, it offers to print their labels.
+- **Warranty claim pack.** On an item, **Download the claim pack** gives a ZIP with a summary PDF (make, model, serial number, purchase and warranty details) and the receipts, documents and photos.
+- **Value estimates.** **Estimate with AI** gives a rough replacement price and second-hand range for an item, kept with it and dated. The inventory report shows it in its own column and totals it for items without a price.
+- **More voice questions.** "What maintenance is due?", "What's running low?" and "What's lent out?" with Assist, Siri (through Assist) and the Alexa skill. Update your custom sentences and the Alexa interaction model (see `docs/voice.md`).
+- Database: one new column (`maintenance_tasks.due_notified_key`); the update migrates automatically.
+
 ## 0.15.4
 
 - **Opens faster.** The app's main download is about a third of the size: pages load when first opened (and in the background once the app is idle, so they still work offline), and the barcode decoder loads only when a scan needs it.

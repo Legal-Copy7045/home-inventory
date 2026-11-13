@@ -99,3 +99,14 @@ def test_problems_are_spoken_plainly(monkeypatch, fake_ha):
     assert _text(unreachable.lambda_handler(_event(intent="HomeInventoryWhereIs", item="x"))) == "Sorry, I couldn't reach Home Assistant."
     unset = _load(monkeypatch, "", token="")
     assert "isn't set up yet" in _text(unset.lambda_handler(_event(intent="HomeInventoryWhereIs", item="x")))
+
+
+def test_questions_without_a_slot_are_forwarded(monkeypatch, fake_ha):
+    url, seen = fake_ha
+    mod = _load(monkeypatch, url)
+    for name in ("HomeInventoryMaintenanceDue", "HomeInventoryRunningLow", "HomeInventoryOnLoan"):
+        ev = _event(intent=name)
+        ev["request"]["intent"]["slots"] = {}
+        mod.lambda_handler(ev)
+    assert [b["request"]["intent"]["name"] for _p, _a, b in seen] == [
+        "HomeInventoryMaintenanceDue", "HomeInventoryRunningLow", "HomeInventoryOnLoan"]
