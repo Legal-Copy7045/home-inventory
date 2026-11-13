@@ -365,3 +365,32 @@ async def test_voice_answers_sent_as_notification(hass: HomeAssistant, inventory
     resp = await intent.async_handle(hass, "alexa", "HomeInventoryWhereIs", {"item": {"value": "axle stand"}})
     assert resp.speech["plain"]["speech"].startswith("Axle stand is in Garage")
     await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_voice_questions_without_slots(hass: HomeAssistant, inventory_app, hass_admin_user):
+    from homeassistant.helpers import intent
+
+    entry = await _setup_via_user_flow(hass, inventory_app)
+    ctx = Context(user_id=hass_admin_user.id)
+    say = lambda r: r.speech["plain"]["speech"]  # noqa: E731
+    m = await intent.async_handle(hass, "test", "HomeInventoryMaintenanceDue", {}, context=ctx)
+    assert "maintenance" in say(m) or "due" in say(m)
+    low = await intent.async_handle(hass, "test", "HomeInventoryRunningLow", {}, context=ctx)
+    assert say(low).startswith(("Nothing is running low", "You're running low on"))
+    loans = await intent.async_handle(hass, "test", "HomeInventoryOnLoan", {}, context=ctx)
+    assert say(loans).startswith(("Nothing is lent out", "1 thing is", "2 things are"))
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
+def test_question_answers_read_naturally():
+    from custom_components.home_inventory.intent import loans_answer, low_stock_answer, maintenance_answer
+
+    dash = {"overdue": [{"item": {"name": "Mower"}, "title": "Engine oil change"}],
+            "due": [{"item": {"name": "Generator"}, "title": "Exercise run"}]}
+    assert maintenance_answer(dash) == ("1 job is overdue: Mower engine oil change. "
+                                        "1 job is due in the next two weeks: Generator exercise run.")
+    assert maintenance_answer({"overdue": [], "due": []}) == "Nothing is due for maintenance in the next two weeks."
+    rows = [{"name": "AA batteries", "quantity": 3, "min_quantity": 4}, {"name": "Bin bags", "quantity": 9, "min_quantity": 2}]
+    assert low_stock_answer(rows) == "You're running low on AA batteries (3 left)."
+    many = [{"item": {"name": f"Tool {n}"}, "borrower": "Pat"} for n in range(7)]
+    assert loans_answer(many).endswith("Tool 4 to Pat and 2 more.")

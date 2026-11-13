@@ -392,6 +392,41 @@ class AIService:
         res.data = clean_document(res.data)
         return res
 
+    def estimate_value(self, description: str, currency: str, image: bytes | None = None) -> AIResult:
+        """A rough second-hand and replacement value (a suggestion for insurance lists)."""
+        prompt = (
+            "Estimate what this household item is worth, for an insurance list. Return JSON only. "
+            f"Item: {description}.\n"
+            f'Give amounts in {currency}. "replacement": what a new equivalent costs today. "used_low" and "used_high": '
+            "a typical range for selling it second-hand in good working order. Use null for any amount you can't "
+            'estimate sensibly. "basis": one short sentence on what the estimate assumes (model, age, condition). '
+            '"confidence" 0..1. Never invent a specific model that isn\'t given or visible.'
+        )
+        num = {"type": ["number", "null"]}
+        schema = {"type": "object", "properties": {"replacement": num, "used_low": num, "used_high": num,
+                                                   "basis": {"type": ["string", "null"]}, "confidence": {"type": "number"}},
+                  "required": ["replacement", "used_low", "used_high", "basis", "confidence"], "additionalProperties": False}
+        res = self._call(prompt, schema, image)
+        d = res.data
+
+        def money(v: Any) -> float | None:
+            try:
+                f = round(float(v), 2)
+            except (TypeError, ValueError):
+                return None
+            return f if 0 < f < 10_000_000 else None
+
+        low, high = money(d.get("used_low")), money(d.get("used_high"))
+        if low is not None and high is not None and low > high:
+            low, high = high, low
+        try:
+            conf = max(0.0, min(float(d.get("confidence")), 1.0))
+        except (TypeError, ValueError):
+            conf = None
+        res.data = {"replacement": money(d.get("replacement")), "used_low": low, "used_high": high,
+                    "basis": (str(d.get("basis") or "").strip()[:300] or None), "confidence": conf, "currency": currency}
+        return res
+
     def read_meter(self, image: bytes, kind: str = "hours", last: float | None = None) -> AIResult:
         """The number on an hour meter or counter in a photo (a suggestion)."""
         what = "operating hours (hour meter)" if kind == "hours" else "uses/starts (counter)"

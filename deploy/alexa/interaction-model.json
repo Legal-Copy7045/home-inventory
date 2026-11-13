@@ -51,6 +51,36 @@
           ]
         },
         {
+          "name": "HomeInventoryOnLoan",
+          "slots": [],
+          "samples": [
+            "what is lent out",
+            "what's lent out",
+            "what have I lent out",
+            "who has my stuff"
+          ]
+        },
+        {
+          "name": "HomeInventoryRunningLow",
+          "slots": [],
+          "samples": [
+            "what is running low",
+            "what's running low",
+            "what do I need to buy",
+            "what do I need to restock"
+          ]
+        },
+        {
+          "name": "HomeInventoryMaintenanceDue",
+          "slots": [],
+          "samples": [
+            "what maintenance is due",
+            "what needs servicing",
+            "what is due for servicing",
+            "what maintenance do I need to do"
+          ]
+        },
+        {
           "name": "AMAZON.HelpIntent",
           "samples": []
         },

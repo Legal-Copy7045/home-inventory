@@ -359,6 +359,10 @@ class SettingsIn(_In):
     amazon_domain: str | None = Field(default=None, max_length=30, pattern=r"^(www\.)?amazon\.[a-z.]{2,8}$")
     # Optional: your own Amazon Associates tag (only sent in links you open).
     amazon_associate_tag: str | None = Field(default=None, max_length=40, pattern=r"^[A-Za-z0-9-]*$")
+    # Add parts that due maintenance needs, and that aren't in stock, to the shopping list.
+    maintenance_auto_shopping: bool | None = None
+    # For seasonal checklists: which months are spring, summer...
+    hemisphere: Literal["north", "south"] | None = None
 
 
 class BarcodeLookupIn(_In):

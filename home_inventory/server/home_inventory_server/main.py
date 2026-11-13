@@ -222,6 +222,12 @@ def _daily_jobs(state: AppState) -> None:
         n = stats_svc.expiry_check(db, state.settings.expiry_notice_days)
         if n:
             _LOGGER.info("Published %s expiry notice(s)", n)
+        from .services import maintenance_notices
+
+        res = maintenance_notices.check(db)
+        if res["sent"]:
+            _LOGGER.info("Published %s maintenance due notice(s); %s part(s) added to the shopping list",
+                         res["sent"], res["added_to_shopping_list"])
         # Remove photos uploaded but never attached (abandoned add-item flows).
         cutoff = datetime.now(UTC) - timedelta(days=2)
         orphans = db.scalars(

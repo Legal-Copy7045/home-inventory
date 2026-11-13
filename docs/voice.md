@@ -34,6 +34,21 @@ intents:
       - sentences:
           - "the {choice} [one]"
           - "I meant [the] {choice}"
+  HomeInventoryMaintenanceDue:
+    data:
+      - sentences:
+          - "what maintenance is due"
+          - "what (needs|is due for) servicing"
+  HomeInventoryRunningLow:
+    data:
+      - sentences:
+          - "what('s| is) running low"
+          - "what do I need to (buy|restock)"
+  HomeInventoryOnLoan:
+    data:
+      - sentences:
+          - "what('s| is| have I) lent out"
+          - "who has my stuff"
 lists:
   item:
     wildcard: true
@@ -44,6 +59,8 @@ lists:
 Restart Home Assistant (or reload conversation). Then say or type "Where is the hedge trimmer?" to Assist.
 
 If your words match several different things, it asks: *"I found 3 things for hose: Kink Control Plus Water Hose 50ft, Siphon pump hose and Siphon pump with hose and funnel. Which one did you mean?"* Answer with "the water hose one", "the siphon pump" or "the second one" (within two minutes). Voice devices keep listening after a question, so you can just answer.
+
+Three more questions need no item name: **"What maintenance is due?"** (overdue jobs and those due in the next two weeks), **"What's running low?"** (supplies below their minimum) and **"What's lent out?"** (and to whom). Long lists read the first five and say how many more.
 
 Other languages: put a file with the same intent name in `custom_sentences/<language>/`, with sentences in that language.
 

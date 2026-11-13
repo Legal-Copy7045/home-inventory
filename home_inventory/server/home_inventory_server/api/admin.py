@@ -36,6 +36,7 @@ from ..schemas import (
 from ..services import backup as backup_svc
 from ..services import barcode as barcode_svc
 from ..services import inventory as inv
+from ..services import maintenance_notices
 from ..services import stats as stats_svc
 from .routes import _qr_base, _resolver, _state
 
@@ -176,6 +177,8 @@ def get_settings(request: Request, actor: Actor = Depends(current_actor), db: Se
         "ai": st.ai.describe(),
         "barcode_providers": [name for name, _ in (st.barcode_providers if st.barcode_providers is not None else barcode_svc.providers(st.settings))],
         "warranty_notice_days": st.settings.warranty_notice_days,
+        "maintenance_auto_shopping": maintenance_notices.auto_shopping(db),
+        "hemisphere": (db.get(Setting, "hemisphere").value if db.get(Setting, "hemisphere") else None) or "north",
         "mode": st.settings.mode,
         "version": st.version,
     }

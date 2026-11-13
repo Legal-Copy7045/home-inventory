@@ -15,6 +15,10 @@ The question ends with "?" and carries a reprompt, which keeps the
 conversation open: Assist voice devices listen again, and Home Assistant's
 Alexa integration keeps the Alexa session open.
 
+Three questions need no slots: ``HomeInventoryMaintenanceDue`` ("what
+maintenance is due?"), ``HomeInventoryRunningLow`` ("what's running low?")
+and ``HomeInventoryOnLoan`` ("what's lent out?").
+
 Final answers can also go to a phone as a notification (the integration's
 options: off, Alexa only, or all voice assistants).
 
@@ -45,6 +49,10 @@ _LOGGER = logging.getLogger(__name__)
 
 INTENT_WHERE_IS = "HomeInventoryWhereIs"
 INTENT_CHOOSE = "HomeInventoryChoose"
+INTENT_MAINTENANCE = "HomeInventoryMaintenanceDue"
+INTENT_LOW_STOCK = "HomeInventoryRunningLow"
+INTENT_ON_LOAN = "HomeInventoryOnLoan"
+SPOKEN_MAX = 5  # read out at most this many things, then "and N more"
 PENDING_KEY = f"{DOMAIN}_voice_pending"
 PENDING_SECONDS = 120
 MAX_CHOICES = 6
@@ -289,14 +297,120 @@ class ChooseHandler(intent.IntentHandler):
         return response
 
 
+async def _get(intent_obj: intent.Intent, path: str, params: dict[str, Any] | None = None) -> Any:
+    hass = intent_obj.hass
+    entries = hass.data.get(DOMAIN) or {}
+    if not entries:
+        return None
+    client = next(iter(entries.values())).client
+    user = await hass.auth.async_get_user(intent_obj.context.user_id) if intent_obj.context.user_id else None
+    return await client.request("GET", path, params=params, user=user)
+
+
+def _spoken_list(names: list[str]) -> str:
+    if len(names) <= SPOKEN_MAX:
+        return _list(names)
+    return ", ".join(names[:SPOKEN_MAX]) + f" and {len(names) - SPOKEN_MAX} more"
+
+
+def _plural(n: int, one: str, many: str) -> str:
+    return f"{n} {one if n == 1 else many}"
+
+
+def maintenance_answer(dash: dict[str, Any]) -> str:
+    overdue = [f"{t['item']['name']} {t['title'].lower()}" for t in dash.get("overdue", [])]
+    soon = [f"{t['item']['name']} {t['title'].lower()}" for t in dash.get("due", [])]
+    if not overdue and not soon:
+        return "Nothing is due for maintenance in the next two weeks."
+    parts = []
+    if overdue:
+        parts.append(f"{_plural(len(overdue), 'job is', 'jobs are')} overdue: {_spoken_list(overdue)}")
+    if soon:
+        parts.append(f"{_plural(len(soon), 'job is', 'jobs are')} due in the next two weeks: {_spoken_list(soon)}")
+    return ". ".join(parts) + "."
+
+
+def low_stock_answer(rows: list[dict[str, Any]]) -> str:
+    low = [r for r in rows if r.get("min_quantity") is not None and r["quantity"] < r["min_quantity"]]
+    if not low:
+        return "Nothing is running low."
+    names = [f"{r['name']} ({r['quantity']} left)" for r in low]
+    return f"You're running low on {_spoken_list(names)}."
+
+
+def loans_answer(rows: list[dict[str, Any]]) -> str:
+    if not rows:
+        return "Nothing is lent out."
+    names = [f"{r['item']['name']} to {r['borrower']}" for r in rows]
+    return f"{_plural(len(rows), 'thing is', 'things are')} lent out: {_spoken_list(names)}."
+
+
+class _QuestionHandler(intent.IntentHandler):
+    """A question with no slots: ask the App, say the answer."""
+
+    path = ""
+    params: dict[str, Any] | None = None
+
+    def answer(self, data: Any) -> str:
+        raise NotImplementedError
+
+    async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
+        response = intent_obj.create_response()
+        try:
+            data = await _get(intent_obj, self.path, self.params)
+        except InventoryError:
+            response.async_set_speech("Sorry, I couldn't reach Home Inventory.")
+            return response
+        if data is None:
+            response.async_set_speech("Home Inventory isn't set up.")
+            return response
+        speech = self.answer(data)
+        response.async_set_speech(speech)
+        await _notify(intent_obj, speech)
+        return response
+
+
+class MaintenanceDueHandler(_QuestionHandler):
+    intent_type = INTENT_MAINTENANCE
+    description = "Says which equipment maintenance is overdue or due soon, using Home Inventory"
+    path = "maintenance/dashboard"
+    params = {"within": 14}
+
+    def answer(self, data: Any) -> str:
+        return maintenance_answer(data)
+
+
+class RunningLowHandler(_QuestionHandler):
+    intent_type = INTENT_LOW_STOCK
+    description = "Says which supplies are below their minimum, using Home Inventory"
+    path = "low-stock"
+
+    def answer(self, data: Any) -> str:
+        return low_stock_answer(data)
+
+
+class OnLoanHandler(_QuestionHandler):
+    intent_type = INTENT_ON_LOAN
+    description = "Says what is lent out and to whom, using Home Inventory"
+    path = "loans"
+
+    def answer(self, data: Any) -> str:
+        return loans_answer(data)
+
+
+QUESTION_HANDLERS = (MaintenanceDueHandler, RunningLowHandler, OnLoanHandler)
+
+
 def async_setup_intents(hass: HomeAssistant) -> None:
     intent.async_register(hass, WhereIsHandler())
     intent.async_register(hass, ChooseHandler())
+    for handler in QUESTION_HANDLERS:
+        intent.async_register(hass, handler())
 
 
 def async_unload_intents(hass: HomeAssistant) -> None:
     remove = getattr(intent, "async_remove", None)
     if remove is not None:
-        remove(hass, INTENT_WHERE_IS)
-        remove(hass, INTENT_CHOOSE)
+        for name in (INTENT_WHERE_IS, INTENT_CHOOSE, INTENT_MAINTENANCE, INTENT_LOW_STOCK, INTENT_ON_LOAN):
+            remove(hass, name)
     hass.data.pop(PENDING_KEY, None)

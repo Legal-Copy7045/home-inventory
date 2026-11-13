@@ -194,6 +194,20 @@ export default function ItemDetail() {
           {it.product_url && (<><dt>Product page</dt><dd><a href={it.product_url} target="_blank" rel="noopener noreferrer">{(() => { try { return new URL(it.product_url).hostname.replace(/^www\./, ""); } catch { return it.product_url; } })()} ↗</a></dd></>)}
           {it.expires_on && (<><dt>Expires</dt><dd>{fmtDate(it.expires_on)}{it.expired ? " (expired)" : ""}</dd></>)}
           {it.purchase_price && (<><dt>Price</dt><dd>{money(it.purchase_price, it.currency || me.app.currency)}</dd></>)}
+          {(() => {
+            const v = it.ai_metadata?.value_estimate;
+            if (!v && !(edit && me.app.ai.enabled)) return null;
+            const range = v && v.used_low !== null && v.used_high !== null ? `${money(v.used_low, v.currency)}–${money(v.used_high, v.currency)} used` : null;
+            return (<><dt>Value</dt><dd>
+              {v ? (
+                <>
+                  {v.replacement !== null ? `≈ ${money(v.replacement, v.currency)} new` : ""}{v.replacement !== null && range ? ", " : ""}{range}
+                  <span className="hint" style={{ display: "block" }}>AI estimate, {fmtDate(v.estimated_on)}{v.basis ? `: ${v.basis}` : ""}</span>
+                </>
+              ) : null}
+              {edit && me.app.ai.enabled && <button className="linkish" disabled={busy} onClick={() => act(() => api.post(`items/${it.id}/estimate-value`), "Value estimated")}>{v ? "Estimate again" : "Estimate with AI"}</button>}
+            </dd></>);
+          })()}
           {it.purchase_date && (<><dt>Bought</dt><dd>{fmtDate(it.purchase_date)}{it.retailer ? ` at ${it.retailer}` : ""}</dd></>)}
           {it.warranty_expires && (<><dt>Warranty</dt><dd>{it.warranty_start ? `${fmtDate(it.warranty_start)} – ` : "until "}{fmtDate(it.warranty_expires)} {it.warranty_active ? <span className="badge ok">active</span> : <span className="badge">expired</span>}</dd></>)}
           {it.product?.description && (<><dt>Description</dt><dd>{it.product.description}</dd></>)}
@@ -221,6 +235,11 @@ export default function ItemDetail() {
             onRemove={(d) => window.confirm("Remove this document?") && act(() => api.del(`attachments/${d.id}`), "Removed")} />
         ) : (
           <p className="muted">No receipts, manuals or warranty documents yet.</p>
+        )}
+        {(it.warranty_expires || docs.length > 0) && (
+          <p className="muted" style={{ margin: "8px 0 0" }}>
+            Making a warranty claim? <a href={url(`api/v1/items/${it.id}/claim-pack.zip`)} download>Download the claim pack</a> (a summary with the serial number, purchase and warranty details, plus these documents and the photos).
+          </p>
         )}
       </Section>
 

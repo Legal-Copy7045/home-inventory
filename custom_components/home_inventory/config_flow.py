@@ -15,6 +15,7 @@ from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 
 from .api import InventoryAuthError, InventoryClient, InventoryError
 from .const import (
+    CONF_MAINTENANCE_NOTIFY,
     CONF_NOTIFY_SERVICE,
     CONF_PANEL,
     CONF_SCAN_INTERVAL,
@@ -120,7 +121,7 @@ class HomeInventoryOptionsFlow(OptionsFlow):
         if user_input is not None:
             service = (user_input.get(CONF_NOTIFY_SERVICE) or "").strip().removeprefix("notify.")
             user_input[CONF_NOTIFY_SERVICE] = service
-            if user_input.get(CONF_VOICE_NOTIFY, VOICE_NOTIFY_OFF) != VOICE_NOTIFY_OFF:
+            if user_input.get(CONF_VOICE_NOTIFY, VOICE_NOTIFY_OFF) != VOICE_NOTIFY_OFF or user_input.get(CONF_MAINTENANCE_NOTIFY):
                 if not service:
                     errors[CONF_NOTIFY_SERVICE] = "notify_service_required"
                 elif service not in notify:
@@ -144,6 +145,7 @@ class HomeInventoryOptionsFlow(OptionsFlow):
                             mode=SelectSelectorMode.LIST,
                         )
                     ),
+                    vol.Optional(CONF_MAINTENANCE_NOTIFY, default=opts.get(CONF_MAINTENANCE_NOTIFY, False)): bool,
                     vol.Optional(CONF_NOTIFY_SERVICE, default=opts.get(CONF_NOTIFY_SERVICE, "")): SelectSelector(
                         SelectSelectorConfig(options=notify, custom_value=True, mode=SelectSelectorMode.DROPDOWN)
                     ),

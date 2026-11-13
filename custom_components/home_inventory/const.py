@@ -11,6 +11,8 @@ CONF_PANEL = "sidebar_panel"
 CONF_SCAN_INTERVAL = "scan_interval"
 # Voice answers also sent as a notification: "off", "alexa" or "all" voice assistants.
 CONF_VOICE_NOTIFY = "voice_notify"
+# Send "maintenance due" notices to the same notify action.
+CONF_MAINTENANCE_NOTIFY = "maintenance_notify"
 CONF_NOTIFY_SERVICE = "notify_service"  # a notify action, e.g. "mobile_app_pixel_8"
 VOICE_NOTIFY_OFF = "off"
 VOICE_NOTIFY_ALEXA = "alexa"
@@ -35,6 +37,7 @@ EVENT_TYPES = (
     "item_expiring",
     "low_stock",
     "maintenance_completed",
+    "maintenance_due",
     "repair_job_status",
     "tag_scanned",
     "shopping_list_updated",

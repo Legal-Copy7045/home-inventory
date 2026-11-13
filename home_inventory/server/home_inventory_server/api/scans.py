@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .. import audit
 from ..ai import AIFailed, AIUnavailable, confidence_label
 from ..auth import Actor, current_actor, get_db, require_member
 from ..models import (
@@ -29,7 +30,7 @@ from ..schemas import (
 )
 from ..services import inventory as inv
 from ..services import scans as scans_svc
-from ..services.media import MediaError, crop_box
+from ..services.media import MAX_PANORAMA, MediaError, crop_box, stitch
 from .routes import _err, _get_or_404, _limit, _state, similar_products
 
 _LOGGER = logging.getLogger(__name__)
@@ -102,26 +103,72 @@ async def read_receipt(item_id: int, data: ReceiptIn, request: Request, actor: A
     return {"suggestion": sug, "metadata": res.metadata()}
 
 
+@router.post("/items/{item_id}/estimate-value")
+async def estimate_value(item_id: int, request: Request, actor: Actor = Depends(require_member),
+                         db: Session = Depends(get_db)):
+    """AI estimates the item's replacement and second-hand value (from its
+    details and photo).  Kept with the item, marked as an AI estimate."""
+    from datetime import UTC, datetime
+
+    from ..services import stats as stats_svc
+
+    st = _state(request)
+    item = _get_or_404(db, Item, item_id)
+    if not st.ai.enabled:
+        raise HTTPException(422, "AI is not configured. Choose a provider in the App configuration.")
+    _limit(request, actor, "ai")
+    p = item.product
+    bits = [p.name, p.manufacturer and f"make {p.manufacturer}", p.model_number and f"model {p.model_number}",
+            p.category and f"category {p.category.name}", item.purchase_date and f"bought {item.purchase_date.isoformat()}",
+            item.purchase_price is not None and f"paid {item.purchase_price} {item.currency or ''}".strip(),
+            p.description]
+    photo = db.get(Attachment, item.primary_photo_id) if item.primary_photo_id else None
+    image = st.media.read(photo.stored_path) if photo is not None else None
+    currency = stats_svc.currency(db)
+    try:
+        res = await asyncio.to_thread(st.ai.estimate_value, ", ".join(str(b) for b in bits if b), currency, image)
+    except AIUnavailable as err:
+        raise HTTPException(503, str(err)) from err
+    except AIFailed as err:
+        raise HTTPException(502, str(err)) from err
+    est = {**res.data, "estimated_on": datetime.now(UTC).date().isoformat(), "provider": res.provider, "model": res.model}
+    item.ai_metadata = {**(item.ai_metadata or {}), "value_estimate": est}
+    audit.record(db, actor, "value_estimated", "item", item.id, f"{p.name}: AI value estimate")
+    db.commit()
+    return est
+
+
 async def _new_scan(
     request: Request, actor: Actor, db: Session, file: UploadFile | None, attachment_id: int | None,
-    container: Container | None = None, location: Location | None = None,
+    container: Container | None = None, location: Location | None = None, files: list[UploadFile] | None = None,
 ) -> dict:
     """Photo inventory of a container's contents or of a shelf/location."""
     st = _state(request)
     if st.ai.enabled:
         _limit(request, actor, "ai")
     owner = {"container_id": container.id} if container is not None else {"location_id": location.id}
-    if file is not None:
-        raw = await file.read(st.media.max_bytes + 1)
-        if len(raw) > st.media.max_bytes:
-            raise HTTPException(413, "File too large")
+    uploads = ([file] if file is not None else []) + list(files or [])
+    if len(uploads) > MAX_PANORAMA:
+        raise HTTPException(422, f"Use at most {MAX_PANORAMA} photos for one area")
+    if uploads:
+        raws = []
+        for up in uploads:
+            raw = await up.read(st.media.max_bytes + 1)
+            if len(raw) > st.media.max_bytes:
+                raise HTTPException(413, "File too large")
+            raws.append(raw)
         try:
-            stored = await asyncio.to_thread(st.media.save, raw, False)
+            if len(raws) > 1:
+                # Several photos of one wide area, left to right: one panorama.
+                raws = [await asyncio.to_thread(stitch, raws)]
+            stored = await asyncio.to_thread(st.media.save, raws[0], False)
         except MediaError as err:
             raise HTTPException(415, str(err)) from err
         caption = "Contents photo" if container is not None else "Shelf photo"
-        att = Attachment(kind=AttachmentKind.photo, original_name=file.filename, caption=caption, created_by_id=actor.user_id,
-                         **owner, **stored.__dict__)
+        if len(uploads) > 1:
+            caption = f"Panorama of {len(uploads)} photos"
+        att = Attachment(kind=AttachmentKind.photo, original_name=uploads[0].filename, caption=caption,
+                         created_by_id=actor.user_id, **owner, **stored.__dict__)
         db.add(att)
         db.flush()
     elif attachment_id:
@@ -171,13 +218,15 @@ async def create_location_scan(
     request: Request,
     file: UploadFile | None = File(None),
     attachment_id: int | None = Form(None),
+    files: list[UploadFile] | None = File(None),
     actor: Actor = Depends(require_member),
     db: Session = Depends(get_db),
 ):
     """Photo inventory of a shelf, bench, wall...: AI lists what it sees for
-    review; confirmed items become loose items in this location."""
+    review; confirmed items become loose items in this location.  Several
+    ``files`` (a wide area photographed left to right) are joined into one."""
     loc = _get_or_404(db, Location, location_id)
-    return await _new_scan(request, actor, db, file, attachment_id, location=loc)
+    return await _new_scan(request, actor, db, file, attachment_id, location=loc, files=files)
 
 
 @router.get("/locations/{location_id}/scans")
