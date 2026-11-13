@@ -36,6 +36,10 @@ def make_settings(tmp_path: Path, **overrides) -> Settings:
     s.trusted_proxies = ["testclient", "172.30.32.2"]
     s.ai_provider = "none"
     s.ai_retries = 1
+    # No AI rate limits in tests (tests/test_ai_ratelimit.py checks the gate).
+    s.ai_requests_per_minute = 0
+    s.ai_tokens_per_minute = 0
+    s.ai_requests_per_day = 0
     for k, v in overrides.items():
         setattr(s, k, v)
     return s

@@ -376,6 +376,36 @@ await page.goto(BASE + "#/report");
 await page.getByText("Recorded value").waitFor();
 await page.locator(".report-room").first().waitFor();
 await shot("15-report");
+// Report item names open the item, and Previous/Next step through the report's order.
+const firstLink = page.locator(".report-room .t a").first();
+const firstName = await firstLink.innerText();
+await firstLink.click();
+await page.getByRole("heading", { name: firstName }).waitFor();
+await page.getByRole("button", { name: "Next item" }).click();
+await page.getByText(/^2 of \d+$/).waitFor();
+await page.getByRole("button", { name: "Previous item" }).click();
+await page.getByRole("heading", { name: firstName }).waitFor();
+await shot("15b-item-steps");
+
+// Grouped menu and the hub pages.
+await page.goto(BASE + "#/reports");
+await page.getByRole("heading", { name: "Reports" }).waitFor();
+await page.getByRole("link", { name: /Maintenance plan/ }).first().click();
+await page.getByRole("heading", { name: /Maintenance plan/ }).waitFor();
+await shot("15c-maintenance-plan");
+await page.goto(BASE + "#/todo");
+await page.getByRole("heading", { name: "To sort" }).waitFor();
+await page.goto(BASE + "#/care");
+await page.getByRole("button", { name: "Repairs", exact: true }).click();
+await page.getByRole("button", { name: "Customers", exact: true }).click();
+await page.getByRole("button", { name: "Maintenance", exact: true }).click();
+await page.locator(".nav-group", { hasText: "Admin" }).first().waitFor({ state: "attached" });
+await shot("15d-care");
+await page.getByRole("button", { name: "More" }).click();
+await page.locator(".menu-group", { hasText: "Reports" }).waitFor();
+await shot("15e-grouped-menu");
+await page.keyboard.press("Escape");
+
 const csvRes = await page.request.fetch(BASE + "api/v1/reports/inventory.csv");
 if (!csvRes.ok() || !(await csvRes.text()).includes("Serial number")) throw new Error("CSV export failed");
 const xlsxRes = await page.request.fetch(BASE + "api/v1/reports/inventory.xlsx");

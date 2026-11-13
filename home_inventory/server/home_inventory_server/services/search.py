@@ -165,6 +165,8 @@ class Doc:
     body: str
     place: str
     words: set[str]
+    # The name without spaces or hyphens: "lawn mower" -> "lawnmower".
+    compact: str = ""
 
 
 def _build_doc(item: Item, r: Resolver) -> Doc:
@@ -176,7 +178,11 @@ def _build_doc(item: Item, r: Resolver) -> Doc:
     cat = normalise_text(p.category.name if p.category else "")
     manu = normalise_text(p.manufacturer)
     words = set(f"{name} {cat} {manu} {body}".split())
-    return Doc(item, name, cat, manu, exact, body, place, words)
+    return Doc(item, name, cat, manu, exact, body, place, words, _compact(name))
+
+
+def _compact(text: str) -> str:
+    return re.sub(r"[\s\-]+", "", text)
 
 
 def _contains(hay: str, needle: str) -> bool:
@@ -212,6 +218,9 @@ def _term_score(doc: Doc, alts: list[str]) -> float:
             best = max(best, 10)
         if _contains(doc.name, a):
             best = max(best, 5 if re.search(rf"\b{re.escape(a)}\b", doc.name) else 3.5)
+        elif len(_compact(a)) >= 6 and _compact(a) in doc.compact:
+            # Written as one word or two: "lawnmower" / "lawn mower" / "lawn-mower".
+            best = max(best, 4.5)
         if _contains(doc.category, a):
             best = max(best, 3)
         if _contains(doc.manufacturer, a):

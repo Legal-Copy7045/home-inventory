@@ -224,7 +224,7 @@ export function LoansPage() {
 
 // ---------------------------------------------------------------- settings
 
-interface SettingsData { currency: string; qr_base_url: string; amazon_domain: string | null; amazon_associate_tag: string | null; synonyms: Record<string, string[]>; ai: { enabled: boolean; provider?: string; model?: string; error?: string }; barcode_providers: string[]; mode: string; version: string; maintenance_auto_shopping: boolean; hemisphere: "north" | "south" }
+interface SettingsData { currency: string; qr_base_url: string; amazon_domain: string | null; amazon_associate_tag: string | null; synonyms: Record<string, string[]>; ai: { enabled: boolean; provider?: string; model?: string; error?: string; usage?: { requests_last_minute: number; requests_last_24h: number; limits: { per_minute: number; tokens_per_minute: number; per_day: number }; paused_for: number } | null }; barcode_providers: string[]; mode: string; version: string; maintenance_auto_shopping: boolean; hemisphere: "north" | "south" }
 interface UserRow { id: number; name: string; username: string | null; ha_is_admin: boolean; role: string; role_override: string | null; last_seen: string }
 
 export function SettingsPage() {
@@ -276,7 +276,15 @@ export function SettingsPage() {
       </Section>
       <Section title="AI">
         {s.data.ai.enabled ? <p>Using <b>{s.data.ai.provider === "home_assistant" ? "Home Assistant AI Task" : s.data.ai.provider}</b>{s.data.ai.model && s.data.ai.model !== "auto" ? ` (${s.data.ai.model})` : ""}.</p> : <p>AI is off{s.data.ai.error ? `: ${s.data.ai.error}` : ""}. Everything works without it; photo identification and smart search are unavailable.</p>}
-        <p className="muted" style={{ margin: 0 }}>Change the provider in Home Assistant → Settings → Apps → Home Inventory → Configuration.</p>
+        {s.data.ai.usage && (
+          <p style={{ marginTop: 0 }}>
+            Used {s.data.ai.usage.requests_last_24h}{s.data.ai.usage.limits.per_day ? ` of ${s.data.ai.usage.limits.per_day}` : ""} AI requests in the last 24 hours
+            {s.data.ai.usage.limits.per_minute ? ` · limit ${s.data.ai.usage.limits.per_minute} a minute` : ""}.
+            {s.data.ai.usage.paused_for > 0 ? ` Paused for ${s.data.ai.usage.paused_for} s because the AI service asked to slow down.` : ""}
+            {" "}Requests queue so these limits are never exceeded.
+          </p>
+        )}
+        <p className="muted" style={{ margin: 0 }}>Change the provider and its limits in Home Assistant → Settings → Apps → Home Inventory → Configuration.</p>
       </Section>
       <Section title="Barcode lookups">
         <p style={{ margin: 0 }}>{s.data.barcode_providers.length ? `Enabled: ${s.data.barcode_providers.join(", ")}` : "External lookups are disabled; only your own inventory is searched."}</p>

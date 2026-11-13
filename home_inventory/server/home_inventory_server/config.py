@@ -81,6 +81,15 @@ class Settings:
     ai_timeout: float = 60.0
     ai_max_image_px: int = 1568
     ai_retries: int = 2
+    # Rate limits (defaults: Gemini's free tier).  0 = no limit.
+    ai_requests_per_minute: int = 15
+    ai_tokens_per_minute: int = 250_000
+    ai_requests_per_day: int = 500
+    # After "too many requests": how long every AI call pauses before retrying.
+    ai_retry_cooldown: float = 60.0
+    # How long a call someone is waiting for may queue; background work waits as long as needed.
+    ai_max_wait_seconds: float = 30.0
+    ai_background_retries: int = 5
 
     # Barcode lookups
     barcode_open_facts: bool = True
@@ -174,6 +183,11 @@ class Settings:
             "ai_timeout": float,
             "ai_max_image_px": int,
             "ai_retries": int,
+            "ai_requests_per_minute": int,
+            "ai_tokens_per_minute": int,
+            "ai_requests_per_day": int,
+            "ai_retry_cooldown": float,
+            "ai_max_wait_seconds": float,
             "barcode_open_facts": _as_bool,
             "barcode_upcitemdb": _as_bool,
             "barcode_lookup_api_key": str,

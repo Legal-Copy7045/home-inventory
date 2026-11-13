@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.20.0
+
+- **AI rate limits.** New App options `ai_requests_per_minute` (15), `ai_tokens_per_minute` (250000) and `ai_requests_per_day` (500), set to Gemini's free tier by default. Every AI request waits its turn so they're never exceeded, and the day's count survives restarts. Background work (manuals, documents, value estimates) waits as long as it takes and finishes over time; something you're waiting for gives up after 30 seconds and says when to try again. If the provider still says "too many requests", everything pauses for `ai_retry_cooldown` seconds (default 60) and tries again. **Settings → AI** shows what's been used.
+- **Gemini's default model** is now `gemini-flash-lite-latest`, which follows Google's current Flash-Lite model instead of a version that gets retired.
+- **The menu is grouped:** Inventory, Care, Reports and Admin. *To sort* and *To finish* are one page with two tabs; *Maintenance*, *Repairs* and *Customers* are one page, **Maintenance & Repairs**; **Reports** collects the inventory report, the new maintenance plan, restock & shopping and the rest; Print labels, NFC tags, Activity history, Possible duplicates, Recently deleted and Settings are under **Admin**.
+- **Maintenance plan** (Reports): every piece of equipment, its jobs, how often, when last done and the parts each needs. Printable.
+- **Previous / Next on item pages**, through the list you came from (Items with its filters, or the inventory report) or the whole inventory by name.
+- **Inventory report:** item names open the item.
+- **Location labels** print the location path bold and larger, above a line.
+- **Search and voice:** "lawnmower" finds "Lawn mower" before anything that only mentions a lawnmower in its description (Alexa answered with the engine oil).
+- **Photo inventory re-scans** reuse the names and boxes already recorded at that place instead of adding them again, and match plain boxes ("Plastic container" / "Plastic storage bin"). A box with a wrongly cut photo has **Redo cut-outs**, like items.
+
 ## 0.19.0
 
 - **Undo.** Using or adding one, moving an item, changing its status, deleting an item or an empty location, and moving several items now show what happened with an **Undo** button, instead of asking first. After deleting an item you land on the shelf or box it was in.

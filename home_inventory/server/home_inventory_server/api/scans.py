@@ -134,14 +134,14 @@ class ValueEstimatesIn(BaseModel):
 
 
 @router.get("/value-estimates/preview")
-def value_estimates_preview(scope: Literal["unpriced", "category", "all"] = "unpriced", category_id: int | None = None,
+def value_estimates_preview(request: Request, scope: Literal["unpriced", "category", "all"] = "unpriced", category_id: int | None = None,
                             redo_recent: bool = False, actor: Actor = Depends(require_member),
                             db: Session = Depends(get_db)):
     """How many items an estimate run would cover, and how many AI requests that is."""
     from ..services import valuation
 
     try:
-        return valuation.preview(db, scope, category_id, redo_recent)
+        return valuation.preview(db, scope, category_id, redo_recent, request.app.state.ai.usage())
     except valuation.ValuationError as err:
         raise HTTPException(422, str(err)) from err
 
@@ -366,6 +366,28 @@ async def redo_item_cutouts(item_id: int, request: Request, actor: Actor = Depen
     scan = db.get(ContainerScan, scan_id) if scan_id else None
     if scan is None:
         raise HTTPException(404, "This item didn't come from a photo inventory")
+    return await _recrop(request, actor, db, scan)
+
+
+@router.post("/containers/{container_id}/redo-cutouts")
+async def redo_container_cutouts(container_id: int, request: Request, actor: Actor = Depends(require_member),
+                                 db: Session = Depends(get_db)):
+    """Redo the cut-outs of the photo inventory this box came from (all of its items and boxes)."""
+    from sqlalchemy import func
+
+    from ..models import HistoryEvent
+
+    _get_or_404(db, Container, container_id)
+    scan = None
+    events = db.scalars(select(HistoryEvent).where(HistoryEvent.action == "inventory_updated",
+                                                   func.json_extract(HistoryEvent.after, "$.scan_id").is_not(None))
+                        .order_by(HistoryEvent.id.desc()).limit(500))
+    for ev in events:
+        if container_id in ((ev.after or {}).get("containers") or []):
+            scan = db.get(ContainerScan, (ev.after or {}).get("scan_id"))
+            break
+    if scan is None:
+        raise HTTPException(404, "This box didn't come from a photo inventory")
     return await _recrop(request, actor, db, scan)
 
 

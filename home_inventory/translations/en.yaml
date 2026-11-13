@@ -17,6 +17,23 @@ configuration:
   ai_base_url:
     name: AI base URL
     description: Optional, for OpenAI-compatible gateways or a local Ollama server.
+  ai_requests_per_minute:
+    name: AI requests per minute
+    description: >-
+      Your AI plan's limit. Requests queue so it's never exceeded. The default
+      (15) is Gemini's free tier; 0 = no limit.
+  ai_tokens_per_minute:
+    name: AI tokens per minute
+    description: Your AI plan's token limit (Gemini free tier 250000). 0 = no limit.
+  ai_requests_per_day:
+    name: AI requests per day
+    description: >-
+      Your AI plan's daily limit (Gemini free tier 500). Background work
+      (reading manuals and documents, value estimates) waits for the next day
+      rather than going over. 0 = no limit.
+  ai_retry_cooldown:
+    name: Pause after "too many requests" (seconds)
+    description: When the AI service says to slow down, every AI request pauses this long, then tries again.
   barcode_open_facts:
     name: Open Food/Products/Beauty Facts lookups
     description: Free, open product databases (no key). Best for groceries and household consumables.
