@@ -56,6 +56,8 @@ jobs:
           pip install pytest-homeassistant-custom-component
           pip install "$(grep -o 'home-assistant-frontend==[0-9.]*' $(python -c 'import homeassistant,os;print(os.path.dirname(homeassistant.__file__))')/components/frontend/manifest.json)"
           pip install -e home_inventory/server
+          # Assist's sentence matcher, at the version Home Assistant uses (checks deploy/assist sentences).
+          pip install "$(python -c 'import homeassistant,os,json;print(next(r for r in json.load(open(os.path.dirname(homeassistant.__file__)+"/components/conversation/manifest.json"))["requirements"] if r.startswith("hassil")))')"
       - run: pytest -q -p no:logging
       - name: Browser end-to-end smoke test
         run: |
