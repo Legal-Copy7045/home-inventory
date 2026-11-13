@@ -379,6 +379,38 @@ class AIService:
         res.data = clean_document(res.data)
         return res
 
+    def read_meter(self, image: bytes, kind: str = "hours", last: float | None = None) -> AIResult:
+        """The number on an hour meter or counter in a photo (a suggestion)."""
+        what = "operating hours (hour meter)" if kind == "hours" else "uses/starts (counter)"
+        prev = f"\nThe last recorded reading was {last}; the meter normally only goes up." if last is not None else ""
+        prompt = (
+            f"The photo shows the {what} display of a machine (mower, generator, tractor, compressor...). Read the number "
+            "on it. Return JSON only. Mechanical hour meters show whole hours on white or black drums and tenths on a "
+            "differently coloured last drum (often red, or after a decimal point): include the tenths as a decimal. "
+            "If a drum is between two digits, use the lower one. Digital displays: read exactly what is shown. "
+            '"value": the number, or null if you can\'t read it with confidence (never guess). "display_text": the '
+            'characters exactly as shown. "confidence" 0..1.' + prev
+        )
+        schema = {"type": "object", "properties": {"value": {"type": ["number", "null"]},
+                                                   "display_text": {"type": ["string", "null"]},
+                                                   "confidence": {"type": "number"}},
+                  "required": ["value", "display_text", "confidence"], "additionalProperties": False}
+        res = self._call(prompt, schema, image)
+        d = res.data
+        try:
+            value = round(float(d.get("value")), 1) if d.get("value") is not None else None
+        except (TypeError, ValueError):
+            value = None
+        if value is not None and not 0 <= value < 1_000_000:
+            value = None
+        try:
+            conf = max(0.0, min(float(d.get("confidence")), 1.0)) if d.get("confidence") is not None else None
+        except (TypeError, ValueError):
+            conf = None
+        res.data = {"value": value, "display_text": (str(d.get("display_text") or "").strip()[:40] or None),
+                    "confidence": conf}
+        return res
+
     def interpret_query(self, query: str) -> AIResult:
         res = self._call(SEARCH_PROMPT.format(query=query[:500]), SEARCH_SCHEMA, None)
         d = res.data

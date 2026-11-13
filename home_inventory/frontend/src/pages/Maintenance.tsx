@@ -1,6 +1,6 @@
 import { Fragment, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, Check, Clock, Gauge, Plus, Trash2, Wrench } from "lucide-react";
+import { BookOpen, Camera, Check, Clock, Gauge, Plus, Trash2, Wrench } from "lucide-react";
 import {
   api,
   uploadPhoto,
@@ -13,6 +13,7 @@ import {
   type ServiceEntry,
   type SpecRow,
   type ItemParts,
+  type MeterUsage,
   type ReadinessLine,
 } from "../api";
 import { ManualSheet, ModelParts, ReadinessPanel, TaskPartsLine, TaskPartsSheet, partsForService } from "../components/Parts";
@@ -38,8 +39,9 @@ export function TaskBadge({ t }: { t: Pick<MaintTask, "status"> }) {
 
 export function dueText(t: MaintTask): string {
   const parts: string[] = [];
+  const est = t.estimated_due_on && (t.status === "ok" || t.status === "due_soon") && t.hours_left !== null ? ` (≈ ${fmtDate(t.estimated_due_on)} at your usage)` : "";
   if (t.days_left !== null) parts.push(t.days_left < 0 ? `${-t.days_left} d overdue` : t.days_left === 0 ? "today" : `in ${t.days_left} d`);
-  if (t.hours_left !== null) parts.push(t.hours_left <= 0 ? `${Math.abs(t.hours_left).toFixed(1)} h over` : `in ${t.hours_left.toFixed(1)} h`);
+  if (t.hours_left !== null) parts.push(t.hours_left <= 0 ? `${Math.abs(t.hours_left).toFixed(1)} h over` : `in ${t.hours_left.toFixed(1)} h${est}`);
   if (t.cycles_left !== null) parts.push(t.cycles_left <= 0 ? `${Math.abs(t.cycles_left)} uses over` : `in ${t.cycles_left} uses`);
   if (t.status === "deferred" && t.deferred_until) parts.unshift(`deferred to ${fmtDate(t.deferred_until)}`);
   return parts.join(" · ") || "when needed";
@@ -142,6 +144,9 @@ export function EquipmentSection({ itemId, edit, onChanged, initial }: { itemId:
           </div>
           {edit && <button className="btn small" onClick={() => setSheet({ kind: "meter" })}><Clock size={16} /> Log {meter === "cycles" ? "uses" : "hours"}</button>}
         </div>
+      )}
+      {d.usage && meter !== "none" && (
+        <UsageChart u={d.usage[meter === "cycles" ? "cycles" : "hours"]} unit={meter === "cycles" ? "uses" : "h"} />
       )}
       {(d.profile?.hours_entity_id || d.profile?.cycles_entity_id) && (
         <SensorLink itemId={itemId} profile={d.profile} edit={edit} onDone={() => { s.reload(); onChanged?.(); }} />
@@ -353,18 +358,45 @@ function ProfileSheet({ itemId, profile, onClose, onDone }: { itemId: number; pr
 }
 
 function MeterSheet({ itemId, summary, onClose, onDone }: { itemId: number; summary: MaintenanceSummary; onClose: () => void; onDone: (d: MaintenanceSummary) => void }) {
+  const me = useMe();
   const cyclesOnly = summary.profile?.meter === "cycles";
   const [kind, setKind] = useState<"hours" | "cycles">(cyclesOnly ? "cycles" : "hours");
   const current = kind === "hours" ? summary.meters.hours : summary.meters.cycles;
   const [value, setValue] = useState(current !== null ? String(current) : "");
+  const [on, setOn] = useState(today());
   const [estimated, setEstimated] = useState(false);
   const [correction, setCorrection] = useState(false);
   const [note, setNote] = useState("");
+  const [photo, setPhoto] = useState<{ id: number; thumb?: string } | null>(null);
+  const [read, setRead] = useState<null | { value: number | null; display_text: string | null; confidence: number | null; lower_than_last: boolean }>(null);
+  const [reading, setReading] = useState(false);
   const { busy, run } = useAction();
   const save = async (e: FormEvent) => {
     e.preventDefault();
-    const d = await run(() => api.post<MaintenanceSummary>(`items/${itemId}/meter-readings`, { kind, value: Number(value), estimated, correction, note: note || null }), "Reading saved");
+    const d = await run(() => api.post<MaintenanceSummary>(`items/${itemId}/meter-readings`, {
+      kind, value: Number(value), estimated, correction, note: note || null, recorded_on: on || null, photo_id: photo?.id ?? null,
+    }), "Reading saved");
     if (d) onDone(d);
+  };
+  const snap = async (file: File | undefined) => {
+    if (!file) return;
+    // A photo picked from the gallery keeps the day it was taken.
+    const taken = new Date(file.lastModified);
+    if (!Number.isNaN(taken.getTime())) {
+      const d = taken.toISOString().slice(0, 10);
+      if (d <= today()) setOn(d);
+    }
+    const att = await run(() => uploadPhoto(file, { item_id: itemId }));
+    if (!att) return;
+    setPhoto({ id: att.id, thumb: att.thumb_url || undefined });
+    if (!me.app.ai.enabled) return;
+    setReading(true);
+    const r = await run(() => api.post<NonNullable<typeof read>>(`items/${itemId}/meter-photo`, { attachment_id: att.id, kind }));
+    setReading(false);
+    if (r) {
+      setRead(r);
+      if (r.value !== null) setValue(String(r.value));
+    }
   };
   return (
     <Sheet title={kind === "hours" ? "Operating hours" : "Uses"} onClose={onClose}>
@@ -375,17 +407,60 @@ function MeterSheet({ itemId, summary, onClose, onDone }: { itemId: number; summ
             <button type="button" className={kind === "cycles" ? "active" : ""} onClick={() => setKind("cycles")}>Uses</button>
           </div>
         )}
+        <label className="btn block">
+          <Camera size={18} /> {photo ? "Take another photo" : `Photograph the ${kind === "hours" ? "hour meter" : "counter"}`}
+          <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; snap(f); }} />
+        </label>
+        {photo && (
+          <div className="row" style={{ gap: 10 }}>
+            {photo.thumb && <img src={url(photo.thumb)} alt="Meter photo" width={72} height={72} style={{ objectFit: "cover", borderRadius: 8 }} />}
+            <span className="muted" style={{ fontSize: ".9rem" }}>
+              {reading ? "Reading the meter…" : read ? (read.value !== null
+                ? <>AI read <b>{read.display_text || read.value}</b>{read.confidence !== null && read.confidence < 0.6 ? " – not sure, please check" : ""}. Check it against the photo.</>
+                : "The AI couldn't read it. Type the number from the photo.") : me.app.ai.enabled ? "" : "Saved with the reading."}
+            </span>
+          </div>
+        )}
         <label className="field">
           {kind === "hours" ? "Meter reading (hours)" : "Total uses / tanks"}
-          <input type="number" inputMode="decimal" step={kind === "hours" ? "0.1" : "1"} min={0} required autoFocus value={value} onChange={(e) => setValue(e.target.value)} style={{ fontSize: "1.4rem" }} />
+          <input type="number" inputMode="decimal" step={kind === "hours" ? "0.1" : "1"} min={0} required value={value} onChange={(e) => setValue(e.target.value)} style={{ fontSize: "1.4rem" }} />
           {current !== null && <span className="hint">Last reading: {current}</span>}
+          {read?.lower_than_last && <span className="hint" style={{ color: "var(--warn)" }}>Lower than the last reading: check the number, or tick Correction if the meter was replaced.</span>}
         </label>
+        <label className="field">Date of the reading<input type="date" max={today()} value={on} onChange={(e) => setOn(e.target.value)} /></label>
         <label className="row"><input type="checkbox" checked={estimated} onChange={(e) => setEstimated(e.target.checked)} /> Estimate (no hour meter)</label>
         <label className="row"><input type="checkbox" checked={correction} onChange={(e) => setCorrection(e.target.checked)} /> Correction (meter replaced or mis-read)</label>
         <label className="field">Note<input value={note} onChange={(e) => setNote(e.target.value)} /></label>
-        <button className="btn primary block" disabled={busy || value === ""}>Save reading</button>
+        <button className="btn primary block" disabled={busy || reading || value === ""}>Save reading</button>
       </form>
     </Sheet>
+  );
+}
+
+/** Hours (or uses) over time, with the average rate. */
+function UsageChart({ u, unit }: { u: MeterUsage; unit: string }) {
+  const pts = u.points;
+  if (pts.length < 2) return null;
+  const W = 320, H = 110, P = 6;
+  const t = pts.map((p) => new Date(p.date).getTime());
+  const t0 = Math.min(...t), t1 = Math.max(...t);
+  const v = pts.map((p) => p.value);
+  const v0 = Math.min(...v), v1 = Math.max(...v);
+  const x = (ti: number) => P + ((ti - t0) / Math.max(1, t1 - t0)) * (W - 2 * P);
+  const y = (vi: number) => H - P - ((vi - v0) / Math.max(1e-9, v1 - v0)) * (H - 2 * P);
+  const line = pts.map((p, i) => `${i ? "L" : "M"}${x(t[i]).toFixed(1)},${y(p.value).toFixed(1)}`).join(" ");
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} role="img" aria-label={`Meter readings over time, ${v0} to ${v1} ${unit}`} style={{ display: "block" }}>
+        <path d={line} fill="none" stroke="var(--primary)" strokeWidth={2} />
+        {pts.map((p, i) => <circle key={i} cx={x(t[i])} cy={y(p.value)} r={p.photo ? 3.5 : 2.5} fill={p.photo ? "var(--primary)" : "var(--surface)"} stroke="var(--primary)" strokeWidth={1.5}><title>{fmtDate(p.date)}: {p.value} {unit}</title></circle>)}
+      </svg>
+      <div className="row between muted" style={{ fontSize: ".8rem" }}>
+        <span>{fmtDate(pts[0].date)} · {v0} {unit}</span>
+        <span>{fmtDate(pts[pts.length - 1].date)} · {v1} {unit}</span>
+      </div>
+      {u.per_week !== null && <div className="s" style={{ marginTop: 4 }}>Used about <b>{u.per_week} {unit} a week</b> recently.</div>}
+    </div>
   );
 }
 
