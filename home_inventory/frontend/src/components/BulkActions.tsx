@@ -32,6 +32,7 @@ export function SelectableItems({
   resetKey,
   empty,
   bare = false,
+  inPlace = false,
   renderRow,
 }: {
   items: Item[];
@@ -42,6 +43,8 @@ export function SelectableItems({
   allIds?: () => Promise<number[]>;
   resetKey?: string;
   empty?: ReactNode;
+  /** Every item is in the place being shown: rows say what it is, not where. */
+  inPlace?: boolean;
   /** Inside an existing card: no card of its own. */
   bare?: boolean;
   /** Custom row when not selecting (default: the standard item row). */
@@ -99,7 +102,7 @@ export function SelectableItems({
             </div>
           </li>
         ) : renderRow ? renderRow(i) : (
-          <ItemRow item={i} />
+          <ItemRow item={i} hidePlace={inPlace} />
         )}
       </Fragment>
     );

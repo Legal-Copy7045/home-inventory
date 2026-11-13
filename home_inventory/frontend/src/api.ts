@@ -248,7 +248,7 @@ export interface LocationDetail {
   path: string;
   qr_code: string | null;
   path_parts: Ref[];
-  children?: { id: number; name: string; kind: string | null }[];
+  children?: { id: number; name: string; kind: string | null; container_count?: number; item_count?: number }[];
   items?: Item[];
   containers?: Container[];
   maps?: MapLink[];

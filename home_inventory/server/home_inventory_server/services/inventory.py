@@ -1054,6 +1054,24 @@ def container_out(c: Container, r: Resolver, db: Session, detail: bool = False) 
     return out
 
 
+def _subtree_counts(db: Session, r: Resolver, location_id: int) -> dict[str, int]:
+    """What's kept in a place and everything inside it: boxes, and things
+    (loose or in those boxes), so a shelf's row can say "2 boxes · 7 things"."""
+    ids, todo = {location_id}, [location_id]
+    while todo:
+        cur = todo.pop()
+        for x in r.locations.values():
+            if x.parent_id == cur and x.deleted_at is None and x.id not in ids:
+                ids.add(x.id)
+                todo.append(x.id)
+    box_ids = list(db.scalars(select(Container.id).where(Container.location_id.in_(ids), Container.deleted_at.is_(None))))
+    cond = Item.location_id.in_(ids)
+    if box_ids:
+        cond = or_(cond, Item.container_id.in_(box_ids))
+    things = db.scalar(select(func.coalesce(func.sum(Item.quantity), 0)).where(Item.deleted_at.is_(None), cond)) or 0
+    return {"container_count": len(box_ids), "item_count": int(things)}
+
+
 def location_out(loc: Location, r: Resolver, db: Session, detail: bool = False) -> dict[str, Any]:
     out: dict[str, Any] = {
         "id": loc.id,
@@ -1070,7 +1088,7 @@ def location_out(loc: Location, r: Resolver, db: Session, detail: bool = False) 
     if detail:
         children = [x for x in r.locations.values() if x.parent_id == loc.id and x.deleted_at is None]
         out["children"] = [
-            {"id": ch.id, "name": ch.name, "kind": ch.kind}
+            {"id": ch.id, "name": ch.name, "kind": ch.kind, **_subtree_counts(db, r, ch.id)}
             for ch in sorted(children, key=lambda x: (x.sort_order, x.name.lower()))
         ]
         items = db.scalars(
