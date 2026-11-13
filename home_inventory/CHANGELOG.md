@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.16.2
+
+Security hardening.
+
+- API responses are never cached by browsers or proxies (`Cache-Control: no-store`), and other sites can't embed the App's pages, photos or data (`Cross-Origin-Resource-Policy: same-origin`). The web server no longer announces itself.
+- API docs on the internal API port are only served while `log_level` is `debug`.
+- The QR label address in Settings must be a web address (http/https).
+- Wide-area photo inventories shrink each photo as it's read, so very large photos can't exhaust the App's memory.
+- Integration (Container/Core sidebar panel): writes the browser marks as cross-site are refused even without an Origin header, and sign-in links and sessions are capped.
+- `docs/security.md` has a checklist for hardening Home Assistant itself, which is the internet edge.
+
 ## 0.16.1
 
 - **Arrows on labels.** Container and shelf labels can carry a large arrow (up, down, left, right or diagonal) pointing to where the shelf or box is. Set it for all selected labels or per label on **Print Labels**.

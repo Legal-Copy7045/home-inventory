@@ -37,6 +37,8 @@ from .const import DOMAIN, PANEL_PROXY_PREFIX, PANEL_URL_PATH, STATIC_URL
 _LOGGER = logging.getLogger(__name__)
 TOKEN_TTL = 60
 SESSION_TTL = 12 * 3600
+MAX_TOKENS = 200     # unredeemed sign-in links kept at once (oldest dropped)
+MAX_SESSIONS = 500   # panel sessions kept at once (oldest dropped)
 COOKIE = "hinv_panel"
 HOP_HEADERS = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers",
                "transfer-encoding", "upgrade", "content-length", "content-encoding", "set-cookie"}
@@ -59,8 +61,14 @@ class PanelSessions:
         self.tokens = {k: v for k, v in self.tokens.items() if v.expires > now}
         self.sessions = {k: v for k, v in self.sessions.items() if v.expires > now}
 
+    @staticmethod
+    def _cap(store: dict[str, _Grant], limit: int) -> None:
+        while len(store) >= limit:
+            store.pop(next(iter(store)))  # insertion order: the oldest first
+
     def issue_token(self, user_id: str) -> str:
         self._prune()
+        self._cap(self.tokens, MAX_TOKENS)
         token = secrets.token_urlsafe(32)
         self.tokens[token] = _Grant(user_id, time.monotonic() + TOKEN_TTL)
         return token
@@ -70,6 +78,7 @@ class PanelSessions:
         grant = self.tokens.pop(token, None)
         if grant is None:
             return None
+        self._cap(self.sessions, MAX_SESSIONS)
         sid = secrets.token_urlsafe(32)
         self.sessions[sid] = _Grant(grant.user_id, time.monotonic() + SESSION_TTL)
         return sid
@@ -80,6 +89,18 @@ class PanelSessions:
         self._prune()
         grant = self.sessions.get(sid)
         return grant.user_id if grant else None
+
+
+def _same_origin(request: web.Request) -> bool:
+    """A state-changing request must come from the panel itself.
+
+    The session cookie is SameSite=Strict already; this also refuses requests
+    a browser marks as cross-site, and any whose Origin is another site.
+    """
+    if request.headers.get("Sec-Fetch-Site", "same-origin") not in ("same-origin", "none"):
+        return False
+    origin = request.headers.get("Origin")
+    return not origin or origin == f"{request.scheme}://{request.host}"
 
 
 def _sessions(hass: HomeAssistant) -> PanelSessions:
@@ -127,8 +148,7 @@ class PanelProxyView(HomeAssistantView):
         user = await self.hass.auth.async_get_user(user_id) if user_id else None
         if user is None or not user.is_active:
             return web.Response(status=401, text="Session expired. Reopen Home Inventory from the sidebar.")
-        origin = request.headers.get("Origin")
-        if request.method not in ("GET", "HEAD") and origin and origin != f"{request.scheme}://{request.host}":
+        if request.method not in ("GET", "HEAD") and not _same_origin(request):
             return web.Response(status=403, text="Cross-origin request refused")
         client = _client(self.hass)
         if client is None:

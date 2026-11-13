@@ -358,6 +358,18 @@ class CategoryIn(_In):
 class SettingsIn(_In):
     currency: str | None = Field(default=None, min_length=3, max_length=3)
     qr_base_url: str | None = Field(default=None, max_length=500)
+
+    @field_validator("qr_base_url")
+    @classmethod
+    def _qr_base(cls, v: str | None) -> str | None:
+        if v is None or not v.strip():
+            return v
+        from .services.labels import clean_base_url
+
+        clean = clean_base_url(v)
+        if clean is None:
+            raise ValueError("Enter a web address starting with https:// (or http://)")
+        return clean
     synonyms: dict[str, list[str]] | None = None
     # Amazon store for product links and the Add to Cart form, e.g. amazon.com
     amazon_domain: str | None = Field(default=None, max_length=30, pattern=r"^(www\.)?amazon\.[a-z.]{2,8}$")
