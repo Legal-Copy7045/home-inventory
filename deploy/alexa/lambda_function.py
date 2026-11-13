@@ -33,7 +33,7 @@ SKILL_ID = os.environ.get("SKILL_ID", "")  # amzn1.ask.skill.xxxxxxxx
 
 TIMEOUT = 6  # seconds; Alexa gives up after about 8
 # Intents answered by Home Assistant, and the slot each one needs.
-FORWARDED = {"HomeInventoryWhereIs": "item", "HomeInventoryChoose": "choice",
+FORWARDED = {"HomeInventoryWhereIs": "item", "HomeInventoryWhereDoesItGo": "item", "HomeInventoryChoose": "choice",
              "HomeInventoryMaintenanceDue": None, "HomeInventoryRunningLow": None, "HomeInventoryOnLoan": None}
 
 
@@ -120,8 +120,9 @@ def lambda_handler(event: dict, context=None) -> dict:
             return _say("What should I look for?", end=False, reprompt="Say, for example: where is the drill.")
         return _forward(event)
     if name == "AMAZON.HelpIntent":
-        return _say("Ask where something is kept, for example: where is the hedge trimmer. You can also ask what "
-                    "maintenance is due, what's running low, or what's lent out.", end=False,
+        return _say("Ask where something is kept, for example: where is the hedge trimmer, or where something goes "
+                    "back, for example: where does the hammer go. You can also ask what maintenance is due, "
+                    "what's running low, or what's lent out.", end=False,
                     reprompt="What are you looking for?")
     if name in ("AMAZON.StopIntent", "AMAZON.CancelIntent", "AMAZON.NavigateHomeIntent"):
         return _say("Okay.")
@@ -130,4 +131,4 @@ def lambda_handler(event: dict, context=None) -> dict:
                     reprompt="Which one did you mean?")
     # End the session, so the next "Alexa, ask Home Inventory..." starts afresh
     # (inside an open session that phrase isn't understood).
-    return _say("Sorry, I only know where things are. Try: where is the hedge trimmer.")
+    return _say("Sorry, I didn't catch that. Try: where is the hedge trimmer, or: where does the hammer go.")
