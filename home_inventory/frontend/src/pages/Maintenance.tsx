@@ -1,6 +1,6 @@
 import { Fragment, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Check, Clock, Gauge, Plus, Trash2, Wrench } from "lucide-react";
+import { BookOpen, Check, Clock, Gauge, Plus, Trash2, Wrench } from "lucide-react";
 import {
   api,
   uploadPhoto,
@@ -12,7 +12,10 @@ import {
   type MaintTask,
   type ServiceEntry,
   type SpecRow,
+  type ItemParts,
+  type ReadinessLine,
 } from "../api";
+import { ManualSheet, ModelParts, ReadinessPanel, TaskPartsLine, TaskPartsSheet, partsForService } from "../components/Parts";
 import { ErrorBox, Section, Sheet, Spinner, fmtDate, money, useAction, useApi, useMe } from "../components/ui";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -90,14 +93,17 @@ function ServiceRow({ e, currency, showItem }: { e: ServiceEntry; currency: stri
 export function EquipmentSection({ itemId, edit, onChanged, initial }: { itemId: number; edit: boolean; onChanged?: () => void; initial?: "meter" | "service" }) {
   const me = useMe();
   const s = useApi(() => api.get<MaintenanceSummary>(`items/${itemId}/maintenance`), [itemId]);
-  const [sheet, setSheet] = useState<null | { kind: "setup" | "profile" | "meter" | "service" | "task"; task?: MaintTask }>(edit && initial ? { kind: initial } : null);
+  const parts = useApi(() => api.get<ItemParts>(`items/${itemId}/parts`), [itemId]);
+  const [sheet, setSheet] = useState<null | { kind: "setup" | "profile" | "meter" | "service" | "task" | "parts" | "manual"; task?: MaintTask }>(edit && initial ? { kind: initial } : null);
   const close = () => setSheet(null);
   const done = (data?: MaintenanceSummary) => {
     if (data) s.setData(data);
     else s.reload();
+    parts.reload();
     setSheet(null);
     onChanged?.();
   };
+  const taskParts = (t: MaintTask): ReadinessLine[] => parts.data?.tasks[String(t.id)] || [];
   if (s.loading && !s.data) return null;
   if (s.error || !s.data) return <ErrorBox error={s.error} />;
   const d = s.data;
@@ -143,6 +149,9 @@ export function EquipmentSection({ itemId, edit, onChanged, initial }: { itemId:
               <div className="grow" onClick={() => edit && setSheet({ kind: "task", task: t })} style={{ cursor: edit ? "pointer" : undefined }}>
                 <div className="t">{t.title} <TaskBadge t={t} /></div>
                 <div className="s">{dueText(t)} · {interval(t)}{t.last_done_on ? ` · last ${fmtDate(t.last_done_on)}` : ""}</div>
+                <div onClick={(e) => e.stopPropagation()}>
+                  <TaskPartsLine rows={taskParts(t)} onClick={edit ? () => setSheet({ kind: "parts", task: t }) : undefined} />
+                </div>
               </div>
               {edit && t.status !== "not_applicable" && (
                 <button className="btn small primary" onClick={() => setSheet({ kind: "service", task: t })} aria-label={`Record ${t.title}`}><Check size={16} /> Done</button>
@@ -155,10 +164,12 @@ export function EquipmentSection({ itemId, edit, onChanged, initial }: { itemId:
         <div className="row wrap" style={{ marginTop: 10 }}>
           <button className="btn" onClick={() => setSheet({ kind: "service" })}><Wrench size={18} /> Log service</button>
           <button className="btn" onClick={() => setSheet({ kind: "task" })}><Plus size={18} /> Add task</button>
+          {d.profile && <button className="btn" onClick={() => setSheet({ kind: "manual" })}><BookOpen size={18} /> Read the manual</button>}
         </div>
       )}
 
       {d.profile && <ProfileView p={d.profile} />}
+      {parts.data && <ModelParts data={parts.data} />}
 
       <h3 style={{ margin: "16px 0 6px" }}>Service history</h3>
       {d.history.length ? (
@@ -170,7 +181,9 @@ export function EquipmentSection({ itemId, edit, onChanged, initial }: { itemId:
       {sheet?.kind === "setup" && <SetupSheet itemId={itemId} onClose={close} onDone={done} />}
       {sheet?.kind === "profile" && d.profile && <ProfileSheet itemId={itemId} profile={d.profile} onClose={close} onDone={done} />}
       {sheet?.kind === "meter" && <MeterSheet itemId={itemId} summary={d} onClose={close} onDone={done} />}
-      {sheet?.kind === "service" && <ServiceSheet itemId={itemId} task={sheet.task} summary={d} onClose={close} onDone={done} />}
+      {sheet?.kind === "service" && <ServiceSheet itemId={itemId} task={sheet.task} summary={d} needs={sheet.task ? taskParts(sheet.task) : undefined} onClose={close} onDone={done} />}
+      {sheet?.kind === "parts" && sheet.task && <TaskPartsSheet taskId={sheet.task.id} title={sheet.task.title} rows={taskParts(sheet.task)} onClose={close} onDone={() => done()} />}
+      {sheet?.kind === "manual" && <ManualSheet itemId={itemId} onClose={close} onDone={() => done()} />}
       {sheet?.kind === "task" && <TaskSheet itemId={itemId} task={sheet.task} onClose={close} onDone={done} />}
     </Section>
   );
@@ -371,11 +384,16 @@ function MeterSheet({ itemId, summary, onClose, onDone }: { itemId: number; summ
   );
 }
 
-interface PartForm { description: string; part_number: string; quantity: string; unit_cost: string }
+interface PartForm {
+  description: string; part_number: string; quantity: string; unit_cost: string;
+  item_id?: number | null; deduct_stock?: boolean; measured?: boolean; stock_label?: string | null;
+}
 
-export function ServiceSheet({ itemId, task, summary, onClose, onDone, postTo, title }: {
+export function ServiceSheet({ itemId, task, summary, onClose, onDone, postTo, title, needs }: {
   itemId: number;
   task?: MaintTask;
+  /** The task's parts with readiness: prefills "Parts used". */
+  needs?: ReadinessLine[];
   summary: MaintenanceSummary;
   onClose: () => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -396,7 +414,7 @@ export function ServiceSheet({ itemId, task, summary, onClose, onDone, postTo, t
     performed_by: me.name,
     labor_cost: "",
   });
-  const [parts, setParts] = useState<PartForm[]>([]);
+  const [parts, setParts] = useState<PartForm[]>(() => (needs ? partsForService(needs) : []));
   const [photos, setPhotos] = useState<{ id: number; thumb?: string }[]>([]);
   const [more, setMore] = useState<null | "defer">(null);
   const [deferTo, setDeferTo] = useState("");
@@ -414,6 +432,7 @@ export function ServiceSheet({ itemId, task, summary, onClose, onDone, postTo, t
     labor_cost: f.labor_cost === "" ? null : f.labor_cost,
     parts: parts.filter((p) => p.description.trim()).map((p) => ({
       description: p.description, part_number: p.part_number || null, quantity: p.quantity || "1", unit_cost: p.unit_cost === "" ? null : p.unit_cost,
+      item_id: p.item_id ?? null, deduct_stock: !!(p.item_id && p.deduct_stock), deduct_quantity: p.measured && p.deduct_stock ? 1 : null,
     })),
     attachment_ids: photos.map((p) => p.id),
   });
@@ -448,13 +467,21 @@ export function ServiceSheet({ itemId, task, summary, onClose, onDone, postTo, t
         <label className="field">Work performed<textarea rows={2} value={f.work_performed} onChange={set("work_performed")} /></label>
         <b>Parts used</b>
         {parts.map((p, i) => (
-          <div key={i} className="row" style={{ gap: 6, alignItems: "flex-end" }}>
+          <Fragment key={i}>
+          <div className="row" style={{ gap: 6, alignItems: "flex-end" }}>
             <label className="field" style={{ flex: 2 }}>{i === 0 ? "Part" : ""}<input value={p.description} onChange={(e) => setParts(parts.map((x, j) => (j === i ? { ...x, description: e.target.value } : x)))} /></label>
             <label className="field" style={{ flex: 1 }}>{i === 0 ? "Part no." : ""}<input value={p.part_number} onChange={(e) => setParts(parts.map((x, j) => (j === i ? { ...x, part_number: e.target.value } : x)))} /></label>
             <label className="field" style={{ width: 64 }}>{i === 0 ? "Qty" : ""}<input type="number" inputMode="decimal" step="0.01" min={0.01} value={p.quantity} onChange={(e) => setParts(parts.map((x, j) => (j === i ? { ...x, quantity: e.target.value } : x)))} /></label>
             <label className="field" style={{ width: 84 }}>{i === 0 ? "Each" : ""}<input type="number" inputMode="decimal" step="0.01" min={0} value={p.unit_cost} onChange={(e) => setParts(parts.map((x, j) => (j === i ? { ...x, unit_cost: e.target.value } : x)))} /></label>
             <button type="button" className="iconbtn" aria-label="Remove part" onClick={() => setParts(parts.filter((_, j) => j !== i))}><Trash2 size={18} /></button>
-          </div>
+            </div>
+            {p.item_id && (
+              <label className="row" style={{ gap: 8, fontSize: ".9rem" }}>
+                <input type="checkbox" checked={!!p.deduct_stock} onChange={(e) => setParts(parts.map((x, j) => (j === i ? { ...x, deduct_stock: e.target.checked } : x)))} />
+                {p.measured ? <>A pack of {p.stock_label} is now used up (take 1 out of stock)</> : <>Take from stock: {p.stock_label}</>}
+              </label>
+            )}
+          </Fragment>
         ))}
         <button type="button" className="btn small" onClick={() => setParts([...parts, { description: "", part_number: "", quantity: "1", unit_cost: "" }])}><Plus size={16} /> Add part</button>
         <div className="grid two">
@@ -549,7 +576,7 @@ function TaskSheet({ itemId, task, onClose, onDone }: { itemId: number; task?: M
 
 export function MaintenancePage() {
   const me = useMe();
-  const [tab, setTab] = useState<"overdue" | "due" | "missing" | "recent">("overdue");
+  const [tab, setTab] = useState<"overdue" | "due" | "parts" | "missing" | "recent">("overdue");
   const [within, setWithin] = useState(30);
   const [owner, setOwner] = useState<"all" | "household" | "customer">("all");
   const d = useApi(() => api.get<MaintDashboard>("maintenance/dashboard", { within, owner }), [within, owner]);
@@ -598,6 +625,7 @@ export function MaintenancePage() {
       <div className="tabs">
         <button className={tab === "overdue" ? "active" : ""} onClick={() => setTab("overdue")}>Overdue ({x.overdue.length})</button>
         <button className={tab === "due" ? "active" : ""} onClick={() => setTab("due")}>Due soon ({x.due.length})</button>
+        <button className={tab === "parts" ? "active" : ""} onClick={() => setTab("parts")}>Parts needed</button>
         <button className={tab === "missing" ? "active" : ""} onClick={() => setTab("missing")}>No records ({x.no_records.length})</button>
         <button className={tab === "recent" ? "active" : ""} onClick={() => setTab("recent")}>Recent</button>
       </div>
@@ -610,6 +638,7 @@ export function MaintenancePage() {
           {taskList(x.due, `Nothing due in the next ${within} days.`)}
         </>
       )}
+      {tab === "parts" && <ReadinessPanel />}
       {tab === "missing" && (x.no_records.length ? (
         <div className="list">
           {x.no_records.map((e) => (

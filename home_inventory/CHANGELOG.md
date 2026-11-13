@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.12.0
+
+- **Read the manual (equipment).** The AI reads an equipment's owner's manual (its PDF, or photos of the pages for a paper or scanned manual). It finds each service and its interval, including first/break-in services, and what *that* service needs: the 50-hour service and the 100-hour service can need different parts. It also lists the parts and consumables, with part numbers and grades exactly as printed and their page numbers. You review and edit everything before it's saved. Matching tasks are updated rather than duplicated, and parts already in your inventory are reused.
+- **Parts on maintenance tasks, with readiness.** Each task lists what it uses, and each part shows *In stock*, *Not enough*, *None in stock* or *Check*. The equipment's model remembers what it takes, so a second machine of the same model shares it.
+- **Standards: any brand that meets the grade.** A standard such as "Engine oil SAE 10W-30" accepts any product you've confirmed as meeting it. Matching specifications only *suggest* the link. A task that names a brand can use equivalents unless you untick that, for example for a warranty. Superseded part numbers count one step only.
+- **Parts needed** on the Maintenance page adds up the parts for everything due across all equipment, so shared oil or plugs are counted once. Shortfalls go onto the shopping list.
+- **Completing a service fills in the parts from stock.** Pieces are taken out of stock; for liquids you tick when a bottle is used up.
+- Products have an optional pack size (e.g. 5 L) and specifications.
+- Database migration 0010, which only adds tables and columns.
+
 ## 0.11.0
 
 - **Photo inventory of a whole area.** Photograph a whole shelving rack, bench, pegboard or corner of a room, choosing "Photo inventory" on a location. The AI:

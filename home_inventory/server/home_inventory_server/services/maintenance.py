@@ -388,6 +388,7 @@ def record_service(
     )
     for part in parts:
         deduct = part.pop("deduct_stock", False)
+        deduct_qty = part.pop("deduct_quantity", None)
         if part.get("item_id") is not None:
             stock = db.get(Item, part["item_id"])
             if stock is None or stock.deleted_at is not None:
@@ -395,7 +396,7 @@ def record_service(
             if deduct and db.get(ItemOwner, stock.id) is not None:
                 raise MaintenanceError("Parts can only be taken from household stock, not from customer equipment")
             if deduct:
-                qty = Decimal(str(part.get("quantity") or 1))
+                qty = Decimal(str(deduct_qty or part.get("quantity") or 1))
                 if qty != qty.to_integral_value():
                     raise MaintenanceError("Only whole quantities can be taken from stock")
                 from .inventory import Conflict, adjust_quantity
