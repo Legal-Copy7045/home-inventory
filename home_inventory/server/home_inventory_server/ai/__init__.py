@@ -19,6 +19,7 @@ from typing import Any
 
 from ..config import Settings
 from ..services.media import downscale_for_ai
+from . import ratelimit
 from .providers import AIProviderError, Provider, build_provider
 
 _LOGGER = logging.getLogger(__name__)
@@ -30,6 +31,10 @@ class AIUnavailable(RuntimeError):
 
 class AIFailed(RuntimeError):
     pass
+
+
+class AIBusyError(AIFailed):
+    """The rate limits don't allow a call soon enough (see ratelimit.py)."""
 
 
 _NULLABLE_STR = {"type": ["string", "null"]}
@@ -244,10 +249,37 @@ class AIResult:
         return {"provider": self.provider, "model": self.model, "elapsed_ms": self.elapsed_ms, "result": self.data}
 
 
+def _known_text(known: list[str] | None) -> str:
+    """What's already recorded at the place, so a re-scan reuses the same
+    names (and the App can match them) instead of inventing new ones."""
+    names = [n.strip()[:80] for n in (known or []) if n and n.strip()][:80]
+    if not names:
+        return ""
+    return ("\nAlready recorded here (from earlier photos): " + "; ".join(names)
+            + ". When you see one of these, use exactly that name, and don't list the same thing twice. "
+            "Boxes, bins and totes keep their recorded names even if you'd describe them differently.")
+
+
+def _image_size(img: Any) -> tuple[int, int] | None:
+    data = img[0] if isinstance(img, tuple) else img
+    try:
+        import io
+
+        from PIL import Image
+
+        with Image.open(io.BytesIO(data)) as im:
+            return im.size
+    except Exception:  # noqa: BLE001 - only used for an estimate
+        return None
+
+
 class AIService:
     def __init__(self, settings: Settings, provider: Provider | None = None) -> None:
         self.settings = settings
         self._provider = provider
+        store = settings.data_dir / "ai_usage.json" if getattr(settings, "data_dir", None) else None
+        self.gate = ratelimit.AIRateGate(settings.ai_requests_per_minute, settings.ai_tokens_per_minute,
+                                         settings.ai_requests_per_day, store, settings.ai_retry_cooldown)
 
     @property
     def provider(self) -> Provider:
@@ -271,12 +303,27 @@ class AIService:
         return {"enabled": True, "provider": p.name, "model": p.model}
 
     def _call(self, prompt: str, schema: dict[str, Any], image: bytes | None, timeout: float | None = None) -> AIResult:
+        """One AI request, within the rate limits (see ratelimit.py).
+
+        Background work waits as long as the limits need and keeps retrying a
+        provider that says "too many requests"; a call someone is waiting for
+        waits at most ``ai_max_wait_seconds``.
+        """
         img = None
+        size = None
         if image is not None:
             img = downscale_for_ai(image, self.settings.ai_max_image_px)
-        attempts = max(1, self.settings.ai_retries + 1)
+            size = _image_size(img)
+        background = ratelimit.background()
+        max_wait = None if background else float(self.settings.ai_max_wait_seconds)
+        attempts = max(1, (self.settings.ai_background_retries if background else self.settings.ai_retries) + 1)
+        tokens = ratelimit.estimate_tokens(prompt, schema, size)
         last: Exception | None = None
         for attempt in range(attempts):
+            try:
+                self.gate.acquire(tokens, max_wait)
+            except ratelimit.AIBusy as err:
+                raise AIBusyError(str(err)) from err
             start = time.monotonic()
             try:
                 raw = self.provider.generate_json(prompt, schema, img, timeout=timeout or self.settings.ai_timeout)
@@ -292,11 +339,21 @@ class AIService:
                 _LOGGER.warning("AI request failed (attempt %s/%s): %s", attempt + 1, attempts, err)
                 if not err.retryable:
                     break
+                if err.rate_limited:
+                    # Everyone waits out the cool-down; the next attempt queues behind it.
+                    self.gate.pause()
+                    continue
                 time.sleep(min(2**attempt, 8))
             except (ValueError, TypeError) as err:
                 last = err
                 _LOGGER.warning("AI returned invalid JSON (attempt %s/%s): %s", attempt + 1, attempts, err)
+        if isinstance(last, AIProviderError) and last.rate_limited:
+            raise AIBusyError(f"The AI service is limiting requests. Try again in about "
+                              f"{int(self.settings.ai_retry_cooldown)} seconds.")
         raise AIFailed(f"AI request failed: {last}")
+
+    def usage(self) -> dict[str, Any]:
+        return self.gate.status()
 
     def identify_item(self, image: bytes, hint: str | None = None) -> AIResult:
         hint_txt = f"\nThe user says: {hint[:300]}" if hint else ""
@@ -304,10 +361,11 @@ class AIService:
         res.data = _clean_item(res.data)
         return res
 
-    def identify_container(self, image: bytes, hint: str | None = None, shelf: bool = False) -> AIResult:
+    def identify_container(self, image: bytes, hint: str | None = None, shelf: bool = False,
+                           known: list[str] | None = None) -> AIResult:
         """Everything visible in a photo of an open container, or of a shelf
         space when ``shelf`` is set.  Suggestions only - nothing is saved."""
-        hint_txt = f"\nContext: {hint[:300]}" if hint else ""
+        hint_txt = (f"\nContext: {hint[:300]}" if hint else "") + _known_text(known)
         prompt = SHELF_PROMPT if shelf else CONTAINER_PROMPT
         res = self._call(prompt.format(hint=hint_txt), CONTAINER_SCHEMA, image)
         items = [_clean_item(i) for i in res.data.get("items") or [] if isinstance(i, dict) and i.get("name")]
@@ -319,10 +377,10 @@ class AIService:
         res.data = {"items": items[:200], "notes": res.data.get("notes")}
         return res
 
-    def identify_area(self, image: bytes, hint: str | None = None) -> AIResult:
+    def identify_area(self, image: bytes, hint: str | None = None, known: list[str] | None = None) -> AIResult:
         """A storage area photo: its layout (units and shelves) and every item or
         labelled container in it, placed in that layout.  Suggestions only."""
-        hint_txt = f"\nContext: {hint[:300]}" if hint else ""
+        hint_txt = (f"\nContext: {hint[:300]}" if hint else "") + _known_text(known)
         res = self._call(AREA_PROMPT.format(hint=hint_txt), AREA_SCHEMA, image)
         units = []
         for u in (res.data.get("units") or [])[:12]:

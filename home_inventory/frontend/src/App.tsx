@@ -1,6 +1,6 @@
-import { Suspense, lazy, useEffect, useState, type ComponentType } from "react";
+import { Fragment, Suspense, lazy, useEffect, useState, type ComponentType } from "react";
 import { HashRouter, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Activity, ArrowLeft, Box, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings, Users, Wrench, ClipboardList, Boxes, Nfc, ShoppingCart, Camera, Images, FileText } from "lucide-react";
+import { Activity, ArrowLeft, Box, Copy, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings, Trash2, Wrench, ClipboardList, Boxes, Nfc, ShoppingCart, Camera, FileText } from "lucide-react";
 import { api, appBaseUrl, labelRef, type Me, type QrTarget } from "./api";
 import { MeContext, Sheet, Spinner, ToastHost, useToast } from "./components/ui";
 import { DashboardPage, ItemsPage, LocationDetailPage, LocationsPage, SearchBox, SearchPage } from "./pages/Browse";
@@ -49,36 +49,54 @@ const ReportPage = page(() => import("./pages/Report"), "default");
 const DuplicatesPage = page(() => import("./pages/Duplicates"), "default");
 const RecentlyDeleted = page(() => import("./components/BulkActions"), "RecentlyDeleted");
 const ToFinish = page(() => import("./pages/ToFinish"), "default");
+const TodoPage = page(() => import("./pages/Hubs"), "TodoPage");
+const CarePage = page(() => import("./pages/Hubs"), "CarePage");
+const ReportsPage = page(() => import("./pages/Hubs"), "ReportsPage");
+const MaintenancePlanPage = page(() => import("./pages/Hubs"), "MaintenancePlanPage");
 
-const NAV = [
-  { to: "/", label: "Dashboard", icon: Home, end: true },
-  { to: "/search", label: "Search", icon: Search },
-  { to: "/add", label: "Add Item", icon: Plus, edit: true },
-  { to: "/scan", label: "Scan", icon: ScanLine },
-  { to: "/items", label: "Items", icon: Package },
-  { to: "/capture", label: "Quick photos", icon: Camera, edit: true },
-  { to: "/sort", label: "To sort", icon: Images },
-  { to: "/to-finish", label: "To finish", icon: ListChecks },
-  { to: "/maintenance", label: "Maintenance", icon: Wrench },
-  { to: "/shopping", label: "Restock", icon: ShoppingCart },
-  { to: "/repairs", label: "Repairs", icon: ClipboardList, edit: true },
-  { to: "/customers", label: "Customers", icon: Users, edit: true },
-  { to: "/containers", label: "Containers", icon: Box },
-  { to: "/kits", label: "Kits", icon: Boxes },
-  { to: "/locations", label: "Locations", icon: MapPin },
-  { to: "/maps", label: "Visual Maps", icon: MapIcon },
-  { to: "/labels", label: "Print Labels", icon: Printer },
-  { to: "/report", label: "Inventory Report", icon: FileText },
-  { to: "/tags", label: "NFC Tags", icon: Nfc, edit: true },
-  { to: "/activity", label: "Activity History", icon: Activity },
-  { to: "/loans", label: "Loans & Temporary", icon: Handshake },
-  { to: "/settings", label: "Settings", icon: Settings },
+type NavEntry = { to: string; label: string; icon: typeof Home; end?: boolean; edit?: boolean; admin?: boolean };
+
+// The menu, grouped.  The first group has no heading.
+const NAV_GROUPS: { title: string | null; items: NavEntry[] }[] = [
+  { title: null, items: [
+    { to: "/", label: "Dashboard", icon: Home, end: true },
+    { to: "/search", label: "Search", icon: Search },
+    { to: "/add", label: "Add Item", icon: Plus, edit: true },
+    { to: "/scan", label: "Scan", icon: ScanLine },
+    { to: "/capture", label: "Quick photos", icon: Camera, edit: true },
+    { to: "/todo", label: "To sort & finish", icon: ListChecks },
+  ] },
+  { title: "Inventory", items: [
+    { to: "/items", label: "Items", icon: Package },
+    { to: "/containers", label: "Containers", icon: Box },
+    { to: "/locations", label: "Locations", icon: MapPin },
+    { to: "/kits", label: "Kits", icon: Boxes },
+    { to: "/maps", label: "Visual Maps", icon: MapIcon },
+    { to: "/loans", label: "Loans & Temporary", icon: Handshake },
+  ] },
+  { title: "Care", items: [
+    { to: "/care", label: "Maintenance & Repairs", icon: Wrench },
+  ] },
+  { title: "Reports", items: [
+    { to: "/reports", label: "All reports", icon: FileText },
+    { to: "/report", label: "Inventory Report", icon: ClipboardList },
+    { to: "/shopping", label: "Restock & Shopping", icon: ShoppingCart },
+  ] },
+  { title: "Admin", items: [
+    { to: "/labels", label: "Print Labels", icon: Printer },
+    { to: "/tags", label: "NFC Tags", icon: Nfc, edit: true },
+    { to: "/activity", label: "Activity History", icon: Activity },
+    { to: "/duplicates", label: "Possible Duplicates", icon: Copy, edit: true },
+    { to: "/deleted", label: "Recently Deleted", icon: Trash2, edit: true },
+    { to: "/settings", label: "Settings", icon: Settings },
+  ] },
 ];
+
 
 const TITLES: [RegExp, string][] = [
   [/^\/$/, "Home Inventory"], [/^\/search/, "Search"], [/^\/add/, "Add item"], [/^\/scan/, "Scan"], [/^\/items\/\d+/, "Item"], [/^\/items/, "Items"],
   [/^\/containers\/\d+/, "Container"], [/^\/containers/, "Containers"], [/^\/locations/, "Locations"], [/^\/maps/, "Visual maps"], [/^\/labels/, "Labels"],
-  [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/sort/, "To sort"], [/^\/deleted/, "Recently deleted"], [/^\/report/, "Inventory report"], [/^\/duplicates/, "Possible duplicates"], [/^\/maintenance/, "Maintenance"], [/^\/kits\/\d+/, "Kit"], [/^\/tags/, "NFC tags"], [/^\/shopping/, "Restock & shopping"], [/^\/tag\//, "Tag"], [/^\/kits/, "Kits"], [/^\/customers\/\d+/, "Customer"], [/^\/customers/, "Customers"], [/^\/repairs\/\d+\/print/, "Work order"], [/^\/repairs\/\d+/, "Repair job"], [/^\/repairs/, "Repairs"], [/^\/activity/, "Activity"], [/^\/loans/, "Loans & temporary"], [/^\/settings/, "Settings"],
+  [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/sort/, "To sort"], [/^\/deleted/, "Recently deleted"], [/^\/report/, "Inventory report"], [/^\/duplicates/, "Possible duplicates"], [/^\/maintenance/, "Maintenance"], [/^\/kits\/\d+/, "Kit"], [/^\/tags/, "NFC tags"], [/^\/shopping/, "Restock & shopping"], [/^\/tag\//, "Tag"], [/^\/kits/, "Kits"], [/^\/customers\/\d+/, "Customer"], [/^\/customers/, "Customers"], [/^\/repairs\/\d+\/print/, "Work order"], [/^\/repairs\/\d+/, "Repair job"], [/^\/repairs/, "Repairs"], [/^\/activity/, "Activity"], [/^\/loans/, "Loans & temporary"], [/^\/settings/, "Settings"], [/^\/todo/, "To sort & finish"], [/^\/care/, "Maintenance & repairs"], [/^\/reports\/maintenance-plan/, "Maintenance plan"], [/^\/reports/, "Reports"],
 ];
 
 /** QR labels can encode `<base>?c=CODE`; open the container when launched that way. */
@@ -205,14 +223,20 @@ function Shell({ me }: { me: Me }) {
   const [more, setMore] = useState(false);
   useEffect(() => { setMore(false); window.scrollTo(0, 0); }, [loc.pathname]);
   const title = TITLES.find(([re]) => re.test(loc.pathname))?.[1] || "Home Inventory";
-  const isRoot = ["/", "/search", "/scan", "/items", "/capture", "/sort", "/report", "/to-finish", "/maintenance", "/kits", "/tags", "/shopping", "/repairs", "/customers", "/containers", "/locations", "/maps", "/labels", "/activity", "/loans", "/settings"].includes(loc.pathname);
-  const items = NAV.filter((n) => !n.edit || me.can_edit);
+  const isRoot = ["/", "/search", "/scan", "/items", "/capture", "/sort", "/report", "/to-finish", "/maintenance", "/kits", "/tags", "/shopping", "/repairs", "/customers", "/containers", "/locations", "/maps", "/labels", "/activity", "/loans", "/settings", "/todo", "/care", "/reports", "/deleted", "/duplicates"].includes(loc.pathname);
+  const allowed = (n: NavEntry) => (!n.edit || me.can_edit) && (!n.admin || me.is_admin);
+  const groups = NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter(allowed) })).filter((g) => g.items.length);
   return (
     <div className="app">
       <nav className="sidebar" aria-label="Main">
         <div className="brand"><img src="./favicon.svg" alt="" width={30} height={30} /> Home Inventory</div>
-        {items.map((n) => (
-          <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => (isActive ? "active" : "")}><n.icon size={20} /> {n.label}</NavLink>
+        {groups.map((g) => (
+          <Fragment key={g.title || "main"}>
+            {g.title && <div className="nav-group">{g.title}</div>}
+            {g.items.map((n) => (
+              <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => (isActive ? "active" : "")}><n.icon size={20} /> {n.label}</NavLink>
+            ))}
+          </Fragment>
         ))}
       </nav>
       <div className="main">
@@ -236,6 +260,10 @@ function Shell({ me }: { me: Me }) {
           <Route path="/report" element={<ReportPage />} />
           <Route path="/duplicates" element={<DuplicatesPage />} />
           <Route path="/to-finish" element={<ToFinish />} />
+          <Route path="/todo" element={<TodoPage />} />
+          <Route path="/care" element={<CarePage />} />
+          <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/reports/maintenance-plan" element={<MaintenancePlanPage />} />
           <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/kits" element={<KitsPage />} />
           <Route path="/tags" element={<TagsPage />} />
@@ -272,11 +300,17 @@ function Shell({ me }: { me: Me }) {
       </nav>
       {more && (
         <Sheet title="Menu" onClose={() => setMore(false)}>
-          <div className="quick">
-            {items.filter((n) => !["/", "/search", "/add", "/scan"].includes(n.to)).map((n) => (
-              <NavLink key={n.to} to={n.to}><span className="ico"><n.icon size={20} /></span>{n.label}</NavLink>
-            ))}
-          </div>
+          {groups.map((g) => {
+            const rows = g.items.filter((n) => !["/", "/search", "/add", "/scan"].includes(n.to));
+            return rows.length ? (
+              <Fragment key={g.title || "main"}>
+                {g.title && <div className="menu-group">{g.title}</div>}
+                <div className="quick" style={{ marginBottom: 8 }}>
+                  {rows.map((n) => <NavLink key={n.to} to={n.to}><span className="ico"><n.icon size={20} /></span>{n.label}</NavLink>)}
+                </div>
+              </Fragment>
+            ) : null;
+          })}
         </Sheet>
       )}
     </div>

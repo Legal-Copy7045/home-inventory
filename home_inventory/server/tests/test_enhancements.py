@@ -208,3 +208,27 @@ def test_search_matches_numbers_as_digits_or_words(env):
     u.item("2 stroke oil")
     assert [r["name"] for r in u.ok("get", "/api/v1/search", params={"q": "0 turn mower", "ai": "false"})["results"]] == ["Zero-turn lawn mower"]
     assert [r["name"] for r in u.ok("get", "/api/v1/search", params={"q": "two stroke oil", "ai": "false"})["results"]] == ["2 stroke oil"]
+
+
+def test_one_word_or_two_finds_the_name_first(env):
+    u = env.admin
+    u.item("Lawn mower")
+    oil = u.item("Kawasaki SAE 10W-40 Engine Oil")
+    u.ok("patch", f"/api/v1/items/{oil['id']}", json={"description": "For the lawnmower and generator"})
+    names = [r["name"] for r in u.ok("get", "/api/v1/search", params={"q": "lawnmower", "ai": "false"})["results"]]
+    assert names[0] == "Lawn mower"
+    u.item("Leafblower")
+    assert [r["name"] for r in u.ok("get", "/api/v1/search", params={"q": "leaf blower", "ai": "false"})["results"]] == ["Leafblower"]
+
+
+def test_maintenance_plan_lists_equipment_jobs_and_parts(env):
+    u = env.admin
+    mower = _equipment(u, "Mower")
+    plug = u.item("Spark plug", quantity=2)
+    t = _task(u, mower, "Spark plug replace", interval_days=365, instructions="Gap 0.7 mm")
+    _set(u, t, [{"product_id": plug["product_id"], "quantity": 1}])
+    plan = u.ok("get", "/api/v1/maintenance/plan")["equipment"]
+    assert [e["item"]["name"] for e in plan] == ["Mower"]
+    job = plan[0]["tasks"][0]
+    assert job["title"] == "Spark plug replace" and job["instructions"] == "Gap 0.7 mm"
+    assert job["parts"] == [{"name": "Spark plug", "quantity": 1.0, "unit": None, "status": "in_stock"}]

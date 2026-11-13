@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { rememberList } from "../browse";
 import { FileSpreadsheet, FileText, MapPin, Printer, X } from "lucide-react";
 import { api, url } from "../api";
 import { PlacementPicker } from "../components/PlacementPicker";
@@ -100,7 +102,7 @@ export default function ReportPage() {
                   <li key={it.item_id}>
                     <Thumb src={it.thumb_url} />
                     <div className="grow">
-                      <div className="t">{it.name}{it.quantity !== 1 ? ` × ${it.quantity}` : ""}</div>
+                      <div className="t"><Link to={`/items/${it.item_id}`} onClick={() => rememberList({ ids: r.groups.flatMap((x) => x.items.map((y) => y.item_id)), label: "report" })}>{it.name}</Link>{it.quantity !== 1 ? ` × ${it.quantity}` : ""}</div>
                       <div className="s">{[it.manufacturer, it.model_number, it.serial_number && `S/N ${it.serial_number}`].filter(Boolean).join(" · ") || it.category || ""}</div>
                       <div className="s">{it.place}{it.purchase_date ? ` · bought ${fmtDate(it.purchase_date)}` : ""}{it.retailer ? ` at ${it.retailer}` : ""}{it.warranty_expires ? ` · warranty to ${fmtDate(it.warranty_expires)}` : ""}</div>
                       <div className="s">{it.receipts ? `${it.receipts} receipt${it.receipts === 1 ? "" : "s"}` : "No receipt"}{it.documents ? ` · ${it.documents} document${it.documents === 1 ? "" : "s"}` : ""}</div>

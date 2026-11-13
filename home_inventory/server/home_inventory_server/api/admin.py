@@ -174,7 +174,7 @@ def get_settings(request: Request, actor: Actor = Depends(current_actor), db: Se
         "qr_base_url": _qr_base(db, st),
         "synonyms": syn.value if syn else {},
         **{k: (db.get(Setting, k).value if db.get(Setting, k) else None) for k in ("amazon_domain", "amazon_associate_tag")},
-        "ai": st.ai.describe(),
+        "ai": {**st.ai.describe(), "usage": st.ai.usage() if st.ai.enabled else None},
         "barcode_providers": [name for name, _ in (st.barcode_providers if st.barcode_providers is not None else barcode_svc.providers(st.settings))],
         "warranty_notice_days": st.settings.warranty_notice_days,
         "maintenance_auto_shopping": maintenance_notices.auto_shopping(db),

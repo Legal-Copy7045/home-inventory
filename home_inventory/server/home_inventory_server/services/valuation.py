@@ -19,7 +19,7 @@ re-estimate.  Customer equipment is never included.
 from __future__ import annotations
 
 import logging
-import time
+import uuid
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
@@ -36,9 +36,10 @@ from .customers import household_only
 _LOGGER = logging.getLogger(__name__)
 
 JOB_KEY = "value_estimate_job"
+# Identifies this run of the App: a job started before a restart was interrupted.
+BOOT = uuid.uuid4().hex
 SCOPES = ("unpriced", "category", "all")
 RECENT_DAYS = 30
-PAUSE = 0.5  # seconds between AI calls, to stay well inside provider limits
 MAX_ITEMS = 2000
 
 
@@ -109,10 +110,20 @@ def select_items(db: Session, scope: str, category_id: int | None = None, redo_r
     return items
 
 
-def preview(db: Session, scope: str, category_id: int | None = None, redo_recent: bool = False) -> dict[str, Any]:
+def preview(db: Session, scope: str, category_id: int | None = None, redo_recent: bool = False,
+            limits: dict[str, Any] | None = None) -> dict[str, Any]:
     items = select_items(db, scope, category_id, redo_recent)
-    products = {i.product_id for i in items}
-    return {"items": len(items), "requests": len(products), "too_many": len(items) > MAX_ITEMS, "max": MAX_ITEMS}
+    requests = len({i.product_id for i in items})
+    out = {"items": len(items), "requests": requests, "too_many": len(items) > MAX_ITEMS, "max": MAX_ITEMS,
+           "minutes": None, "days": None}
+    if limits:
+        lim = limits.get("limits") or {}
+        if lim.get("per_minute"):
+            out["minutes"] = -(-requests // lim["per_minute"])
+        if lim.get("per_day"):
+            left = max(0, lim["per_day"] - limits.get("requests_last_24h", 0))
+            out["days"] = 1 if requests <= left else 1 + -(-(requests - left) // lim["per_day"])
+    return out
 
 
 # --------------------------------------------------------------------------- the background job
@@ -134,12 +145,9 @@ def running(db: Session) -> bool:
     j = job(db)
     if not j or j.get("status") not in ("pending", "running"):
         return False
-    # A job whose App restarted mid-way never finishes: let a new one start.
-    seen = j.get("heartbeat") or j.get("started_at")
-    try:
-        return datetime.now(UTC) - datetime.fromisoformat(seen) < timedelta(minutes=10)
-    except (TypeError, ValueError):
-        return False
+    # A job from before the App restarted never finishes: let a new one start.
+    # (A running job may wait hours for the AI limits, so time isn't a sign.)
+    return j.get("boot") == BOOT
 
 
 def start(state, actor: Actor, scope: str, category_id: int | None, redo_recent: bool) -> dict[str, Any]:
@@ -157,7 +165,7 @@ def start(state, actor: Actor, scope: str, category_id: int | None, redo_recent:
         data = {"status": "pending", "scope": scope, "category": cat.name if cat else None,
                 "total": len(items), "done": 0, "failed": 0, "skipped": 0, "estimated_total": 0.0,
                 "currency": None, "error": None, "started_at": now, "heartbeat": now, "finished_at": None,
-                "started_by": actor.name, "cancel": False}
+                "started_by": actor.name, "cancel": False, "boot": BOOT}
         _put(db, data)
         ids = [i.id for i in items]
     finally:
@@ -186,7 +194,7 @@ def _run(state, actor: Actor, ids: list[int]) -> None:
         _put(db, data)
         by_product: dict[int, dict[str, Any]] = {}
         unavailable = 0
-        for n, item_id in enumerate(ids):
+        for item_id in ids:
             data = job(db) or data
             if data.get("cancel"):
                 data["status"] = "cancelled"
@@ -198,10 +206,9 @@ def _run(state, actor: Actor, ids: list[int]) -> None:
                 est = by_product.get(item.product_id)
                 try:
                     if est is None:
+                        # Waits for its turn within the AI rate limits (background work).
                         est = estimate(db, state.ai, state.media, item, currency)
                         by_product[item.product_id] = est
-                        if n:
-                            time.sleep(PAUSE)
                     save(db, actor, item, est)
                     data["done"] += 1
                     if est.get("replacement"):

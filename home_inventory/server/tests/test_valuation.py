@@ -20,7 +20,6 @@ def _wait(u):
 
 
 def _setup(tmp_path, monkeypatch):
-    monkeypatch.setattr(valuation, "PAUSE", 0)
     fake = FakeProvider()
     env = Env(tmp_path, ai_provider=fake)
     u = env.admin
@@ -72,8 +71,7 @@ def test_members_cant_start_a_run_and_one_at_a_time(tmp_path, monkeypatch):
     assert sam.post("/api/v1/value-estimates", json={"scope": "all"}).status_code == 403
     assert sam.get("/api/v1/value-estimates/preview", params={"scope": "all"}).status_code == 200
     db = env.state.db.SessionLocal()
-    from datetime import UTC, datetime
-    valuation._put(db, {"status": "running", "heartbeat": datetime.now(UTC).isoformat()})
+    valuation._put(db, {"status": "running", "boot": valuation.BOOT})
     db.close()
     assert u.post("/api/v1/value-estimates", json={"scope": "all"}).status_code == 409
     env.state.db.dispose()

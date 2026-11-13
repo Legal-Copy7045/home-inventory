@@ -190,6 +190,13 @@ export function ContainerDetail() {
       {ct.photos && ct.photos.length > 0 && (
         <Section title="Photos">
           <div className="photos">{ct.photos.map((p) => <a key={p.id} className="ph" href={url(p.url)} target="_blank" rel="noreferrer"><img src={url(p.thumb_url || p.url)} alt="" /></a>)}</div>
+          {edit && me.app.ai.enabled && ct.photos.some((p) => p.caption === "Cut from photo inventory") && (
+            <button className="btn small ghost" style={{ marginTop: 8 }} disabled={busy} onClick={async () => {
+              if (!window.confirm("Make the cut-out photos again for everything from this box's photo inventory? The AI looks at the original photo once more. Photos you added yourself are kept.")) return;
+              const r = await run(() => api.post<{ fixed: number; whole_photo: number }>(`containers/${ct.id}/redo-cutouts`));
+              if (r) { toast(`${r.fixed} cut-out${r.fixed === 1 ? "" : "s"} redone${r.whole_photo ? `; ${r.whole_photo} now show the whole photo` : ""}`); refresh(); }
+            }}>Wrong part of the photo? Redo cut-outs</button>
+          )}
         </Section>
       )}
       {ct.maps && ct.maps.length > 0 && <Section title="Visual maps">{ct.maps.map((m) => <Link key={m.id} className="btn" to={`/maps/${m.id}`}>{m.title}</Link>)}</Section>}

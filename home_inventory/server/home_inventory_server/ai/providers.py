@@ -27,10 +27,24 @@ from ..config import Settings
 _LOGGER = logging.getLogger(__name__)
 
 
+_RATE_WORDS = ("429", "resource_exhausted", "resource exhausted", "quota", "rate limit", "rate_limit",
+               "too many requests")
+
+
+def looks_rate_limited(text: str) -> bool:
+    """Whether an error message is the provider saying "too many requests"."""
+    t = (text or "").lower()
+    return any(w in t for w in _RATE_WORDS)
+
+
 class AIProviderError(RuntimeError):
-    def __init__(self, message: str, retryable: bool = False) -> None:
+    """``rate_limited``: the provider refused because of its rate or quota
+    limits; every AI call then pauses for the cool-down before retrying."""
+
+    def __init__(self, message: str, retryable: bool = False, rate_limited: bool = False) -> None:
         super().__init__(message)
-        self.retryable = retryable
+        self.retryable = retryable or rate_limited
+        self.rate_limited = rate_limited
 
 
 class Provider(Protocol):
@@ -95,7 +109,8 @@ class AnthropicProvider:
         except a.BadRequestError as err:
             raise AIProviderError(f"Anthropic rejected the request: {err.message}") from err
         except a.APIStatusError as err:
-            raise AIProviderError(f"Anthropic error {err.status_code}", retryable=err.status_code >= 500) from err
+            raise AIProviderError(f"Anthropic error {err.status_code}", retryable=err.status_code >= 500,
+                                  rate_limited=err.status_code == 429) from err
         if response.stop_reason == "refusal":
             raise AIProviderError("The model declined to analyse this image")
         if response.stop_reason == "max_tokens":
@@ -132,7 +147,7 @@ class OpenAICompatibleProvider:
         except httpx.HTTPError as err:
             raise AIProviderError(f"could not reach {self.name}: {err}", retryable=True) from err
         if r.status_code in (429,) or r.status_code >= 500:
-            raise AIProviderError(f"{self.name} error {r.status_code}", retryable=True)
+            raise AIProviderError(f"{self.name} error {r.status_code}", retryable=True, rate_limited=r.status_code == 429)
         if r.status_code >= 400:
             raise AIProviderError(f"{self.name} rejected the request ({r.status_code}): {r.text[:200]}")
         try:
@@ -146,7 +161,9 @@ class OpenAICompatibleProvider:
 
 class GeminiProvider:
     name = "gemini"
-    DEFAULT_MODEL = "gemini-2.5-flash"
+    # A "-latest" alias follows Google's current model, so it keeps working
+    # when a dated model is retired.
+    DEFAULT_MODEL = "gemini-flash-lite-latest"
 
     def __init__(self, api_key: str, model: str | None, base_url: str | None) -> None:
         if not api_key:
@@ -177,7 +194,8 @@ class GeminiProvider:
         except httpx.HTTPError as err:
             raise AIProviderError(f"could not reach Gemini: {err}", retryable=True) from err
         if r.status_code == 429 or r.status_code >= 500:
-            raise AIProviderError(f"Gemini error {r.status_code}", retryable=True)
+            raise AIProviderError(f"Gemini error {r.status_code}", retryable=True,
+                                  rate_limited=r.status_code == 429 or looks_rate_limited(r.text))
         if r.status_code >= 400:
             raise AIProviderError(f"Gemini rejected the request ({r.status_code}): {r.text[:200]}")
         try:
@@ -309,8 +327,11 @@ class HomeAssistantAITaskProvider:
         finally:
             if uploaded is not None:
                 self._remove_media(uploaded)
-        if r.status_code >= 500:
-            raise AIProviderError(f"Home Assistant AI Task failed ({r.status_code}): {r.text[:200]}", retryable=True)
+        # Home Assistant passes the AI service's own error on, e.g. Gemini's
+        # "429 RESOURCE_EXHAUSTED" inside a 500.
+        if r.status_code >= 500 or (r.status_code >= 400 and looks_rate_limited(r.text)):
+            raise AIProviderError(f"Home Assistant AI Task failed ({r.status_code}): {r.text[:200]}", retryable=True,
+                                  rate_limited=r.status_code == 429 or looks_rate_limited(r.text))
         if r.status_code >= 400:
             raise AIProviderError(f"Home Assistant rejected the AI Task ({r.status_code}): {r.text[:200]}")
         try:

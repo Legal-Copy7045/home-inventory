@@ -9,6 +9,18 @@ A household inventory you open from the Home Assistant sidebar.
 3. **Items**: tap **+**, take a photo, let AI suggest what it is (optional), check the details, pick where it is, and save.
 4. **Scan mode**: in the storage area, scan a box's label to open it, then scan product barcodes to add (+1) or take out (−1). Tap ⇄ to move something to another box.
 
+
+## The menu
+
+The menu is grouped:
+
+- **Top:** Dashboard, Search, Add item, Scan, Quick photos, and **To sort & finish** (photos waiting to be put away, and items waiting for details, as two tabs).
+- **Inventory:** Items, Containers, Locations, Kits, Visual maps, Loans & temporary.
+- **Care:** **Maintenance & Repairs**, with tabs for maintenance, repair jobs and customers.
+- **Reports:** All reports (inventory report, maintenance plan, upcoming maintenance, restock & shopping, the maintenance guide and more), the inventory report, and Restock & Shopping.
+- **Admin:** Print labels, NFC tags, Activity history, Possible duplicates, Recently deleted and Settings.
+
+On an item page, **Previous** and **Next** step through the list you came from (the Items page with its search and filters, or the inventory report), or the whole inventory by name. In the inventory report, tap an item's name to open it.
 ## Configuration
 
 | Option | Default | Meaning |
@@ -16,7 +28,9 @@ A household inventory you open from the Home Assistant sidebar.
 | `ai_provider` | `home_assistant` | `home_assistant` uses a Home Assistant **AI Task** entity (Settings → Devices & services → e.g. *Google Generative AI*); the Gemini free tier works. `gemini`, `anthropic` and `openai` call a provider directly with `ai_api_key`. `ollama` uses a local Ollama server (`ai_base_url`). `none` turns AI off. |
 | `ai_task_entity` | *(auto)* | For example `ai_task.google_ai_task`. Leave empty to use the first AI Task entity that accepts images. |
 | `ai_api_key` | | Only for direct providers. It is stored by the Supervisor, never in Git. |
-| `ai_model`, `ai_base_url` | | Optional overrides for direct providers. |
+| `ai_model`, `ai_base_url` | | Optional overrides for direct providers. The direct `gemini` provider defaults to `gemini-flash-lite-latest`, which follows Google's current model, so it keeps working when a dated model is retired. With `home_assistant`, the model is chosen in Home Assistant's AI integration. |
+| `ai_requests_per_minute`, `ai_tokens_per_minute`, `ai_requests_per_day` | `15`, `250000`, `500` | Your AI plan's limits (the defaults are Gemini's free tier). Every AI request waits its turn so they're never exceeded. Background work (reading manuals and documents, value estimates) waits as long as it takes, into the next day if needed; something you're waiting for (identifying a photo) gives up after 30 seconds and says when to try again. The day's count survives restarts. 0 = no limit. **Settings → AI** shows what's been used. |
+| `ai_retry_cooldown` | `60` | When the AI service says "too many requests", every AI request pauses this many seconds, then tries again. |
 | `barcode_open_facts` | `true` | Open Food/Products/Beauty Facts lookups (free, no key). |
 | `barcode_upcitemdb` | `true` | UPCitemdb trial lookups (free, 100/day). |
 | `barcode_lookup_api_key` | | Optional commercial barcodelookup.com key. |
@@ -44,9 +58,9 @@ People are identified by their Home Assistant login, and the history records who
 
 ## Quick photos
 
-To inventory a box fast, open the container (or location) and tap **Quick photos**. Take one photo per item; each is saved into that box at once as "Item to identify". Come back later via **To finish** in the menu, which shows the photo beside the details form. **Save & next** moves on to the next one. If AI is configured, a suggested name and category is already filled in. The live shutter needs Home Assistant over https; otherwise the button opens your phone's camera app.
+To inventory a box fast, open the container (or location) and tap **Quick photos**. Take one photo per item; each is saved into that box at once as "Item to identify". Come back later via **To sort & finish** in the menu (the *To finish* tab), which shows the photo beside the details form. **Save & next** moves on to the next one. If AI is configured, a suggested name and category is already filled in. The live shutter needs Home Assistant over https; otherwise the button opens your phone's camera app.
 
-To photograph a whole room first and sort later, tap **Quick photos** in the menu or on the dashboard. Photos taken this way have no place yet. Tap **Next shelf** each time you move to another shelf, box or drawer. Afterwards, open **To sort**: the photos are grouped shelf by shelf. Tap **Put all in…** and choose the shelf (a location) or box (a container). Untick any photo in the group that belongs somewhere else and put it away separately.
+To photograph a whole room first and sort later, tap **Quick photos** in the menu or on the dashboard. Photos taken this way have no place yet. Tap **Next shelf** each time you move to another shelf, box or drawer. Afterwards, open **To sort & finish** (the *To sort* tab): the photos are grouped shelf by shelf. Tap **Put all in…** and choose the shelf (a location) or box (a container). Untick any photo in the group that belongs somewhere else and put it away separately.
 
 Quick photos are saved on your phone before they upload. If you lose signal, or close the app part-way, they upload the next time you open Home Inventory; a banner shows how many are still waiting.
 
@@ -84,6 +98,8 @@ In the review, the **Layout** panel matches each rack and shelf to a place you a
 **Look again without a new photo.** **Last photo again** has the AI go through the latest photo inventory photo of that place once more. This is useful after an update, or to pick up things it couldn't identify before. Things already recorded are recognised, so you only review what's new. Every photo button also lets you choose a photo from your library instead of taking one.
 
 In every case nothing is saved until you confirm. Edit names and quantities, tap **Details** for category, maker, model, notes and whether it's an item or a box, remove anything wrong and **Add something it missed**. Things already recorded but not seen in the photo can be kept, marked missing or deleted. The AI's guesses can be wrong, especially counts, brands and partly hidden things, so check before confirming.
+
+**Re-scanning a shelf.** A second photo inventory of the same place is told what's already recorded there, so it reuses those names and boxes instead of adding them again. If a box's or item's cut-out shows the wrong part of the photo, open it and tap **Wrong part of the photo? Redo cut-outs**.
 
 ## Receipts, warranties and other documents
 
@@ -136,6 +152,8 @@ The **Maintenance** page lists what's overdue, what's due in the next 7, 30 or 9
 
 Service history is kept when tasks are changed or removed, and even when you stop tracking an item.
 
+**Maintenance plan.** **Reports → Maintenance plan** lists every piece of equipment with its service jobs, how often each is due, when it was last done and the parts each job needs (with whether they're in stock). Print it to keep in the workshop.
+
 ### Reading the manual
 
 On equipment you track, **Read the manual** has the AI read its owner's manual. Choose the PDF attached to the item, or add one. A scanned PDF is read page by page as pictures: the first 12 pages, or the pages you type in **Pages to read** (e.g. 18-26). For a paper manual, photograph the maintenance pages. For equipment you haven't set up yet, **Track maintenance** offers **Read the manual** first: reading it sets up the schedule and parts and turns tracking on.
@@ -175,7 +193,7 @@ Each task can list the parts it uses: tap **+ Parts** under the task. Each part 
 
 ## Restocking
 
-Set a minimum and a restock level in an item's **Restock** section, and add where to buy it (Amazon, Lowe's, Tractor Supply or any shop). The **Restock** page lists what's running low with suggested quantities, and keeps a shopping list grouped by shop.
+Set a minimum and a restock level in an item's **Restock** section, and add where to buy it (Amazon, Lowe's, Tractor Supply or any shop). The **Restock & Shopping** page (under **Reports** in the menu) lists what's running low with suggested quantities, and keeps a shopping list grouped by shop.
 
 **Open at <shop>** opens the product pages; for Amazon, it opens Amazon's own add-to-cart confirmation. Nothing is bought or added for you. Tap **It's in my cart** when it is, and **Bought** to add it to your stock. See the [restock guide](https://github.com/Legal-Copy7045/home-inventory/blob/main/docs/replenishment.md) for what each shop allows.
 
@@ -195,7 +213,7 @@ Keep accessories as separate items, each with its own place, QR label and search
 
 If you repair equipment for other people:
 
-1. Add them under **Customers**, with name, phone and email.
+1. Add them under **Maintenance & Repairs → Customers**, with name, phone and email.
 2. Open a **repair job**. You can add their equipment at the same time.
 3. Record its condition when received and the reported problem.
 4. Move the job through *received → awaiting diagnosis → awaiting approval → waiting for parts → in progress → ready for pickup → returned*.
@@ -226,6 +244,8 @@ Scan a label with your **phone's normal camera**. It opens Home Assistant (log i
 The link printed on the label is the address you used to open Home Assistant when you printed it, e.g. `https://ha.example.com/b1a256fc_home_inventory/c/ABCD2345`. Print labels while using the address your phone can reach. To always print a specific address (for example your external one), set *QR label link* in Settings.
 
 The in-app **Scan** screen reads every label format, including labels printed before version 0.1.2.
+
+Location labels print the place's full path (*Garage › Back wall › Metal racking*) in bold above a line, so you can see at a glance where something goes back.
 
 ## Backups
 
