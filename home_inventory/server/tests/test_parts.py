@@ -209,7 +209,7 @@ def test_reading_a_manual_builds_the_plan(tmp_path):
     u = env.admin
     mower = u.item("Lawn mower", manufacturer="Honda", model_number="HRX217")
     pdf = u.upload(_pdf(["Contents", "Maintenance schedule\nEvery 50 hours: change engine oil (SAE 10W-30, 0.55 L)",
-                         "Spark plug: NGK BPR6ES"]), kind="manual", filename="manual.pdf", item_id=mower["id"])
+                         "Spark plug: NGK BPR6ES"]), kind="manual", filename="manual.pdf", item_id=mower["id"], recognise=False)
     # Equipment only
     r = u.post(f"/api/v1/items/{mower['id']}/manual-readings", json={"attachment_ids": [pdf["id"]]})
     assert r.status_code == 422 and "equipment" in r.json()["detail"]
@@ -277,7 +277,7 @@ def test_scanned_manuals_and_photos_of_pages(tmp_path):
     env = Env(tmp_path, ai_provider=fake)
     u = env.admin
     gen = _equipment(u, "Generator")
-    blank = u.upload(_pdf([""]), kind="manual", filename="scan.pdf", item_id=gen["id"])
+    blank = u.upload(_pdf([""]), kind="manual", filename="scan.pdf", item_id=gen["id"], recognise=False)
     r = _read(u, gen["id"], [blank["id"]])
     assert r["status"] == "failed" and "scanned" in r["error"] and fake.calls == []
     p1 = u.upload(jpeg_bytes(), item_id=gen["id"])
@@ -347,7 +347,7 @@ def test_reading_runs_in_the_background_one_at_a_time(tmp_path):
     env = Env(tmp_path, ai_provider=fake)
     u = env.admin
     gen = _equipment(u, "Generator")
-    pdf = u.upload(_pdf(["Maintenance: oil every 50 hours"]), kind="manual", filename="m.pdf", item_id=gen["id"])
+    pdf = u.upload(_pdf(["Maintenance: oil every 50 hours"]), kind="manual", filename="m.pdf", item_id=gen["id"], recognise=False)
     first = u.ok("post", f"/api/v1/items/{gen['id']}/manual-readings", expected=202, json={"attachment_ids": [pdf["id"]]})
     assert first["status"] == "pending"
     # Asking again while it runs returns the same reading, not a second AI call

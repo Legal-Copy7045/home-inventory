@@ -185,6 +185,15 @@ export function partsForService(rows: ReadinessLine[]) {
 export function ManualSheet({ itemId, onClose, onDone }: { itemId: number; onClose: () => void; onDone: () => void }) {
   const item = useApi(() => api.get<{ attachments: Attachment[] }>(`items/${itemId}`), [itemId]);
   const past = useApi(() => api.get<ManualReading[]>(`items/${itemId}/manual-readings`), [itemId]);
+  // What AI recognised each file as (every upload is recognised), so a wrong file stands out.
+  const recognised = useApi(() => api.get<{ attachment_id: number; status: string; result: { document_type: string; title: string } | null }[]>(`items/${itemId}/document-readings`), [itemId, item.data?.attachments?.length]);
+  const docType = (id: number) => recognised.data?.find((r) => r.attachment_id === id);
+  const checking = recognised.data?.some((r) => r.status === "pending");
+  useEffect(() => {
+    if (!checking) return;
+    const t = setInterval(() => recognised.reload(), 3000);
+    return () => clearInterval(t);
+  }, [checking]); // eslint-disable-line react-hooks/exhaustive-deps
   const [chosen, setChosen] = useState<number[]>([]);
   const [reading, setReading] = useState<ManualReading | null>(null);
   const { busy, run } = useAction();
@@ -237,7 +246,16 @@ export function ManualSheet({ itemId, onClose, onDone }: { itemId: number; onClo
               <li key={a.id}>
                 <label className="row grow" style={{ gap: 8 }}>
                   <input type="checkbox" checked={chosen.includes(a.id)} onChange={(e) => setChosen(e.target.checked ? [...chosen, a.id] : chosen.filter((x) => x !== a.id))} />
-                  <span className="grow">{a.original_name || a.caption || (a.mime_type === "application/pdf" ? "PDF" : "Photo")} <span className="muted">· {a.kind}</span></span>
+                  <span className="grow">{a.original_name || a.caption || (a.mime_type === "application/pdf" ? "PDF" : "Photo")} <span className="muted">· {a.kind}</span>
+                    {(() => {
+                      const r = docType(a.id);
+                      if (r?.status === "pending") return <span className="muted"> · AI is checking what it is…</span>;
+                      if (r?.result && r.result.document_type !== "manual") {
+                        return <span className="badge warn" style={{ marginLeft: 6 }}>Looks like: {r.result.document_type.replace("_", " ")}{r.result.title ? ` (${r.result.title})` : ""}</span>;
+                      }
+                      return null;
+                    })()}
+                  </span>
                 </label>
               </li>
             ))}
