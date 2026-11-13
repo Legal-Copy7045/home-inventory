@@ -3,6 +3,7 @@ import { ArrowRightLeft, Boxes, CheckSquare, Handshake, Pencil, Square, Trash2, 
 import { api, type Item } from "../api";
 import { PlacementPicker } from "./PlacementPicker";
 import { ItemRow, Sheet, Spinner, Thumb, useAction, useApi, useMe, useToast } from "./ui";
+import { CategorySelect } from "./CategorySelect";
 
 const STATUSES: [string, string][] = [
   ["stored", "In storage"],
@@ -208,7 +209,7 @@ function BulkEditSheet({ ids, onClose, onDone }: { ids: number[]; onClose: () =>
     <Sheet title={`Edit ${plural(ids.length)}`} onClose={onClose}>
       <p className="muted">Fill in only what you want to change; blank fields are left as they are. Category and maker are shared by every item of the same product.</p>
       <div className="grid two">
-        <label>Category<input value={f.category} onChange={set("category")} placeholder="Unchanged" /></label>
+        <label>Category<CategorySelect value={f.category} onChange={(category) => setF({ ...f, category })} emptyLabel="Unchanged" /></label>
         <label>Maker / brand<input value={f.manufacturer} onChange={set("manufacturer")} placeholder="Unchanged" /></label>
         <label>Bought from<input value={f.retailer} onChange={set("retailer")} placeholder="Unchanged" /></label>
         <label>Purchase date<input type="date" value={f.purchase_date} onChange={set("purchase_date")} /></label>

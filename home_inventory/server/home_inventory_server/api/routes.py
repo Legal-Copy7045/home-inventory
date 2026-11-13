@@ -18,7 +18,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from .. import audit
-from ..auth import Actor, authenticated_actor, current_actor, get_db, require_member
+from ..auth import Actor, authenticated_actor, current_actor, get_db, require_admin, require_member
 from ..models import (
     Attachment,
     AttachmentKind,
@@ -971,21 +971,45 @@ def categories(actor: Actor = Depends(current_actor), db: Session = Depends(get_
 
 
 @router.post("/categories", status_code=201)
-def create_category(data: CategoryIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+def create_category(data: CategoryIn, actor: Actor = Depends(require_admin), db: Session = Depends(get_db)):
+    """Categories are a fixed list that administrators keep; items choose from it."""
+    near = inv.match_category(db, data.name)
+    if near is not None:
+        raise HTTPException(409, f"That's already a category: {near.name}")
     cat = inv.get_or_create_category(db, data.name)
-    cat.synonyms = data.synonyms
+    cat.synonyms = data.synonyms or None
+    audit.record(db, actor, "created", "category", cat.id, f"Added category {cat.name}", None, {"name": cat.name})
     db.commit()
-    return {"id": cat.id, "name": cat.name, "synonyms": cat.synonyms}
+    return {"id": cat.id, "name": cat.name, "synonyms": cat.synonyms, "item_count": 0}
 
 
-@router.patch("/categories/{category_id}")
-def patch_category(category_id: int, data: CategoryIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+def _category_or_404(db: Session, category_id: int) -> Category:
     cat = db.get(Category, category_id)
     if cat is None:
         raise HTTPException(404, "Category not found")
-    clash = db.scalar(select(Category).where(func.lower(Category.name) == data.name.lower(), Category.id != cat.id))
-    if clash:
-        raise HTTPException(409, "A category with that name already exists")
-    cat.name, cat.synonyms = data.name, data.synonyms
+    return cat
+
+
+@router.patch("/categories/{category_id}")
+def patch_category(category_id: int, data: CategoryIn, actor: Actor = Depends(require_admin), db: Session = Depends(get_db)):
+    cat = _err(inv.rename_category, db, actor, _category_or_404(db, category_id), data.name, data.synonyms)
     db.commit()
     return {"id": cat.id, "name": cat.name, "synonyms": cat.synonyms}
+
+
+class CategoryMergeIn(BaseModel):
+    into_id: int
+
+
+@router.post("/categories/{category_id}/merge")
+def merge_category(category_id: int, data: CategoryMergeIn, actor: Actor = Depends(require_admin), db: Session = Depends(get_db)):
+    src, into = _category_or_404(db, category_id), _category_or_404(db, data.into_id)
+    moved = _err(inv.merge_category, db, actor, src, into)
+    db.commit()
+    return {"moved": moved, "into": {"id": into.id, "name": into.name, "synonyms": into.synonyms}}
+
+
+@router.delete("/categories/{category_id}", status_code=204)
+def delete_category(category_id: int, actor: Actor = Depends(require_admin), db: Session = Depends(get_db)):
+    _err(inv.delete_category, db, actor, _category_or_404(db, category_id))
+    db.commit()

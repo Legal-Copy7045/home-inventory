@@ -24,6 +24,8 @@ const prop = await api("locations", { method: "POST", data: { name: "Property" }
 const shed = await api("locations", { method: "POST", data: { name: "Shed", parent_id: prop.id } });
 const garage = await api("locations", { method: "POST", data: { name: "Garage", parent_id: prop.id } });
 const box = await api("containers", { method: "POST", data: { name: "Box", number: "15", location_id: shed.id } });
+// Categories are a fixed list an administrator keeps.
+for (const name of ["Electrical", "Garden tools", "Kitchenware", "Kitchen & Dining"]) await api("categories", { method: "POST", data: { name } });
 await api("items", { method: "POST", data: { name: "Extension cord", quantity: 2, container_id: box.id, category: "Electrical", barcode: "012345678905" } });
 await api("items", { method: "POST", data: { name: "Extension cord", quantity: 1, location_id: garage.id, barcode: "012345678905" } });
 await api("items", { method: "POST", data: { name: "AA batteries", quantity: 3, min_quantity: 4, container_id: box.id, expires_on: "2026-11-20" } });
@@ -164,7 +166,7 @@ await page.getByRole("button", { name: "Select", exact: true }).click();
 await page.getByRole("checkbox", { name: /Hoe/ }).click();
 await page.getByRole("checkbox", { name: /Trowel/ }).click();
 await page.getByRole("toolbar").getByRole("button", { name: "Edit" }).click();
-await page.getByLabel("Category").fill("Garden tools");
+await page.getByLabel("Category").selectOption("Garden tools");
 await page.getByRole("button", { name: "Apply to 2 items" }).click();
 await page.getByText("Saved").first().waitFor();
 if ((await api(`items/${trowel.id}`)).category !== "Garden tools") throw new Error("bulk edit failed");
@@ -441,6 +443,16 @@ await page.getByRole("button", { name: "More" }).click();
 await page.locator(".menu-group", { hasText: "Reports" }).waitFor();
 await shot("15e-grouped-menu");
 await page.keyboard.press("Escape");
+
+// Admin → Categories: merge Kitchenware into Kitchen & Dining
+const whisk = (await api("items", { method: "POST", data: { name: "Whisk", category: "Kitchenware", location_id: garage.id } })).items[0];
+await page.goto(BASE + "#/categories");
+await page.getByRole("heading", { name: "Categories" }).waitFor();
+await page.getByRole("button", { name: "Merge Kitchenware" }).click();
+await page.getByRole("dialog").getByText("Kitchen & Dining", { exact: true }).click();
+await page.getByText("Merged Kitchenware into Kitchen & Dining").first().waitFor();
+await shot("15f-categories");
+if ((await api(`items/${whisk.id}`)).category !== "Kitchen & Dining") throw new Error("category merge failed");
 
 const csvRes = await page.request.fetch(BASE + "api/v1/reports/inventory.csv");
 if (!csvRes.ok() || !(await csvRes.text()).includes("Serial number")) throw new Error("CSV export failed");
