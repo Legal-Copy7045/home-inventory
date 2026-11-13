@@ -11,7 +11,7 @@ ghcr.io/legal-copy7045/aarch64-home-inventory:<version>
 ghcr.io/legal-copy7045/amd64-home-inventory:<version>
 ```
 
-**First time only**:
+**Done (0.13.1):** both packages are public and `config.yaml` has the `image:` line. These were the first-time steps:
 
 1. Publish the release (see *Releasing* below) and wait for the **Release** workflow to go green.
 2. On GitHub, open your profile → **Packages**. For *each* of the two `…-home-inventory` packages, open **Package settings** and set **Change visibility → Public**. Home Assistant can't download private images. Then, under *Manage Actions access*, check that this repository is listed with **Write**.
@@ -21,7 +21,7 @@ ghcr.io/legal-copy7045/amd64-home-inventory:<version>
    image: "ghcr.io/legal-copy7045/{arch}-home-inventory"
    ```
 
-   From then on, Home Assistant downloads the image for the version in `config.yaml`. **Every version must have a published release.** If the image for a version is missing, installs and updates of that version fail. So always publish the GitHub release as soon as a version bump is merged.
+   From then on, Home Assistant downloads the image for the version in `config.yaml`. **Every version must have a published release.** If the image for a version is missing, installs and updates of that version fail. Releases publish themselves when a version bump is merged (below). The images take about three minutes to build, so an update tried in the first few minutes after a merge can fail; it works once the **Release** workflow is green.
 
 Don't add the `image:` line before step 2 works: users would get "image not found" instead of a local build.
 

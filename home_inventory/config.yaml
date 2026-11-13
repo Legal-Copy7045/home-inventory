@@ -1,7 +1,10 @@
 # Home Assistant App manifest
 # https://developers.home-assistant.io/docs/add-ons/configuration
 name: Home Inventory
-version: "0.13.0"
+version: "0.13.1"
+# Prebuilt images (built by .github/workflows/release.yaml for every release),
+# so Home Assistant downloads the App instead of building it on the device.
+image: "ghcr.io/legal-copy7045/{arch}-home-inventory"
 slug: home_inventory
 description: >-
   Household inventory with AI photo identification, barcode and QR scanning,
