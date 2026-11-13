@@ -202,7 +202,8 @@ async def _new_scan(
         try:
             if len(raws) > 1:
                 # Several photos of one wide area, left to right: one panorama.
-                raws = [await asyncio.to_thread(stitch, raws)]
+                raws = [await asyncio.to_thread(stitch, raws, st.settings.panorama_height,
+                                                max(8000, st.settings.panorama_height * 5))]
             stored = await asyncio.to_thread(st.media.save, raws[0], False)
         except MediaError as err:
             raise HTTPException(415, str(err)) from err

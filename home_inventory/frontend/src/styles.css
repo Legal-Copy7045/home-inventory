@@ -408,3 +408,6 @@ button.linkish { background: none; border: 0; padding: 0; color: var(--primary);
 .chip:hover { border-color: var(--primary); color: var(--primary); }
 /* No photo yet: a short dashed prompt instead of a big empty frame. */
 .btn.photo-empty { min-height: 72px; border-style: dashed; }
+
+.toast.with-undo { display: flex; align-items: center; gap: 14px; }
+.toast-undo { background: none; border: 0; color: #9cd6ff; font: inherit; font-weight: 700; padding: 4px 6px; cursor: pointer; text-transform: uppercase; letter-spacing: .03em; }

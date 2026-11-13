@@ -150,7 +150,8 @@ The forwarder says what's wrong out loud:
 | "…Alexa support isn't turned on…" | `alexa:` is missing from `configuration.yaml`, or Home Assistant wasn't restarted. |
 | "Sorry, I couldn't reach Home Assistant." | `HA_URL` is wrong, or Home Assistant isn't reachable from the internet. |
 | "…isn't set up yet…" | `HA_URL` or `HA_TOKEN` is empty. |
-| "I couldn't find X in your inventory." | It's working. Try the name as it's written in Home Inventory. |
+| "I couldn't find X in your inventory." | It's working. Try the name as it's written in Home Inventory. Numbers can be said either way ("zero turn" finds "0-turn" and the other way round). |
+| "Sorry, I only know where things are" after answering "which one?" | Update the interaction model (it has a `HomeInventoryAnswer` intent for bare replies such as "zero turn") and the forwarder code from 0.19.0. |
 
 Home Assistant's own "Amazon Alexa Custom Skill" documentation describes the same `/api/alexa` endpoint if you want more background.
 

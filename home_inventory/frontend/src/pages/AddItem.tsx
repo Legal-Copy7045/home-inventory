@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Camera, ImagePlus, MapPin, Sparkles, Trash2 } from "lucide-react";
+import { Camera, MapPin, Sparkles, Trash2 } from "lucide-react";
 import { api, uploadPhoto, type AISuggestion, type Attachment, type BarcodeResult, type Item, type SimilarProduct } from "../api";
 import { ItemFields, applyLinkDetails, emptyItem, toPayload, type ItemFormValue } from "../components/ItemFields";
 import { LinkImport } from "../components/LinkImport";
@@ -183,16 +183,11 @@ export default function AddItem() {
             ))}
           </div>
         )}
-        <div className="row wrap">
-          <label className="btn primary big" style={{ flex: 1 }}>
-            <Camera size={20} /> Take photo
-            <input type="file" accept="image/*" hidden onChange={(e) => addPhotos(e.target.files)} />
-          </label>
-          <label className="btn big" style={{ flex: 1 }}>
-            <ImagePlus size={20} /> Upload
-            <input type="file" accept="image/*" multiple hidden onChange={(e) => addPhotos(e.target.files)} />
-          </label>
-        </div>
+        {/* One button: the phone offers Take Photo, Photo Library or Choose File. */}
+        <label className="btn primary big block">
+          <Camera size={20} /> {photos.length ? "Add more photos" : "Add photos"}
+          <input type="file" accept="image/*" multiple hidden onChange={(e) => addPhotos(e.target.files)} />
+        </label>
         {me.app.ai.enabled && photos.length > 0 && (
           <button className="btn block" style={{ marginTop: 10 }} onClick={() => identify()} disabled={aiBusy}>
             {aiBusy ? <div className="spinner" /> : <Sparkles size={18} />} {aiBusy ? "Identifying…" : ai ? "Identify again" : "Identify with AI"}

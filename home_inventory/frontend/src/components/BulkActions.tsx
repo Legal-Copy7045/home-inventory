@@ -56,6 +56,7 @@ export function SelectableItems({
   const [sheet, setSheet] = useState<null | "move" | "edit" | "delete" | "lend" | "kit">(null);
   const [undo, setUndo] = useState<number[] | null>(null);
   const { busy, run } = useAction();
+  const toast = useToast();
   const count = total ?? items.length;
   const ids = [...chosen];
   const allChosen = count > 0 && ids.length >= count;
@@ -156,7 +157,25 @@ export function SelectableItems({
           onPick={async (p) => {
             setSheet(null);
             if (p.container_id === null && p.location_id === null) return;
-            if (await run(() => api.post("items/bulk-move", { item_ids: ids, container_id: p.container_id, location_id: p.location_id }), `Moved ${plural(ids.length)} to ${p.label}`)) done();
+            // Where each one was, so Undo can put them back (only when every
+            // chosen item is on screen, i.e. its place is known).
+            const byId = new Map(items.map((i) => [i.id, i]));
+            const origins = new Map<string, { container_id: number | null; location_id: number | null; ids: number[] }>();
+            const known = ids.every((id) => byId.has(id) && !byId.get(id)!.home_placement);
+            if (known) for (const id of ids) {
+              const pl = byId.get(id)!.placement;
+              const o = { container_id: pl.container?.id ?? null, location_id: pl.container ? null : pl.location?.id ?? null };
+              const key = `${o.container_id}:${o.location_id}`;
+              if (!origins.has(key)) origins.set(key, { ...o, ids: [] });
+              origins.get(key)!.ids.push(id);
+            }
+            const moved = await run(() => api.post("items/bulk-move", { item_ids: ids, container_id: p.container_id, location_id: p.location_id }));
+            if (!moved) return;
+            toast(`Moved ${plural(ids.length)} to ${p.label}`, false, known ? async () => {
+              for (const o of origins.values()) await api.post("items/bulk-move", { item_ids: o.ids, container_id: o.container_id, location_id: o.location_id });
+              onChanged();
+            } : undefined);
+            done();
           }}
         />
       )}
