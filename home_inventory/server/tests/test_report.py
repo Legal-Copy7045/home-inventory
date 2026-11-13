@@ -75,7 +75,7 @@ def test_report_leaves_out_customer_equipment(env):
 def test_read_receipt_suggests_but_saves_nothing(ai_env, fake_ai):
     u = ai_env.admin
     item = u.item("Cordless drill", location_id=u.location("Garage")["id"])
-    receipt = u.upload(jpeg_bytes(), kind="receipt", item_id=item["id"])
+    receipt = u.upload(jpeg_bytes(), kind="receipt", item_id=item["id"], recognise=False)
     fake_ai.responses.append({"retailer": " Screwfix ", "purchase_date": "2025-01-31", "currency": "gbp", "total": 129.99,
                               "item_price": "119.99", "warranty_months": 13, "confidence": 0.9})
     res = u.ok("post", f"/api/v1/items/{item['id']}/read-receipt", json={"attachment_id": receipt["id"]})
@@ -95,8 +95,8 @@ def test_read_receipt_validation(ai_env, fake_ai):
     u = ai_env.admin
     shelf = u.location("Shelf")
     a, b = u.item("A", location_id=shelf["id"]), u.item("B", location_id=shelf["id"])
-    on_b = u.upload(jpeg_bytes(), kind="receipt", item_id=b["id"])
-    pdf = u.upload(PDF, kind="receipt", filename="r.pdf", item_id=a["id"])
+    on_b = u.upload(jpeg_bytes(), kind="receipt", item_id=b["id"], recognise=False)
+    pdf = u.upload(PDF, kind="receipt", filename="r.pdf", item_id=a["id"], recognise=False)
     assert u.post(f"/api/v1/items/{a['id']}/read-receipt", json={"attachment_id": on_b["id"]}).status_code == 404
     assert u.post(f"/api/v1/items/{a['id']}/read-receipt", json={"attachment_id": pdf["id"]}).status_code == 422
     assert _viewer(ai_env).post(f"/api/v1/items/{a['id']}/read-receipt", json={"attachment_id": pdf["id"]}).status_code == 403
