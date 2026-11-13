@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.0
+
+- **Estimate values for many items at once.** On **Inventory report**, *Estimate values with AI* estimates replacement and second-hand values for **items without a price**, **items in a category**, or **everything**. It shows how many items and AI requests that is before you start; the same product kept in several places is estimated once, and items estimated in the last 30 days are skipped unless you include them. It runs in the background with a progress bar and can be stopped. Administrators only (it may cost money with a paid AI provider); customer equipment is never included.
+- The report shows an AI estimate (≈) for items without a price.
+- Radio buttons are now the normal size everywhere.
+
 ## 0.16.2
 
 Security hardening.
