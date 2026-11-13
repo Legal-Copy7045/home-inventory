@@ -26,6 +26,21 @@ from ..config import Settings
 
 _LOGGER = logging.getLogger(__name__)
 
+def _rejected(name: str, status: int, body: str) -> str:
+    """A user-facing message for a 4xx from an AI service.  The service's own
+    text goes to the log only: it can carry request details."""
+    _LOGGER.warning("%s rejected the request (%s): %s", name, status, body[:500])
+    if status in (401, 403):
+        return f"{name} refused the request ({status}): check the API key and that the model is allowed."
+    if status == 404:
+        return f"{name} doesn't know that model ({status}): check ai_model in the App configuration."
+    return f"{name} rejected the request ({status}). The App log has the details."
+
+
+def _unreachable(what: str, err: Exception) -> str:
+    _LOGGER.warning("Could not reach %s: %s", what, err)
+    return f"could not reach {what}"
+
 
 _RATE_WORDS = ("429", "resource_exhausted", "resource exhausted", "quota", "rate limit", "rate_limit",
                "too many requests")
@@ -145,11 +160,11 @@ class OpenAICompatibleProvider:
         except httpx.TimeoutException as err:
             raise AIProviderError(f"{self.name} request timed out", retryable=True) from err
         except httpx.HTTPError as err:
-            raise AIProviderError(f"could not reach {self.name}: {err}", retryable=True) from err
+            raise AIProviderError(_unreachable(self.name, err), retryable=True) from err
         if r.status_code in (429,) or r.status_code >= 500:
             raise AIProviderError(f"{self.name} error {r.status_code}", retryable=True, rate_limited=r.status_code == 429)
         if r.status_code >= 400:
-            raise AIProviderError(f"{self.name} rejected the request ({r.status_code}): {r.text[:200]}")
+            raise AIProviderError(_rejected(self.name, r.status_code, r.text))
         try:
             msg = r.json()["choices"][0]["message"]
         except (KeyError, IndexError, ValueError) as err:
@@ -192,12 +207,12 @@ class GeminiProvider:
         except httpx.TimeoutException as err:
             raise AIProviderError("Gemini request timed out", retryable=True) from err
         except httpx.HTTPError as err:
-            raise AIProviderError(f"could not reach Gemini: {err}", retryable=True) from err
+            raise AIProviderError(_unreachable("Gemini", err), retryable=True) from err
         if r.status_code == 429 or r.status_code >= 500:
             raise AIProviderError(f"Gemini error {r.status_code}", retryable=True,
                                   rate_limited=r.status_code == 429 or looks_rate_limited(r.text))
         if r.status_code >= 400:
-            raise AIProviderError(f"Gemini rejected the request ({r.status_code}): {r.text[:200]}")
+            raise AIProviderError(_rejected("Gemini", r.status_code, r.text))
         try:
             cand = r.json()["candidates"][0]
             text = "".join(p.get("text", "") for p in cand["content"]["parts"])
@@ -249,7 +264,7 @@ class HomeAssistantAITaskProvider:
             r = httpx.get(f"{self.base}/states", headers=self._headers(), timeout=timeout)
             r.raise_for_status()
         except httpx.HTTPError as err:
-            raise AIProviderError(f"could not list Home Assistant AI Task entities: {err}", retryable=True) from err
+            raise AIProviderError(_unreachable("Home Assistant (listing AI Task entities)", err), retryable=True) from err
         # Supported feature 2 = attachments; prefer entities that accept images.
         candidates = [s for s in r.json() if s["entity_id"].startswith("ai_task.")]
         candidates.sort(key=lambda s: -(int(s["attributes"].get("supported_features", 0)) & 2))
@@ -280,7 +295,7 @@ class HomeAssistantAITaskProvider:
                     timeout=timeout,
                 )
             except httpx.HTTPError as err:
-                raise AIProviderError(f"could not send the photo to Home Assistant: {err}", retryable=True) from err
+                raise AIProviderError(_unreachable("Home Assistant (sending the photo)", err), retryable=True) from err
             if r.status_code < 400:
                 try:
                     return r.json()["media_content_id"]
@@ -323,17 +338,18 @@ class HomeAssistantAITaskProvider:
         except httpx.TimeoutException as err:
             raise AIProviderError("Home Assistant AI Task timed out", retryable=True) from err
         except httpx.HTTPError as err:
-            raise AIProviderError(f"could not reach Home Assistant: {err}", retryable=True) from err
+            raise AIProviderError(_unreachable("Home Assistant", err), retryable=True) from err
         finally:
             if uploaded is not None:
                 self._remove_media(uploaded)
         # Home Assistant passes the AI service's own error on, e.g. Gemini's
         # "429 RESOURCE_EXHAUSTED" inside a 500.
         if r.status_code >= 500 or (r.status_code >= 400 and looks_rate_limited(r.text)):
-            raise AIProviderError(f"Home Assistant AI Task failed ({r.status_code}): {r.text[:200]}", retryable=True,
+            _LOGGER.warning("Home Assistant AI Task failed (%s): %s", r.status_code, r.text[:500])
+            raise AIProviderError(f"Home Assistant AI Task failed ({r.status_code})", retryable=True,
                                   rate_limited=r.status_code == 429 or looks_rate_limited(r.text))
         if r.status_code >= 400:
-            raise AIProviderError(f"Home Assistant rejected the AI Task ({r.status_code}): {r.text[:200]}")
+            raise AIProviderError(_rejected("Home Assistant AI Task", r.status_code, r.text))
         try:
             data = r.json()["service_response"]["data"]
         except (KeyError, ValueError) as err:

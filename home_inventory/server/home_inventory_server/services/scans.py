@@ -16,6 +16,7 @@ than creating duplicates.
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import UTC, datetime
 from difflib import SequenceMatcher
@@ -25,6 +26,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import audit
+from ..ai import AIFailed, AIUnavailable
 from ..auth import Actor
 from ..events import queue_event
 from ..models import Attachment, Container, ContainerScan, IdentificationStatus, Item, ItemStatus, Location, ScanStatus
@@ -32,6 +34,8 @@ from ..schemas import ContainerIn, ItemCreate, ItemPatch, LocationIn, ScanConfir
 from . import inventory as inv
 from .placement import Resolver
 from .textmatch import stem
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _norm(s: str | None) -> str:
@@ -220,9 +224,15 @@ def analyse(db: Session, scan: ContainerScan, ai, image: bytes) -> ContainerScan
     try:
         res = (ai.identify_area(image, hint=hint, known=known) if shelf
                else ai.identify_container(image, hint=hint, known=known))
-    except Exception as err:  # noqa: BLE001 - failures are recorded, nothing is lost
+    except (AIFailed, AIUnavailable) as err:  # our own user-facing messages
         scan.status = ScanStatus.failed
         scan.error = str(err)[:1000]
+        db.commit()
+        return scan
+    except Exception:  # noqa: BLE001 - failures are recorded, nothing is lost
+        _LOGGER.exception("Photo inventory %s failed", scan.id)
+        scan.status = ScanStatus.failed
+        scan.error = "The photo inventory failed. The App log has the details."
         db.commit()
         return scan
     entries = res.data["items"]
