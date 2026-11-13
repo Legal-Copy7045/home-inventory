@@ -92,6 +92,11 @@ class Settings:
     max_upload_mb: int = 25
     backup_max_mb: int = 2048
     max_image_px: int = 4096
+    # How much detail photos keep, for the machine the App runs on:
+    # "standard" suits a Raspberry Pi; "high" keeps larger photos and
+    # panoramas and sends the AI more detail (more memory and AI tokens).
+    photo_detail: str = "standard"
+    panorama_height: int = 1600
 
     # Labels / QR
     qr_base_url: str = ""
@@ -176,6 +181,7 @@ class Settings:
             "max_upload_mb": int,
             "backup_max_mb": int,
             "max_image_px": int,
+            "photo_detail": str,
             "qr_base_url": str,
             "warranty_notice_days": int,
             "expiry_notice_days": int,
@@ -193,7 +199,22 @@ class Settings:
         if s.default_role not in ("member", "read_only", "admin"):
             s.default_role = "member"
         s.ai_provider = s.ai_provider.lower()
+        s.apply_photo_detail(explicit={n for n in ("max_image_px", "ai_max_image_px") if pick(n) not in (None, "")})
         return s
+
+    def apply_photo_detail(self, explicit: set[str] | None = None) -> None:
+        """Image sizes for the chosen ``photo_detail`` (explicit size settings win)."""
+        explicit = explicit or set()
+        self.photo_detail = (self.photo_detail or "standard").lower()
+        if self.photo_detail == "high":
+            if "max_image_px" not in explicit:
+                self.max_image_px = 6144
+            if "ai_max_image_px" not in explicit:
+                self.ai_max_image_px = 2048
+            self.panorama_height = 2400
+        else:
+            self.photo_detail = "standard"
+            self.panorama_height = 1600
 
     def ensure_dirs(self) -> None:
         for d in (self.data_dir, self.media_dir, self.backup_dir):

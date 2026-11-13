@@ -26,6 +26,7 @@ A household inventory you open from the Home Assistant sidebar.
 | `warranty_notice_days` | `30` | When to fire `home_inventory_warranty_expiring`. |
 | `expiry_notice_days` | `14` | When to fire `home_inventory_item_expiring`. |
 | `max_upload_mb` | `25` | Upload size limit. |
+| `photo_detail` | `standard` | `standard` suits a Raspberry Pi. `high` (for a powerful machine or VM) keeps larger photos (6144 px instead of 4096), makes sharper wide-area panoramas and cut-outs, and sends the AI more detail (2048 px instead of 1568), using more memory and AI tokens. |
 | `backup_max_mb` | `2048` | Largest backup archive accepted by *Restore*. |
 | `log_level` | `info` | |
 
@@ -101,6 +102,10 @@ With AI set up, each document is read in the background. A few seconds later the
 To estimate many items at once, open **Inventory report → Estimate values with AI** (administrators). Choose **Items without a price**, **Items in a category** or **Everything**; it shows how many items and AI requests that is before you start. The same product kept in several places is estimated once, and items estimated in the last 30 days are skipped unless you tick *Include items estimated in the last 30 days*. It runs in the background with a progress bar, so you can leave the page, and **Stop** ends it early. Customer equipment is never included.
 
 Values are only ever copied from what's printed, never guessed. A warranty end date is worked out only when the document gives both the purchase date and the warranty length. A scanned PDF is read from pictures of its first pages. Files added from **Read the manual** are recognised too, so a receipt added there by mistake is flagged and can be filed correctly. **Dismiss** hides a suggestion, and **Read with AI** reads an older document.
+
+## Undo
+
+Quick changes don't ask "are you sure?" first; they tell you what happened with an **Undo** button for a few seconds: using or adding one, moving an item (back to where it was), changing its status, deleting an item or an empty location, and moving several items at once. Deleted items can also be restored later from **Recently deleted** or the Trash. Deleting a container still asks first, because its contents are moved out.
 
 ## Working with several items
 

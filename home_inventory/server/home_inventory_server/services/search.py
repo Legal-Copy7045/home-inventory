@@ -411,6 +411,30 @@ def search(db: Session, raw: str, ai=None, limit: int = 50) -> dict[str, Any]:
             _LOGGER.warning("AI could not interpret search %r: %s", raw[:100], err)
             ai_error = "AI couldn't interpret the question, so these are keyword results."
     result = run_search(db, query, limit)
+    if not result["total_matches"] and not query.barcode:
+        # Voice assistants write numbers as digits ("0 turn mower") and people
+        # name things in words ("Zero-turn mower"), or the other way round.
+        alt = swap_numbers(raw)
+        if alt != raw:
+            alt_result = run_search(db, parse_rules(alt, known_manufacturers(db), syn), limit)
+            if alt_result["total_matches"]:
+                alt_result["query"] = raw
+                result = alt_result
     if ai_error:
         result["ai_error"] = ai_error
     return result
+
+
+_NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+                 "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
+                 "nineteen", "twenty"]
+
+
+def swap_numbers(text: str) -> str:
+    """Standalone small numbers the other way round: digits to words if there
+    are any digits ("0 turn" → "zero turn"), else words to digits
+    ("two stroke" → "2 stroke")."""
+    if re.search(r"\b(?:[0-9]|1[0-9]|20)\b", text):
+        return re.sub(r"\b([0-9]|1[0-9]|20)\b", lambda m: _NUMBER_WORDS[int(m.group(1))], text)
+    words = {w: str(n) for n, w in enumerate(_NUMBER_WORDS)}
+    return re.sub(r"\b(" + "|".join(_NUMBER_WORDS) + r")\b", lambda m: words[m.group(1).lower()], text, flags=re.I)

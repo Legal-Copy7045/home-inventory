@@ -188,3 +188,23 @@ def test_places_inside_a_location_say_what_they_hold(env):
     kids = {c["name"]: c for c in u.ok("get", f"/api/v1/locations/{rack['id']}")["children"]}
     assert (kids["Top shelf"]["container_count"], kids["Top shelf"]["item_count"]) == (1, 5)
     assert (kids["Bottom shelf"]["container_count"], kids["Bottom shelf"]["item_count"]) == (0, 0)
+
+
+def test_photo_detail_high_keeps_more_pixels(tmp_path, monkeypatch):
+    from home_inventory_server.config import Settings
+
+    monkeypatch.setenv("HINV_PHOTO_DETAIL", "high")
+    monkeypatch.setenv("HINV_DATA_DIR", str(tmp_path))
+    s = Settings.load(tmp_path / "missing-options.json")
+    assert (s.max_image_px, s.ai_max_image_px, s.panorama_height) == (6144, 2048, 2400)
+    std = Settings(data_dir=tmp_path)
+    std.apply_photo_detail()
+    assert (std.max_image_px, std.ai_max_image_px, std.panorama_height) == (4096, 1568, 1600)
+
+
+def test_search_matches_numbers_as_digits_or_words(env):
+    u = env.admin
+    u.item("Zero-turn lawn mower")
+    u.item("2 stroke oil")
+    assert [r["name"] for r in u.ok("get", "/api/v1/search", params={"q": "0 turn mower", "ai": "false"})["results"]] == ["Zero-turn lawn mower"]
+    assert [r["name"] for r in u.ok("get", "/api/v1/search", params={"q": "two stroke oil", "ai": "false"})["results"]] == ["2 stroke oil"]
