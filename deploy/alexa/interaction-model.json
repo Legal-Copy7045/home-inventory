@@ -51,6 +51,22 @@
           ]
         },
         {
+          "name": "HomeInventoryAnswer",
+          "slots": [
+            {
+              "name": "answer",
+              "type": "HomeInventoryThing"
+            }
+          ],
+          "samples": [
+            "{answer}",
+            "{answer} please",
+            "it's {answer}",
+            "it is {answer}",
+            "that's {answer}"
+          ]
+        },
+        {
           "name": "HomeInventoryOnLoan",
           "slots": [],
           "samples": [
@@ -101,7 +117,163 @@
           "samples": []
         }
       ],
-      "types": []
+      "types": [
+        {
+          "name": "HomeInventoryThing",
+          "values": [
+            {
+              "name": {
+                "value": "zero turn"
+              }
+            },
+            {
+              "name": {
+                "value": "zero turn lawn mower"
+              }
+            },
+            {
+              "name": {
+                "value": "toro lawn mower"
+              }
+            },
+            {
+              "name": {
+                "value": "the first one"
+              }
+            },
+            {
+              "name": {
+                "value": "the second one"
+              }
+            },
+            {
+              "name": {
+                "value": "the third one"
+              }
+            },
+            {
+              "name": {
+                "value": "the last one"
+              }
+            },
+            {
+              "name": {
+                "value": "lawn mower"
+              }
+            },
+            {
+              "name": {
+                "value": "hedge trimmer"
+              }
+            },
+            {
+              "name": {
+                "value": "cordless drill"
+              }
+            },
+            {
+              "name": {
+                "value": "extension cord"
+              }
+            },
+            {
+              "name": {
+                "value": "water hose"
+              }
+            },
+            {
+              "name": {
+                "value": "siphon pump"
+              }
+            },
+            {
+              "name": {
+                "value": "axle stands"
+              }
+            },
+            {
+              "name": {
+                "value": "tape measure"
+              }
+            },
+            {
+              "name": {
+                "value": "christmas lights"
+              }
+            },
+            {
+              "name": {
+                "value": "leaf blower"
+              }
+            },
+            {
+              "name": {
+                "value": "pressure washer"
+              }
+            },
+            {
+              "name": {
+                "value": "ladder"
+              }
+            },
+            {
+              "name": {
+                "value": "toolbox"
+              }
+            },
+            {
+              "name": {
+                "value": "garden hose"
+              }
+            },
+            {
+              "name": {
+                "value": "paint brushes"
+              }
+            },
+            {
+              "name": {
+                "value": "camping chairs"
+              }
+            },
+            {
+              "name": {
+                "value": "sleeping bag"
+              }
+            },
+            {
+              "name": {
+                "value": "air compressor"
+              }
+            },
+            {
+              "name": {
+                "value": "socket set"
+              }
+            },
+            {
+              "name": {
+                "value": "screwdriver"
+              }
+            },
+            {
+              "name": {
+                "value": "batteries"
+              }
+            },
+            {
+              "name": {
+                "value": "light bulbs"
+              }
+            },
+            {
+              "name": {
+                "value": "duct tape"
+              }
+            }
+          ]
+        }
+      ]
     }
   }
 }

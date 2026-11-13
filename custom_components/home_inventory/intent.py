@@ -282,9 +282,13 @@ class ChooseHandler(intent.IntentHandler):
         key = _key(intent_obj)
         open_q = pending.get(key)
         if not open_q or open_q["until"] < time.monotonic():
+            # No question open: a bare name ("the toro lawn mower") is a question itself.
             pending.pop(key, None)
-            response.async_set_speech("I'm not sure what you mean. Ask me where something is, for example: where is the drill.")
-            return response
+            return await WhereIsHandler().async_handle(
+                intent.Intent(intent_obj.hass, intent_obj.platform, INTENT_WHERE_IS,
+                              {"item": {"value": choice}}, intent_obj.text_input, intent_obj.context,
+                              intent_obj.language, assistant=intent_obj.assistant, device_id=intent_obj.device_id,
+                              satellite_id=intent_obj.satellite_id))
         group = pick(choice, open_q["groups"])
         if group is None:
             names = [g["name"] for g in open_q["groups"]]

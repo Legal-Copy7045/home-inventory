@@ -48,24 +48,33 @@ export function usePoll(active: boolean, fn: () => void, ms = 3000) {
 export const MeContext = createContext<Me | null>(null);
 export const useMe = () => useContext(MeContext)!;
 
-type ToastFn = (msg: string, error?: boolean) => void;
+/** ``undo``: an action the toast offers (e.g. put a moved item back); the
+ *  toast then stays a little longer. */
+type ToastFn = (msg: string, error?: boolean, undo?: () => void | Promise<unknown>) => void;
 export const ToastContext = createContext<ToastFn>(() => {});
 export const useToast = () => useContext(ToastContext);
 
 export function ToastHost({ children }: { children: ReactNode }) {
-  const [t, setT] = useState<{ msg: string; err: boolean } | null>(null);
+  const [t, setT] = useState<{ msg: string; err: boolean; undo?: () => void | Promise<unknown> } | null>(null);
   const timer = useRef<number>(0);
-  const show = useCallback<ToastFn>((msg, err = false) => {
-    setT({ msg, err });
+  const show = useCallback<ToastFn>((msg, err = false, undo) => {
+    setT({ msg, err, undo });
     window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setT(null), err ? 5000 : 2600);
+    timer.current = window.setTimeout(() => setT(null), err ? 5000 : undo ? 8000 : 2600);
   }, []);
   return (
     <ToastContext.Provider value={show}>
       {children}
       {t && (
-        <div className={`toast ${t.err ? "err" : ""}`} role="status" onClick={() => setT(null)}>
-          {t.msg}
+        <div className={`toast ${t.err ? "err" : ""} ${t.undo ? "with-undo" : ""}`} role="status" onClick={() => !t.undo && setT(null)}>
+          <span>{t.msg}</span>
+          {t.undo && (
+            <button className="toast-undo" onClick={async () => {
+              const u = t.undo!;
+              setT(null);
+              try { await u(); show("Undone"); } catch (e) { show((e as Error).message || "Couldn't undo", true); }
+            }}>Undo</button>
+          )}
         </div>
       )}
     </ToastContext.Provider>

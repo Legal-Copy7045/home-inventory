@@ -53,6 +53,9 @@ def _skill_id(event: dict) -> str | None:
     ).get("applicationId")
 
 
+ASKING = "home_inventory_asking"  # session attribute: a "which one?" question is open
+
+
 def _forward(event: dict) -> dict:
     req = urllib.request.Request(
         HA_URL.rstrip("/") + "/api/alexa",
@@ -72,9 +75,14 @@ def _forward(event: dict) -> dict:
     except (urllib.error.URLError, TimeoutError, OSError):
         return _say("Sorry, I couldn't reach Home Assistant.")
     try:
-        return json.loads(body) if body else _say("Sorry, Home Assistant didn't answer.")
+        out = json.loads(body) if body else _say("Sorry, Home Assistant didn't answer.")
     except ValueError:
         return _say("Sorry, Home Assistant sent an answer I couldn't read.")
+    # Remember whether Home Assistant asked "which one?", so a reply Alexa
+    # can't place is answered sensibly instead of closing the question.
+    asking = (out.get("response") or {}).get("shouldEndSession") is False
+    out["sessionAttributes"] = {**(out.get("sessionAttributes") or {}), ASKING: asking}
+    return out
 
 
 def lambda_handler(event: dict, context=None) -> dict:
@@ -94,6 +102,17 @@ def lambda_handler(event: dict, context=None) -> dict:
         return _say("Sorry, I can't do that.")
 
     name = (request.get("intent") or {}).get("name")
+    asking = bool(((event.get("session") or {}).get("attributes") or {}).get(ASKING))
+    if name == "HomeInventoryAnswer":
+        # A bare reply ("zero turn"): Home Assistant reads it as the answer to
+        # "which one?", or as a new question when none is open.
+        value = ((((request.get("intent") or {}).get("slots") or {}).get("answer") or {}).get("value"))
+        if not value:
+            return _say("Sorry, which one?", end=False, reprompt="Say its name, or for example: the first one.") if asking \
+                else _say("Ask where something is, for example: where is the hedge trimmer.")
+        request["intent"] = {"name": "HomeInventoryChoose", "confirmationStatus": "NONE",
+                             "slots": {"choice": {"name": "choice", "value": value}}}
+        name = "HomeInventoryChoose"
     if name in FORWARDED:
         needed = FORWARDED[name]
         slot = (((request.get("intent") or {}).get("slots") or {}).get(needed) or {}) if needed else {"value": True}
@@ -106,5 +125,9 @@ def lambda_handler(event: dict, context=None) -> dict:
                     reprompt="What are you looking for?")
     if name in ("AMAZON.StopIntent", "AMAZON.CancelIntent", "AMAZON.NavigateHomeIntent"):
         return _say("Okay.")
-    return _say("Sorry, I only know where things are. Try: where is the hedge trimmer.", end=False,
-                reprompt="What are you looking for?")
+    if asking:
+        return _say("Sorry, I didn't catch which one. Say its name, or for example: the first one.", end=False,
+                    reprompt="Which one did you mean?")
+    # End the session, so the next "Alexa, ask Home Inventory..." starts afresh
+    # (inside an open session that phrase isn't understood).
+    return _say("Sorry, I only know where things are. Try: where is the hedge trimmer.")

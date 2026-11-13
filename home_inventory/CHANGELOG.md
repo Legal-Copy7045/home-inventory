@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.19.0
+
+- **Undo.** Using or adding one, moving an item, changing its status, deleting an item or an empty location, and moving several items now show what happened with an **Undo** button, instead of asking first. After deleting an item you land on the shelf or box it was in.
+- **Photo detail** (App configuration, `photo_detail`): `standard` suits a Raspberry Pi; `high`, for a powerful machine or VM, keeps photos at 6144 px instead of 4096, makes sharper wide-area panoramas and cut-outs, and sends the AI more detail (2048 px instead of 1568).
+- **One photo button.** *Add item* has a single **Add photos** button; your phone offers the camera, photo library or files.
+- **Home** no longer lists recent activity (it's under **Activity history** in the menu); a short getting-started note shows while the inventory is empty.
+- **Voice: numbers either way.** "0 turn mower" (as Alexa writes "zero") finds "Zero-turn lawn mower", and "two stroke oil" finds "2 stroke oil". This works in the app's search too.
+- **Alexa: bare answers.** Answering "which one did you mean?" with just a name ("zero turn", "toro lawn mower") now works. When no question is open, a bare name is answered as "where is…". If Alexa doesn't understand something it now ends the skill, so your next "Alexa, ask Home Inventory…" starts afresh instead of getting stuck. **Update the Alexa interaction model and the forwarder code** (see `docs/voice.md`).
+
 ## 0.18.0
 
 Less clutter, fewer taps.
