@@ -2,7 +2,7 @@
 
 ## 0.15.2
 
-- **Maintenance only on equipment.** The Maintenance section now appears only on items tracked as equipment. For things that may need servicing (an equipment-like category such as tools, garden or vehicles, a name like "mower" or "generator", or a manual attached), **Track maintenance** is a small link next to *Details*. Other items don't show it. its setup screen offers **Read the manual** first (which sets up the schedule and parts) or a type of equipment.
+- **Maintenance only on equipment.** The Maintenance section now appears only on items tracked as equipment. For things that may need servicing (an equipment-like category such as tools, garden or vehicles, a name like "mower" or "generator", or a manual attached), **Track maintenance** is a small link next to *Details*. Other items don't show it. Its setup screen offers **Read the manual** first (which sets up the schedule and parts) or a type of equipment.
 - Removed the extra "Read for the service schedule and parts" button from manual documents, which repeated **Read the manual** and overflowed on phones.
 
 ## 0.15.1
