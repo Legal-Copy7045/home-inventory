@@ -204,7 +204,7 @@ export function ManualSheet({ itemId, onClose, onDone }: { itemId: number; onClo
   const files = (item.data?.attachments || []).filter((a) => a.mime_type === "application/pdf" || a.mime_type.startsWith("image/"));
   const upload = async (list: FileList | null) => {
     for (const file of Array.from(list || [])) {
-      const a = await run(() => uploadPhoto(file, { kind: "manual", item_id: itemId }));
+      const a = await run(() => uploadPhoto(file, { kind: "manual", item_id: itemId, recognise: false }));
       if (a) setChosen((c) => [...c, a.id]);
     }
     item.reload();
