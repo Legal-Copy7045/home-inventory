@@ -158,3 +158,15 @@ def test_items_filtering(env):
     assert u.ok("get", "/api/v1/items", params={"category": "tools"})["total"] == 2
     assert u.ok("get", "/api/v1/items", params={"container_id": box["id"]})["total"] == 1
     assert u.ok("get", "/api/v1/items", params={"q": "bik"})["items"][0]["name"] == "Bike"
+
+
+def test_container_numbers_suggest_the_next_and_list_used(env):
+    u = env.admin
+    assert u.ok("get", "/api/v1/containers/numbers") == {"next": "1", "used": {}}
+    a = u.container("Hoses", number="1")
+    u.container("Towing", number="6")
+    u.container("Odd", number="A2")
+    u.container("No number")
+    out = u.ok("get", "/api/v1/containers/numbers")
+    assert out["next"] == "7"
+    assert out["used"]["1"] == {"id": a["id"], "name": "Hoses", "number": "1"} and set(out["used"]) == {"1", "6", "a2"}

@@ -195,6 +195,7 @@ export function ManualSheet({ itemId, onClose, onDone }: { itemId: number; onClo
     return () => clearInterval(t);
   }, [checking]); // eslint-disable-line react-hooks/exhaustive-deps
   const [chosen, setChosen] = useState<number[]>([]);
+  const [pages, setPages] = useState("");
   const [reading, setReading] = useState<ManualReading | null>(null);
   const { busy, run } = useAction();
   useEffect(() => {
@@ -219,7 +220,7 @@ export function ManualSheet({ itemId, onClose, onDone }: { itemId: number; onClo
     item.reload();
   };
   const read = async () => {
-    const r = await run(() => api.post<ManualReading>(`items/${itemId}/manual-readings`, { attachment_ids: chosen }));
+    const r = await run(() => api.post<ManualReading>(`items/${itemId}/manual-readings`, { attachment_ids: chosen, pages: pages.trim() || null }));
     if (r) setReading(r);
   };
   if (reading?.status === "ready" && reading.result) {
@@ -263,6 +264,12 @@ export function ManualSheet({ itemId, onClose, onDone }: { itemId: number; onClo
           </ul>
         )}
         <label className="btn">Add the manual (PDF) or photos of its pages<input type="file" accept="application/pdf,image/*" multiple hidden onChange={(e) => upload(e.target.files)} /></label>
+        {reading?.status !== "pending" && (
+          <label className="field">Pages to read (optional)
+            <input value={pages} onChange={(e) => setPages(e.target.value)} placeholder="e.g. 18-26" inputMode="numeric" />
+            <span className="hint">For a long or scanned PDF: the pages with the maintenance schedule and parts. Scanned manuals are read page by page (the first 12 if you leave this empty).</span>
+          </label>
+        )}
         {reading?.status !== "pending" && (
           <button className="btn primary block" disabled={busy || !chosen.length} onClick={read}>
             <BookOpen size={18} /> Read it
@@ -331,6 +338,7 @@ function ManualReview({ reading, onClose, onDone, onDiscard }: { reading: Manual
           Part numbers are only ever copied from the manual, never guessed.
         </p>
 
+        {(res.notes || []).map((n) => <div key={n} className="notice">{n}</div>)}
         <h3 style={{ margin: "6px 0 0" }}>Services</h3>
         {services.map((s, i) => (
           <div key={i} className={`notice stack ${s.include ? "" : "muted"}`} style={{ gap: 6 }}>

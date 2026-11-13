@@ -312,12 +312,20 @@ def list_containers(
     actor: Actor = Depends(current_actor),
     db: Session = Depends(get_db),
 ):
+    from ..services.textmatch import matches_words
+
     r = _resolver(db)
-    stmt = select(Container).where(Container.deleted_at.is_(None))
-    if q:
-        like = f"%{q.strip()}%"
-        stmt = stmt.where(or_(Container.name.ilike(like), Container.number.ilike(like), Container.qr_code == q.strip().upper(), Container.description.ilike(like)))
-    containers = db.scalars(stmt).all()
+    containers = db.scalars(select(Container).where(Container.deleted_at.is_(None))).all()
+    if q and q.strip():
+        # Words in any order, matched across the name, number, type,
+        # description and where it is ("tote shed front right").
+        code = q.strip().upper()
+        containers = [
+            c for c in containers
+            if c.qr_code == code or matches_words(q, " ".join(filter(None, (
+                c.name, c.number, f"#{c.number}" if c.number else None, c.container_type, c.description,
+                r.describe(c.parent_container_id, c.location_id)["path"]))))
+        ]
     if location_id:
         within = r.containers_in_location_tree(location_id)
         containers = [c for c in containers if c.id in within]
@@ -338,6 +346,21 @@ def create_container(data: ContainerIn, actor: Actor = Depends(require_member), 
     c = _err(inv.create_container, db, actor, data)
     db.commit()
     return inv.container_out(c, _resolver(db), db, detail=True)
+
+
+@router.get("/containers/numbers")
+def container_numbers(actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    """The next free container number (one more than the highest number in
+    use) and the numbers already taken, so a form can suggest one and warn
+    about duplicates."""
+    used: dict[str, dict] = {}
+    highest = 0
+    for c in db.scalars(select(Container).where(Container.deleted_at.is_(None), Container.number.is_not(None))):
+        key = c.number.strip().lstrip("#").lower()
+        used.setdefault(key, {"id": c.id, "name": c.name, "number": c.number})
+        if key.isdigit():
+            highest = max(highest, int(key))
+    return {"next": str(highest + 1), "used": used}
 
 
 @router.get("/containers/lookup")
@@ -1296,17 +1319,12 @@ async def retry_scan(scan_id: int, request: Request, actor: Actor = Depends(requ
     return scans_svc.scan_out(scan, db)
 
 
-@router.post("/scans/{scan_id}/confirm")
-def confirm_scan(scan_id: int, data: ScanConfirmIn, request: Request, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
-    scan = db.get(ContainerScan, scan_id)
-    if scan is None:
-        raise HTTPException(404, "Scan not found")
-    st = _state(request)
+def _cropper(st, db: Session, actor: Actor, scan: ContainerScan):
+    """``crop(box)``: a new photo of just that part of the scan photo, or None."""
     photo = db.get(Attachment, scan.photo_id) if scan.photo_id else None
     source: list[bytes] = []
 
     def crop(box: list[float]) -> Attachment | None:
-        """A photo of just this entry, cut from the scan photo."""
         if photo is None:
             return None
         try:
@@ -1318,11 +1336,64 @@ def confirm_scan(scan_id: int, data: ScanConfirmIn, request: Request, actor: Act
             stored = st.media.save(part, False)
         except Exception:  # noqa: BLE001 - fall back to the whole photo
             return None
-        att = Attachment(kind=AttachmentKind.photo, caption="Cut from photo inventory", created_by_id=actor.user_id, **stored.__dict__)
+        att = Attachment(kind=AttachmentKind.photo, caption=scans_svc.CUT_CAPTION, created_by_id=actor.user_id,
+                         **stored.__dict__)
         db.add(att)
         db.flush()
         return att
 
+    return crop
+
+
+async def _recrop(request: Request, actor: Actor, db: Session, scan: ContainerScan) -> dict:
+    st = _state(request)
+    if not st.ai.enabled:
+        raise HTTPException(422, "AI is not configured. Choose a provider in the App configuration.")
+    photo = db.get(Attachment, scan.photo_id) if scan.photo_id else None
+    if photo is None:
+        raise HTTPException(404, "The photo of this photo inventory is no longer there")
+    _limit(request, actor, "ai")
+    crop = _cropper(st, db, actor, scan)
+    image = st.media.read(photo.stored_path)
+    try:
+        out = await asyncio.to_thread(scans_svc.recrop, db, actor, scan, st.ai, image, crop, st.media)
+    except (AIUnavailable, AIFailed) as err:
+        db.rollback()
+        raise HTTPException(502, str(err)) from err
+    except inv.Conflict as err:
+        db.rollback()
+        raise HTTPException(409, str(err)) from err
+    db.commit()
+    return out
+
+
+@router.post("/scans/{scan_id}/recrop")
+async def recrop_scan(scan_id: int, request: Request, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Redo the cut-out photos of a confirmed photo inventory."""
+    scan = db.get(ContainerScan, scan_id)
+    if scan is None:
+        raise HTTPException(404, "Scan not found")
+    return await _recrop(request, actor, db, scan)
+
+
+@router.post("/items/{item_id}/redo-cutouts")
+async def redo_item_cutouts(item_id: int, request: Request, actor: Actor = Depends(require_member),
+                            db: Session = Depends(get_db)):
+    """Redo the cut-outs of the photo inventory this item came from (all of its items and boxes)."""
+    item = _get_or_404(db, Item, item_id)
+    scan_id = (item.ai_metadata or {}).get("scan_id")
+    scan = db.get(ContainerScan, scan_id) if scan_id else None
+    if scan is None:
+        raise HTTPException(404, "This item didn't come from a photo inventory")
+    return await _recrop(request, actor, db, scan)
+
+
+@router.post("/scans/{scan_id}/confirm")
+def confirm_scan(scan_id: int, data: ScanConfirmIn, request: Request, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    scan = db.get(ContainerScan, scan_id)
+    if scan is None:
+        raise HTTPException(404, "Scan not found")
+    crop = _cropper(_state(request), db, actor, scan)
     result = _err(scans_svc.confirm, db, actor, scan, data, crop)
     db.commit()
     return result
@@ -1466,6 +1537,7 @@ def labels_pdf(data: LabelRequest, request: Request, actor: Actor = Depends(curr
                 payload=labels_svc.qr_payload(c.qr_code, base, "C"),
                 title=c.name,
                 number=c.number,
+                description=c.description,
                 location=place["path"] if data.include_location and (c.location_id or c.parent_container_id) else None,
                 contents=contents,
             )
@@ -1488,6 +1560,7 @@ def labels_pdf(data: LabelRequest, request: Request, actor: Actor = Depends(curr
                 payload=labels_svc.qr_payload(loc.qr_code, base, "L"),
                 title=loc.name,
                 number=None,
+                description=loc.description,
                 location=parent if data.include_location else None,
                 contents=contents,
             )

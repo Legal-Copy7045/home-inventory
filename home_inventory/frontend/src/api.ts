@@ -814,6 +814,7 @@ export interface ManualReading {
     parts: ManualPart[];
     services: ManualService[];
     specs: { label: string; value: string; page: number | null }[];
+    notes?: string[];
   } | null;
   created_at: string;
 }

@@ -533,3 +533,61 @@ def test_area_photo_works_for_any_layout(ai_env, fake_ai):
     fake_ai.responses.append({"units": [{"name": "Workbench", "shelves": []}], "notes": None, "items": []})
     scan3 = u.ok("post", f"/api/v1/locations/{garage['id']}/scans", files={"file": ("g.jpg", jpeg_bytes())})
     assert {p["name"] for p in scan3["places"]} == {"Garage", "Workbench", "Pegboard"}
+
+
+def test_boxes_in_the_detection_format_are_converted():
+    """Vision models return [ymin, xmin, ymax, xmax] on 0-1000; crops need [x, y, w, h] fractions."""
+    from home_inventory_server.ai import _box_2d, _clean_item
+
+    # The Margaritaville box: top-left area, wider than tall
+    assert _box_2d([170, 290, 330, 370]) == [0.29, 0.17, 0.08, 0.16]
+    assert _box_2d([0.17, 0.29, 0.33, 0.37]) == [0.29, 0.17, 0.08, 0.16]  # given as fractions instead
+    assert _box_2d([330, 290, 170, 370]) is None  # upside down
+    assert _box_2d([0, 0, 2000, 500]) is None  # outside the photo
+    item = _clean_item({"name": "Box", "box_2d": [100, 100, 400, 300]})
+    assert item["box"] == [0.1, 0.1, 0.2, 0.3]
+    # A box covering most of the photo is not one entry: no crop
+    assert "box" not in _clean_item({"name": "Everything", "box_2d": [0, 0, 1000, 1000]})
+    # The old [x, y, w, h] form is still read
+    assert _clean_item({"name": "Old", "box": [0.1, 0.1, 0.2, 0.3]})["box"] == [0.1, 0.1, 0.2, 0.3]
+
+
+def test_redo_cutouts_of_a_confirmed_photo_inventory(ai_env, fake_ai):
+    """Cut-outs made from wrong boxes are made again from the same photo."""
+    u = ai_env.admin
+    basement = u.location("Basement storage")
+    fake_ai.responses.append(BASEMENT)
+    scan = u.ok("post", f"/api/v1/locations/{basement['id']}/scans", files={"file": ("a.jpg", jpeg_bytes(size=(800, 600)))})
+    res = u.ok("post", f"/api/v1/scans/{scan['id']}/confirm", json={"items": [
+        {"action": "add", "name": "Cotton candy maker", "box": [0.6, 0.6, 0.3, 0.3]},          # wrong place
+        {"action": "add", "name": "Suitcase", "quantity": 3, "box": [0.0, 0.0, 0.5, 0.5]},
+        {"action": "add", "kind": "container", "name": "Party supplies", "box": [0.1, 0.1, 0.2, 0.2]},
+    ]})
+    candy, suitcase = (u.ok("get", f"/api/v1/items/{i}") for i in res["created"])
+    if candy["name"] != "Cotton candy maker":
+        candy, suitcase = suitcase, candy
+    old_candy = candy["photo"]["id"]
+    # The suitcase photo was replaced by hand: it stays
+    mine = u.upload(jpeg_bytes((0, 200, 0)), item_id=suitcase["id"])
+    u.ok("patch", f"/api/v1/items/{suitcase['id']}", json={"primary_photo_id": mine["id"]})
+
+    fake_ai.responses.append({**BASEMENT, "items": [
+        {**_area_entry("Cotton candy maker", 0, 2), "box": None, "box_2d": [100, 250, 400, 500]},
+        {**_area_entry("Party supplies tote", 0, 3, kind="container"), "box": None, "box_2d": [600, 100, 800, 300]},
+    ]})
+    out = u.ok("post", f"/api/v1/items/{candy['id']}/redo-cutouts")
+    assert out == {"fixed": 2, "whole_photo": 0, "unchanged": 1}
+    candy = u.ok("get", f"/api/v1/items/{candy['id']}")
+    assert candy["photo"]["id"] != old_candy and candy["photo"]["caption"] == "Cut from photo inventory"
+    # y 0.1..0.4 -> x 0.25..0.5 of 800x600, plus a small margin
+    assert (candy["photo"]["width"], candy["photo"]["height"]) == (264, 228)
+    assert u.ok("get", f"/api/v1/items/{suitcase['id']}")["photo"]["id"] == mine["id"]
+    assert u.get(f"/api/v1/attachments/{old_candy}/file").status_code == 404  # the bad cut-out is gone
+    # Nothing found the second time: the whole photo instead of a wrong cut-out
+    fake_ai.responses.append({**BASEMENT, "items": []})
+    out = u.ok("post", f"/api/v1/scans/{scan['id']}/recrop")
+    assert out["whole_photo"] == 2
+    assert u.ok("get", f"/api/v1/items/{candy['id']}")["photo"]["id"] == scan["photo"]["id"]
+    # Not from a photo inventory
+    other = u.item("Hammer")
+    assert u.post(f"/api/v1/items/{other['id']}/redo-cutouts").status_code == 404

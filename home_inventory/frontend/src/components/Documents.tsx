@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { FileText, Sparkles, Trash2 } from "lucide-react";
+import { BookOpen, FileText, Sparkles, Trash2 } from "lucide-react";
+import { ManualSheet } from "./Parts";
 import { api, url, type Attachment } from "../api";
 import { Sheet, fmtDate, useAction, useApi, useMe } from "./ui";
 
@@ -31,6 +32,7 @@ export function DocumentsList({ itemId, docs, edit, onChanged, onRemove }: {
   const me = useMe();
   const readings = useApi(() => api.get<DocReading[]>(`items/${itemId}/document-readings`), [itemId, docs.length]);
   const [review, setReview] = useState<{ r: DocReading; doc: Attachment } | null>(null);
+  const [manual, setManual] = useState(false);
   const { busy, run } = useAction();
   const pending = readings.data?.some((r) => r.status === "pending");
   useEffect(() => {
@@ -63,7 +65,7 @@ export function DocumentsList({ itemId, docs, edit, onChanged, onRemove }: {
                   <div className="s">
                     <Sparkles size={14} /> {TYPE[r.result.document_type] || "Document"}
                     {!r.result.matches_item ? " – looks like it's for a different product" : todo ? ` – ${todo} thing${todo === 1 ? "" : "s"} to fill in` : " – nothing new to fill in"}
-                    {s?.is_manual && " · use Read the manual under Maintenance for its service schedule"}
+
                   </div>
                 )}
                 {r?.status === "failed" && <div className="s">AI couldn't read it: {r.error}</div>}
@@ -72,6 +74,11 @@ export function DocumentsList({ itemId, docs, edit, onChanged, onRemove }: {
                     {todo > 0 && r.result?.matches_item && <button className="btn small primary" onClick={() => setReview({ r, doc: d })}>Review</button>}
                     <button className="btn small ghost" disabled={busy} onClick={() => run(() => api.post(`document-readings/${r.id}/dismiss`)).then(() => readings.reload())}>Dismiss</button>
                   </div>
+                )}
+                {edit && me.app.ai.enabled && (d.kind === "manual" || r?.result?.document_type === "manual") && (
+                  <button className="btn small" style={{ marginTop: 4 }} onClick={() => setManual(true)}>
+                    <BookOpen size={14} /> Read for the service schedule and parts
+                  </button>
                 )}
                 {edit && me.app.ai.enabled && (!r || r.status === "failed") && (
                   <button className="btn small ghost" style={{ marginTop: 4, padding: "2px 6px" }} disabled={busy} onClick={() => recognise(d)}>
@@ -84,6 +91,7 @@ export function DocumentsList({ itemId, docs, edit, onChanged, onRemove }: {
           );
         })}
       </div>
+      {manual && <ManualSheet itemId={itemId} onClose={() => setManual(false)} onDone={() => { setManual(false); onChanged(); }} />}
       {review && (
         <ReviewSheet r={review.r} doc={review.doc} onClose={() => setReview(null)}
           onDone={() => { setReview(null); readings.reload(); onChanged(); }} />

@@ -113,8 +113,13 @@ export function EquipmentSection({ itemId, edit, onChanged, initial }: { itemId:
     return (
       <Section title="Maintenance">
         <p className="muted" style={{ marginTop: 0 }}>Track service schedules, operating hours and repairs for equipment such as mowers, generators and saws.</p>
-        <button className="btn" onClick={() => setSheet({ kind: "setup" })}><Wrench size={18} /> Track maintenance</button>
+        <div className="row wrap" style={{ gap: 8 }}>
+          <button className="btn" onClick={() => setSheet({ kind: "setup" })}><Wrench size={18} /> Track maintenance</button>
+          {me.app.ai.enabled && <button className="btn" onClick={() => setSheet({ kind: "manual" })}><BookOpen size={18} /> Read the manual</button>}
+        </div>
+        {me.app.ai.enabled && <p className="muted" style={{ marginBottom: 0 }}>Reading the manual sets up the service schedule and parts for you, and starts tracking.</p>}
         {sheet?.kind === "setup" && <SetupSheet itemId={itemId} onClose={close} onDone={done} />}
+        {sheet?.kind === "manual" && <ManualSheet itemId={itemId} onClose={close} onDone={() => done()} />}
       </Section>
     );
   }
@@ -164,7 +169,7 @@ export function EquipmentSection({ itemId, edit, onChanged, initial }: { itemId:
         <div className="row wrap" style={{ marginTop: 10 }}>
           <button className="btn" onClick={() => setSheet({ kind: "service" })}><Wrench size={18} /> Log service</button>
           <button className="btn" onClick={() => setSheet({ kind: "task" })}><Plus size={18} /> Add task</button>
-          {d.profile && <button className="btn" onClick={() => setSheet({ kind: "manual" })}><BookOpen size={18} /> Read the manual</button>}
+          {me.app.ai.enabled && <button className="btn" onClick={() => setSheet({ kind: "manual" })}><BookOpen size={18} /> Read the manual</button>}
         </div>
       )}
 

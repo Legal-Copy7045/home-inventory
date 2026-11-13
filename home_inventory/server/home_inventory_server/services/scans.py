@@ -356,3 +356,106 @@ def _get_location(db: Session, location_id: int | None) -> Location:
 
 def attach_scan_photo(db: Session, scan: ContainerScan) -> Attachment | None:
     return db.get(Attachment, scan.photo_id) if scan.photo_id else None
+
+
+# ---------------------------------------------------------------------------
+# Redoing cut-outs
+# ---------------------------------------------------------------------------
+
+CUT_CAPTION = "Cut from photo inventory"
+
+
+def _cut_name(s: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+
+
+def recrop(db: Session, actor: Actor, scan: ContainerScan, ai, image: bytes, crop, media) -> dict[str, Any]:
+    """Make the cut-out photos of a confirmed photo inventory again.
+
+    The AI is asked once more where each thing is in the same photo; every
+    item and box this inventory created gets a new cut-out of its own entry.
+    One whose entry can't be found (or has no position) loses its cut-out and
+    shows the whole photo instead.  Pictures a person added or chose since are
+    left alone.
+    """
+    from ..models import HistoryEvent
+
+    if scan.status != ScanStatus.confirmed:
+        raise inv.Conflict("Only a confirmed photo inventory can have its cut-outs redone")
+    if scan.container_id is not None:
+        container = db.get(Container, scan.container_id)
+        hint, area = (f"Container: {container.name}" if container else None), False
+    else:
+        loc = db.get(Location, scan.location_id)
+        hint, area = (f"Place: {loc.name}" if loc else None), True
+    res = ai.identify_area(image, hint=hint) if area else ai.identify_container(image, hint=hint)
+    entries = [e for e in res.data["items"] if e.get("box")]
+
+    items = [i for i in db.scalars(select(Item).where(Item.deleted_at.is_(None), Item.ai_metadata.is_not(None)))
+             if (i.ai_metadata or {}).get("scan_id") == scan.id]
+    box_ids: list[int] = []
+    for ev in db.scalars(select(HistoryEvent).where(HistoryEvent.action == "inventory_updated")):
+        if (ev.after or {}).get("scan_id") == scan.id:
+            box_ids.extend((ev.after or {}).get("containers") or [])
+    boxes = [c for c in (db.get(Container, i) for i in dict.fromkeys(box_ids)) if c is not None and c.deleted_at is None]
+
+    used: set[int] = set()
+
+    def best(name: str, kind: str) -> dict[str, Any] | None:
+        target, pick, score = _cut_name(name), None, 0.0
+        for n, e in enumerate(entries):
+            if n in used:
+                continue
+            r = SequenceMatcher(None, target, _cut_name(e.get("name") or "")).ratio()
+            if e.get("kind", "item") == kind:
+                r += 0.05
+            if r > score:
+                pick, score = n, r
+        if pick is None or score < 0.7:
+            return None
+        used.add(pick)
+        return entries[pick]
+
+    def drop(att: Attachment) -> None:
+        for rel in (att.stored_path, att.thumb_path):
+            media.delete(rel)
+        db.delete(att)
+
+    fixed = removed = kept = 0
+    for item in items:
+        old = db.get(Attachment, item.primary_photo_id) if item.primary_photo_id else None
+        if old is None or old.caption != CUT_CAPTION:
+            kept += 1  # a picture chosen by a person stays
+            continue
+        entry = best(item.product.name, "item")
+        new = crop(entry["box"]) if entry else None
+        if new is not None:
+            new.item_id = item.id
+            item.primary_photo_id = new.id
+            fixed += 1
+        else:
+            item.primary_photo_id = scan.photo_id
+            removed += 1
+        db.flush()
+        drop(old)
+    for box in boxes:
+        olds = [a for a in db.scalars(select(Attachment).where(Attachment.container_id == box.id,
+                                                                Attachment.caption == CUT_CAPTION))]
+        if not olds:
+            kept += 1
+            continue
+        entry = best(box.name, "container")
+        new = crop(entry["box"]) if entry else None
+        if new is not None:
+            new.container_id = box.id
+            fixed += 1
+        else:
+            removed += 1
+        for a in olds:
+            drop(a)
+    db.flush()
+    place = scan.container_id and "container" or "location"
+    audit.record(db, actor, "scan_recropped", place, scan.container_id or scan.location_id,
+                 f"Redid photo inventory cut-outs: {fixed} new, {removed} replaced by the whole photo",
+                 related_containers=[scan.container_id] if scan.container_id else ())
+    return {"fixed": fixed, "whole_photo": removed, "unchanged": kept}
