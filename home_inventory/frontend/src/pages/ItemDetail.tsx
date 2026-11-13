@@ -44,16 +44,10 @@ function toForm(it: Item): ItemFormValue {
   };
 }
 
-// Things that may need servicing: equipment-like categories, or anything with a
-// manual attached.  Other items (kitchenware, clothes, decorations...) don't
-// get the "Track maintenance" link.
-const EQUIPMENT_CATEGORY = /\b(tools?|gardens?|gardening|lawn|yard|outdoors?|power|engines?|motors?|generators?|machines?|machinery|equipment|automotive|vehicles?|cars?|trucks?|bikes?|bicycles?|boats?|appliances?|hvac|heating|pumps?|compressors?|workshop|garage)\b/i;
-
-const EQUIPMENT_NAME = /\b(mowers?|trimmers?|strimmers?|chainsaws?|saws?|drills?|blowers?|washers?|dryers?|tractors?|tillers?|edgers?|sanders?|grinders?|welders?|routers?|furnaces?|boilers?|heaters?|dehumidifiers?|humidifiers?|fridges?|freezers?|refrigerators?|dishwashers?|ovens?|air conditioners?|generators?|compressors?|pumps?|engines?|motors?|vehicles?|cars?|bikes?|boats?|scooters?|vacuums?|printers?)\b/i;
-
-function mayBeEquipment(it: Item): boolean {
-  return EQUIPMENT_CATEGORY.test(it.category || "") || EQUIPMENT_NAME.test(it.name || "")
-    || (it.attachments || []).some((a) => a.kind === "manual");
+// Maintenance is for equipment: only items in the "Equipment" category get the
+// "Track maintenance" link.  Items already being tracked keep their section.
+function isEquipmentCategory(it: Item): boolean {
+  return (it.category || "").trim().toLowerCase() === "equipment";
 }
 
 export default function ItemDetail() {
@@ -189,7 +183,7 @@ export default function ItemDetail() {
 
       <Section title="Details" action={edit && (
         <span className="row" style={{ gap: 4 }}>
-          {!isEquipment && mayBeEquipment(it) && <button className="btn small ghost" onClick={() => setTrackOpen(true)}>Track maintenance</button>}
+          {!isEquipment && isEquipmentCategory(it) && <button className="btn small ghost" onClick={() => setTrackOpen(true)}>Track maintenance</button>}
           {!it.owner && <button className="btn small ghost" onClick={() => setPartOpen(true)}>Part details</button>}
         </span>
       )}>
