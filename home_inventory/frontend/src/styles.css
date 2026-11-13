@@ -420,6 +420,11 @@ button.linkish { background: none; border: 0; padding: 0; color: var(--primary);
 @media print { .plan-table td:nth-child(4), .plan-table th:nth-child(4) { display: table-cell !important; } }
 
 /* Grouped menu */
-.nav-group { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 14px 10px 4px; }
-.menu-group { margin: 6px 0 4px; font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.nav-group, .menu-group { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: 0; cursor: pointer; text-align: left;
+  font: inherit; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.nav-group { padding: 12px 10px 6px; border-radius: 8px; }
+.menu-group { margin: 6px 0; padding: 8px 2px; font-size: .8rem; }
+.nav-group:hover:not(:disabled), .menu-group:hover:not(:disabled) { color: var(--text); }
+.nav-group:disabled, .menu-group:disabled { cursor: default; opacity: 1; }
+.nav-count { margin-left: auto; font-weight: 600; letter-spacing: 0; background: var(--border); color: var(--muted); border-radius: 999px; padding: 0 7px; font-size: .7rem; }
 .item-steps { margin-bottom: 8px; gap: 8px; }
