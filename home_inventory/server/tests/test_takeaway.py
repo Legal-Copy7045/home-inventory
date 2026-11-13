@@ -75,3 +75,31 @@ def test_identify_from_photo_lists_matching_items(ai_env, fake_ai):
 
 def test_identify_from_photo_needs_ai(env):
     assert env.admin.post("/api/v1/ai/identify-to-find", files={"file": ("p.jpg", jpeg_bytes())}).status_code == 503
+
+
+def test_places_resolve_spoken_names_and_box_numbers(env):
+    u = env.admin
+    shed = u.location("Shed")
+    sem = u.location("Small Engine Repair", parent_id=shed["id"])
+    u.location("Small parts drawer", parent_id=shed["id"])
+    garage = u.location("Garage")
+    top_a = u.location("Top shelf", parent_id=shed["id"])
+    top_b = u.location("Top shelf", parent_id=garage["id"])
+    five = u.container("Fittings", number="5", location_id=shed["id"])
+    r = lambda q: u.ok("get", "/api/v1/places/resolve", params={"q": q})  # noqa: E731
+
+    res = r("small engine repair")
+    assert res["clear"] and res["candidates"][0]["id"] == sem["id"] and res["candidates"][0]["type"] == "location"
+    assert r("the small engine repair")["candidates"][0]["id"] == sem["id"]
+    res = r("container number 5")
+    assert res["clear"] and (res["candidates"][0]["type"], res["candidates"][0]["id"]) == ("container", five["id"])
+    assert r("box five")["candidates"][0]["id"] == five["id"]
+    assert "number 5" in r("box 5")["candidates"][0]["spoken"]
+    # Same name in two places: not clear, both offered with where they are
+    res = r("top shelf")
+    assert not res["clear"] and {c["id"] for c in res["candidates"][:2]} == {top_a["id"], top_b["id"]}
+    assert {c["where"] for c in res["candidates"][:2]} == {"Shed", "Garage"}
+    # Misheard a little: found, but not clear enough to act on alone
+    res = r("small engine pair")
+    assert res["candidates"][0]["id"] == sem["id"]
+    assert r("unicorn stable")["candidates"] == []

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.23.0
+
+- **Voice: "I've moved the engine oil to small engine repair".** Tell Home Inventory you've moved something ("Alexa, tell Home Inventory that I've moved the engine oil to container number 5"; with Assist: "I've moved…", "I put the drill in the garage", "The hedge trimmer is now in the shed"). It finds the item and the place, both forgivingly: a location by name, or a container by number ("container number 5", "box five") or name. A clear match is moved and confirmed ("Done. I've moved Engine oil to Small Engine Repair, in Shed."). If the place is uncertain it asks "Did you mean…?" (answer yes or no, or say the right place). If there are several places, or several items, it asks which. The move is permanent and is recorded in Activity history; to move it back, say so again or use Move on the item page.
+- **Voice: yes and no.** Answers to "Did you mean…?" with Assist and Alexa.
+- **Menu:** Maintenance & Repairs moved up with the main pages, so the folding sections (Inventory, Reports, Admin) are together.
+- New App endpoint `GET /places/resolve` finds a location or container from spoken words.
+- **Updating:** update the App and the integration, copy the new Assist sentences file, and update the Alexa skill (interaction model and forwarder code; see *Updating the skill* in `docs/voice.md`).
+
 ## 0.22.1
 
 - **Alexa: "where does it go?"** The Alexa skill now understands "Alexa, ask Home Inventory where the hammer goes", "…where does the hammer go", "…where to put the engine oil" and "…to tell me where to put the engine oil", and answers with where the thing belongs (as Assist does since 0.22.0). Before, Alexa answered "Sorry, I only know where things are". **Update the skill's interaction model and forwarder code** (`deploy/alexa/`, see *Updating the skill* in `docs/voice.md`). Help now mentions the new question.

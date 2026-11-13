@@ -57,6 +57,15 @@ def put_away(item_id: int, data: PutAwayIn, actor: Actor = Depends(require_membe
             "target": r.describe(data.container_id, data.location_id)}
 
 
+@router.get("/places/resolve")
+def resolve_place(q: str, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    """Which location or container spoken words mean ("container number 5",
+    "small engine repair"), best first; ``clear`` when it's safe to act."""
+    from ..services import places
+
+    return places.resolve(db, q[:200])
+
+
 @router.post("/ai/identify-to-find")
 async def identify_to_find(request: Request, file: UploadFile = File(...), hint: str | None = Form(None),
                            actor: Actor = Depends(require_member), db: Session = Depends(get_db)):

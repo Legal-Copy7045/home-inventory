@@ -305,6 +305,65 @@ async def test_voice_where_does_it_go(hass: HomeAssistant, inventory_app):
     assert pick.speech["plain"]["speech"] == "Lump hammer goes in Shed."  # answered as "goes", not "is"
 
 
+async def test_voice_move_clear_place_and_box_number(hass: HomeAssistant, inventory_app):
+    from homeassistant.helpers import intent
+
+    app = inventory_app
+    shed, garage, box = app.seed["shed"], app.seed["garage"], app.seed["box"]
+    sem = app.ui("POST", "locations", {"name": "Small Engine Repair", "parent_id": shed["id"]})
+    oil = app.ui("POST", "items", {"name": "Engine oil", "location_id": garage["id"]})["items"][0]
+    await _setup_via_user_flow(hass, app)
+
+    async def say(intent_name, slots, device="garage-echo"):
+        r = await intent.async_handle(hass, "alexa", intent_name, {k: {"value": v} for k, v in slots.items()}, device_id=device)
+        return r.speech["plain"]["speech"]
+
+    assert await say("HomeInventoryMove", {"item": "engine oil", "place": "small engine repair"}) == (
+        "Done. I've moved Engine oil to Small Engine Repair, in Shed.")
+    assert app.ui("GET", f"items/{oil['id']}")["placement"]["location"]["id"] == sem["id"]
+    assert await say("HomeInventoryMove", {"item": "the engine oil", "place": "container number 15"}) == (
+        "Done. I've moved Engine oil to Container number 15, Box, in Shed.")
+    assert app.ui("GET", f"items/{oil['id']}")["placement"]["container"]["id"] == box["id"]
+    assert (await say("HomeInventoryMove", {"item": "engine oil", "place": "box 15"})).startswith("Engine oil is already in")
+    assert (await say("HomeInventoryMove", {"item": "unicorn saddle", "place": "shed"})).startswith("I couldn't find unicorn saddle")
+    assert (await say("HomeInventoryMove", {"item": "engine oil", "place": "the moon"})) == (
+        "I couldn't find a place called the moon, so I haven't moved Engine oil.")
+
+
+async def test_voice_move_asks_when_unclear(hass: HomeAssistant, inventory_app):
+    from homeassistant.helpers import intent
+
+    app = inventory_app
+    shed, garage = app.seed["shed"], app.seed["garage"]
+    top_shed = app.ui("POST", "locations", {"name": "Top rack", "parent_id": shed["id"]})
+    top_garage = app.ui("POST", "locations", {"name": "Top rack", "parent_id": garage["id"]})
+    lathe = app.ui("POST", "locations", {"name": "Lathe corner", "parent_id": shed["id"]})
+    red = app.ui("POST", "items", {"name": "Red tin snips", "location_id": garage["id"]})["items"][0]
+    blue = app.ui("POST", "items", {"name": "Blue tin snips", "location_id": garage["id"]})["items"][0]
+    await _setup_via_user_flow(hass, app)
+
+    async def say(intent_name, slots, device="hall"):
+        r = await intent.async_handle(hass, "conversation", intent_name, {k: {"value": v} for k, v in slots.items()}, device_id=device)
+        return r.speech["plain"]["speech"]
+
+    # Which item, then which place
+    assert (await say("HomeInventoryMove", {"item": "tin snips", "place": "top rack"})).startswith("Which one did you move:")
+    ask = await say("HomeInventoryChoose", {"choice": "the red one"})
+    assert ask.startswith("Which place: Top rack, in ") and "in Shed" in ask and "in Garage" in ask
+    assert await say("HomeInventoryChoose", {"choice": "the garage one"}) == "Done. I've moved Red tin snips to Top rack, in Garage."
+    assert app.ui("GET", f"items/{red['id']}")["placement"]["location"]["id"] == top_garage["id"]
+    # A doubtful place: "Did you mean...?" - no cancels, yes moves
+    assert await say("HomeInventoryMove", {"item": "blue tin snips", "place": "laith corner"}) == "Did you mean Lathe corner, in Shed?"
+    assert await say("HomeInventoryChoose", {"choice": "no"}) == "Okay, I haven't moved anything."
+    assert app.ui("GET", f"items/{blue['id']}")["placement"]["location"]["id"] == garage["id"]
+    await say("HomeInventoryMove", {"item": "blue tin snips", "place": "laith corner"})
+    assert await say("HomeInventoryChoose", {"choice": "yes"}) == "Done. I've moved Blue tin snips to Lathe corner, in Shed."
+    assert app.ui("GET", f"items/{blue['id']}")["placement"]["location"]["id"] == lathe["id"]
+    # Yes with nothing open
+    assert await say("HomeInventoryChoose", {"choice": "yes"}) == "There's nothing to confirm right now."
+    assert top_shed["id"] != top_garage["id"]
+
+
 async def test_voice_asks_which_one_and_understands_the_reply(hass: HomeAssistant, inventory_app):
     from homeassistant.helpers import intent
 
