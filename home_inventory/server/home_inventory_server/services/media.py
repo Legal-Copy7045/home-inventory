@@ -160,7 +160,13 @@ def stitch(photos: list[bytes], height: int = 1600, max_width: int = 8000) -> by
     for data in photos:
         try:
             img = Image.open(io.BytesIO(data))
+            # JPEGs decode straight at a reduced size, and every photo is
+            # shrunk before the next is opened, so four large photos never
+            # sit in memory at full resolution together.
+            img.draft("RGB", (height * 4, height))
             img.load()
+            if img.height > height * 1.5:
+                img.thumbnail((img.width, height), Image.Resampling.LANCZOS)
         except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as err:
             raise MediaError("Unsupported file type; upload JPEG, PNG or WebP photos") from err
         pics.append(ImageOps.exif_transpose(img).convert("RGB"))
