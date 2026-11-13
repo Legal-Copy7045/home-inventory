@@ -18,7 +18,8 @@ from __future__ import annotations
 import io
 import logging
 import re
-from datetime import UTC, datetime
+import threading
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from difflib import SequenceMatcher
 from typing import Any
@@ -38,6 +39,8 @@ _LOGGER = logging.getLogger(__name__)
 MAX_TEXT = 90_000  # characters sent to the AI
 MAX_PAGES = 800
 MAX_PHOTOS = 8
+# A reading still "pending" after this was interrupted (the App restarted).
+STALE_AFTER = timedelta(minutes=20)
 _KEYWORDS = ("maintenance", "service", "schedule", "interval", "every", "hours", "oil", "spark", "filter", "plug",
              "capacity", "specification", "part", "replace", "grease", "blade", "belt", "fuel", "lubric", "inspect")
 
@@ -103,8 +106,56 @@ def _equipment_name(item: Item, profile: EquipmentProfile) -> str:
     return ", ".join(b for b in bits if b)
 
 
+def start(state, reading_id: int) -> threading.Thread:
+    """Read in a background thread with its own database session.  The
+    request that started it returns at once: reading a long manual can take
+    minutes, longer than phones and proxies keep a request open."""
+
+    def run() -> None:
+        db = state.db.SessionLocal()
+        try:
+            reading = db.get(ManualReading, reading_id)
+            item = db.get(Item, reading.item_id) if reading else None
+            if reading is None or item is None:
+                return
+            analyse(db, reading, state.ai, state.media, item)
+        except Exception:  # noqa: BLE001 - recorded on the reading, never lost silently
+            _LOGGER.exception("Reading manual %s failed", reading_id)
+            db.rollback()
+            reading = db.get(ManualReading, reading_id)
+            if reading is not None and reading.status == "pending":
+                reading.status, reading.error = "failed", "Reading the manual failed unexpectedly. Try again."
+                db.commit()
+        finally:
+            db.close()
+
+    t = threading.Thread(target=run, name=f"manual-reading-{reading_id}", daemon=True)
+    t.start()
+    return t
+
+
+def _aware(d: datetime) -> datetime:
+    return d if d.tzinfo else d.replace(tzinfo=UTC)
+
+
+def running_for(db: Session, item_id: int) -> ManualReading | None:
+    r = db.scalar(select(ManualReading).where(ManualReading.item_id == item_id, ManualReading.status == "pending")
+                  .order_by(ManualReading.id.desc()))
+    if r is not None and expire_if_stale(r):
+        db.commit()
+        return None
+    return r
+
+
+def expire_if_stale(r: ManualReading) -> bool:
+    if r.status == "pending" and r.created_at and datetime.now(UTC) - _aware(r.created_at) > STALE_AFTER:
+        r.status, r.error = "failed", "The reading was interrupted (the App restarted or the AI didn't answer). Try again."
+        return True
+    return False
+
+
 def analyse(db: Session, reading: ManualReading, ai, media, item: Item) -> ManualReading:
-    """Ask the AI (synchronously; the API runs this in a worker thread)."""
+    """Ask the AI (runs in the background thread started by :func:`start`)."""
     profile = equipment_item(db, item)
     hint = _equipment_name(item, profile)
     results = []
