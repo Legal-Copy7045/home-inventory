@@ -36,8 +36,13 @@ curl -H 'X-Remote-User-Id: dev' -H 'X-Remote-User-Display-Name: Dev' localhost:8
 cd home_inventory/frontend
 npm ci
 npm run dev      # proxies /api to localhost:8099
+npm test         # unit tests (vitest)
 npm run build    # type-checks and builds into ../server/home_inventory_server/static
 ```
+
+Pages other than the dashboard, search, browse and quick photos load on first use (`page()` in `App.tsx`) and are fetched in the background once the app is idle, so they still open offline. The barcode decoder (`@zxing`) loads only when a scan needs it. `match_cases.json` holds word-search cases shared with the server's `test_textmatch.py`, so both search the same way.
+
+The REST API is split by area: `api/routes.py` (identity, locations, containers, items, loans, categories) plus `attachments`, `scans`, `lookup` (barcode, links, search, labels), `maps`, `admin`, and the feature modules. Shared helpers (`_state`, `_err`, `_get_or_404`...) live in `routes.py`. `test_authz_routes.py` walks every router in the package. Background AI jobs (manuals, documents) go through `services/jobs.py`, a pool of three workers.
 
 ## Integration tests
 

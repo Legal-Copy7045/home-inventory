@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from .. import audit
@@ -249,11 +249,12 @@ def find_by_part_number(db: Session, number: str | None) -> Product | None:
     key = part_number_key(number)
     if len(key) < 3:
         return None
-    for p in db.scalars(select(Product).where(Product.deleted_at.is_(None),
-                                              or_(Product.model_number.is_not(None), Product.sku.is_not(None)))):
-        if key in (part_number_key(p.model_number), part_number_key(p.sku)):
-            return p
-    return None
+    # Compared in SQLite (hinv_pnkey, registered in db.py) rather than
+    # loading every product.
+    return db.scalars(select(Product).where(
+        Product.deleted_at.is_(None),
+        or_(func.hinv_pnkey(Product.model_number) == key, func.hinv_pnkey(Product.sku) == key),
+    ).order_by(Product.id).limit(1)).first()
 
 
 def details_out(db: Session, product: Product) -> dict[str, Any]:

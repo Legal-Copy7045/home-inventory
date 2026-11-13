@@ -21,7 +21,7 @@ from datetime import UTC, datetime
 from difflib import SequenceMatcher
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import audit
@@ -393,12 +393,16 @@ def recrop(db: Session, actor: Actor, scan: ContainerScan, ai, image: bytes, cro
     res = ai.identify_area(image, hint=hint) if area else ai.identify_container(image, hint=hint)
     entries = [e for e in res.data["items"] if e.get("box")]
 
-    items = [i for i in db.scalars(select(Item).where(Item.deleted_at.is_(None), Item.ai_metadata.is_not(None)))
-             if (i.ai_metadata or {}).get("scan_id") == scan.id]
+    # Filtered in SQLite (JSON fields) rather than loading every item and the whole history.
+    items = list(db.scalars(select(Item).where(Item.deleted_at.is_(None),
+                                               func.json_extract(Item.ai_metadata, "$.scan_id") == scan.id)))
+    entity = ("container", scan.container_id) if scan.container_id is not None else ("location", scan.location_id)
     box_ids: list[int] = []
-    for ev in db.scalars(select(HistoryEvent).where(HistoryEvent.action == "inventory_updated")):
-        if (ev.after or {}).get("scan_id") == scan.id:
-            box_ids.extend((ev.after or {}).get("containers") or [])
+    for ev in db.scalars(select(HistoryEvent).where(HistoryEvent.action == "inventory_updated",
+                                                    HistoryEvent.entity_type == entity[0],
+                                                    HistoryEvent.entity_id == entity[1],
+                                                    func.json_extract(HistoryEvent.after, "$.scan_id") == scan.id)):
+        box_ids.extend((ev.after or {}).get("containers") or [])
     boxes = [c for c in (db.get(Container, i) for i in dict.fromkeys(box_ids)) if c is not None and c.deleted_at is None]
 
     used: set[int] = set()

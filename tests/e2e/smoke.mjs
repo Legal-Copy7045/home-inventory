@@ -41,7 +41,7 @@ await shot("02-search");
 
 // Add an item manually into the box
 await page.goto(BASE + "#/add?container_id=" + box.id);
-await page.getByText("Shed › Box #15").waitFor();
+await page.getByText("Property › Shed › Box #15", { exact: true }).waitFor();
 await page.getByLabel("Name").fill("Hedge trimmer");
 await page.getByLabel("Quantity").fill("1");
 await page.getByRole("button", { name: "Save", exact: true }).click();

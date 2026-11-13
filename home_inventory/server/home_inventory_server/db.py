@@ -19,6 +19,12 @@ _LOGGER = logging.getLogger(__name__)
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 
+def _pnkey(value):
+    if value is None:
+        return None
+    return "".join(ch for ch in str(value).lower() if ch.isascii() and ch.isalnum())
+
+
 def make_engine(url: str) -> Engine:
     engine = create_engine(url, connect_args={"check_same_thread": False, "timeout": 30})
 
@@ -30,6 +36,8 @@ def make_engine(url: str) -> Engine:
         cur.execute("PRAGMA synchronous=NORMAL")
         cur.execute("PRAGMA busy_timeout=30000")
         cur.close()
+        # Part numbers compared without spaces, dashes or case ("AB-12 3" = "ab123").
+        dbapi_conn.create_function("hinv_pnkey", 1, _pnkey, deterministic=True)
 
     return engine
 
@@ -99,6 +107,8 @@ def _upgrade_atomically(url: str) -> None:
         cur.execute("PRAGMA foreign_keys=OFF")
         cur.execute("PRAGMA busy_timeout=30000")
         cur.close()
+        # Part numbers compared without spaces, dashes or case ("AB-12 3" = "ab123").
+        dbapi_conn.create_function("hinv_pnkey", 1, _pnkey, deterministic=True)
 
     @event.listens_for(mig_engine, "begin")
     def _begin(conn):  # pragma: no cover - trivial

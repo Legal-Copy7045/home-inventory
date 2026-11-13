@@ -28,6 +28,21 @@ export function useApi<T>(fn: () => Promise<T>, deps: unknown[]) {
   return { data, error, loading, reload: load, setData };
 }
 
+/**
+ * Call ``fn`` every few seconds while ``active`` (e.g. while AI is still
+ * reading something).  Skips ticks while the page is hidden, and always
+ * calls the latest ``fn``.
+ */
+export function usePoll(active: boolean, fn: () => void, ms = 3000) {
+  const latest = useRef(fn);
+  latest.current = fn;
+  useEffect(() => {
+    if (!active) return;
+    const t = setInterval(() => { if (document.visibilityState !== "hidden") latest.current(); }, ms);
+    return () => clearInterval(t);
+  }, [active, ms]);
+}
+
 // ---------------------------------------------------------------- app context
 
 export const MeContext = createContext<Me | null>(null);

@@ -247,19 +247,38 @@ def usage(db: Session, item_id: int, kind: MeterKind = MeterKind.hours, today: d
                            .order_by(MeterReading.recorded_at, MeterReading.id)))
     points = [{"date": r.recorded_at.isoformat(), "value": float(r.value), "source": r.source, "photo": bool(r.photo_id)}
               for r in rows[-500:]]
+    per_day = _rate(rows, today or date.today())
+    return {"kind": kind.value, "points": points, "per_day": per_day,
+            "per_week": round(per_day * 7, 1) if per_day is not None else None}
+
+
+def _rate(rows: list[MeterReading], today: date) -> float | None:
+    """Use per day from readings in date order (see ``usage``)."""
     last_fix = max((n for n, r in enumerate(rows) if r.source == "correction"), default=0)
     usable = rows[last_fix:]
-    today = today or date.today()
     recent = [r for r in usable if (today - r.recorded_at.date()).days <= USAGE_WINDOW_DAYS]
-    per_day = None
     for sample in (recent, usable):
         if len(sample) >= 2:
             days = (sample[-1].recorded_at - sample[0].recorded_at).total_seconds() / 86400
             if days >= 7:
-                per_day = max(0.0, float(sample[-1].value - sample[0].value) / days)
-                break
-    return {"kind": kind.value, "points": points, "per_day": round(per_day, 3) if per_day is not None else None,
-            "per_week": round(per_day * 7, 1) if per_day is not None else None}
+                return round(max(0.0, float(sample[-1].value - sample[0].value) / days), 3)
+    return None
+
+
+def rates_for(db: Session, item_ids: set[int], today: date) -> dict[int, dict[str, float | None]]:
+    """Rates of use for many items from one query (the dashboard)."""
+    out: dict[int, dict[str, float | None]] = {i: {"hours": None, "cycles": None} for i in item_ids}
+    if not item_ids:
+        return out
+    grouped: dict[tuple[int, str], list[MeterReading]] = {}
+    ids = sorted(item_ids)
+    for n in range(0, len(ids), 500):
+        for r in db.scalars(select(MeterReading).where(MeterReading.item_id.in_(ids[n:n + 500]))
+                            .order_by(MeterReading.item_id, MeterReading.recorded_at, MeterReading.id)):
+            grouped.setdefault((r.item_id, r.kind.value), []).append(r)
+    for (item_id, kind), rows in grouped.items():
+        out[item_id][kind] = _rate(rows, today)
+    return out
 
 
 def estimate_due(left: float | None, per_day: float | None, today: date | None = None) -> date | None:
@@ -680,7 +699,10 @@ def dashboard(db: Session, within_days: int = 30, today: date | None = None, ite
         stmt = stmt.where(item_filter)
     rows = db.execute(stmt).all()
     meter_cache: dict[int, Meters] = {}
-    rate_cache: dict[int, dict[str, float | None]] = {}
+    # Rates only matter for tasks counted in hours or uses.
+    metered = {item.id for task, item in rows if task.interval_hours or task.interval_cycles}
+    rate_cache = rates_for(db, metered, today)
+    no_rate = {"hours": None, "cycles": None}
     overdue, due = [], []
 
     def soonest(t: dict[str, Any]) -> int:
@@ -691,10 +713,9 @@ def dashboard(db: Session, within_days: int = 30, today: date | None = None, ite
         return min(days) if days else 99999
 
     for task, item in rows:
-        meters = meter_cache.setdefault(item.id, meters_for(db, item.id))
-        if item.id not in rate_cache:
-            rate_cache[item.id] = {k.value: usage(db, item.id, k, today)["per_day"] for k in (MeterKind.hours, MeterKind.cycles)}
-        out = task_out(task, meters, today, rate_cache[item.id])
+        if item.id not in meter_cache:
+            meter_cache[item.id] = meters_for(db, item.id)
+        out = task_out(task, meter_cache[item.id], today, rate_cache.get(item.id, no_rate))
         out["item"] = {"id": item.id, "name": item.product.name, "label": item.label}
         if out["status"] == "overdue":
             overdue.append(out)
@@ -710,8 +731,9 @@ def dashboard(db: Session, within_days: int = 30, today: date | None = None, ite
         prof_stmt = prof_stmt.where(item_filter)
     with_history = set(db.scalars(select(ServiceEvent.item_id).where(ServiceEvent.deleted_at.is_(None),
                                                                       ServiceEvent.outcome == ServiceOutcome.completed)))
+    profiles = db.execute(prof_stmt).all()
     no_records = [{"id": item.id, "name": item.product.name, "equipment_type": p.equipment_type}
-                  for p, item in db.execute(prof_stmt).all() if item.id not in with_history]
+                  for p, item in profiles if item.id not in with_history]
 
     recent_stmt = (select(ServiceEvent).where(ServiceEvent.deleted_at.is_(None))
                    .order_by(ServiceEvent.performed_on.desc(), ServiceEvent.id.desc()).limit(15))
@@ -723,7 +745,7 @@ def dashboard(db: Session, within_days: int = 30, today: date | None = None, ite
         out["item"] = {"id": e.item_id, "name": (e.snapshot or {}).get("item_name")}
         recent.append(out)
     return {"within_days": within_days, "overdue": overdue, "due": due, "no_records": no_records, "recent": recent,
-            "equipment_count": len(db.execute(prof_stmt).all())}
+            "equipment_count": len(profiles)}
 
 
 def counts(db: Session, today: date | None = None) -> dict[str, int]:

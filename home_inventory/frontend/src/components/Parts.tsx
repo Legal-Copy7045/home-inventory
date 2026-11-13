@@ -15,7 +15,7 @@ import {
   type ReadinessOverview,
   type Readiness,
 } from "../api";
-import { ErrorBox, Section, Sheet, Spinner, useAction, useApi } from "./ui";
+import { ErrorBox, Section, Sheet, Spinner, useAction, useApi, usePoll } from "./ui";
 
 // ---------------------------------------------------------------- small bits
 
@@ -189,11 +189,7 @@ export function ManualSheet({ itemId, onClose, onDone }: { itemId: number; onClo
   const recognised = useApi(() => api.get<{ attachment_id: number; status: string; result: { document_type: string; title: string } | null }[]>(`items/${itemId}/document-readings`), [itemId, item.data?.attachments?.length]);
   const docType = (id: number) => recognised.data?.find((r) => r.attachment_id === id);
   const checking = recognised.data?.some((r) => r.status === "pending");
-  useEffect(() => {
-    if (!checking) return;
-    const t = setInterval(() => recognised.reload(), 3000);
-    return () => clearInterval(t);
-  }, [checking]); // eslint-disable-line react-hooks/exhaustive-deps
+  usePoll(!!checking, recognised.reload);
   const [chosen, setChosen] = useState<number[]>([]);
   const [pages, setPages] = useState("");
   const [reading, setReading] = useState<ManualReading | null>(null);
@@ -204,13 +200,9 @@ export function ManualSheet({ itemId, onClose, onDone }: { itemId: number; onClo
     if (open && !reading) setReading(open);
   }, [past.data]); // eslint-disable-line react-hooks/exhaustive-deps
   // Reading runs in the background (it can take minutes): check every few seconds.
-  useEffect(() => {
-    if (reading?.status !== "pending") return;
-    const t = setInterval(() => {
-      api.get<ManualReading>(`manual-readings/${reading.id}`).then((r) => r.status !== "pending" && setReading(r)).catch(() => undefined);
-    }, 3000);
-    return () => clearInterval(t);
-  }, [reading?.id, reading?.status]);
+  usePoll(reading?.status === "pending", () => {
+    if (reading) api.get<ManualReading>(`manual-readings/${reading.id}`).then((r) => r.status !== "pending" && setReading(r)).catch(() => undefined);
+  });
   const files = (item.data?.attachments || []).filter((a) => a.mime_type === "application/pdf" || a.mime_type.startsWith("image/"));
   const upload = async (list: FileList | null) => {
     for (const file of Array.from(list || [])) {

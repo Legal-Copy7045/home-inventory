@@ -1,27 +1,54 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState, type ComponentType } from "react";
 import { HashRouter, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { Activity, ArrowLeft, Box, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings, Users, Wrench, ClipboardList, Boxes, Nfc, ShoppingCart, Camera, Images, FileText } from "lucide-react";
 import { api, appBaseUrl, labelRef, type Me, type QrTarget } from "./api";
 import { MeContext, Sheet, Spinner, ToastHost, useToast } from "./components/ui";
-import AddItem from "./pages/AddItem";
 import { DashboardPage, ItemsPage, LocationDetailPage, LocationsPage, SearchBox, SearchPage } from "./pages/Browse";
-import { ContainerDetail, ContainersPage } from "./pages/Containers";
-import ItemDetail from "./pages/ItemDetail";
-import { MapView, MapsPage } from "./pages/Maps";
-import { ActivityPage, LabelsPage, LoansPage, SettingsPage } from "./pages/Other";
-import { CustomerDetailPage, CustomersPage, RepairJobPage, RepairsPage, WorkOrderPage } from "./pages/Customers";
-import { KitPage, KitsPage } from "./pages/Kits";
-import { ShoppingPage } from "./pages/Shopping";
-import { TagScanPage, TagsPage } from "./pages/Tags";
-import { MaintenancePage } from "./pages/Maintenance";
+// Quick photos stays in the main bundle: it has to open offline.
 import QuickCapture from "./pages/QuickCapture";
-import ScanPage from "./pages/ScanPage";
-import SortPhotos from "./pages/SortPhotos";
-import ReportPage from "./pages/Report";
-import DuplicatesPage from "./pages/Duplicates";
 import { startQueue, subscribe as subscribeUploads, waitingCount } from "./uploadQueue";
-import { RecentlyDeleted } from "./components/BulkActions";
-import ToFinish from "./pages/ToFinish";
+
+// The other pages load when first opened, so the app starts faster.  Once
+// it's idle they're fetched in the background (and kept by the service
+// worker), so they still open offline and without a wait later.
+type Loader = () => Promise<Record<string, unknown>>;
+const loaders: Loader[] = [];
+function page<K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) {
+  loaders.push(load as Loader);
+  return lazy(() => load().then((m) => ({ default: m[name] })));
+}
+function preloadPages() {
+  const idle = (window as unknown as { requestIdleCallback?: (f: () => void) => void }).requestIdleCallback || ((f: () => void) => setTimeout(f, 2000));
+  idle(() => { loaders.forEach((l) => l().catch(() => undefined)); });
+}
+loaders.push(() => import("./components/Scanner").then((m) => m.loadZxing()).then(() => ({})));
+const AddItem = page(() => import("./pages/AddItem"), "default");
+const ContainersPage = page(() => import("./pages/Containers"), "ContainersPage");
+const ContainerDetail = page(() => import("./pages/Containers"), "ContainerDetail");
+const ItemDetail = page(() => import("./pages/ItemDetail"), "default");
+const MapsPage = page(() => import("./pages/Maps"), "MapsPage");
+const MapView = page(() => import("./pages/Maps"), "MapView");
+const ActivityPage = page(() => import("./pages/Other"), "ActivityPage");
+const LabelsPage = page(() => import("./pages/Other"), "LabelsPage");
+const LoansPage = page(() => import("./pages/Other"), "LoansPage");
+const SettingsPage = page(() => import("./pages/Other"), "SettingsPage");
+const CustomersPage = page(() => import("./pages/Customers"), "CustomersPage");
+const CustomerDetailPage = page(() => import("./pages/Customers"), "CustomerDetailPage");
+const RepairsPage = page(() => import("./pages/Customers"), "RepairsPage");
+const RepairJobPage = page(() => import("./pages/Customers"), "RepairJobPage");
+const WorkOrderPage = page(() => import("./pages/Customers"), "WorkOrderPage");
+const KitsPage = page(() => import("./pages/Kits"), "KitsPage");
+const KitPage = page(() => import("./pages/Kits"), "KitPage");
+const ShoppingPage = page(() => import("./pages/Shopping"), "ShoppingPage");
+const TagsPage = page(() => import("./pages/Tags"), "TagsPage");
+const TagScanPage = page(() => import("./pages/Tags"), "TagScanPage");
+const MaintenancePage = page(() => import("./pages/Maintenance"), "MaintenancePage");
+const ScanPage = page(() => import("./pages/ScanPage"), "default");
+const SortPhotos = page(() => import("./pages/SortPhotos"), "default");
+const ReportPage = page(() => import("./pages/Report"), "default");
+const DuplicatesPage = page(() => import("./pages/Duplicates"), "default");
+const RecentlyDeleted = page(() => import("./components/BulkActions"), "RecentlyDeleted");
+const ToFinish = page(() => import("./pages/ToFinish"), "default");
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: Home, end: true },
@@ -159,6 +186,7 @@ function UploadIndicator() {
   const loc = useLocation();
   useEffect(() => {
     startQueue();
+    preloadPages();
     const refresh = () => void waitingCount().then(setN);
     refresh();
     return subscribeUploads(refresh);
@@ -196,6 +224,7 @@ function Shell({ me }: { me: Me }) {
         <DeepLink />
         <UploadIndicator />
         {me.admin_setup && <AdminSetup />}
+        <Suspense fallback={<Spinner />}>
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/search" element={<SearchPage />} />
@@ -232,6 +261,7 @@ function Shell({ me }: { me: Me }) {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<div className="page"><div className="empty">Page not found.</div></div>} />
         </Routes>
+        </Suspense>
       </div>
       <nav className="bottomnav" aria-label="Quick">
         <NavLink to="/" end className={({ isActive }) => (isActive ? "active" : "")}><Home size={22} />Home</NavLink>

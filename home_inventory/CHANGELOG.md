@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.15.4
+
+- **Opens faster.** The app's main download is about a third of the size: pages load when first opened (and in the background once the app is idle, so they still work offline), and the barcode decoder loads only when a scan needs it.
+- **Faster maintenance dashboard.** Rates of use are worked out for all equipment in one query, and only for tasks counted in hours or uses.
+- **Faster lookups.** Matching a part number, redoing a photo inventory's cut-outs and filtering search by status, loans, warranty or expiry no longer read every product, item or history entry.
+- Behind the scenes: the API is split into smaller modules, background polling shares one helper (and pauses while the app is hidden), and the web app has unit tests, including word-search cases shared with the server.
+
 ## 0.15.3
 
 - **Photo dates.** A meter photo picked from your library now takes its date from the photo itself (when it was taken), not from the file's modified date, which is often the day it was copied or shared. Photos are still stored without their location data.
