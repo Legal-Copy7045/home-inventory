@@ -155,6 +155,42 @@ def _match_containers(entries: list[dict[str, Any]], containers: list[Container]
             used.add(best.id)
             e["container_match"] = {"container_id": best.id, "name": best.name, "number": best.number}
             e["proposed_action"] = "skip"
+    # Second pass: the AI often describes the same plain box differently each
+    # time ("Plastic container" / "Plastic storage bin").  A box that isn't
+    # matched yet is taken to be one already recorded here when both are
+    # plain boxes of a similar kind - shown as "already recorded" in the
+    # review, where it can be changed to "add".
+    for e in entries:
+        if e.get("kind") != "container" or e.get("container_match"):
+            continue
+        best, score = None, 0.0
+        for c in containers:
+            if c.id in used or not (_plain_box(c.name) and _plain_box(e.get("name", ""))):
+                continue
+            sc = similarity(e.get("name", ""), c.name) + (0.3 if _box_word(c.name) == _box_word(e.get("name", "")) else 0)
+            if sc > score:
+                best, score = c, sc
+        if best is not None and score >= 0.55:
+            used.add(best.id)
+            e["container_match"] = {"container_id": best.id, "name": best.name, "number": best.number}
+            e["proposed_action"] = "skip"
+
+
+_BOX_WORDS = ("box", "bin", "tote", "crate", "container", "case", "basket", "tub", "tray", "bag", "drawer", "chest")
+
+
+def _box_word(name: str) -> str | None:
+    words = _norm(name).split()
+    return next((w for w in reversed(words) if w in _BOX_WORDS), None)
+
+
+def _plain_box(name: str) -> bool:
+    """A box named only by what it looks like ("Clear plastic tote"), not by a label."""
+    words = _norm(name).split()
+    plain = {"plastic", "clear", "black", "blue", "grey", "gray", "white", "red", "green", "large", "small", "big",
+             "storage", "cardboard", "metal", "wooden", "wood", "lidded", "stackable", "translucent", "opaque",
+             "medium", "tall", "short", "yellow", "orange", "brown", "dark", "light", "with", "lid"}
+    return bool(words) and _box_word(name) is not None and all(w in plain or w in _BOX_WORDS for w in words)
 
 
 def area_places(db: Session, scan: ContainerScan) -> list[dict[str, Any]]:
@@ -179,8 +215,11 @@ def analyse(db: Session, scan: ContainerScan, ai, image: bytes) -> ContainerScan
         hint, shelf = (f"Place: {loc.name}" + (f" ({loc.kind})" if loc.kind else "") if loc else None), True
     scan.status = ScanStatus.analysing
     db.commit()
+    current_items, current_boxes = _current_items(db, scan), _current_containers(db, scan)
+    known = [c.name for c in current_boxes] + [i.product.name for i in current_items]
     try:
-        res = ai.identify_area(image, hint=hint) if shelf else ai.identify_container(image, hint=hint)
+        res = (ai.identify_area(image, hint=hint, known=known) if shelf
+               else ai.identify_container(image, hint=hint, known=known))
     except Exception as err:  # noqa: BLE001 - failures are recorded, nothing is lost
         scan.status = ScanStatus.failed
         scan.error = str(err)[:1000]
@@ -189,8 +228,8 @@ def analyse(db: Session, scan: ContainerScan, ai, image: bytes) -> ContainerScan
     entries = res.data["items"]
     things = [e for e in entries if e.get("kind", "item") == "item"]
     boxes = [e for e in entries if e.get("kind") == "container"]
-    matched = match_existing(things, _current_items(db, scan))
-    _match_containers(boxes, _current_containers(db, scan))
+    matched = match_existing(things, current_items)
+    _match_containers(boxes, current_boxes)
     scan.suggestions = matched + boxes
     scan.raw_response = {"notes": res.data.get("notes"), "elapsed_ms": res.elapsed_ms, "units": res.data.get("units") or []}
     scan.provider, scan.model = res.provider, res.model

@@ -341,3 +341,46 @@ def add_seasonal(data: SeasonalIn, actor: Actor = Depends(require_member), db: S
     task = _run(seasonal.add, db, actor, item, data.key)
     db.commit()
     return {"task_id": task.id}
+
+
+@router.get("/maintenance/plan")
+def maintenance_plan(owner: Literal["all", "household", "customer"] = "all", actor: Actor = Depends(current_actor),
+                     db: Session = Depends(get_db)):
+    """The maintenance plan and guide: every piece of equipment with its jobs
+    (when each is due, how often, instructions) and the parts each needs."""
+    from ..services import customers as cust
+    from ..services import parts as parts_svc
+    from ..services.placement import Resolver
+
+    if owner == "customer" and not actor.can(Role.member):
+        raise HTTPException(403, "Customer equipment is visible to members only")
+    item_filter = {"household": cust.household_only(), "customer": cust.customer_owned()}.get(owner)
+    if item_filter is None and not actor.can(Role.member):
+        item_filter = cust.household_only()
+    stmt = (select(EquipmentProfile, Item).join(Item, Item.id == EquipmentProfile.item_id)
+            .where(Item.deleted_at.is_(None)))
+    if item_filter is not None:
+        stmt = stmt.where(item_filter)
+    r = Resolver.load(db)
+    out = []
+    for _profile, item in db.execute(stmt).all():
+        summary = mnt.item_maintenance(db, item, lambda _id: [])
+        tasks = [t for t in summary["tasks"] if t["status"] != "not_applicable"]
+        for t in tasks:
+            task = db.get(MaintenanceTask, t["id"])
+            t["parts"] = [{"name": ln["product"]["name"], "quantity": ln["quantity"], "unit": ln["unit"], "status": ln["status"]}
+                          for ln in parts_svc.task_readiness(db, task)]
+        last = next((e for e in summary["history"] if e.get("outcome") in (None, "completed")), None)
+        out.append({
+            "item": {"id": item.id, "name": item.product.name, "label": item.label,
+                     "manufacturer": item.product.manufacturer, "model_number": item.product.model_number,
+                     "place": r.describe_item(item)["path"]},
+            "profile": summary["profile"],
+            "meters": summary["meters"],
+            "per_week": {k: u["per_week"] for k, u in summary["usage"].items()},
+            "tasks": tasks,
+            "last_service": {"title": last["title"], "performed_on": last["performed_on"]} if last else None,
+        })
+    order = {"overdue": 0, "due_soon": 1, "deferred": 2, "ok": 3, "manual": 4}
+    out.sort(key=lambda e: (min((order.get(t["status"], 9) for t in e["tasks"]), default=9), e["item"]["name"].lower()))
+    return {"equipment": out}

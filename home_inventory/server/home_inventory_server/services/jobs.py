@@ -2,7 +2,8 @@
 
 They run on a small shared pool rather than a thread each, so a burst of
 uploads can't start dozens of AI calls at once: extra jobs wait their turn.
-A job still pending when its turn comes is run; one that's been marked
+AI calls made by a job wait for the rate limits as long as needed (see
+ai/ratelimit.py).  A job still pending when its turn comes is run; one that's been marked
 failed meanwhile (stale) is skipped by the job itself.
 """
 
@@ -29,6 +30,10 @@ def submit(fn: Callable[[], None], name: str) -> Future:
         pool = _pool
 
     def run() -> None:
+        from ..ai import ratelimit
+
+        # AI calls from background work wait for their turn as long as needed.
+        ratelimit.set_background(True)
         try:
             fn()
         except Exception:  # noqa: BLE001 - the job records its own failures; this is a last resort

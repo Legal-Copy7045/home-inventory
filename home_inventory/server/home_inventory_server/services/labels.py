@@ -260,16 +260,19 @@ def _draw_label(c: canvas.Canvas, x: float, y: float, w: float, h: float, d: Lab
     c.drawRightString(x + w - pad, bottom, d.code)
     floor = bottom + code_size + 1
     if d.location:
-        loc_size = small * 0.95
-        loc_lines = _wrap(c, d.location, "Helvetica", loc_size, tw, 2)
+        # Where it lives is what gets things put back: bold, black and a
+        # size up from the contents, above a thin rule.
+        loc_size = small * 1.2
+        loc_lines = _wrap(c, d.location, "Helvetica-Bold", loc_size, tw, 2, min_scale=0.75)
         ly = floor + (len(loc_lines) - 1) * (loc_lines[0][1] + 1)
         for text, s in loc_lines:
-            c.setFont("Helvetica", s)
-            c.setFillGray(0.3)
+            c.setFont("Helvetica-Bold", s)
             c.drawString(tx, ly, text)
-            c.setFillGray(0)
             ly -= s + 1
         floor += len(loc_lines) * (loc_lines[0][1] + 1) + 1
+        c.setLineWidth(0.4)
+        c.line(tx, floor, tx + tw, floor)
+        floor += 2
 
     def room(size: float) -> int:
         return max(0, int((ty - floor) // (size + 1.5)))

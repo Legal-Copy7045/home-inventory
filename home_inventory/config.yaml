@@ -1,7 +1,7 @@
 # Home Assistant App manifest
 # https://developers.home-assistant.io/docs/add-ons/configuration
 name: Home Inventory
-version: "0.19.0"
+version: "0.20.0"
 # Prebuilt images (built by .github/workflows/release.yaml for every release),
 # so Home Assistant downloads the App instead of building it on the device.
 image: "ghcr.io/legal-copy7045/{arch}-home-inventory"
@@ -38,6 +38,10 @@ options:
   ai_api_key: ""
   ai_model: ""
   ai_base_url: ""
+  ai_requests_per_minute: 15
+  ai_tokens_per_minute: 250000
+  ai_requests_per_day: 500
+  ai_retry_cooldown: 60
   barcode_open_facts: true
   barcode_upcitemdb: true
   barcode_lookup_api_key: ""
@@ -56,6 +60,10 @@ schema:
   ai_api_key: password?
   ai_model: str?
   ai_base_url: str?
+  ai_requests_per_minute: int(0,10000)
+  ai_tokens_per_minute: int(0,100000000)
+  ai_requests_per_day: int(0,1000000)
+  ai_retry_cooldown: int(5,3600)
   barcode_open_facts: bool
   barcode_upcitemdb: bool
   barcode_lookup_api_key: password?

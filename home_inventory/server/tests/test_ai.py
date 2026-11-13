@@ -632,3 +632,29 @@ def test_the_last_photo_can_be_looked_at_again(ai_env, fake_ai):
     sugg = {s["name"]: s for s in again["suggestions"]}
     assert sugg["Cordless drill"]["match"]["name"] == "Cordless drill"   # already recorded
     assert sugg["Black hard case"]["identified"] is False and not sugg["Black hard case"].get("match")
+
+
+def test_boxes_redo_cutouts_and_rescans_reuse_recorded_names(ai_env, fake_ai):
+    u = ai_env.admin
+    shelf = u.location("Bottom shelf")
+    fake_ai.responses.append({**BASEMENT, "items": [
+        {**_area_entry("Plastic container", 0, 3, kind="container"), "box": None, "box_2d": [100, 100, 400, 400]}]})
+    scan = u.ok("post", f"/api/v1/locations/{shelf['id']}/scans", files={"file": ("a.jpg", jpeg_bytes(size=(800, 600)))})
+    res = u.ok("post", f"/api/v1/scans/{scan['id']}/confirm", json={"items": [
+        {"action": "add", "kind": "container", "name": "Plastic container", "box": [0.6, 0.6, 0.3, 0.3]}]})
+    box_id = res["containers"][0]
+    # Redo cut-outs from the box's own page
+    fake_ai.responses.append({**BASEMENT, "items": [
+        {**_area_entry("Plastic container", 0, 3, kind="container"), "box": None, "box_2d": [100, 100, 400, 400]}]})
+    out = u.ok("post", f"/api/v1/containers/{box_id}/redo-cutouts")
+    assert out["fixed"] == 1
+    other = u.container("Hand-made box")
+    assert u.post(f"/api/v1/containers/{other['id']}/redo-cutouts").status_code == 404
+    # Scanning again: the AI is told what's recorded, and a box it now calls
+    # something else is still recognised as the same box, not added twice.
+    fake_ai.responses.append({**BASEMENT, "items": [
+        {**_area_entry("Plastic storage bin", 0, 3, kind="container"), "box": None, "box_2d": [100, 100, 400, 400]}]})
+    again = u.ok("post", f"/api/v1/locations/{shelf['id']}/scans", files={"file": ("b.jpg", jpeg_bytes(size=(800, 600)))})
+    assert "Plastic container" in fake_ai.calls[-1]["prompt"] and "use exactly that name" in fake_ai.calls[-1]["prompt"]
+    sug = again["suggestions"][0]
+    assert sug["container_match"]["container_id"] == box_id and sug["proposed_action"] == "skip"
