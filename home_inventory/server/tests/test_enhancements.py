@@ -158,3 +158,19 @@ def test_ai_value_estimate_is_kept_with_the_item(tmp_path):
     got = u.ok("get", f"/api/v1/items/{item['id']}")
     assert got["ai_metadata"]["value_estimate"]["replacement"] == 99.0
     env.state.db.dispose()
+
+
+def test_panorama_shrinks_big_photos_before_joining():
+    import io
+
+    from PIL import Image
+
+    from home_inventory_server.services.media import stitch
+
+    def big(color):
+        buf = io.BytesIO()
+        Image.new("RGB", (6000, 4500), color).save(buf, "JPEG", quality=70)
+        return buf.getvalue()
+
+    out = Image.open(io.BytesIO(stitch([big((200, 0, 0)), big((0, 0, 200))], height=1600)))
+    assert out.height <= 1600 and out.width <= 8000

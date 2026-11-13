@@ -154,6 +154,9 @@ async def test_sidebar_panel_proxy(hass: HomeAssistant, inventory_app, hass_ws_c
     assert r.status == HTTPStatus.CREATED
     r = await client.post("/api/home_inventory/panel/api/v1/locations", json={"name": "Evil"}, headers={"Origin": "https://evil.example"})
     assert r.status == HTTPStatus.FORBIDDEN
+    # A request the browser marks as cross-site is refused even without an Origin header
+    r = await client.post("/api/home_inventory/panel/api/v1/locations", json={"name": "Evil 2"}, headers={"Sec-Fetch-Site": "cross-site"})
+    assert r.status == 403
     # Deactivated HA user loses access immediately
     await hass.auth.async_update_user(hass_admin_user, is_active=False)
     r = await client.get("/api/home_inventory/panel/api/v1/me")

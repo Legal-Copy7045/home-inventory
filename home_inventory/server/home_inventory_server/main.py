@@ -118,6 +118,8 @@ SECURITY_HEADERS = {
         "frame-ancestors 'self'; object-src 'none'; base-uri 'self'"
     ),
     "Permissions-Policy": "camera=(self), microphone=(), geolocation=()",
+    # Other sites can't load the App's pages, photos or data into theirs.
+    "Cross-Origin-Resource-Policy": "same-origin",
 }
 
 
@@ -125,9 +127,10 @@ def create_app(state: AppState, channel: str) -> FastAPI:
     app = FastAPI(
         title="Home Inventory",
         version=state.version,
-        docs_url=None if channel == "ingress" else "/api/docs",
+        # API docs only while debugging, and never through Ingress.
+        docs_url="/api/docs" if channel != "ingress" and state.settings.log_level == "debug" else None,
         redoc_url=None,
-        openapi_url=None if channel == "ingress" else "/api/openapi.json",
+        openapi_url="/api/openapi.json" if channel != "ingress" and state.settings.log_level == "debug" else None,
     )
     app.state.channel = channel
     # Share attributes with the AppState instance.
@@ -164,6 +167,9 @@ def create_app(state: AppState, channel: str) -> FastAPI:
         response: Response = await call_next(request)
         for k, v in SECURITY_HEADERS.items():
             response.headers.setdefault(k, v)
+        if request.url.path.startswith("/api/") and "cache-control" not in response.headers:
+            # Inventory data is never kept by browsers or proxies (shared devices).
+            response.headers["Cache-Control"] = "no-store"
         if response.headers.get("content-type", "").startswith("text/html") or request.url.path.endswith(("/sw.js", "/manifest.json")):
             response.headers["Cache-Control"] = "no-cache"  # updates show up at once
         return response
@@ -335,9 +341,9 @@ async def serve(settings: Settings) -> None:
     level = settings.log_level.lower()
     servers = [
         uvicorn.Server(uvicorn.Config(ingress_app, host="0.0.0.0", port=settings.ingress_port, log_level=level,
-                                      proxy_headers=False, access_log=level == "debug")),
+                                      proxy_headers=False, server_header=False, access_log=level == "debug")),
         uvicorn.Server(uvicorn.Config(api_app, host="0.0.0.0", port=settings.api_port, log_level=level,
-                                      proxy_headers=False, access_log=level == "debug")),
+                                      proxy_headers=False, server_header=False, access_log=level == "debug")),
     ]
     state.tasks.append(asyncio.create_task(_periodic(state)))
     state.tasks.append(asyncio.create_task(_announce_discovery(state)))

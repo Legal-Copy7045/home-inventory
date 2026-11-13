@@ -3,6 +3,7 @@
 from fastapi.testclient import TestClient
 
 from home_inventory_server.models import Role
+from tests.conftest import Env
 
 
 def test_ingress_requires_trusted_peer(env):
@@ -97,9 +98,27 @@ def test_api_channel_acts_for_ha_user(env):
     assert sys_client.ok("get", "/api/v1/me")["name"] == "Home Assistant"
 
 
-def test_api_docs_not_on_ingress(env):
+def test_api_docs_only_while_debugging_and_never_on_ingress(env, tmp_path):
     assert env.raw_ingress().get("/api/openapi.json").status_code == 404
-    assert env.raw_api().get("/api/openapi.json").status_code == 200
+    assert env.raw_api().get("/api/openapi.json").status_code == 404
+    dbg = Env(tmp_path / "debug", log_level="debug")
+    assert dbg.raw_ingress().get("/api/openapi.json").status_code == 404
+    assert dbg.raw_api().get("/api/openapi.json").status_code == 200
+    dbg.state.db.dispose()
+
+
+def test_data_is_never_cached_and_not_embeddable(env):
+    r = env.admin.get("/api/v1/me")
+    assert r.headers["cache-control"] == "no-store"
+    assert r.headers["cross-origin-resource-policy"] == "same-origin"
+    assert "server" not in {k.lower() for k in r.headers} or "uvicorn" not in r.headers.get("server", "")
+
+
+def test_qr_link_address_must_be_a_web_address(env):
+    bad = env.admin.patch("/api/v1/settings", json={"qr_base_url": "javascript:alert(1)"})
+    assert bad.status_code == 422
+    ok = env.admin.ok("patch", "/api/v1/settings", json={"qr_base_url": "https://ha.example.org/app/"})
+    assert ok["qr_base_url"] == "https://ha.example.org/app"
 
 
 def test_security_headers(env):
