@@ -29,3 +29,14 @@ def test_container_search_uses_words_and_place(env):
     found = u.ok("get", "/api/v1/containers", params={"q": "axle shed right"})
     assert [c["name"] for c in found] == ["Towing / Axle Stands"]
     assert [c["name"] for c in u.ok("get", "/api/v1/containers", params={"q": "#7"})] == ["Christmas lights"]
+
+
+def test_same_cases_as_the_web_app():
+    import json
+    from pathlib import Path
+
+    cases = json.loads((Path(__file__).parents[2] / "frontend" / "src" / "match_cases.json").read_text())
+    for q, text in cases["match"]:
+        assert matches_words(q, text), (q, text)
+    for q, text in cases["no_match"]:
+        assert not matches_words(q, text), (q, text)
