@@ -1,6 +1,6 @@
 """Voice: "where is the hedge trimmer?" - with a follow-up when it's unclear.
 
-Two intents:
+Three intents:
 
 * ``HomeInventoryWhereIs`` (slot ``item``) answers where something is.
   The verb follows the name ("Wood screws are in…", "Drill is in…").
@@ -8,6 +8,10 @@ Two intents:
   in B").  When the words match *different* things, it asks instead:
   "I found 3 things for hose: A, B and C. Which one did you mean?" and
   remembers the choices for two minutes.
+* ``HomeInventoryWhereDoesItGo`` (slot ``item``) answers where something
+  *belongs* - its usual place - for putting it back: "Hammer goes in
+  Garage, Tool wall." If it's out (taken, lent, here for now), that's
+  added: "It's in the kitchen for now."
 * ``HomeInventoryChoose`` (slot ``choice``) is the reply: "the kink control
   one", "the second one", "the siphon pump".  It answers for that thing.
 
@@ -49,6 +53,7 @@ _LOGGER = logging.getLogger(__name__)
 
 INTENT_WHERE_IS = "HomeInventoryWhereIs"
 INTENT_CHOOSE = "HomeInventoryChoose"
+INTENT_GOES = "HomeInventoryWhereDoesItGo"
 INTENT_MAINTENANCE = "HomeInventoryMaintenanceDue"
 INTENT_LOW_STOCK = "HomeInventoryRunningLow"
 INTENT_ON_LOAN = "HomeInventoryOnLoan"
@@ -148,18 +153,66 @@ def answer_for(group: dict[str, Any]) -> str:
     return f"{group['name']} {verb_for(group['name'])} " + ", and ".join(places) + tail + "."
 
 
+def goes_query(text: str) -> str:
+    """The name in "put away the drill back": the sentence wildcard can keep
+    "away the" / "back" around it."""
+    return re.sub(r"^(?:(?:away|back|the|my)\s+)+|(?:\s+(?:back|away))+$", "", text.strip(), flags=re.I) or text
+
+
+def _home(item: dict[str, Any]) -> str:
+    """Where a record belongs: its usual place when it's away, else where it is."""
+    home = item.get("home_placement") or item.get("placement") or {}
+    return _place({"placement": home})
+
+
+def _away(item: dict[str, Any]) -> str | None:
+    """Why it isn't there now, as a short sentence (or None)."""
+    status = item.get("status")
+    if item.get("loan"):
+        return f"It's lent to {item['loan'].get('borrower') or 'someone'} at the moment."
+    if status == "in_use":
+        note = item.get("status_note") or ""
+        who = note[len("Taken by "):] if note.startswith("Taken by ") else ""
+        return f"{who} has it at the moment." if who else "It's in use at the moment."
+    if status == "temporarily_relocated" and item.get("home_placement"):
+        return f"It's in {_place(item)} for now."
+    if status == "missing":
+        return "It's marked missing."
+    return None
+
+
+def goes_answer_for(group: dict[str, Any]) -> str:
+    """ "Hammer goes in Garage, Tool wall." - where to put it back."""
+    items = group["items"]
+    places: list[str] = []
+    for it in items:
+        p = _home(it)
+        if p not in places:
+            places.append(p)
+    verb = "go" if verb_for(group["name"]) == "are" else "goes"
+    shown = places[:3]
+    more = len(places) - 3
+    tail = f", or {more} other place{'s' if more != 1 else ''}" if more > 0 else ""
+    text = f"{group['name']} {verb} in " + ", or in ".join(shown) + tail + "."
+    if len(items) == 1 and (away := _away(items[0])):
+        text += f" {away}"
+    return text
+
+
 def _list(names: list[str]) -> str:
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
 
 
-def spoken_answer(query: str, results: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]] | None]:
-    """(what to say, the choices to remember if it's a question)."""
+def spoken_answer(query: str, results: list[dict[str, Any]], goes: bool = False) -> tuple[str, list[dict[str, Any]] | None]:
+    """(what to say, the choices to remember if it's a question).
+    ``goes``: answer where it belongs rather than where it is."""
     if not results:
         return f"I couldn't find {query} in your inventory.", None
     groups = group_by_name(results)
     exact = [g for g in groups if name_key(g["name"]) == name_key(query)]
     if len(groups) == 1 or len(exact) == 1:
-        return answer_for(exact[0] if exact else groups[0]), None
+        group = exact[0] if exact else groups[0]
+        return (goes_answer_for(group) if goes else answer_for(group)), None
     shown = groups[:MAX_CHOICES]
     names = [g["name"] for g in shown]
     if len(groups) > MAX_CHOICES:
@@ -243,10 +296,13 @@ class WhereIsHandler(intent.IntentHandler):
     intent_type = INTENT_WHERE_IS
     description = "Finds where something is kept, using Home Inventory"
     slot_schema = {vol.Required("item"): cv.string}
+    goes = False
 
     async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
         slots = self.async_validate_slots(intent_obj.slots)
         query = str(slots["item"]["value"]).strip().strip("?.!")
+        if self.goes:
+            query = goes_query(query)
         response = intent_obj.create_response()
         try:
             results = await _search(intent_obj, query)
@@ -256,10 +312,10 @@ class WhereIsHandler(intent.IntentHandler):
         if results is None:
             response.async_set_speech("Home Inventory isn't set up.")
             return response
-        speech, choices = spoken_answer(query, results)
+        speech, choices = spoken_answer(query, results, goes=self.goes)
         pending = _pending(intent_obj.hass)
         if choices:
-            pending[_key(intent_obj)] = {"groups": choices, "until": time.monotonic() + PENDING_SECONDS}
+            pending[_key(intent_obj)] = {"groups": choices, "goes": self.goes, "until": time.monotonic() + PENDING_SECONDS}
             _ask(response, speech, f"Which one: {_list([g['name'] for g in choices[:4]])}?")
         else:
             pending.pop(_key(intent_obj), None)
@@ -267,6 +323,12 @@ class WhereIsHandler(intent.IntentHandler):
             if results:
                 await _notify(intent_obj, speech)
         return response
+
+
+class WhereDoesItGoHandler(WhereIsHandler):
+    intent_type = INTENT_GOES
+    description = "Says where something belongs, so it can be put back, using Home Inventory"
+    goes = True
 
 
 class ChooseHandler(intent.IntentHandler):
@@ -295,7 +357,7 @@ class ChooseHandler(intent.IntentHandler):
             _ask(response, f"Sorry, which one: {_list(names[:4])}?", "Which one did you mean?")
             return response
         pending.pop(key, None)
-        speech = answer_for(group)
+        speech = goes_answer_for(group) if open_q.get("goes") else answer_for(group)
         response.async_set_speech(speech)
         await _notify(intent_obj, speech)
         return response
@@ -407,6 +469,7 @@ QUESTION_HANDLERS = (MaintenanceDueHandler, RunningLowHandler, OnLoanHandler)
 
 def async_setup_intents(hass: HomeAssistant) -> None:
     intent.async_register(hass, WhereIsHandler())
+    intent.async_register(hass, WhereDoesItGoHandler())
     intent.async_register(hass, ChooseHandler())
     for handler in QUESTION_HANDLERS:
         intent.async_register(hass, handler())
@@ -415,6 +478,6 @@ def async_setup_intents(hass: HomeAssistant) -> None:
 def async_unload_intents(hass: HomeAssistant) -> None:
     remove = getattr(intent, "async_remove", None)
     if remove is not None:
-        for name in (INTENT_WHERE_IS, INTENT_CHOOSE, INTENT_MAINTENANCE, INTENT_LOW_STOCK, INTENT_ON_LOAN):
+        for name in (INTENT_WHERE_IS, INTENT_GOES, INTENT_CHOOSE, INTENT_MAINTENANCE, INTENT_LOW_STOCK, INTENT_ON_LOAN):
             remove(hass, name)
     hass.data.pop(PENDING_KEY, None)

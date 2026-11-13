@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.22.0
+
+- **Voice: where does it go?** Ask Assist "Where does the hammer go?", "Tell me where to put the engine oil", "Where should I put my drill back?" or "Where does the jigsaw belong?" and it answers with the thing's usual place ("Hammer goes in Garage, Tool wall."), adding where it is now if it's out ("Saw goes in Shed. It's in Kitchen for now."). "Which one did you mean?" works as for "where is". **Update the Home Inventory integration and copy the new `deploy/assist/custom_sentences/en/home_inventory.yaml`** to your Home Assistant `custom_sentences/en/` folder, then reload conversation. The Alexa skill is unchanged.
+- **Folding menu.** Menu sections (Inventory, Reports, Admin) fold away: tap the heading to open or close one. Folded sections show how many pages they hold, the menu remembers your choice, and the section with the current page stays open. A section with one page (Maintenance & Repairs) is just that page.
+
 ## 0.21.0
 
 - **Take it / put away.** **Take it** on an item (or after scanning its barcode) marks it as with you; the Scan page shows what you're carrying. Scan a box or shelf label to put things away: in its own place (or the usual place it was temporarily moved from) it simply goes back; somewhere new, choose **Move it here** or **Just this once** (a temporary move that remembers the usual place). Items also have **Put away** to choose the place without a label.

@@ -271,6 +271,40 @@ def test_spoken_answer_wording():
     assert text.startswith("I found 8 things for thing, including Thing a, Thing b, Thing c and Thing d.") and len(choices) == 6
 
 
+def test_where_does_it_go_wording():
+    from custom_components.home_inventory.intent import spoken_answer
+
+    item = lambda name, path, **kw: {"display_name": name, "placement": {"path": path}, "status": kw.pop("status", "stored"), **kw}  # noqa: E731
+    goes = lambda q, rows: spoken_answer(q, rows, goes=True)[0]  # noqa: E731
+    assert goes("hammer", [item("Hammer", "Garage › Tool wall")]) == "Hammer goes in Garage, Tool wall."
+    assert goes("stands", [item("Axle stands", "Garage")]) == "Axle stands go in Garage."
+    # Away from home: where it belongs, then where it is now
+    assert goes("saw", [item("Saw", "Kitchen", status="temporarily_relocated", home_placement={"path": "Shed"})]) == (
+        "Saw goes in Shed. It's in Kitchen for now.")
+    assert goes("drill", [item("Drill", "Shed", status="in_use", status_note="Taken by Sam")]) == "Drill goes in Shed. Sam has it at the moment."
+    assert goes("ladder", [item("Ladder", "Garage", status="on_loan", loan={"borrower": "Pat"})]) == (
+        "Ladder goes in Garage. It's lent to Pat at the moment.")
+    # Kept in two places
+    assert goes("oil", [item("Engine oil", "Garage › Shelf 1"), item("Engine oil", "Shed")]) == (
+        "Engine oil goes in Garage, Shelf 1, or in Shed.")
+    assert goes("unicorn", []) == "I couldn't find unicorn in your inventory."
+
+
+async def test_voice_where_does_it_go(hass: HomeAssistant, inventory_app):
+    from homeassistant.helpers import intent
+
+    shed = inventory_app.seed["shed"]
+    for name in ("Claw hammer", "Lump hammer"):
+        inventory_app.ui("POST", "items", {"name": name, "location_id": shed["id"]})
+    await _setup_via_user_flow(hass, inventory_app)
+    r = await intent.async_handle(hass, "conversation", "HomeInventoryWhereDoesItGo", {"item": {"value": "axle stand"}})
+    assert r.speech["plain"]["speech"] == "Axle stand goes in Garage."
+    ask = await intent.async_handle(hass, "conversation", "HomeInventoryWhereDoesItGo", {"item": {"value": "hammer"}}, device_id="hall")
+    assert ask.speech["plain"]["speech"].endswith("Which one did you mean?")
+    pick = await intent.async_handle(hass, "conversation", "HomeInventoryChoose", {"choice": {"value": "the lump one"}}, device_id="hall")
+    assert pick.speech["plain"]["speech"] == "Lump hammer goes in Shed."  # answered as "goes", not "is"
+
+
 async def test_voice_asks_which_one_and_understands_the_reply(hass: HomeAssistant, inventory_app):
     from homeassistant.helpers import intent
 
