@@ -3,7 +3,7 @@
 # Copy this file to <config>/custom_sentences/en/home_inventory.yaml (the
 # folder next to configuration.yaml), then restart Home Assistant or run the
 # "Conversation: Reload" action. Needs the Home Inventory integration 0.16.0+
-# ("where does … go" needs 0.22.0+).
+# ("where does … go" needs 0.22.0+, "I've moved … to …" 0.23.0+).
 # Siri uses these too when your Shortcut passes your words to Assist.
 language: "en"
 intents:
@@ -34,13 +34,34 @@ intents:
           - "tell me where to (put|keep|store) [the|my] {item} [back|away]"
           - "where (does|do) [the|my] {item} get put away"
 
-  # The answer to "Which one did you mean?" (within two minutes).
+  # "I've moved the engine oil to small engine repair" / "...to container number 5".
+  # Asks which one when unclear ("Did you mean...?" takes yes or no).
+  HomeInventoryMove:
+    data:
+      - sentences:
+          - "[that] I('ve| have) moved [the|my] {item} to [the] {place}"
+          - "[that] I moved [the|my] {item} to [the] {place}"
+          - "[that] I('ve| have) put [the|my] {item} (in|into|on) [the] {place}"
+          - "[that] I put [the|my] {item} (in|into|on) [the] {place}"
+          - "move [the|my] {item} to [the] {place}"
+          - "[the|my] {item} (is|are) now (in|on) [the] {place}"
+
+  # The answer to "Which one did you mean?" / "Did you mean...?" (within two minutes).
   HomeInventoryChoose:
     data:
       - sentences:
           - "the {choice} [one]"
           - "I meant [the] {choice}"
           - "I mean [the] {choice}"
+      - sentences:
+          - "(yes|yeah|yep|correct|that's right) [please]"
+        slots:
+          choice: "yes"
+      - sentences:
+          - "(no|nope|neither) [thanks]"
+          - "none of them"
+        slots:
+          choice: "no"
 
   # "What maintenance is due?" - overdue jobs and those due in the next two weeks.
   HomeInventoryMaintenanceDue:
@@ -74,4 +95,6 @@ lists:
   item:
     wildcard: true
   choice:
+    wildcard: true
+  place:
     wildcard: true

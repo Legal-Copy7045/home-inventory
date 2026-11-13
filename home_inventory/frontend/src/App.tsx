@@ -65,6 +65,7 @@ const NAV_GROUPS: { title: string | null; items: NavEntry[] }[] = [
     { to: "/scan", label: "Scan", icon: ScanLine },
     { to: "/capture", label: "Quick photos", icon: Camera, edit: true },
     { to: "/todo", label: "To sort & finish", icon: ListChecks },
+    { to: "/care", label: "Maintenance & Repairs", icon: Wrench },
   ] },
   { title: "Inventory", items: [
     { to: "/items", label: "Items", icon: Package },
@@ -73,9 +74,6 @@ const NAV_GROUPS: { title: string | null; items: NavEntry[] }[] = [
     { to: "/kits", label: "Kits", icon: Boxes },
     { to: "/maps", label: "Visual Maps", icon: MapIcon },
     { to: "/loans", label: "Loans & Temporary", icon: Handshake },
-  ] },
-  { title: "Care", items: [
-    { to: "/care", label: "Maintenance & Repairs", icon: Wrench },
   ] },
   { title: "Reports", items: [
     { to: "/reports", label: "All reports", icon: FileText },
