@@ -1,3 +1,3 @@
 """Home Inventory backend for Home Assistant."""
 
-__version__ = "0.16.2"
+__version__ = "0.17.0"
