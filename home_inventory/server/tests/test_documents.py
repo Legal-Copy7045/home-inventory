@@ -78,11 +78,11 @@ def test_other_products_photos_and_failures(tmp_path):
     # Photos of the item itself aren't documents
     photo = u.upload(jpeg_bytes(), item_id=mower["id"])
     assert "reading_id" not in photo
-    # A scanned PDF has no text: it says so, without calling the AI
-    calls = len(fake.calls)
+    # A scanned PDF has no text: its first page is read as a picture
+    fake.responses.append({**RECEIPT, "matches_item": False})
     scan = u.upload(_pdf([""]), kind="document", filename="scan.pdf", item_id=mower["id"])
     r = _wait(u, scan["reading_id"])
-    assert r["status"] == "failed" and "photo of it" in r["error"] and len(fake.calls) == calls
+    assert r["status"] == "ready" and fake.calls[-1]["image"]
     # Read again on request; dismissing hides the suggestions
     fake.responses.append({**RECEIPT, "document_type": "manual", "title": "Owner's manual", "item_price": None,
                            "total": None, "retailer": None, "purchase_date": None, "warranty_months": None})

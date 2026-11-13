@@ -100,6 +100,15 @@ export default function ItemDetail() {
               <input type="file" accept="image/*" capture="environment" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) await act(() => uploadPhoto(f, { item_id: it.id }), "Photo added"); }} />
             </label>
           )}
+          {edit && me.app.ai.enabled && it.photo?.caption === "Cut from photo inventory" && (
+            <button className="btn block ghost" style={{ marginTop: 6 }} onClick={async () => {
+              if (!window.confirm("Make the cut-out photos again for everything from this photo inventory? The AI looks at the original photo once more. Photos you added or chose yourself are kept.")) return;
+              const r = await run(() => api.post<{ fixed: number; whole_photo: number; unchanged: number }>(`items/${it.id}/redo-cutouts`));
+              if (r) { toast(`${r.fixed} cut-out${r.fixed === 1 ? "" : "s"} redone${r.whole_photo ? `; ${r.whole_photo} now show the whole photo` : ""}`); refresh(); }
+            }} disabled={busy}>
+              <Sparkles size={18} /> {busy ? "Redoing cut-outs…" : "Wrong part of the photo? Redo cut-outs"}
+            </button>
+          )}
         </div>
         <div>
           <h1 style={{ marginBottom: 4 }}>{it.display_name}</h1>

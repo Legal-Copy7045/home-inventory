@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { TagsSection } from "./Tags";
 import { ArrowRightLeft, Camera, Home, Images, Pencil, Plus, Printer, QrCode, ScanLine, Sparkles, Trash2 } from "lucide-react";
@@ -33,6 +33,16 @@ export function ContainersPage() {
 export function ContainerFormSheet({ container, onClose, onSaved, initial }: { container?: Container; onClose: () => void; onSaved: (c: Container) => void; initial?: PlacementValue }) {
   const [name, setName] = useState(container?.name || "");
   const [number, setNumber] = useState(container?.number || "");
+  const numbers = useApi(() => api.get<{ next: string; used: Record<string, { id: number; name: string; number: string }> }>("containers/numbers"), []);
+  // A new container starts with the next free number.
+  useEffect(() => {
+    if (!container && numbers.data && number === "") setNumber(numbers.data.next);
+  }, [numbers.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  const clash = (() => {
+    const key = number.trim().replace(/^#/, "").toLowerCase();
+    const hit = key ? numbers.data?.used[key] : undefined;
+    return hit && hit.id !== container?.id ? hit : null;
+  })();
   const [type, setType] = useState(container?.container_type || "");
   const [desc, setDesc] = useState(container?.description || "");
   const [place, setPlace] = useState<PlacementValue>(initial || { container_id: null, location_id: null, label: "Unassigned" });
@@ -42,6 +52,7 @@ export function ContainerFormSheet({ container, onClose, onSaved, initial }: { c
     <Sheet title={container ? "Edit container" : "New container"} onClose={onClose}>
       <form className="stack" onSubmit={async (e) => {
         e.preventDefault();
+        if (clash && !window.confirm(`#${clash.number} is already used by “${clash.name}”. Use it again anyway?`)) return;
         const body = { name, number: number || null, container_type: type || null, description: desc || null };
         const r = container
           ? await run(() => api.patch<Container>(`containers/${container.id}`, body), "Saved")
@@ -50,7 +61,11 @@ export function ContainerFormSheet({ container, onClose, onSaved, initial }: { c
       }}>
         <div className="grid two">
           <label className="field">Name<input required autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Christmas lights" /></label>
-          <label className="field">Number<input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="e.g. 15" /></label>
+          <label className="field">Number<input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="e.g. 15" />
+            {clash
+              ? <span className="hint" style={{ color: "var(--warn)" }}>Already used by “{clash.name}”{numbers.data ? `; next free is ${numbers.data.next}` : ""}</span>
+              : !container && numbers.data && <span className="hint">Next free number: {numbers.data.next}</span>}
+          </label>
         </div>
         <label className="field">Type
           <input list="ctype" value={type} onChange={(e) => setType(e.target.value)} placeholder="Box, tote, bin, drawer unit…" />
