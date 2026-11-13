@@ -2,7 +2,7 @@
 
 ## 0.14.0
 
-- **Fixed: photo inventory cut-outs showing the wrong part of the photo.** The AI is now asked for each thing's position in the box format vision models are trained on (`[ymin, xmin, ymax, xmax]` on 0–1000), and it's converted in one place. A box that covers most of the photo is ignored. In the review, each row's cut-out has a **Photo** tick: untick it when the cut-out is wrong and the entry is saved without one.
+- **Fixed: photo inventory cut-outs showing the wrong part of the photo.** The AI is now asked for each thing's position in the box format vision models are trained on (`[ymin, xmin, ymax, xmax]` on 0–1000), and it's converted in one place. A box that covers most of the photo is ignored. In the review, each row's cut-out has a **Photo** tick: untick it when the cut-out is wrong and the entry is saved without one. For things already saved with wrong cut-outs, **Redo cut-outs** (on any item from that photo inventory) makes them again from the original photo for every item and box it added. Anything it can't place shows the whole photo instead, and photos chosen by hand are kept.
 - **Scanned PDFs can be read.** A PDF that's only pictures of pages is now read as pictures:
   - a manual page by page, the first 12 pages or the ones you choose in **Pages to read** (e.g. 18-26);
   - a receipt or warranty from its first page or two.
