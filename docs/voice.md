@@ -23,7 +23,8 @@ Copy [`deploy/assist/custom_sentences/en/home_inventory.yaml`](../deploy/assist/
 |---|---|---|
 | `HomeInventoryWhereIs` | "Where is the hedge trimmer?" | where it is (or asks which one) |
 | `HomeInventoryWhereDoesItGo` | "Where does the hammer go?", "Tell me where to put the engine oil" | where it belongs, for putting it back (and where it is now, if it's out) |
-| `HomeInventoryChoose` | "The second one" | the answer for that one |
+| `HomeInventoryMove` | "I've moved the engine oil to small engine repair", "…to container number 5" | moves it there, asking which one or "did you mean…?" when unclear |
+| `HomeInventoryChoose` | "The second one", "yes", "no" | the answer for that one |
 | `HomeInventoryMaintenanceDue` | "What maintenance is due?" | overdue jobs and those due in two weeks |
 | `HomeInventoryRunningLow` | "What's running low?" | supplies below their minimum |
 | `HomeInventoryOnLoan` | "What's lent out?" | what's on loan, and to whom |
@@ -35,6 +36,16 @@ Restart Home Assistant (or reload conversation). Then say or type "Where is the 
 If your words match several different things, it asks: *"I found 3 things for hose: Kink Control Plus Water Hose 50ft, Siphon pump hose and Siphon pump with hose and funnel. Which one did you mean?"* Answer with "the water hose one", "the siphon pump" or "the second one" (within two minutes). Voice devices keep listening after a question, so you can just answer.
 
 **Putting things back.** "Where does the hammer go?", "Tell me where to put the engine oil", "Where should I put my drill back?" or "Where does the jigsaw belong?" answer with the thing's usual place: *"Hammer goes in Garage, Tool wall."* If it isn't there right now, that's added: *"Saw goes in Shed. It's in Kitchen for now."*, *"Drill goes in Shed. Sam has it at the moment."* This works with Assist, Siri (through Assist) and, from 0.22.1, Alexa ("Alexa, ask Home Inventory where the hammer goes", "…to tell me where to put the engine oil"). After updating, copy the new sentences file again, and update the Alexa skill (below).
+
+**Telling it you've moved something.** "I've moved the engine oil to small engine repair", "I put the drill in the garage", "The hedge trimmer is now in the shed", or with Alexa "Alexa, tell Home Inventory that I've moved the engine oil to container number 5". The place can be a location's name ("small engine repair", "the top shelf") or a container by number ("container number 5", "box five") or name. Spoken names don't have to be exact.
+
+- A clear match is moved straight away: *"Done. I've moved Engine oil to Small Engine Repair, in Shed."* Back to its usual place: *"Done. Engine oil is back in…"*.
+- One likely place that isn't certain: *"Did you mean Small Engine Repair, in Shed?"*. Say **yes** to move it, **no** to leave it, or say the right place.
+- Several possible places (two "Top shelf"s): *"Which place: Top shelf, in Shed or Top shelf, in Garage?"*. Answer "the garage one" or "the first one".
+- Several things fit the item ("tin snips"), or the same thing is kept in two places: it asks which first.
+- The new place becomes the item's place (a permanent move). It is recorded in Activity history; to move it back, say so the same way, or use Move on the item page.
+
+Moving needs a Home Inventory member (not a viewer); the voice assistant uses the Home Assistant user it runs as.
 
 Three more questions need no item name: **"What maintenance is due?"** (overdue jobs and those due in the next two weeks), **"What's running low?"** (supplies below their minimum) and **"What's lent out?"** (and to whom). Long lists read the first five and say how many more.
 
@@ -159,7 +170,7 @@ The forwarder says what's wrong out loud:
 
 ### Updating the skill
 
-When a release changes `deploy/alexa/` (as 0.22.1 does, for "where does it go?"):
+When a release changes `deploy/alexa/` (0.22.1 for "where does it go?", 0.23.0 for "I've moved…" and yes/no):
 
 1. Developer console → your skill → **Build → Interaction Model → JSON Editor**: paste the new `deploy/alexa/interaction-model.json`, **Save**, **Build skill**.
 2. **Code** tab: replace `lambda_function.py` with the new `deploy/alexa/lambda_function.py`, put your `HA_URL`, `HA_TOKEN` and `SKILL_ID` back near the top (Alexa-hosted), **Save**, **Deploy**. With your own AWS Lambda, paste the whole file; the settings stay in its environment variables.

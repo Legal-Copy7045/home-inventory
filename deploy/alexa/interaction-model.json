@@ -74,6 +74,55 @@
           ]
         },
         {
+          "name": "HomeInventoryMove",
+          "slots": [
+            {
+              "name": "item",
+              "type": "HomeInventoryThing"
+            },
+            {
+              "name": "place",
+              "type": "HomeInventoryPlace"
+            }
+          ],
+          "samples": [
+            "I've moved the {item} to {place}",
+            "I've moved the {item} to the {place}",
+            "I've moved my {item} to {place}",
+            "I've moved my {item} to the {place}",
+            "I've moved {item} to {place}",
+            "I've moved {item} to the {place}",
+            "I have moved the {item} to {place}",
+            "I have moved the {item} to the {place}",
+            "I have moved my {item} to {place}",
+            "I have moved my {item} to the {place}",
+            "I have moved {item} to {place}",
+            "I have moved {item} to the {place}",
+            "I moved the {item} to {place}",
+            "I moved the {item} to the {place}",
+            "I moved my {item} to {place}",
+            "I moved my {item} to the {place}",
+            "I moved {item} to {place}",
+            "I moved {item} to the {place}",
+            "I've put the {item} in {place}",
+            "I've put the {item} in the {place}",
+            "I've put my {item} in {place}",
+            "I've put my {item} in the {place}",
+            "I put the {item} in {place}",
+            "I put the {item} in the {place}",
+            "I put my {item} in {place}",
+            "I put my {item} in the {place}",
+            "the {item} is now in {place}",
+            "the {item} is now in the {place}",
+            "my {item} is now in {place}",
+            "the {item} are now in {place}",
+            "to move the {item} to {place}",
+            "to move the {item} to the {place}",
+            "move the {item} to {place}",
+            "move my {item} to {place}"
+          ]
+        },
+        {
           "name": "HomeInventoryChoose",
           "slots": [
             {
@@ -156,6 +205,14 @@
         },
         {
           "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.YesIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NoIntent",
           "samples": []
         }
       ],
@@ -311,6 +368,151 @@
             {
               "name": {
                 "value": "duct tape"
+              }
+            },
+            {
+              "name": {
+                "value": "engine oil"
+              }
+            },
+            {
+              "name": {
+                "value": "hammer"
+              }
+            },
+            {
+              "name": {
+                "value": "drill"
+              }
+            },
+            {
+              "name": {
+                "value": "jigsaw"
+              }
+            },
+            {
+              "name": {
+                "value": "wood screws"
+              }
+            },
+            {
+              "name": {
+                "value": "cable ties"
+              }
+            },
+            {
+              "name": {
+                "value": "chainsaw"
+              }
+            }
+          ]
+        },
+        {
+          "name": "HomeInventoryPlace",
+          "values": [
+            {
+              "name": {
+                "value": "small engine repair"
+              }
+            },
+            {
+              "name": {
+                "value": "container number 5"
+              }
+            },
+            {
+              "name": {
+                "value": "container number twelve"
+              }
+            },
+            {
+              "name": {
+                "value": "box 3"
+              }
+            },
+            {
+              "name": {
+                "value": "box number seven"
+              }
+            },
+            {
+              "name": {
+                "value": "tote number 2"
+              }
+            },
+            {
+              "name": {
+                "value": "garage"
+              }
+            },
+            {
+              "name": {
+                "value": "shed"
+              }
+            },
+            {
+              "name": {
+                "value": "loft"
+              }
+            },
+            {
+              "name": {
+                "value": "kitchen"
+              }
+            },
+            {
+              "name": {
+                "value": "utility room"
+              }
+            },
+            {
+              "name": {
+                "value": "workbench"
+              }
+            },
+            {
+              "name": {
+                "value": "top shelf"
+              }
+            },
+            {
+              "name": {
+                "value": "bottom shelf"
+              }
+            },
+            {
+              "name": {
+                "value": "middle shelf"
+              }
+            },
+            {
+              "name": {
+                "value": "tool wall"
+              }
+            },
+            {
+              "name": {
+                "value": "basement"
+              }
+            },
+            {
+              "name": {
+                "value": "pantry"
+              }
+            },
+            {
+              "name": {
+                "value": "small engine maintenance"
+              }
+            },
+            {
+              "name": {
+                "value": "rear right shelving"
+              }
+            },
+            {
+              "name": {
+                "value": "under the stairs"
               }
             }
           ]

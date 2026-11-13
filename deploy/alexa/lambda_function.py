@@ -32,9 +32,10 @@ HA_TOKEN = os.environ.get("HA_TOKEN", "")  # long-lived access token
 SKILL_ID = os.environ.get("SKILL_ID", "")  # amzn1.ask.skill.xxxxxxxx
 
 TIMEOUT = 6  # seconds; Alexa gives up after about 8
-# Intents answered by Home Assistant, and the slot each one needs.
-FORWARDED = {"HomeInventoryWhereIs": "item", "HomeInventoryWhereDoesItGo": "item", "HomeInventoryChoose": "choice",
-             "HomeInventoryMaintenanceDue": None, "HomeInventoryRunningLow": None, "HomeInventoryOnLoan": None}
+# Intents answered by Home Assistant, and the slots each one needs.
+FORWARDED = {"HomeInventoryWhereIs": ("item",), "HomeInventoryWhereDoesItGo": ("item",),
+             "HomeInventoryMove": ("item", "place"), "HomeInventoryChoose": ("choice",),
+             "HomeInventoryMaintenanceDue": (), "HomeInventoryRunningLow": (), "HomeInventoryOnLoan": ()}
 
 
 def _say(text: str, end: bool = True, reprompt: str | None = None) -> dict:
@@ -113,15 +114,25 @@ def lambda_handler(event: dict, context=None) -> dict:
         request["intent"] = {"name": "HomeInventoryChoose", "confirmationStatus": "NONE",
                              "slots": {"choice": {"name": "choice", "value": value}}}
         name = "HomeInventoryChoose"
+    if name in ("AMAZON.YesIntent", "AMAZON.NoIntent"):
+        # "Did you mean…?" answered yes or no: Home Assistant handles it as the reply.
+        if not asking:
+            return _say("Okay.")
+        request["intent"] = {"name": "HomeInventoryChoose", "confirmationStatus": "NONE",
+                             "slots": {"choice": {"name": "choice", "value": "yes" if name == "AMAZON.YesIntent" else "no"}}}
+        name = "HomeInventoryChoose"
     if name in FORWARDED:
-        needed = FORWARDED[name]
-        slot = (((request.get("intent") or {}).get("slots") or {}).get(needed) or {}) if needed else {"value": True}
-        if not slot.get("value"):
+        slots = (request.get("intent") or {}).get("slots") or {}
+        if any(not (slots.get(s) or {}).get("value") for s in FORWARDED[name]):
+            if name == "HomeInventoryMove":
+                return _say("What did you move, and where to? Say, for example: I've moved the engine oil to the garage.",
+                            end=False, reprompt="What did you move, and where to?")
             return _say("What should I look for?", end=False, reprompt="Say, for example: where is the drill.")
         return _forward(event)
     if name == "AMAZON.HelpIntent":
         return _say("Ask where something is kept, for example: where is the hedge trimmer, or where something goes "
-                    "back, for example: where does the hammer go. You can also ask what maintenance is due, "
+                    "back, for example: where does the hammer go. Tell me when you move something, for example: I've moved "
+                    "the engine oil to the garage. You can also ask what maintenance is due, "
                     "what's running low, or what's lent out.", end=False,
                     reprompt="What are you looking for?")
     if name in ("AMAZON.StopIntent", "AMAZON.CancelIntent", "AMAZON.NavigateHomeIntent"):

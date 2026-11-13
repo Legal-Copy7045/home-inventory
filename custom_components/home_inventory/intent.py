@@ -44,7 +44,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import intent
 
-from .api import InventoryError
+from .api import InventoryApiError, InventoryError
 from .const import CONF_NOTIFY_SERVICE, CONF_VOICE_NOTIFY, DOMAIN, NAME, VOICE_NOTIFY_ALEXA, VOICE_NOTIFY_ALL
 from .names import key as name_key
 from .names import normalize
@@ -54,6 +54,9 @@ _LOGGER = logging.getLogger(__name__)
 INTENT_WHERE_IS = "HomeInventoryWhereIs"
 INTENT_CHOOSE = "HomeInventoryChoose"
 INTENT_GOES = "HomeInventoryWhereDoesItGo"
+INTENT_MOVE = "HomeInventoryMove"
+YES = {"yes", "yeah", "yep", "yup", "correct", "right", "that right", "thats right", "sure", "ok", "okay", "do it", "yes please"}
+NO = {"no", "nope", "no thanks", "neither", "none", "none of them", "wrong", "cancel", "stop"}
 INTENT_MAINTENANCE = "HomeInventoryMaintenanceDue"
 INTENT_LOW_STOCK = "HomeInventoryRunningLow"
 INTENT_ON_LOAN = "HomeInventoryOnLoan"
@@ -325,6 +328,161 @@ class WhereIsHandler(intent.IntentHandler):
         return response
 
 
+# ---------------------------------------------------------------------------
+# "I've moved the engine oil to small engine repair"
+# ---------------------------------------------------------------------------
+#
+# 1. Find the item (asking which one if the words fit several things, or
+#    which record if the same thing is kept in several places).
+# 2. Find the place (App ``places/resolve``): a clear match moves at once;
+#    one doubtful match asks "Did you mean…?" (yes/no); several ask which.
+# 3. Move it (App ``put-away`` in "move" mode: the new place becomes its
+#    home; its usual place counts as putting it back) and say so.
+
+
+def _place_label(c: dict[str, Any]) -> str:
+    return f"{c['spoken']}, in {c['where']}" if c.get("where") else c["spoken"]
+
+
+def _record_label(item: dict[str, Any]) -> str:
+    return f"the one in {_place(item)}"
+
+
+async def _client_user(intent_obj: intent.Intent):
+    hass = intent_obj.hass
+    entries = hass.data.get(DOMAIN) or {}
+    if not entries:
+        return None, None
+    client = next(iter(entries.values())).client
+    user = await hass.auth.async_get_user(intent_obj.context.user_id) if intent_obj.context.user_id else None
+    return client, user
+
+
+def _remember(intent_obj: intent.Intent, state: dict[str, Any]) -> None:
+    _pending(intent_obj.hass)[_key(intent_obj)] = {**state, "kind": "move", "until": time.monotonic() + PENDING_SECONDS}
+
+
+async def _move_find_place(intent_obj: intent.Intent, response: intent.IntentResponse, item: dict[str, Any],
+                           place_text: str) -> intent.IntentResponse:
+    client, user = await _client_user(intent_obj)
+    res = await client.request("GET", "places/resolve", params={"q": place_text}, user=user)
+    cands = res.get("candidates") or []
+    name = item.get("display_name") or item.get("name") or "it"
+    if not cands:
+        _pending(intent_obj.hass).pop(_key(intent_obj), None)
+        response.async_set_speech(f"I couldn't find a place called {place_text}, so I haven't moved {name}.")
+        return response
+    if res.get("clear"):
+        return await _move_do(intent_obj, response, item, cands[0])
+    if len(cands) == 1 or cands[0]["score"] - cands[1]["score"] >= 0.2:
+        _remember(intent_obj, {"stage": "confirm", "item": item, "place": cands[0]})
+        _ask(response, f"Did you mean {_place_label(cands[0])}?", "Yes or no?")
+        return response
+    shown = cands[:4]
+    _remember(intent_obj, {"stage": "place", "item": item, "groups": [{"name": _place_label(c), "place": c} for c in shown]})
+    _ask(response, f"Which place: {_list([_place_label(c) for c in shown])}?", "Which place did you mean?")
+    return response
+
+
+async def _move_do(intent_obj: intent.Intent, response: intent.IntentResponse, item: dict[str, Any],
+                   place: dict[str, Any]) -> intent.IntentResponse:
+    _pending(intent_obj.hass).pop(_key(intent_obj), None)
+    client, user = await _client_user(intent_obj)
+    body = {"container_id": place["id"] if place["type"] == "container" else None,
+            "location_id": place["id"] if place["type"] == "location" else None, "mode": "move"}
+    name = item.get("display_name") or item.get("name") or "it"
+    try:
+        r = await client.request("POST", f"items/{item['id']}/put-away", json_body=body, user=user)
+    except InventoryApiError as err:
+        if err.status == 403:
+            response.async_set_speech("Sorry, your Home Inventory account can't move things.")
+        else:
+            response.async_set_speech(f"Sorry, I couldn't move {name}: {err}.")
+        return response
+    where = _place_label(place)
+    speech = {
+        "back": f"{name} {verb_for(name)} already in {where}.",
+        "home": f"Done. {name} {verb_for(name)} back in {where}.",
+    }.get(r.get("result"), f"Done. I've moved {name} to {where}.")
+    response.async_set_speech(speech)
+    await _notify(intent_obj, speech)
+    return response
+
+
+async def _move_with_item(intent_obj: intent.Intent, response: intent.IntentResponse, group: dict[str, Any],
+                          place_text: str) -> intent.IntentResponse:
+    """One thing chosen: if it's kept in several places, ask which record."""
+    records = group["items"]
+    if len(records) > 1:
+        shown = records[:MAX_CHOICES]
+        _remember(intent_obj, {"stage": "record", "place_text": place_text,
+                               "groups": [{"name": _record_label(it), "item": it} for it in shown]})
+        _ask(response, f"Which {group['name']}: {_list([_record_label(it) for it in shown[:4]])}?",
+             f"Which {group['name']}?")
+        return response
+    return await _move_find_place(intent_obj, response, records[0], place_text)
+
+
+class MoveHandler(intent.IntentHandler):
+    intent_type = INTENT_MOVE
+    description = "Records that something has been moved to another place, using Home Inventory"
+    slot_schema = {vol.Required("item"): cv.string, vol.Required("place"): cv.string}
+
+    async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
+        slots = self.async_validate_slots(intent_obj.slots)
+        query = goes_query(str(slots["item"]["value"]).strip().strip("?.!"))
+        place_text = str(slots["place"]["value"]).strip().strip("?.!")
+        response = intent_obj.create_response()
+        try:
+            results = await _search(intent_obj, query)
+            if results is None:
+                response.async_set_speech("Home Inventory isn't set up.")
+                return response
+            if not results:
+                response.async_set_speech(f"I couldn't find {query} in your inventory, so I haven't moved anything.")
+                return response
+            groups = group_by_name(results)
+            exact = [g for g in groups if name_key(g["name"]) == name_key(query)]
+            if len(groups) == 1 or len(exact) == 1:
+                return await _move_with_item(intent_obj, response, exact[0] if exact else groups[0], place_text)
+            shown = groups[:MAX_CHOICES]
+            _remember(intent_obj, {"stage": "item", "place_text": place_text, "groups": shown})
+            _ask(response, f"Which one did you move: {_list([g['name'] for g in shown[:4]])}?", "Which one did you move?")
+            return response
+        except InventoryError:
+            response.async_set_speech("Sorry, I couldn't reach Home Inventory.")
+            return response
+
+
+async def _move_reply(intent_obj: intent.Intent, response: intent.IntentResponse, open_q: dict[str, Any],
+                      choice: str) -> intent.IntentResponse:
+    """The answer to one of the move questions."""
+    said = normalize(choice)
+    if said in NO:
+        _pending(intent_obj.hass).pop(_key(intent_obj), None)
+        response.async_set_speech("Okay, I haven't moved anything.")
+        return response
+    try:
+        if open_q["stage"] == "confirm":
+            if said in YES:
+                return await _move_do(intent_obj, response, open_q["item"], open_q["place"])
+            # They said a place instead: look that up.
+            return await _move_find_place(intent_obj, response, open_q["item"], choice)
+        group = pick(choice, open_q["groups"])
+        if group is None:
+            names = [g["name"] for g in open_q["groups"]]
+            _ask(response, f"Sorry, which one: {_list(names[:4])}?", "Which one did you mean? Or say no.")
+            return response
+        if open_q["stage"] == "item":
+            return await _move_with_item(intent_obj, response, group, open_q["place_text"])
+        if open_q["stage"] == "record":
+            return await _move_find_place(intent_obj, response, group["item"], open_q["place_text"])
+        return await _move_do(intent_obj, response, open_q["item"], group["place"])
+    except InventoryError:
+        response.async_set_speech("Sorry, I couldn't reach Home Inventory.")
+        return response
+
+
 class WhereDoesItGoHandler(WhereIsHandler):
     intent_type = INTENT_GOES
     description = "Says where something belongs, so it can be put back, using Home Inventory"
@@ -344,13 +502,22 @@ class ChooseHandler(intent.IntentHandler):
         key = _key(intent_obj)
         open_q = pending.get(key)
         if not open_q or open_q["until"] < time.monotonic():
-            # No question open: a bare name ("the toro lawn mower") is a question itself.
             pending.pop(key, None)
+            if normalize(choice) in YES | NO:
+                response.async_set_speech("There's nothing to confirm right now.")
+                return response
+            # No question open: a bare name ("the toro lawn mower") is a question itself.
             return await WhereIsHandler().async_handle(
                 intent.Intent(intent_obj.hass, intent_obj.platform, INTENT_WHERE_IS,
                               {"item": {"value": choice}}, intent_obj.text_input, intent_obj.context,
                               intent_obj.language, assistant=intent_obj.assistant, device_id=intent_obj.device_id,
                               satellite_id=intent_obj.satellite_id))
+        if open_q.get("kind") == "move":
+            return await _move_reply(intent_obj, response, open_q, choice)
+        if normalize(choice) in NO:
+            pending.pop(key, None)
+            response.async_set_speech("Okay.")
+            return response
         group = pick(choice, open_q["groups"])
         if group is None:
             names = [g["name"] for g in open_q["groups"]]
@@ -470,6 +637,7 @@ QUESTION_HANDLERS = (MaintenanceDueHandler, RunningLowHandler, OnLoanHandler)
 def async_setup_intents(hass: HomeAssistant) -> None:
     intent.async_register(hass, WhereIsHandler())
     intent.async_register(hass, WhereDoesItGoHandler())
+    intent.async_register(hass, MoveHandler())
     intent.async_register(hass, ChooseHandler())
     for handler in QUESTION_HANDLERS:
         intent.async_register(hass, handler())
@@ -478,6 +646,6 @@ def async_setup_intents(hass: HomeAssistant) -> None:
 def async_unload_intents(hass: HomeAssistant) -> None:
     remove = getattr(intent, "async_remove", None)
     if remove is not None:
-        for name in (INTENT_WHERE_IS, INTENT_GOES, INTENT_CHOOSE, INTENT_MAINTENANCE, INTENT_LOW_STOCK, INTENT_ON_LOAN):
+        for name in (INTENT_WHERE_IS, INTENT_GOES, INTENT_MOVE, INTENT_CHOOSE, INTENT_MAINTENANCE, INTENT_LOW_STOCK, INTENT_ON_LOAN):
             remove(hass, name)
     hass.data.pop(PENDING_KEY, None)
