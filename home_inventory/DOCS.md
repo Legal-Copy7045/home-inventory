@@ -103,6 +103,9 @@ For mowers, trimmers, saws, generators, pressure washers, snow blowers or anythi
 
 On the item page:
 - **Log hours** records a meter reading. Tick *Estimate* if there's no hour meter, or *Correction* if the meter was replaced.
+  - **Photograph the hour meter** to log a reading from a photo. With AI set up it reads the number for you (including the tenths drum) and you check it; the photo is kept with the reading.
+  - **Date of the reading** can be any past day, so older photos can be logged afterwards. A photo picked from the gallery uses the day it was taken. Each reading has to fit between the readings either side of its date.
+  - Readings build a **chart of use over time**, with your average hours a week. Hours-based tasks then show roughly when they'll be due at that rate (e.g. "in 18.0 h (≈ 14 Mar at your usage)"), and the **Maintenance** page lists them among the jobs due in the next 7, 30 or 90 days.
 - **Done** on a task records the work, including parts, costs, who did it, and photos or receipts. It also works out when the task is next due, from the date and hours you entered.
 - A task can also be skipped once, deferred to a date, or marked not applicable.
 - **Log service** records unscheduled work or older history; past dates are fine.

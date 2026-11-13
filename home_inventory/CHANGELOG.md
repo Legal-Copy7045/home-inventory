@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.15.0
+
+- **Photograph the hour meter.** In **Log hours** on equipment, take a photo of the hour meter (or use counter). AI reads the number, including the tenths drum on mechanical meters, and you check it before saving. The photo is kept with the reading.
+- **Readings have dates.** Log a reading for any past day; a photo picked from the gallery uses the day it was taken. Each reading has to fit between the readings either side of its date, unless it's marked as a correction.
+- **Use over time.** The maintenance section shows a chart of hours (or uses) by date and your average use per week, worked out from the last six months.
+- **Hours-based work gets a date.** At your recent rate of use, a task like "oil every 50 hours" shows roughly when it will be due (e.g. "in 18.0 h (≈ 14 Mar at your usage)"). The Maintenance page lists it among the jobs due in the next 7, 30 or 90 days, as well as once its hours are near.
+- Database migration 0012 adds one column.
+
 ## 0.14.0
 
 - **Fixed: photo inventory cut-outs showing the wrong part of the photo.** The AI is now asked for each thing's position in the box format vision models are trained on (`[ymin, xmin, ymax, xmax]` on 0–1000), and it's converted in one place. A box that covers most of the photo is ignored. In the review, each row's cut-out has a **Photo** tick: untick it when the cut-out is wrong and the entry is saved without one. For things already saved with wrong cut-outs, **Redo cut-outs** (on any item from that photo inventory) makes them again from the original photo for every item and box it added. Anything it can't place shows the whole photo instead, and photos chosen by hand are kept.

@@ -483,6 +483,15 @@ class MeterReadingIn(_In):
     estimated: bool = False
     correction: bool = False
     note: str | None = Field(default=None, max_length=300)
+    # When the meter showed this (e.g. the day the photo was taken); default now.
+    recorded_on: date | None = None
+    # The photo of the meter (an attachment of this item).
+    photo_id: int | None = None
+
+
+class MeterPhotoIn(_In):
+    attachment_id: int
+    kind: Literal["hours", "cycles"] = "hours"
 
 
 # ---------------------------------------------------------------------------

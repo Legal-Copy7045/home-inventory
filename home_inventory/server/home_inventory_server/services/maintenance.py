@@ -17,6 +17,7 @@ cadence is kept.  Service history never depends on the task still existing.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -181,23 +182,41 @@ def add_reading(
     recorded_at: datetime | None = None,
     correction: bool = False,
     service_event_id: int | None = None,
+    photo_id: int | None = None,
 ) -> MeterReading:
     if value < 0:
         raise MaintenanceError("A meter reading can't be negative")
-    latest = current_meter(db, item.id, kind)
-    if latest is not None and value < latest and not correction:
-        raise MaintenanceError(
-            f"The meter last read {latest}. Mark the new reading as a correction if the meter was reset or mis-read."
-        )
+    when = recorded_at or datetime.now(UTC)
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=UTC)
+    if when > datetime.now(UTC) + timedelta(minutes=5):
+        raise MaintenanceError("A meter reading can't be in the future")
+    if not correction:
+        # Meters only go up: the reading must fit between the readings either side of its date.
+        before = db.scalar(select(MeterReading.value).where(
+            MeterReading.item_id == item.id, MeterReading.kind == kind, MeterReading.recorded_at <= when)
+            .order_by(MeterReading.recorded_at.desc(), MeterReading.id.desc()).limit(1))
+        after = db.scalar(select(MeterReading.value).where(
+            MeterReading.item_id == item.id, MeterReading.kind == kind, MeterReading.recorded_at > when)
+            .order_by(MeterReading.recorded_at, MeterReading.id).limit(1))
+        if before is not None and value < before:
+            raise MaintenanceError(
+                f"The meter read {before} before then. Mark the new reading as a correction if the meter was reset or mis-read."
+            )
+        if after is not None and value > after:
+            raise MaintenanceError(
+                f"The meter read only {after} later than this date. Check the date, or mark it as a correction."
+            )
     reading = MeterReading(
         item_id=item.id,
         kind=kind,
         value=value,
         source="correction" if correction else source,
         note=note,
-        recorded_at=recorded_at or datetime.now(UTC),
+        recorded_at=when,
         created_by_id=actor.user_id,
         service_event_id=service_event_id,
+        photo_id=photo_id,
     )
     db.add(reading)
     db.flush()
@@ -207,8 +226,48 @@ def add_reading(
 
 
 def reading_out(r: MeterReading) -> dict[str, Any]:
+    photo = ({"id": r.photo_id, "url": f"api/v1/attachments/{r.photo_id}/file",
+              "thumb_url": f"api/v1/attachments/{r.photo_id}/thumb"} if r.photo_id else None)
     return {"id": r.id, "kind": r.kind.value, "value": float(r.value), "recorded_at": r.recorded_at.isoformat(),
-            "source": r.source, "note": r.note, "service_event_id": r.service_event_id}
+            "source": r.source, "note": r.note, "service_event_id": r.service_event_id, "photo": photo}
+
+
+USAGE_WINDOW_DAYS = 180
+
+
+def usage(db: Session, item_id: int, kind: MeterKind = MeterKind.hours, today: date | None = None) -> dict[str, Any]:
+    """Readings over time and the recent rate of use.
+
+    The rate (per day) comes from the readings of the last six months - or
+    the whole history when that's too short - and needs readings at least a
+    week apart.  Corrections reset the line: only readings after the last
+    correction count.
+    """
+    rows = list(db.scalars(select(MeterReading).where(MeterReading.item_id == item_id, MeterReading.kind == kind)
+                           .order_by(MeterReading.recorded_at, MeterReading.id)))
+    points = [{"date": r.recorded_at.isoformat(), "value": float(r.value), "source": r.source, "photo": bool(r.photo_id)}
+              for r in rows[-500:]]
+    last_fix = max((n for n, r in enumerate(rows) if r.source == "correction"), default=0)
+    usable = rows[last_fix:]
+    today = today or date.today()
+    recent = [r for r in usable if (today - r.recorded_at.date()).days <= USAGE_WINDOW_DAYS]
+    per_day = None
+    for sample in (recent, usable):
+        if len(sample) >= 2:
+            days = (sample[-1].recorded_at - sample[0].recorded_at).total_seconds() / 86400
+            if days >= 7:
+                per_day = max(0.0, float(sample[-1].value - sample[0].value) / days)
+                break
+    return {"kind": kind.value, "points": points, "per_day": round(per_day, 3) if per_day is not None else None,
+            "per_week": round(per_day * 7, 1) if per_day is not None else None}
+
+
+def estimate_due(left: float | None, per_day: float | None, today: date | None = None) -> date | None:
+    """When a meter threshold will be reached at the current rate of use."""
+    if left is None or not per_day or per_day <= 0:
+        return None
+    today = today or date.today()
+    return today + timedelta(days=max(0, math.ceil(left / per_day)))
 
 
 # ---------------------------------------------------------------------------
@@ -265,7 +324,14 @@ def _num(v: Decimal | None) -> float | None:
     return float(v) if v is not None else None
 
 
-def task_out(task: MaintenanceTask, meters: Meters, today: date | None = None) -> dict[str, Any]:
+def task_out(task: MaintenanceTask, meters: Meters, today: date | None = None,
+             rates: dict[str, float | None] | None = None) -> dict[str, Any]:
+    state = task_state(task, meters, today)
+    rates = rates or {}
+    # At the recent rate of use, when the hours (or uses) will be reached.
+    estimates = [d for d in (estimate_due(state["hours_left"], rates.get("hours"), today),
+                             estimate_due(state["cycles_left"], rates.get("cycles"), today)) if d]
+    est = min(estimates) if estimates else None
     return {
         "id": task.id,
         "item_id": task.item_id,
@@ -285,7 +351,8 @@ def task_out(task: MaintenanceTask, meters: Meters, today: date | None = None) -
         "next_due_cycles": task.next_due_cycles,
         "deferred_until": task.deferred_until.isoformat() if task.deferred_until else None,
         "not_applicable": task.not_applicable,
-        **task_state(task, meters, today),
+        "estimated_due_on": est.isoformat() if est else None,
+        **state,
     }
 
 
@@ -586,11 +653,14 @@ def item_maintenance(db: Session, item: Item, attachments_for, today: date | Non
                         .order_by(ServiceEvent.performed_on.desc(), ServiceEvent.id.desc())).all()
     readings = db.scalars(select(MeterReading).where(MeterReading.item_id == item.id)
                           .order_by(MeterReading.recorded_at.desc(), MeterReading.id.desc()).limit(20)).all()
+    use = {k.value: usage(db, item.id, k, today) for k in (MeterKind.hours, MeterKind.cycles)}
+    rates = {k: u["per_day"] for k, u in use.items()}
     order = {"overdue": 0, "due_soon": 1, "deferred": 2, "ok": 3, "manual": 4, "not_applicable": 5}
-    task_rows = sorted((task_out(t, meters, today) for t in tasks), key=lambda t: (order[t["status"]], t["days_left"] if t["days_left"] is not None else 99999))
+    task_rows = sorted((task_out(t, meters, today, rates) for t in tasks), key=lambda t: (order[t["status"]], t["days_left"] if t["days_left"] is not None else 99999))
     return {
         "profile": profile_out(profile),
         "meters": {"hours": _num(meters.hours), "cycles": _num(meters.cycles)},
+        "usage": use,
         "readings": [reading_out(r) for r in readings],
         "tasks": task_rows,
         "history": [event_out(e, attachments_for(e.id)) for e in events],
@@ -610,19 +680,30 @@ def dashboard(db: Session, within_days: int = 30, today: date | None = None, ite
         stmt = stmt.where(item_filter)
     rows = db.execute(stmt).all()
     meter_cache: dict[int, Meters] = {}
+    rate_cache: dict[int, dict[str, float | None]] = {}
     overdue, due = [], []
+
+    def soonest(t: dict[str, Any]) -> int:
+        """Days until due: by date, or by the estimate from the rate of use."""
+        days = [t["days_left"]] if t["days_left"] is not None else []
+        if t.get("estimated_due_on"):
+            days.append((date.fromisoformat(t["estimated_due_on"]) - today).days)
+        return min(days) if days else 99999
+
     for task, item in rows:
         meters = meter_cache.setdefault(item.id, meters_for(db, item.id))
-        out = task_out(task, meters, today)
+        if item.id not in rate_cache:
+            rate_cache[item.id] = {k.value: usage(db, item.id, k, today)["per_day"] for k in (MeterKind.hours, MeterKind.cycles)}
+        out = task_out(task, meters, today, rate_cache[item.id])
         out["item"] = {"id": item.id, "name": item.product.name, "label": item.label}
         if out["status"] == "overdue":
             overdue.append(out)
         elif out["status"] in ("due_soon", "ok", "deferred") and (
-            out["status"] == "due_soon" or (out["days_left"] is not None and out["days_left"] <= within_days)
+            out["status"] == "due_soon" or soonest(out) <= within_days
         ):
             due.append(out)
     overdue.sort(key=lambda t: t["days_left"] if t["days_left"] is not None else 0)
-    due.sort(key=lambda t: t["days_left"] if t["days_left"] is not None else 0)
+    due.sort(key=soonest)
 
     prof_stmt = select(EquipmentProfile, Item).join(Item, Item.id == EquipmentProfile.item_id).where(Item.deleted_at.is_(None))
     if item_filter is not None:
