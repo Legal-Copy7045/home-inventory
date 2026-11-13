@@ -11,6 +11,7 @@ import { RestockSection } from "./Shopping";
 import { TagsSection } from "./Tags";
 import { EquipmentSection } from "./Maintenance";
 import { PartDetailsSection } from "../components/Parts";
+import { DocumentsList } from "../components/Documents";
 import { PhotoViewer } from "../components/PhotoViewer";
 import { ErrorBox, PathView, Section, Sheet, Spinner, StatusBadge, Stepper, fmtDate, fmtWhen, money, useAction, useApi, useMe, useToast } from "../components/ui";
 
@@ -187,18 +188,8 @@ export default function ItemDetail() {
 
       <Section title="Receipts & documents" action={edit && <button className="btn small" onClick={() => setSheet("docs")}><Plus size={16} /> Add</button>}>
         {docs.length ? (
-          <div className="list">
-            {docs.map((d) => (
-              <li key={d.id}>
-                <FileText size={20} />
-                <a className="grow" href={url(d.url)} target="_blank" rel="noreferrer">
-                  <div className="t">{d.original_name || d.kind}</div>
-                  <div className="s">{d.kind} · {fmtDate(d.created_at)}</div>
-                </a>
-                {edit && <button className="iconbtn" onClick={() => window.confirm("Remove this document?") && act(() => api.del(`attachments/${d.id}`), "Removed")} aria-label="Remove"><Trash2 size={18} /></button>}
-              </li>
-            ))}
-          </div>
+          <DocumentsList itemId={it.id} docs={docs} edit={edit} onChanged={refresh}
+            onRemove={(d) => window.confirm("Remove this document?") && act(() => api.del(`attachments/${d.id}`), "Removed")} />
         ) : (
           <p className="muted">No receipts, manuals or warranty documents yet.</p>
         )}
@@ -381,87 +372,31 @@ function StatusSheet({ item, onClose, onDone }: { item: Item; onClose: () => voi
   );
 }
 
-type ReceiptSuggestion = {
-  retailer: string | null; purchase_date: string | null; currency: string | null; total: string | null;
-  item_price: string | null; warranty_months: number | null; warranty_expires: string | null; confidence_label: string;
-};
-
 function DocSheet({ item, onClose, onDone }: { item: Item; onClose: () => void; onDone: () => void }) {
   const me = useMe();
-  const [kind, setKind] = useState("receipt");
-  const [reading, setReading] = useState<{ attachmentId: number } | null>(null);
-  const [sug, setSug] = useState<ReceiptSuggestion | null>(null);
-  const [use, setUse] = useState<Record<string, boolean>>({});
+  const ai = me.app.ai.enabled;
+  const [kind, setKind] = useState(ai ? "document" : "receipt");
   const { busy, run } = useAction();
-
-  async function readReceipt(attachmentId: number) {
-    setReading({ attachmentId });
-    const r = await run(() => api.post<{ suggestion: ReceiptSuggestion }>(`items/${item.id}/read-receipt`, { attachment_id: attachmentId }));
-    setReading(null);
-    if (!r) return onDone();
-    setSug(r.suggestion);
-    setUse({ purchase_date: !!r.suggestion.purchase_date, price: !!(r.suggestion.item_price || r.suggestion.total), retailer: !!r.suggestion.retailer, warranty: !!r.suggestion.warranty_expires });
-  }
-
-  if (reading) {
-    return <Sheet title="Reading receipt…" onClose={onDone}><div className="center"><div className="spinner" /></div><p className="muted" style={{ textAlign: "center" }}>The receipt is saved. AI is reading the date, price and shop.</p></Sheet>;
-  }
-  if (sug) {
-    const price = sug.item_price || sug.total;
-    const rows: [string, string, string | null][] = [
-      ["purchase_date", "Purchase date", sug.purchase_date ? fmtDate(sug.purchase_date) : null],
-      ["price", sug.item_price ? "Price" : "Price (receipt total)", price ? money(price, sug.currency || item.currency || me.app.currency || "USD") : null],
-      ["retailer", "Bought from", sug.retailer],
-      ["warranty", "Warranty until", sug.warranty_expires ? `${fmtDate(sug.warranty_expires)} (${sug.warranty_months} months)` : null],
-    ];
-    const found = rows.filter(([, , v]) => v);
-    return (
-      <Sheet title="From the receipt" onClose={onDone}>
-        {found.length ? (
-          <>
-            <p className="muted" style={{ marginTop: 0 }}>Tick what to copy to this item ({sug.confidence_label} confidence). Check it against the receipt first.</p>
-            {found.map(([k, label, v]) => (
-              <label key={k} className="check" style={{ padding: "6px 0" }}>
-                <input type="checkbox" checked={!!use[k]} onChange={(e) => setUse({ ...use, [k]: e.target.checked })} />
-                <span><b>{label}:</b> {v}</span>
-              </label>
-            ))}
-            <button className="btn primary block" disabled={busy || !Object.values(use).some(Boolean)} onClick={async () => {
-              const patch: Record<string, unknown> = {};
-              if (use.purchase_date) patch.purchase_date = sug.purchase_date;
-              if (use.price && price) { patch.purchase_price = price; if (sug.currency) patch.currency = sug.currency; }
-              if (use.retailer) patch.retailer = sug.retailer;
-              if (use.warranty && sug.warranty_expires) { patch.warranty_expires = sug.warranty_expires; if (sug.purchase_date) patch.warranty_start = sug.purchase_date; }
-              if (await run(() => api.patch(`items/${item.id}`, patch), "Saved from receipt")) onDone();
-            }}>Copy to item</button>
-          </>
-        ) : <p>Nothing readable was found on that receipt. It's saved with the item; you can fill the details in by hand.</p>}
-        <button className="btn ghost block" style={{ marginTop: 8 }} onClick={onDone}>Done</button>
-      </Sheet>
-    );
-  }
   return (
     <Sheet title="Add document" onClose={onClose}>
       <div className="stack">
         <label className="field">Type
           <select value={kind} onChange={(e) => setKind(e.target.value)}>
+            {ai && <option value="document">Not sure – let AI work it out</option>}
             <option value="receipt">Receipt</option>
             <option value="warranty">Warranty</option>
             <option value="manual">Manual / documentation</option>
-            <option value="document">Other document</option>
+            {!ai && <option value="document">Other document</option>}
           </select>
         </label>
-        {kind === "receipt" && me.app.ai.enabled && <p className="muted" style={{ margin: 0 }}>A photo of a receipt is read by AI so you can copy the date, price, shop and warranty to this item.</p>}
+        {ai && <p className="muted" style={{ margin: 0 }}>AI reads it in the background, works out what it is, and offers anything it can fill in, such as the purchase date, price, shop, warranty, model or serial number. You choose what to keep.</p>}
         <label className="btn primary block">
           {busy ? <div className="spinner" /> : <FileText size={18} />} {kind === "receipt" ? "Photograph or choose receipt" : "Choose photo or PDF"}
           <input type="file" accept="image/*,application/pdf" hidden onChange={async (e) => {
             const f = e.target.files?.[0];
             e.target.value = "";
             if (!f) return;
-            const att = await run(() => uploadPhoto(f, { item_id: item.id, kind }), "Added");
-            if (!att) return;
-            if (kind === "receipt" && me.app.ai.enabled && f.type.startsWith("image/")) await readReceipt(att.id);
-            else onDone();
+            if (await run(() => uploadPhoto(f, { item_id: item.id, kind }), "Added")) onDone();
           }} />
         </label>
       </div>

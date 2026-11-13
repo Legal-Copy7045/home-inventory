@@ -1016,3 +1016,26 @@ class ManualReading(Base):
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class DocumentReading(Base):
+    """What AI made of a document attached to an item: what kind of
+    document it is, and values it found for the item's fields.  Suggestions
+    only - a person chooses what to apply."""
+
+    __tablename__ = "document_readings"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'ready', 'failed', 'applied', 'dismissed')", name="ck_document_reading_status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    attachment_id: Mapped[int] = mapped_column(ForeignKey("attachments.id", ondelete="CASCADE"), index=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String(10), default="pending")
+    provider: Mapped[str | None] = mapped_column(String(40))
+    model: Mapped[str | None] = mapped_column(String(120))
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

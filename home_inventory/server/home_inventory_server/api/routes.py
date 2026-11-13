@@ -1008,6 +1008,7 @@ async def upload_attachment(
     location_id: int | None = Form(None),
     repair_job_id: int | None = Form(None),
     caption: str | None = Form(None),
+    recognise: bool = Form(True),
     actor: Actor = Depends(require_member),
     db: Session = Depends(get_db),
 ):
@@ -1062,7 +1063,14 @@ async def upload_attachment(
     elif container_id:
         audit.record(db, actor, "photo_added", "container", container_id, "Added a photo", related_containers=[container_id])
     db.commit()
-    return inv.attachment_out(att)
+    out = inv.attachment_out(att)
+    if recognise and item_id and job is None and kind is not AttachmentKind.photo:
+        # A document on an item: AI works out what it is and what it can fill in.
+        from .parts import start_document_reading
+
+        reading = start_document_reading(request, db, actor, db.get(Item, item_id), att, quiet=True)
+        out["reading_id"] = reading.id if reading else None
+    return out
 
 
 def _attachment_file(request: Request, att: Attachment, thumb: bool) -> FileResponse:

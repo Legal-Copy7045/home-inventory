@@ -67,7 +67,7 @@ export const api = {
     }),
 };
 
-export async function uploadPhoto(file: Blob, opts: { kind?: string; item_id?: number; container_id?: number; location_id?: number; repair_job_id?: number; name?: string } = {}) {
+export async function uploadPhoto(file: Blob, opts: { kind?: string; item_id?: number; container_id?: number; location_id?: number; repair_job_id?: number; name?: string; recognise?: boolean } = {}) {
   const f = new FormData();
   f.append("file", file, opts.name || (file instanceof File ? file.name : "photo.jpg"));
   f.append("kind", opts.kind || "photo");
@@ -75,6 +75,7 @@ export async function uploadPhoto(file: Blob, opts: { kind?: string; item_id?: n
   if (opts.container_id) f.append("container_id", String(opts.container_id));
   if (opts.location_id) f.append("location_id", String(opts.location_id));
   if (opts.repair_job_id) f.append("repair_job_id", String(opts.repair_job_id));
+  if (opts.recognise === false) f.append("recognise", "false");
   return api.upload<Attachment>("attachments", f);
 }
 
