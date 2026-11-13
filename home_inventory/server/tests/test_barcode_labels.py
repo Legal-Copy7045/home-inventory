@@ -178,3 +178,22 @@ def test_weatherproof_avery_names_and_geometry():
         used_h = 2 * t.margin_top + t.rows * t.height
         assert abs(used_w - page_w) < 0.01 * inch, key  # symmetric, fills the sheet
         assert abs(used_h - page_h) < 0.01 * inch, key
+
+
+def test_location_labels_list_whats_there_and_can_carry_arrows(env):
+    import io
+
+    from pypdf import PdfReader
+
+    u = env.admin
+    rack = u.location("Garage rack")
+    shelf = u.ok("post", "/api/v1/locations", json={"name": "Top shelf", "parent_id": rack["id"]})
+    u.container("Christmas lights", number="7", location_id=rack["id"])
+    u.item("Hose reel", location_id=rack["id"])
+    r = u.post("/api/v1/labels/pdf", json={"location_ids": [rack["id"], shelf["id"]], "include_contents": True,
+                                           "base_url": BASE, "arrows": {f"L{rack['id']}": "up_left", f"L{shelf['id']}": "down"}})
+    assert r.status_code == 200
+    text = PdfReader(io.BytesIO(r.content)).pages[0].extract_text()
+    assert "› Top shelf" in text and "#7 Christmas" in text and "Hose reel" in text
+    bad = u.post("/api/v1/labels/pdf", json={"location_ids": [rack["id"]], "arrows": {f"L{rack['id']}": "sideways"}})
+    assert bad.status_code == 422

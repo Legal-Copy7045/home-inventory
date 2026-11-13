@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.16.1
+
+- **Arrows on labels.** Container and shelf labels can carry a large arrow (up, down, left, right or diagonal) pointing to where the shelf or box is. Set it for all selected labels or per label on **Print Labels**.
+- **Shelf labels list what belongs there.** A location's contents list now includes the shelves or drawers within it (› Top shelf) as well as its boxes and loose items, and it's ticked by default when you print a label from a shelf, so things get put back in the right place.
+
 ## 0.16.0
 
 - **Maintenance reminders.** Once a day, a task that has just become due soon or overdue sends one `home_inventory_maintenance_due` event (once per service interval), saying whether its parts are in stock and which are missing. The integration can send it to your phone: turn on **Send maintenance reminders to your phone** in its options.

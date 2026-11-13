@@ -212,6 +212,10 @@ Every container and every location (shelf, cabinet, drawer…) has a permanent 8
 
 Scan a label with your **phone's normal camera**. It opens Home Assistant (log in the first time) and shows that container's contents, or everything stored at that location, including the containers on it.
 
+**Shelf labels.** To label a shelf, rack, cabinet or drawer, open it and tap the QR icon → **Print label**, or choose it under **Print Labels → Locations**. Tick **Print contents list** (on by default from a shelf) and the label also lists what belongs there: the shelves or drawers within it (› Top shelf), the boxes (#7 Christmas lights) and the loose items. That way anyone putting something away can see where it goes. Scanning it shows the up-to-date list.
+
+**Arrows.** A label can carry a large arrow (up, down, left, right or a diagonal) pointing to where the shelf or box is, e.g. a label at eye level on the end of a rack with an arrow up to the top shelf. Set one for all the selected labels, or pick one per label in the list.
+
 The link printed on the label is the address you used to open Home Assistant when you printed it, e.g. `https://ha.example.com/b1a256fc_home_inventory/c/ABCD2345`. Print labels while using the address your phone can reach. To always print a specific address (for example your external one), set *QR label link* in Settings.
 
 The in-app **Scan** screen reads every label format, including labels printed before version 0.1.2.
