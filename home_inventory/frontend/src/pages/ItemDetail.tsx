@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowRightLeft, Camera, ChevronLeft, ChevronRight, FileText, Handshake, Home, Map as MapIcon, Minus, Pencil, Plus, Sparkles, Star, Trash2, Undo2 } from "lucide-react";
+import { ArrowRightLeft, Camera, ChevronLeft, ChevronRight, Hand, FileText, Handshake, Home, Map as MapIcon, Minus, Pencil, Plus, Sparkles, Star, Trash2, Undo2 } from "lucide-react";
 import { api, uploadPhoto, url, type HistoryEvent, type Item, type ItemStatus, STATUS_LABELS } from "../api";
 import { neighbours } from "../browse";
+import { PutAwayButtons, takeItem } from "../components/TakeAway";
 import { ItemFields, applyLinkDetails, toPayload, type ItemFormValue } from "../components/ItemFields";
 import { LinkImport } from "../components/LinkImport";
 import { PlacementPicker, type PlacementValue } from "../components/PlacementPicker";
@@ -93,6 +94,8 @@ export default function ItemDetail() {
   const request = (k: keyof typeof addReq) => setAddReq((r) => ({ ...r, [k]: r[k] + 1 }));
   const { busy, run } = useAction();
   const toast = useToast();
+  const [putPick, setPutPick] = useState(false);
+  const [putPlace, setPutPlace] = useState<PlacementValue | null>(null);
 
   if (item.loading && !item.data) return <Spinner />;
   if (item.error || !item.data) return <div className="page"><ErrorBox error={item.error} /></div>;
@@ -125,6 +128,12 @@ export default function ItemDetail() {
   return (
     <div className="page">
       <ItemSteps id={it.id} />
+      {putPick && <PlacementPicker title={`Put ${it.display_name} away in…`} onClose={() => setPutPick(false)} onPick={(p) => { setPutPick(false); setPutPlace(p); }} />}
+      {putPlace && (
+        <Sheet title={`Put away in ${putPlace.label}`} onClose={() => setPutPlace(null)}>
+          <PutAwayButtons item={it} place={putPlace} onDone={(m) => { toast(m); setPutPlace(null); refresh(); }} />
+        </Sheet>
+      )}
       {it.needs_details && !it.deleted_at && (
         <div className="notice row between">
           <span>Added with Quick photos — details still to add{it.capture?.suggestion ? `. AI thinks it's: ${it.capture.suggestion.name}` : ""}.</span>
@@ -210,6 +219,11 @@ export default function ItemDetail() {
                 <button onClick={() => act(() => api.post(`items/${it.id}/return`), "Back in its place")}><span className="ico"><Home size={20} /></span>Put back</button>
               ) : (
                 <button onClick={() => setSheet("status")}><span className="ico"><Star size={20} /></span>Status</button>
+              )}
+              {it.status === "in_use" && (it.status_note || "").startsWith("Taken by ") ? (
+                <button onClick={() => setPutPick(true)}><span className="ico"><Hand size={20} /></span>Put away</button>
+              ) : !it.loan && (
+                <button onClick={() => act(() => takeItem(it.id), "Taken; scan a label (or tap Put away) when you're done")}><span className="ico"><Hand size={20} /></span>Take it</button>
               )}
               <button onClick={() => setSheet("edit")}><span className="ico"><Pencil size={20} /></span>Edit</button>
             </div>
