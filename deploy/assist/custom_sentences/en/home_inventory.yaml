@@ -1,0 +1,62 @@
+# Home Inventory voice questions for Home Assistant Assist (English).
+#
+# Copy this file to <config>/custom_sentences/en/home_inventory.yaml (the
+# folder next to configuration.yaml), then restart Home Assistant or run the
+# "Conversation: Reload" action. Needs the Home Inventory integration 0.16.0+.
+# Siri uses these too when your Shortcut passes your words to Assist.
+language: "en"
+intents:
+  # "Where is the hedge trimmer?"
+  HomeInventoryWhereIs:
+    data:
+      - sentences:
+          - "where is [the|my] {item}"
+          - "where are [the|my] {item}"
+          - "where's [the|my] {item}"
+          - "where did I (put|leave) [the|my] {item}"
+          - "where (do|did) (I|we) keep [the|my] {item}"
+          - "find [the|my] {item}"
+          - "have I got [a|any] {item}"
+          - "do I have [a|any] {item}"
+
+  # The answer to "Which one did you mean?" (within two minutes).
+  HomeInventoryChoose:
+    data:
+      - sentences:
+          - "the {choice} [one]"
+          - "I meant [the] {choice}"
+          - "I mean [the] {choice}"
+
+  # "What maintenance is due?" - overdue jobs and those due in the next two weeks.
+  HomeInventoryMaintenanceDue:
+    data:
+      - sentences:
+          - "what maintenance is due"
+          - "what maintenance do I need to do"
+          - "what (needs|is due for) servicing"
+          - "is anything due for (maintenance|servicing|a service)"
+
+  # "What's running low?" - supplies below their minimum.
+  HomeInventoryRunningLow:
+    data:
+      - sentences:
+          - "what('s| is) running low"
+          - "what am I running low on"
+          - "what do I need to (buy|restock)"
+          - "what('s| is) low on stock"
+
+  # "What's lent out?" - what's on loan, and to whom.
+  HomeInventoryOnLoan:
+    data:
+      - sentences:
+          - "what('s| is| have I) lent out"
+          - "what have I lent [out]"
+          - "what('s| is) on loan"
+          - "who has my stuff"
+          - "who('s| has) borrowed [my] (stuff|things)"
+
+lists:
+  item:
+    wildcard: true
+  choice:
+    wildcard: true
