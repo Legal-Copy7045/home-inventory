@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowRightLeft, Box, ExternalLink, Hand, Minus, Plus, X } from "lucide-react";
+import { ArrowRightLeft, Box, ExternalLink, Hand, Minus, Plus, Route, X } from "lucide-react";
 import { api, labelRef, type BarcodeResult, type Container, type Item, type QrTarget } from "../api";
 import { ScanWithPhone, nfcSupport } from "./Tags";
 import { PlacementPicker } from "../components/PlacementPicker";
@@ -37,10 +37,12 @@ export default function ScanPage() {
   const [putAway, setPutAway] = useState<{ place: Place; items: TakenItem[]; open: () => void; openText: string } | null>(null);
   // "Take one out": scanning a consumable's barcode uses one straight away.
   const useMode = params.get("mode") === "use";
+  // "Collect": after a job, scan each thing you used; they're gathered into a put-away route.
+  const collectMode = params.get("mode") === "collect";
   const [choices, setChoices] = useState<{ code: string; format: string; list: UseChoice[] } | null>(null);
-  const setMode = (use: boolean) => {
+  const setMode = (mode: "" | "use" | "collect") => {
     const p = new URLSearchParams(params);
-    if (use) p.set("mode", "use");
+    if (mode) p.set("mode", mode);
     else p.delete("mode");
     setParams(p, { replace: true });
   };
@@ -98,7 +100,7 @@ export default function ScanPage() {
         };
         // Ask the server, not the list loaded when the page opened: a label
         // scanned straight after "Take it" must still offer to put it away.
-        const carrying = me.can_edit ? (await api.get<{ items: TakenItem[] }>("taken")).items.filter((i) => i.mine) : [];
+        const carrying = me.can_edit && !collectMode ? (await api.get<{ items: TakenItem[] }>("taken")).items.filter((i) => i.mine) : [];
         if (carrying.length) {
           taken.reload();
           const label = r.type === "location" ? (await api.get<{ path: string }>(`locations/${r.id}`)).path
@@ -119,7 +121,25 @@ export default function ScanPage() {
     }
     try {
       const result = await api.post<BarcodeResult>("barcode/lookup", { code: d.text, format: d.format });
+      const holdings = result.inventory_matches.flatMap((m) => m.holdings);
+      if (collectMode && me.can_edit && holdings.length === 1) {
+        await collect(holdings[0].item_id, result.inventory_matches[0].product.name);
+        return;
+      }
       setBarcode({ result, format: d.format });
+    } catch (e) {
+      toast((e as Error).message, true);
+    }
+  }
+
+  async function collect(itemId: number, name: string) {
+    try {
+      await takeItem(itemId);
+      if (navigator.vibrate) navigator.vibrate(40);
+      const n = (await api.get<{ items: TakenItem[] }>("taken")).items.filter((i) => i.mine).length;
+      toast(`Collected ${name}; ${n} on your put-away route`);
+      setBarcode(null);
+      taken.reload();
     } catch (e) {
       toast((e as Error).message, true);
     }
@@ -175,11 +195,13 @@ export default function ScanPage() {
 
       {me.can_edit && (
         <div className="tabs" role="tablist" aria-label="When a barcode is scanned">
-          <button role="tab" aria-selected={!useMode} className={!useMode ? "active" : ""} onClick={() => setMode(false)}>Look up / add</button>
-          <button role="tab" aria-selected={useMode} className={useMode ? "active" : ""} onClick={() => setMode(true)}><Minus size={14} /> Take one out</button>
+          <button role="tab" aria-selected={!useMode && !collectMode} className={!useMode && !collectMode ? "active" : ""} onClick={() => setMode("")}>Look up / add</button>
+          <button role="tab" aria-selected={useMode} className={useMode ? "active" : ""} onClick={() => setMode("use")}><Minus size={14} /> Take one out</button>
+          <button role="tab" aria-selected={collectMode} className={collectMode ? "active" : ""} onClick={() => setMode("collect")}><Route size={14} /> Collect</button>
         </div>
       )}
       {useMode && <p className="muted" style={{ marginTop: 0 }}>Each barcode scanned takes one out of stock (from this container when one is open). Restock alerts update straight away.</p>}
+      {collectMode && <p className="muted" style={{ marginTop: 0 }}>Finished a job? Scan each thing you used; they're gathered up, then <Link to="/put-away">the put-away route</Link> takes you round each place in turn.</p>}
 
       <TakenStrip items={taken.items} />
       <Scanner onDetect={onDetect} paused={!!barcode || !!moving || !!choices || !!putAway} hint={container ? "Scan a product barcode or another label" : "Scan a QR label or barcode"} />
@@ -241,6 +263,10 @@ export default function ScanPage() {
               const h = barcode.result.inventory_matches[0].holdings[0];
               return <button className="btn block" disabled={busy} onClick={async () => { await run(() => takeItem(h.item_id), "Taken; scan a label to put it away"); setBarcode(null); taken.reload(); }}><Hand size={18} /> Take it</button>;
             })()}
+            {me.can_edit && collectMode && barcode.result.inventory_matches.flatMap((m) => m.holdings.map((h) => ({ h, name: m.product.name }))).slice(0, 6).map(({ h, name }) => (
+              barcode.result.inventory_matches.flatMap((m) => m.holdings).length > 1 &&
+              <button key={h.item_id} className="btn block" disabled={busy} onClick={() => collect(h.item_id, name)}><Hand size={18} /> Collect the one in {h.path}</button>
+            ))}
             {barcode.result.inventory_matches[0]?.holdings[0] && <Link className="btn block" to={`/items/${barcode.result.inventory_matches[0].holdings[0].item_id}`}>View item</Link>}
             <button className="btn ghost block" onClick={() => setBarcode(null)}>Keep scanning</button>
           </div>

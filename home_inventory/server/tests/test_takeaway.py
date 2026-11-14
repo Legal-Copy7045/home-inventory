@@ -159,3 +159,32 @@ def test_which_place_ranks_where_the_seen_things_are(ai_env, fake_ai):
     assert (best["type"], best["id"]) == ("location", top["id"])
     assert sorted(best["matched"]) == ["Paint tins", "WD-40"] and best["not_seen"] == ["Masking tape"]
     assert r["places"][1]["id"] == low["id"]
+
+
+def test_put_away_route_groups_by_place_in_walking_order(env):
+    u = env.admin
+    home = u.location("Home")
+    shed = u.location("Shed", parent_id=home["id"])
+    garage = u.location("Garage", parent_id=home["id"])
+    bench = u.location("Bench", parent_id=garage["id"])
+    box = u.container("Sockets", "4", location_id=shed["id"])
+    items = [u.item("Spanner", container_id=box["id"]), u.item("Drill", location_id=bench["id"]),
+             u.item("Ratchet", container_id=box["id"]), u.item("Ladder", location_id=garage["id"])]
+    for it in items:
+        u.ok("post", f"/api/v1/items/{it['id']}/take")
+    # Moved just for now: it goes back to its usual place, not the temporary one.
+    u.ok("post", f"/api/v1/items/{items[3]['id']}/put-away", json={"location_id": bench["id"], "mode": "temporary"})
+    u.ok("post", f"/api/v1/items/{items[3]['id']}/take")
+
+    r = u.ok("get", "/api/v1/taken/route")
+    assert r["count"] == 4
+    stops = [(s["stop"], s["room"], s["path"], sorted(i["name"] for i in s["items"])) for s in r["stops"]]
+    assert stops == [
+        (1, "Garage", "Home › Garage", ["Ladder"]),
+        (2, "Garage", "Home › Garage › Bench", ["Drill"]),
+        (3, "Shed", "Home › Shed › Sockets #4", ["Ratchet", "Spanner"]),
+    ]
+    # Someone else's taken things are only on the route when asked for.
+    other = env.user("u-other", "Olive Other")
+    assert other.ok("get", "/api/v1/taken/route")["stops"] == []
+    assert other.ok("get", "/api/v1/taken/route?mine=false")["count"] == 4

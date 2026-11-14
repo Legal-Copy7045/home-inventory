@@ -121,6 +121,7 @@ TEMPLATES = {
                  LETTER, 2, 3, 4 * inch, (10 / 3) * inch, 0.15625 * inch, 0.5 * inch, 0.1875 * inch, 0),
         Template("avery_22806", "Avery 22806 – 12 per Letter (2×2 in square)", LETTER, 3, 4, 50.8 * mm, 50.8 * mm, 15.9 * mm, 15.9 * mm, 15.9 * mm, 12.7 * mm),
         # Single label printers (one label per page)
+        Template("avery_l7651", "Avery L7651 – 65 per A4 (38.1×21.2 mm), small drawers", A4, 5, 13, 38.1 * mm, 21.2 * mm, 4.75 * mm, 10.7 * mm, 2.5 * mm, 0),
         Template("single_62x29", "Label printer 62×29 mm (Brother DK-11209)", (62 * mm, 29 * mm), 1, 1, 62 * mm, 29 * mm, 0, 0, 0, 0),
         Template("single_62x100", "Label printer 62×100 mm (Brother DK-11202)", (62 * mm, 100 * mm), 1, 1, 62 * mm, 100 * mm, 0, 0, 0, 0),
         Template("single_4x6", "Shipping label 4×6 in", (101.6 * mm, 152.4 * mm), 1, 1, 101.6 * mm, 152.4 * mm, 0, 0, 0, 0),
@@ -139,6 +140,20 @@ class LabelData:
     description: str | None = None
     # Optional arrow pointing to where the shelf/box is: one of ARROWS.
     arrow: str | None = None
+    # Colour band down the left edge: which room it belongs in.
+    band: tuple[float, float, float] | None = None
+    band_text: str | None = None
+
+
+THEMES = ("standard", "large", "drawer")
+
+# Room colours: distinct, and dark enough for white text on them.
+ROOM_COLOURS = [(0.80, 0.15, 0.15), (0.10, 0.40, 0.75), (0.15, 0.55, 0.20), (0.90, 0.50, 0.05), (0.50, 0.20, 0.60),
+                (0.00, 0.55, 0.55), (0.65, 0.40, 0.15), (0.85, 0.20, 0.55), (0.30, 0.30, 0.30), (0.45, 0.55, 0.10)]
+
+
+def room_colour(index: int) -> tuple[float, float, float]:
+    return ROOM_COLOURS[index % len(ROOM_COLOURS)]
 
 
 # Direction -> angle (degrees, anticlockwise from pointing right).
@@ -218,9 +233,43 @@ def _wrap(c: canvas.Canvas, text: str, font: str, size: float, width: float, max
     return lines
 
 
-def _draw_label(c: canvas.Canvas, x: float, y: float, w: float, h: float, d: LabelData) -> None:
+def _draw_band(c: canvas.Canvas, x: float, y: float, w: float, h: float, d: LabelData) -> float:
+    """The room's colour down the left edge, its name in white if it fits;
+    returns the band's width."""
+    if not d.band:
+        return 0
+    bw = max(3 * mm, min(6 * mm, w * 0.08))
+    c.saveState()
+    c.setFillColorRGB(*d.band)
+    c.rect(x, y, bw, h, stroke=0, fill=1)
+    if d.band_text and bw >= 4 * mm:
+        size = min(bw * 0.62, 9)
+        text = d.band_text
+        while text and c.stringWidth(text, "Helvetica-Bold", size) > h - 3 * mm:
+            text = text[:-1]
+        c.setFillColorRGB(1, 1, 1)
+        c.setFont("Helvetica-Bold", size)
+        c.translate(x + bw / 2 + size * 0.35, y + h / 2)
+        c.rotate(90)
+        c.drawCentredString(0, 0, text)
+    c.restoreState()
+    return bw
+
+
+def _draw_label(c: canvas.Canvas, x: float, y: float, w: float, h: float, d: LabelData, theme: str = "standard") -> None:
     """Number (large), title, description, contents; where it is at the foot.
-    Text wraps between words and keeps its size where it can."""
+    Text wraps between words and keeps its size where it can.
+
+    ``large``: bigger text, no contents list, for reading across a garage.
+    ``drawer``: number and name only, filling the label, for small drawers."""
+    band = _draw_band(c, x, y, w, h, d)
+    x, w = x + band, w - band
+    if theme == "drawer":
+        _draw_drawer(c, x, y, w, h, d)
+        return
+    large = theme == "large"
+    if large:
+        d = LabelData(**{**d.__dict__, "contents": [], "description": None})
     pad = 2.5 * mm
     portrait = h > w * 1.3
     arrow = d.arrow if d.arrow in ARROWS else None
@@ -244,6 +293,8 @@ def _draw_label(c: canvas.Canvas, x: float, y: float, w: float, h: float, d: Lab
             _draw_arrow(c, x + w - pad - a / 2, y + h / 2 + 1.5 * mm, a, arrow)
     c.drawImage(qr_img, qx, qy, qr_size, qr_size)
     big = 22 if h > 45 * mm else 16 if h > 30 * mm else 12
+    if large:
+        big *= 1.5
     small = max(6, big * 0.38)
     code_size = max(5, small * 0.8)
 
@@ -263,7 +314,13 @@ def _draw_label(c: canvas.Canvas, x: float, y: float, w: float, h: float, d: Lab
         # Where it lives is what gets things put back: bold, black and a
         # size up from the contents, above a thin rule.
         loc_size = small * 1.2
-        loc_lines = _wrap(c, d.location, "Helvetica-Bold", loc_size, tw, 2, min_scale=0.75)
+        where = d.location
+        if large:  # one line: keep the end of the path, the specific bit
+            parts = where.split(" › ")
+            while len(parts) > 1 and c.stringWidth(where, "Helvetica-Bold", loc_size * 0.7) > tw:
+                parts = parts[1:]
+                where = "… › " + " › ".join(parts)
+        loc_lines = _wrap(c, where, "Helvetica-Bold", loc_size, tw, 1 if large else 2, min_scale=0.7 if large else 0.75)
         ly = floor + (len(loc_lines) - 1) * (loc_lines[0][1] + 1)
         for text, s in loc_lines:
             c.setFont("Helvetica-Bold", s)
@@ -279,8 +336,9 @@ def _draw_label(c: canvas.Canvas, x: float, y: float, w: float, h: float, d: Lab
 
     if d.number:
         draw(_wrap(c, f"#{d.number}", "Helvetica-Bold", big, tw, 1, min_scale=0.6), "Helvetica-Bold", 1.5)
-    title_size = big * 0.6
-    draw(_wrap(c, d.title, "Helvetica-Bold", title_size, tw, max(1, min(3, room(title_size)))), "Helvetica-Bold", 1.5)
+    title_size = big * (0.75 if large else 0.6)
+    title_lines = max(2 if large else 1, min(3, room(title_size)))
+    draw(_wrap(c, d.title, "Helvetica-Bold", title_size, tw, title_lines, min_scale=0.55 if large else 0.85), "Helvetica-Bold", 1.5)
     ty -= 1
     if d.description and room(small) >= 1:
         draw(_wrap(c, d.description, "Helvetica-Oblique", small, tw, min(2, room(small))), "Helvetica-Oblique", 1)
@@ -295,7 +353,36 @@ def _draw_label(c: canvas.Canvas, x: float, y: float, w: float, h: float, d: Lab
         draw(_wrap(c, f"{bullet}{line}", "Helvetica", small, tw, 1, min_scale=0.9), "Helvetica", 1)
 
 
-def render_pdf(labels: list[LabelData], template_key: str, copies: int = 1, start_position: int = 1) -> bytes:
+def _draw_drawer(c: canvas.Canvas, x: float, y: float, w: float, h: float, d: LabelData) -> None:
+    """Small drawer label: a small QR on the left; the number and name as big
+    as the space allows."""
+    pad = 1.5 * mm
+    qr_size = min(h - 2 * pad, w * 0.3)
+    c.drawImage(ImageReader(io.BytesIO(qr_png(d.payload, scale=6))), x + pad, y + (h - qr_size) / 2, qr_size, qr_size)
+    tx = x + pad + qr_size + 1.5 * mm
+    tw = x + w - pad - tx
+    text = f"#{d.number} {d.title}" if d.number else d.title
+    # The biggest size at which it fits in the lines the height allows.
+    size = min(h * 0.55, 40)
+    while True:
+        max_lines = max(1, int((h - 2 * pad) // (size * 1.1)))
+        lines = _lines(c, text, "Helvetica-Bold", size, tw)
+        if len(lines) <= max_lines and all(s >= size for _, s in lines):
+            break
+        if size <= 6:
+            lines = _wrap(c, text, "Helvetica-Bold", size, tw, max_lines, min_scale=1)
+            break
+        size *= 0.9
+    total = sum(s * 1.1 for _, s in lines)
+    ty = y + (h + total) / 2
+    for line, s in lines:
+        c.setFont("Helvetica-Bold", s)
+        ty -= s * 1.1
+        c.drawString(tx, ty + s * 0.2, line)
+
+
+def render_pdf(labels: list[LabelData], template_key: str, copies: int = 1, start_position: int = 1,
+               theme: str = "standard") -> bytes:
     t = TEMPLATES.get(template_key) or TEMPLATES["avery_l7160"]
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=t.page)
@@ -311,7 +398,7 @@ def render_pdf(labels: list[LabelData], template_key: str, copies: int = 1, star
         col, row = slot % t.cols, slot // t.cols
         x = t.margin_left + col * (t.width + t.gap_x)
         y = page_h - t.margin_top - (row + 1) * t.height - row * t.gap_y
-        _draw_label(c, x, y, t.width, t.height, d)
+        _draw_label(c, x, y, t.width, t.height, d, theme)
         slot += 1
     c.showPage()
     c.save()
