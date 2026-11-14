@@ -152,7 +152,7 @@ def value_estimates_job(actor: Actor = Depends(require_member), db: Session = De
     from ..services import valuation
 
     j = valuation.job(db)
-    if j and j.get("status") in ("pending", "running") and not valuation.running(db):
+    if j and j.get("status") in ("pending", "running") and not valuation.is_live(j):
         j["status"], j["error"] = "failed", "Estimating was interrupted (the App restarted). Start it again."
     return {"job": j}
 
