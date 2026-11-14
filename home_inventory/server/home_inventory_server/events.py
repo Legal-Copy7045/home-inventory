@@ -38,6 +38,7 @@ EVENT_TYPES = {
     "tag_scanned",
     "shopping_list_updated",
     "checkup_due",
+    "meter_reading_due",
 }
 
 
