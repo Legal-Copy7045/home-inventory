@@ -475,10 +475,13 @@ export function appBaseUrl(): string | null {
 }
 
 /** Find a label reference (/c/CODE, /l/CODE, ?c=CODE) in a URL path/query. */
-export function labelRef(s: string): { kind: "C" | "L" | "N"; code: string } | null {
+export function labelRef(s: string): { kind: "C" | "L" | "N" | "R"; code: string } | null {
   // NFC tag links: /n/<opaque reference> (case-sensitive)
   const n = /\/n\/([A-Za-z0-9_-]{16,40})(?=$|[/?#])/.exec(s);
   if (n) return { kind: "N", code: n[1] };
+  // Repair job tickets: /r/RJ-0012 (or HINV:R:RJ-0012)
+  const r = /(?:\/r\/|HINV:R:)(RJ-\d{1,8})(?=$|[/?#])/i.exec(s);
+  if (r) return { kind: "R", code: r[1].toUpperCase() };
   const m = new RegExp(`/([cl])/${CODE_RE}(?=$|[/?#])`, "i").exec(s) || new RegExp(`[?&]([cl])=${CODE_RE}`, "i").exec(s);
   return m ? { kind: m[1].toUpperCase() as "C" | "L", code: m[2].toUpperCase() } : null;
 }

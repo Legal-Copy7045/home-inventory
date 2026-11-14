@@ -73,6 +73,16 @@ export default function ScanPage() {
   }, [containerId, loadContainer]);
 
   async function onDetect(d: Detection) {
+    const job = labelRef(d.text);
+    if (job?.kind === "R") {
+      try {
+        const j = await api.get<{ id: number }>(`repair-jobs/by-number/${encodeURIComponent(job.code)}`);
+        nav(`/repairs/${j.id}`);
+      } catch (e) {
+        toast((e as Error).message, true);
+      }
+      return;
+    }
     if (d.format === "qr_code" || isContainerCode(d.text)) {
       const tagRef = labelRef(d.text);
       if (tagRef?.kind === "N") {

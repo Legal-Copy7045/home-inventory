@@ -493,6 +493,9 @@ def record_service(
                     adjust_quantity(db, actor, stock, -int(qty), f"Used for service of {serviced}")
                 except Conflict as err:
                     raise MaintenanceError(f"{stock.product.name}: {err}") from err
+            if part.get("unit_cost") is None and stock.purchase_price is not None:
+                # Parts from stock are costed at what they cost you, for the invoice.
+                part["unit_cost"] = stock.purchase_price
         event.parts.append(ServicePart(**part))
     db.add(event)
     db.flush()

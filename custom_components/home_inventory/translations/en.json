@@ -39,12 +39,17 @@
           "scan_interval": "Statistics refresh interval (seconds)",
           "voice_notify": "Also send voice answers to your phone",
           "notify_service": "Notification action (for example mobile_app_your_phone)",
-          "maintenance_notify": "Send maintenance reminders to your phone"
+          "maintenance_notify": "Send maintenance reminders to your phone",
+          "customer_notify_service": "Message repair customers with (a notify action that reaches them, e.g. SMS or email)",
+          "customer_notify_to": "Send customer messages to their",
+          "customer_notify_statuses": "When a repair job becomes"
         },
         "data_description": {
           "voice_notify": "When you ask where something is, the answer (with where it is) is also sent as a notification, so you don't have to ask again. \"Which one did you mean?\" questions aren't sent, only the final answer.",
           "notify_service": "The notify action that reaches your phone. The Home Assistant companion app adds one per phone, named mobile_app_ followed by the phone's name.",
-          "maintenance_notify": "When equipment becomes due for service, a notification says what's due and which parts you still need (missing parts are also added to the shopping list, unless that's turned off in the App's settings)."
+          "maintenance_notify": "When equipment becomes due for service, a notification says what's due and which parts you still need (missing parts are also added to the shopping list, unless that's turned off in the App's settings).",
+          "customer_notify_service": "Leave empty to send no customer messages. The customer's phone number or email address (from their record) is passed as the target, so use a notify action that takes one, such as an SMS gateway or the SMTP (email) integration.",
+          "customer_notify_statuses": "The message says, for example: 'Hi Pat, your Toro mower (job RJ-0012) is ready for collection.'"
         }
       }
     },
@@ -221,6 +226,20 @@
         "off": "Off",
         "alexa": "Alexa answers only",
         "all": "All voice answers (Alexa, Assist, Siri)"
+      }
+    },
+    "customer_notify_to": {
+      "options": {
+        "phone": "Phone (SMS)",
+        "email": "Email"
+      }
+    },
+    "customer_notify_statuses": {
+      "options": {
+        "awaiting_approval": "Diagnosed, needs approval",
+        "waiting_for_parts": "Waiting for parts",
+        "in_progress": "Being worked on",
+        "completed": "Ready for collection"
       }
     }
   }

@@ -14,6 +14,18 @@ CONF_VOICE_NOTIFY = "voice_notify"
 # Send "maintenance due" notices to the same notify action.
 CONF_MAINTENANCE_NOTIFY = "maintenance_notify"
 CONF_NOTIFY_SERVICE = "notify_service"  # a notify action, e.g. "mobile_app_pixel_8"
+# Messages to repair customers when a job's status changes (via a notify
+# action that reaches customers: an SMS gateway or email).
+CONF_CUSTOMER_NOTIFY_SERVICE = "customer_notify_service"
+CONF_CUSTOMER_NOTIFY_TO = "customer_notify_to"  # "email" or "phone"
+CONF_CUSTOMER_NOTIFY_STATUSES = "customer_notify_statuses"
+CUSTOMER_STATUSES = ("awaiting_approval", "waiting_for_parts", "in_progress", "completed")
+CUSTOMER_STATUS_TEXT = {
+    "awaiting_approval": "has been looked at and needs your go-ahead",
+    "waiting_for_parts": "is waiting for parts",
+    "in_progress": "is being worked on",
+    "completed": "is ready for collection",
+}
 VOICE_NOTIFY_OFF = "off"
 VOICE_NOTIFY_ALEXA = "alexa"
 VOICE_NOTIFY_ALL = "all"

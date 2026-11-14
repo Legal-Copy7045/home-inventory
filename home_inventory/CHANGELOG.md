@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.29.0
+
+- **Messages to repair customers** (integration options): when a job becomes ready for collection (or another status you choose), the customer gets a message through a notify action you pick (SMS gateway or email): "Hi Pat, your Toro mower (job RJ-0012) is ready for collection." The integration reads their contact from the App only when sending; events still carry no customer details. **Update the integration.**
+- **Job tickets:** a printable tag for the machine with the job number, customer, problem and a QR code; scanning it opens the job.
+- **Invoices:** the work order has an **Invoice** view headed with your business name and details (Settings → Preferences). Parts taken from stock for a job are charged at their recorded price unless you enter one.
+
 ## 0.28.0
 
 - **Season mode** (Reports): spring get-ready or autumn winterising for every machine (following the hemisphere set in Settings), with anything overdue; the parts still to get, all onto the shopping list in one tap; fuel and oils the machines use and whether you have them; hour meters to photograph.

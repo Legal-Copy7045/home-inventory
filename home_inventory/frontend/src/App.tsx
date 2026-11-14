@@ -120,6 +120,15 @@ function DeepLink() {
       const ref = labelRef(source);
       if (!ref || handled === `${ref.kind}${ref.code}`) return;
       handled = `${ref.kind}${ref.code}`;
+      if (ref.kind === "R") {
+        try {
+          const job = await api.get<{ id: number }>(`repair-jobs/by-number/${encodeURIComponent(ref.code)}`);
+          nav(`/repairs/${job.id}`, { replace: true });
+        } catch (e) {
+          toast((e as Error).message, true);
+        }
+        return;
+      }
       if (ref.kind === "N") {
         // NFC tag: the tag page resolves it (login still required) and offers actions.
         nav(`/tag/${ref.code}`, { replace: true });

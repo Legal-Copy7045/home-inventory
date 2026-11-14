@@ -311,6 +311,15 @@ await page.getByText("Carb kit").waitFor();
 await shot("10-work-order");
 const job = (await api("repair-jobs"))[0];
 if (job.status !== "in_progress" || job.parts_charge !== 18.5) throw new Error(`repair job wrong: ${JSON.stringify(job)}`);
+// Invoice view, job ticket PDF, and the ticket's QR number opening the job
+await api("settings", { method: "PATCH", data: { business_name: "Sam's Small Engines" } });
+await page.goto(BASE + `#/repairs/${job.id}/print?invoice=1`);
+await page.reload();
+await page.getByRole("heading", { name: "Invoice RJ-0001" }).waitFor();
+await page.getByText("Sam's Small Engines").waitFor();
+const ticket = await page.request.fetch(BASE + `api/v1/repair-jobs/${job.id}/ticket.pdf`, { headers });
+if (!ticket.ok() || (await ticket.body()).subarray(0, 4).toString() !== "%PDF") throw new Error("job ticket PDF failed");
+if ((await api("repair-jobs/by-number/RJ-0001")).id !== job.id) throw new Error("job number lookup failed");
 const stats2 = await api("stats");
 const cust = await api(`items/${job.item.id}`);
 if (!cust.owner || cust.owner.name !== "Pat Neighbour") throw new Error("customer equipment not marked as such");
