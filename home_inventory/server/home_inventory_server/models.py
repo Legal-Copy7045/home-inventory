@@ -37,7 +37,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, validates
 
 
 def utcnow() -> datetime:
@@ -254,6 +254,11 @@ class Item(TimestampMixin, Base):
         Enum(ItemStatus, native_enum=False, length=32), default=ItemStatus.stored, index=True
     )
     status_note: Mapped[str | None] = mapped_column(Text)
+    # Who took it (Take it / put away), by stable user id; the name in
+    # ``status_note`` is only for display.  Cleared when it stops being in use.
+    taken_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL", name="fk_items_taken_by_id"), index=True
+    )
 
     # Current placement
     container_id: Mapped[int | None] = mapped_column(ForeignKey("containers.id", ondelete="SET NULL"), index=True)
@@ -287,6 +292,12 @@ class Item(TimestampMixin, Base):
     home_container: Mapped[Container | None] = relationship(foreign_keys=[home_container_id])
     home_location: Mapped[Location | None] = relationship(foreign_keys=[home_location_id])
     loans: Mapped[list[Loan]] = relationship(back_populates="item", order_by="Loan.loaned_at.desc()")
+
+    @validates("status")
+    def _status_changes(self, _key: str, value: ItemStatus) -> ItemStatus:
+        if value is not ItemStatus.in_use:
+            self.taken_by_id = None  # put away, lost, lent...: nobody has it any more
+        return value
 
 
 class Attachment(Base):

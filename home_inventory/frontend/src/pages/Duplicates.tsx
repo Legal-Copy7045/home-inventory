@@ -23,7 +23,7 @@ export default function DuplicatesPage() {
       <h1>Possible duplicates</h1>
       <p className="muted">Things recorded twice under slightly different names, the same barcode, or the same maker and model. Choose which one to keep: the other's holdings, photos, shop links and restock settings move onto it, and its missing details are filled in. Holdings stay in their own places.</p>
       <ErrorBox error={list.error} />
-      {list.loading && !list.data ? <Spinner /> : list.data?.length ? list.data.map((pair) => (
+      {list.error && !list.data ? <ErrorBox error={list.error} retry={list.reload} /> : list.loading && !list.data ? <Spinner /> : list.data?.length ? list.data.map((pair) => (
         <div key={pair.key} className="card">
           <div className="muted" style={{ fontSize: ".85rem", marginBottom: 8 }}>{pair.reason} · {Math.round(pair.score * 100)}% match</div>
           <div className="grid two">

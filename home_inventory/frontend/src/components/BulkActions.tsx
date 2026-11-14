@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { ArrowRightLeft, Boxes, CheckSquare, Handshake, Pencil, Square, Trash2, Undo2, X } from "lucide-react";
 import { api, type Item } from "../api";
 import { PlacementPicker } from "./PlacementPicker";
-import { ItemRow, Sheet, Spinner, Thumb, useAction, useApi, useMe, useToast } from "./ui";
+import { ErrorBox, ItemRow, Sheet, Spinner, Thumb, useAction, useApi, useMe, useToast } from "./ui";
 import { CategorySelect } from "./CategorySelect";
 
 const STATUSES: [string, string][] = [
@@ -257,7 +257,7 @@ function BulkKitSheet({ ids, onClose, onDone }: { ids: number[]; onClose: () => 
   };
   return (
     <Sheet title={`Add ${plural(ids.length)} to a kit`} onClose={onClose}>
-      {kits.loading && !kits.data ? <Spinner /> : (
+      {kits.error && !kits.data ? <ErrorBox error={kits.error} retry={kits.reload} /> : kits.loading && !kits.data ? <Spinner /> : (
         <div className="list card tight">
           {(kits.data || []).map((k) => (
             <a key={k.id} href="#" onClick={(e) => { e.preventDefault(); void add(k.id, k.name); }}>
@@ -289,7 +289,7 @@ export function RecentlyDeleted() {
     <div className="page">
       <h1>Recently deleted</h1>
       <p className="muted">The last 200 deleted items. Restoring puts an item back where it was (or leaves it unplaced if that place was deleted too).</p>
-      {list.loading && !list.data ? <Spinner /> : items.length ? (
+      {list.error && !list.data ? <ErrorBox error={list.error} retry={list.reload} /> : list.loading && !list.data ? <Spinner /> : items.length ? (
         <>
           <ul className="list card tight">
             {items.map((i) => {

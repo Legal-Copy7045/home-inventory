@@ -69,7 +69,7 @@ export default function SortPhotos() {
         Quick photos taken without a place, grouped the way you took them. Choose where each group is — untick any photo that's somewhere else first.
       </p>
       <ErrorBox error={list.error} />
-      {list.loading && !list.data ? <Spinner /> : !groups.length ? (
+      {list.error && !list.data ? <ErrorBox error={list.error} retry={list.reload} /> : list.loading && !list.data ? <Spinner /> : !groups.length ? (
         <div className="card"><Empty>Nothing to sort. Use <b>Quick photos</b> to photograph shelf after shelf, then say where each shelf is here.</Empty></div>
       ) : (
         groups.map((g) => {

@@ -247,7 +247,7 @@ function SetupSheet({ itemId, onClose, onDone, onReadManual }: { itemId: number;
         <input type="number" inputMode="decimal" step="0.1" min={0} value={current} onChange={(e) => setCurrent(e.target.value)} placeholder="e.g. 212 for a used machine" />
         <span className="hint">Schedules start from here, so a used machine isn't shown as overdue for everything.</span>
       </label>
-      {presets.loading ? <Spinner /> : (
+      {presets.error && !presets.data ? <ErrorBox error={presets.error} retry={presets.reload} /> : presets.loading ? <Spinner /> : (
         <div className="quick">
           {presets.data?.map((p) => (
             <button key={p.key} disabled={busy} onClick={() => pick(p.key)}>
@@ -666,6 +666,7 @@ export function MaintenancePage() {
   const [within, setWithin] = useState(30);
   const [owner, setOwner] = useState<"all" | "household" | "customer">("all");
   const d = useApi(() => api.get<MaintDashboard>("maintenance/dashboard", { within, owner }), [within, owner]);
+  if (d.error && !d.data) return <ErrorBox error={d.error} retry={d.reload} />;
   if (d.loading && !d.data) return <Spinner />;
   if (d.error || !d.data) return <div className="page"><ErrorBox error={d.error} /></div>;
   const x = d.data;

@@ -118,7 +118,7 @@ export function SearchPage() {
     <div className="page">
       <SearchBox hero initial={q} />
       <div style={{ height: 14 }} />
-      {!q ? <Empty>Try “How many USB-C chargers do I own?”, “Find my Christmas decorations” or “Did I lend anyone my impact wrench?”</Empty> : r.loading ? <Spinner /> : (
+      {!q ? <Empty>Try “How many USB-C chargers do I own?”, “Find my Christmas decorations” or “Did I lend anyone my impact wrench?”</Empty> : r.error && !r.data ? <ErrorBox error={r.error} retry={r.reload} /> : r.loading ? <Spinner /> : (
         <>
           <ErrorBox error={r.error} />
           {r.data && (
@@ -176,7 +176,7 @@ export function ItemsPage() {
         </select>
         <label className="check"><input type="checkbox" checked={loose} onChange={(e) => set("loose", e.target.checked ? "1" : "")} /> Loose only</label>
       </div>
-      {list.loading && !list.data ? <Spinner /> : (
+      {list.error && !list.data ? <ErrorBox error={list.error} retry={list.reload} /> : list.loading && !list.data ? <Spinner /> : (
         <SelectableItems
           items={shown}
           total={list.data?.total}
@@ -234,7 +234,7 @@ export function LocationsPage() {
       </div>
       <p className="muted">Nest places as deep as you like: Property › Shed › Right side › Ground level. Items can live directly in a location (shelves, drawers, workbenches) or in containers.</p>
       <div className="card">
-        {tree.loading && !tree.data ? <Spinner /> : tree.data?.length ? <ul className="tree tree-root">{tree.data.map((n) => <TreeNode key={n.id} n={n} />)}</ul> : <Empty>No locations yet. Add them one by one, or use <b>Import from Excel</b> to create your whole hierarchy at once.</Empty>}
+        {tree.error && !tree.data ? <ErrorBox error={tree.error} retry={tree.reload} /> : tree.loading && !tree.data ? <Spinner /> : tree.data?.length ? <ul className="tree tree-root">{tree.data.map((n) => <TreeNode key={n.id} n={n} />)}</ul> : <Empty>No locations yet. Add them one by one, or use <b>Import from Excel</b> to create your whole hierarchy at once.</Empty>}
       </div>
       {adding && <LocationFormSheet onClose={() => setAdding(false)} onSaved={() => { setAdding(false); tree.reload(); }} />}
       {importing && <LocationImportSheet onClose={() => setImporting(false)} onDone={() => { setImporting(false); tree.reload(); }} />}
@@ -301,6 +301,7 @@ export function LocationDetailPage() {
   const [tagReq, setTagReq] = useState(0);
   const { run } = useAction();
   const toast = useToast();
+  if (d.error && !d.data) return <ErrorBox error={d.error} retry={d.reload} />;
   if (d.loading && !d.data) return <Spinner />;
   if (!d.data) return <div className="page"><ErrorBox error={d.error} /></div>;
   const l = d.data;

@@ -56,7 +56,7 @@ export function CustomersPage() {
         <button className="btn primary" onClick={() => setAdding(true)}><Plus size={18} /> Customer</button>
       </div>
       <ErrorBox error={list.error} />
-      {list.loading && !list.data ? <Spinner /> : list.data?.length ? (
+      {list.error && !list.data ? <ErrorBox error={list.error} retry={list.reload} /> : list.loading && !list.data ? <Spinner /> : list.data?.length ? (
         <div className="list">
           {list.data.map((c) => (
             <Link key={c.id} to={`/customers/${c.id}`}>
@@ -110,6 +110,7 @@ export function CustomerDetailPage() {
   const c = useApi(() => api.get<CustomerDetail>(`customers/${id}`), [id]);
   const [sheet, setSheet] = useState<null | "edit" | "job" | "equipment" | "contact">(null);
   const { busy, run } = useAction();
+  if (c.error && !c.data) return <ErrorBox error={c.error} retry={c.reload} />;
   if (c.loading && !c.data) return <Spinner />;
   if (c.error || !c.data) return <div className="page"><ErrorBox error={c.error} /></div>;
   const d = c.data;
@@ -306,7 +307,7 @@ export function RepairsPage() {
         <button className="btn primary" onClick={() => setAdding(true)}><Plus size={18} /> Job</button>
       </div>
       <ErrorBox error={jobs.error} />
-      {jobs.loading && !jobs.data ? <Spinner /> : jobs.data?.length ? (
+      {jobs.error && !jobs.data ? <ErrorBox error={jobs.error} retry={jobs.reload} /> : jobs.loading && !jobs.data ? <Spinner /> : jobs.data?.length ? (
         <div className="list" style={{ marginTop: 10 }}>{jobs.data.map((j) => <JobRow key={j.id} j={j} />)}</div>
       ) : <Empty>No repair jobs here.</Empty>}
       {adding && <NewJobSheet onClose={() => setAdding(false)} onDone={(j) => nav(`/repairs/${j.id}`)} />}
@@ -321,6 +322,7 @@ export function RepairJobPage() {
   const [sheet, setSheet] = useState<null | "work" | "details" | "status">(null);
   const [nextStatus, setNextStatus] = useState<RepairStatus | null>(null);
   const { busy, run } = useAction();
+  if (job.error && !job.data) return <ErrorBox error={job.error} retry={job.reload} />;
   if (job.loading && !job.data) return <Spinner />;
   if (job.error || !job.data) return <div className="page"><ErrorBox error={job.error} /></div>;
   const j = job.data;
@@ -500,6 +502,7 @@ export function WorkOrderPage() {
   const invoice = params.get("invoice") === "1";
   const job = useApi(() => api.get<RepairJob>(`repair-jobs/${id}`), [id]);
   const biz = useApi(() => api.get<{ business_name: string | null; business_details: string | null }>("settings"), []);
+  if (job.error && !job.data) return <ErrorBox error={job.error} retry={job.reload} />;
   if (job.loading && !job.data) return <Spinner />;
   if (job.error || !job.data) return <div className="page"><ErrorBox error={job.error} /></div>;
   const j = job.data;
