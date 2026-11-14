@@ -96,14 +96,14 @@ Ask "Where is the hedge trimmer?", "Where does the hammer go?" (where it belongs
 
 For tools and other things you borrow from their place and bring back:
 
-1. **Take it.** On an item's page tap **Take it**. You can also take it after scanning its barcode (when you have just one of it), or after identifying it from a photo (below). The item is marked as with you (status *In use*), and its record still says where it lives. The Scan page shows what you're carrying.
+1. **Take it.** On an item's page tap **Take it**. You can also take it after scanning its barcode (when you have just one of it), or after identifying it from a photo (below). The item is marked as with you (status *In use*), and its record still says where it lives. The Scan page shows what you're carrying. If someone else has already taken it, you're told who, and asked before taking it over (only do that when you have it now); the takeover is recorded in its history.
 2. **Put it away.** On the Scan page, scan the label of the box or shelf where you're putting it. You're asked **Put away here?** for each thing you're carrying:
    - if it's the item's own place, or the usual place it was temporarily moved from, it simply goes back;
    - if it's somewhere new, choose **Move it here** (its new home) or **Just this once** (a temporary move: the item remembers its usual place, and *Put back* returns it there).
 
    No label to hand? On the item page tap **Put away** and choose the place.
 
-**Put-away route.** After a job with lots of things out, use **Scan → Collect**: scan the barcode of each thing you used (when you have more than one of something, pick which). Then open **Put-away Route** (Inventory menu, or the link on the Scan page). It lists everything taken, one stop per place it lives, in walking order: room by room, then shelf by shelf. At each stop tap **All back here**, or scan the place's label. A thing moved somewhere just for now goes back to its usual place. **Everyone's** shows what other people have taken too.
+**Put-away route.** After a job with lots of things out, use **Scan → Collect**: scan the barcode of each thing you used (when you have more than one of something, pick which). Then open **Put-away Route** (Inventory menu, or the link on the Scan page). It lists everything taken, one stop per place it lives, grouped room by room and then place by place within each room (in name order; it is an organised list, not a measured walking route). At each stop tap **All back here**, or scan the place's label. Each thing's result is shown: anything that isn't its usual place is left for you to decide (open it to move it there or put it there just this once), and anything that failed says why. A thing moved somewhere just for now goes back to its usual place. **Everyone's** shows what other people have taken too.
 
 **What is this? Identify by photo.** With AI set up, the Scan page has **What is this? Identify by photo**. Photograph the thing; the AI says what it is and lists your matching items. Pick the right one, then **Take it**, **Take one out** (to use one up), **Put away here** (when a box is open in Scan), or open it. If it isn't in your inventory, **None of these: add it** starts a new item with the name filled in. The photo isn't kept.
 

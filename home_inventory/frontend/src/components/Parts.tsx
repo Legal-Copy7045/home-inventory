@@ -233,7 +233,7 @@ export function ManualSheet({ itemId, onClose, onDone }: { itemId: number; onClo
             <span>This can take a few minutes for a long manual. You can close this and come back: the result waits on this item.</span>
           </div>
         )}
-        {item.loading ? <Spinner /> : (
+        {item.error && !item.data ? <ErrorBox error={item.error} retry={item.reload} /> : item.loading ? <Spinner /> : (
           <ul className="list">
             {files.map((a) => (
               <li key={a.id}>
@@ -454,6 +454,7 @@ export function ReadinessPanel() {
     if (!l.buy) return;
     await run(() => api.post("shopping-list", { product_id: l.buy!.product_id, quantity: l.buy!.quantity, note: `For ${(l.tasks || []).map((t) => t.item.name).join(", ")}` }), "Added to the shopping list");
   };
+  if (d.error && !d.data) return <ErrorBox error={d.error} retry={d.reload} />;
   if (d.loading && !d.data) return <Spinner />;
   if (d.error || !d.data) return <ErrorBox error={d.error} />;
   const x = d.data;

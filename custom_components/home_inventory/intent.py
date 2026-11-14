@@ -36,6 +36,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+from contextvars import ContextVar
 from difflib import SequenceMatcher
 from typing import Any
 
@@ -253,9 +254,48 @@ def _pending(hass: HomeAssistant) -> dict[str, Any]:
     return hass.data.setdefault(PENDING_KEY, {})
 
 
+# True while answering an open question: that conversation may update or
+# close its own pending state.
+_CONTINUING: ContextVar[bool] = ContextVar("home_inventory_continuing", default=False)
+
+
+def _key_info(intent_obj: intent.Intent) -> tuple[str, bool]:
+    """Where a conversation's open question is kept, and whether that key
+    reliably separates conversations.  A voice device or satellite does;
+    without one (Alexa through /api/alexa, the Assist dialog) all requests
+    from the same platform and user share a key, so it is not reliable."""
+    if intent_obj.device_id or intent_obj.satellite_id:
+        return str(intent_obj.device_id or intent_obj.satellite_id), True
+    return f"{intent_obj.platform or 'default'}:{intent_obj.context.user_id or '-'}", False
+
+
 def _key(intent_obj: intent.Intent) -> str:
-    # One open question per voice device (Alexa requests carry no device id).
-    return intent_obj.device_id or intent_obj.satellite_id or intent_obj.platform or "default"
+    return _key_info(intent_obj)[0]
+
+
+def _open(intent_obj: intent.Intent, state: dict[str, Any]) -> bool:
+    """Store an open question.  Under a shared key a new question never
+    replaces another conversation's open one: returns False instead, and the
+    caller answers without asking (fail safe rather than cross the answers)."""
+    key, reliable = _key_info(intent_obj)
+    pending = _pending(intent_obj.hass)
+    current = pending.get(key)
+    if not reliable and not _CONTINUING.get() and current and current["until"] >= time.monotonic():
+        return False
+    pending[key] = {**state, "until": time.monotonic() + PENDING_SECONDS}
+    return True
+
+
+def _close(intent_obj: intent.Intent) -> None:
+    """Drop this conversation's open question (never another's)."""
+    key, reliable = _key_info(intent_obj)
+    if reliable or _CONTINUING.get():
+        _pending(intent_obj.hass).pop(key, None)
+
+
+def _no_question(response: intent.IntentResponse, names: list[str]) -> intent.IntentResponse:
+    response.async_set_speech(f"I found several: {_list(names[:4])}. Please ask again with the full name.")
+    return response
 
 
 async def _search(intent_obj: intent.Intent, query: str) -> list[dict[str, Any]] | None:
@@ -332,12 +372,12 @@ class WhereIsHandler(intent.IntentHandler):
             response.async_set_speech("Home Inventory isn't set up.")
             return response
         speech, choices = spoken_answer(query, results, goes=self.goes)
-        pending = _pending(intent_obj.hass)
         if choices:
-            pending[_key(intent_obj)] = {"groups": choices, "goes": self.goes, "until": time.monotonic() + PENDING_SECONDS}
+            if not _open(intent_obj, {"groups": choices, "goes": self.goes}):
+                return _no_question(response, [g["name"] for g in choices])
             _ask(response, speech, f"Which one: {_list([g['name'] for g in choices[:4]])}?")
         else:
-            pending.pop(_key(intent_obj), None)
+            _close(intent_obj)
             response.async_set_speech(speech)
             if results:
                 groups = group_by_name(results)
@@ -376,8 +416,8 @@ async def _client_user(intent_obj: intent.Intent):
     return client, user
 
 
-def _remember(intent_obj: intent.Intent, state: dict[str, Any]) -> None:
-    _pending(intent_obj.hass)[_key(intent_obj)] = {**state, "kind": "move", "until": time.monotonic() + PENDING_SECONDS}
+def _remember(intent_obj: intent.Intent, state: dict[str, Any]) -> bool:
+    return _open(intent_obj, {**state, "kind": "move"})
 
 
 async def _move_find_place(intent_obj: intent.Intent, response: intent.IntentResponse, item: dict[str, Any],
@@ -387,24 +427,26 @@ async def _move_find_place(intent_obj: intent.Intent, response: intent.IntentRes
     cands = res.get("candidates") or []
     name = item.get("display_name") or item.get("name") or "it"
     if not cands:
-        _pending(intent_obj.hass).pop(_key(intent_obj), None)
+        _close(intent_obj)
         response.async_set_speech(f"I couldn't find a place called {place_text}, so I haven't moved {name}.")
         return response
     if res.get("clear"):
         return await _move_do(intent_obj, response, item, cands[0])
     if len(cands) == 1 or cands[0]["score"] - cands[1]["score"] >= 0.2:
-        _remember(intent_obj, {"stage": "confirm", "item": item, "place": cands[0]})
+        if not _remember(intent_obj, {"stage": "confirm", "item": item, "place": cands[0]}):
+            return _no_question(response, [_place_label(c) for c in cands])
         _ask(response, f"Did you mean {_place_label(cands[0])}?", "Yes or no?")
         return response
     shown = cands[:4]
-    _remember(intent_obj, {"stage": "place", "item": item, "groups": [{"name": _place_label(c), "place": c} for c in shown]})
+    if not _remember(intent_obj, {"stage": "place", "item": item, "groups": [{"name": _place_label(c), "place": c} for c in shown]}):
+        return _no_question(response, [_place_label(c) for c in shown])
     _ask(response, f"Which place: {_list([_place_label(c) for c in shown])}?", "Which place did you mean?")
     return response
 
 
 async def _move_do(intent_obj: intent.Intent, response: intent.IntentResponse, item: dict[str, Any],
                    place: dict[str, Any]) -> intent.IntentResponse:
-    _pending(intent_obj.hass).pop(_key(intent_obj), None)
+    _close(intent_obj)
     client, user = await _client_user(intent_obj)
     body = {"container_id": place["id"] if place["type"] == "container" else None,
             "location_id": place["id"] if place["type"] == "location" else None, "mode": "move"}
@@ -433,8 +475,9 @@ async def _move_with_item(intent_obj: intent.Intent, response: intent.IntentResp
     records = group["items"]
     if len(records) > 1:
         shown = records[:MAX_CHOICES]
-        _remember(intent_obj, {"stage": "record", "place_text": place_text,
-                               "groups": [{"name": _record_label(it), "item": it} for it in shown]})
+        if not _remember(intent_obj, {"stage": "record", "place_text": place_text,
+                                      "groups": [{"name": _record_label(it), "item": it} for it in shown]}):
+            return _no_question(response, [_record_label(it) for it in shown])
         _ask(response, f"Which {group['name']}: {_list([_record_label(it) for it in shown[:4]])}?",
              f"Which {group['name']}?")
         return response
@@ -464,7 +507,8 @@ class MoveHandler(intent.IntentHandler):
             if len(groups) == 1 or len(exact) == 1:
                 return await _move_with_item(intent_obj, response, exact[0] if exact else groups[0], place_text)
             shown = groups[:MAX_CHOICES]
-            _remember(intent_obj, {"stage": "item", "place_text": place_text, "groups": shown})
+            if not _remember(intent_obj, {"stage": "item", "place_text": place_text, "groups": shown}):
+                return _no_question(response, [g["name"] for g in shown])
             _ask(response, f"Which one did you move: {_list([g['name'] for g in shown[:4]])}?", "Which one did you move?")
             return response
         except InventoryError:
@@ -477,7 +521,7 @@ async def _move_reply(intent_obj: intent.Intent, response: intent.IntentResponse
     """The answer to one of the move questions."""
     said = normalize(choice)
     if said in NO:
-        _pending(intent_obj.hass).pop(_key(intent_obj), None)
+        _close(intent_obj)
         response.async_set_speech("Okay, I haven't moved anything.")
         return response
     try:
@@ -531,7 +575,7 @@ def contents_answer(place: dict[str, Any], data: dict[str, Any]) -> str:
 
 
 async def _say_contents(intent_obj: intent.Intent, response: intent.IntentResponse, place: dict[str, Any]) -> intent.IntentResponse:
-    _pending(intent_obj.hass).pop(_key(intent_obj), None)
+    _close(intent_obj)
     client, user = await _client_user(intent_obj)
     path = f"containers/{place['id']}" if place["type"] == "container" else f"locations/{place['id']}"
     data = await client.request("GET", path, user=user)
@@ -563,9 +607,8 @@ class WhatsInHandler(intent.IntentHandler):
             if res.get("clear") or len(cands) == 1:
                 return await _say_contents(intent_obj, response, cands[0])
             shown = cands[:4]
-            _pending(intent_obj.hass)[_key(intent_obj)] = {
-                "kind": "whatsin", "groups": [{"name": _place_label(c), "place": c} for c in shown],
-                "until": time.monotonic() + PENDING_SECONDS}
+            if not _open(intent_obj, {"kind": "whatsin", "groups": [{"name": _place_label(c), "place": c} for c in shown]}):
+                return _no_question(response, [_place_label(c) for c in shown])
             _ask(response, f"Which one: {_list([_place_label(c) for c in shown])}?", "Which place did you mean?")
             return response
         except InventoryError:
@@ -602,6 +645,14 @@ class ChooseHandler(intent.IntentHandler):
                               {"item": {"value": choice}}, intent_obj.text_input, intent_obj.context,
                               intent_obj.language, assistant=intent_obj.assistant, device_id=intent_obj.device_id,
                               satellite_id=intent_obj.satellite_id))
+        token = _CONTINUING.set(True)
+        try:
+            return await self._answer(intent_obj, response, pending, key, open_q, choice)
+        finally:
+            _CONTINUING.reset(token)
+
+    async def _answer(self, intent_obj: intent.Intent, response: intent.IntentResponse, pending: dict[str, Any],
+                      key: str, open_q: dict[str, Any], choice: str) -> intent.IntentResponse:
         if open_q.get("kind") == "move":
             return await _move_reply(intent_obj, response, open_q, choice)
         if open_q.get("kind") == "whatsin" and normalize(choice) not in NO:
