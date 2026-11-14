@@ -93,3 +93,95 @@ def worth_fixing(item_id: int, repair_cost: str, actor: Actor = Depends(current_
 
     currency = item.currency or stats_svc.currency(db)
     return eq.worth_fixing(item, cost, currency)
+
+
+# ---------------------------------------------------------------------------
+# The Equipment section (managed equipment over the shared item model)
+# ---------------------------------------------------------------------------
+
+
+def _managed_item(db: Session, item_id: int):
+    from ..models import EquipmentProfile
+
+    item = _get_or_404(db, Item, item_id)
+    prof = db.scalar(select(EquipmentProfile).where(EquipmentProfile.item_id == item.id))
+    if prof is None or not prof.managed:
+        raise HTTPException(404, "This item isn't managed as equipment")
+    return item, prof
+
+
+@router.get("/equipment")
+def list_equipment(q: str | None = Query(None, max_length=200), equipment_type: str | None = Query(None, max_length=80),
+                   lifecycle: str | None = Query(None, max_length=20),
+                   attention: Literal["overdue", "due_soon", "ok"] | None = None,
+                   actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    from ..services import equipment_hub as hub
+
+    rows = hub.equipment_list(db, q=q, equipment_type=equipment_type, lifecycle=lifecycle, attention=attention)
+    types = sorted({r["equipment_type"] for r in hub.equipment_list(db) if r["equipment_type"]}) if not q else None
+    return {"equipment": rows, "types": types, "lifecycle": hub.LIFECYCLE_LABELS}
+
+
+@router.get("/equipment/{item_id}")
+def equipment_overview(item_id: int, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    """Everything the equipment page shows at the top: identity, condition,
+    what's due, the plan's source, parts, costs and recent history."""
+    from ..services import equipment_hub as hub
+    from ..services import inventory as inv
+
+    item, prof = _managed_item(db, item_id)
+    r = _resolver(db)
+    tasks = hub._tasks(db, item.id)
+    meters = mnt.meters_for(db, item.id)
+    rates = mnt.rates_for(db, {item.id}, date.today()).get(item.id)
+    touts = [mnt.task_out(t, meters, None, rates) for t in tasks]
+    events = db.scalars(select(mnt.ServiceEvent).where(mnt.ServiceEvent.item_id == item.id,
+                                                       mnt.ServiceEvent.deleted_at.is_(None))
+                        .order_by(mnt.ServiceEvent.performed_on.desc(), mnt.ServiceEvent.id.desc()).limit(5)).all()
+    today = date.today()
+    w = item.warranty_expires
+    return {
+        "item": inv.item_out(item, r, db, detail=True),
+        "profile": mnt.profile_out(prof),
+        "lifecycle_label": hub.LIFECYCLE_LABELS.get(prof.lifecycle_status, prof.lifecycle_status),
+        "meters": {"hours": float(meters.hours) if meters.hours is not None else None,
+                   "cycles": float(meters.cycles) if meters.cycles is not None else None},
+        "usage": mnt.usage(db, item.id) if prof.meter in ("hours", "both") else None,
+        "summary": hub._summary(touts),
+        "upcoming": sorted([t for t in touts if t["status"] in ("overdue", "due_soon")],
+                           key=lambda t: (hub.URGENCY[t["status"]], hub._days(t)))[:8],
+        "last_completed": mnt.event_out(events[0]) if events else None,
+        "recent": [mnt.event_out(e) for e in events],
+        "plan": hub.manual_status(db, item, tasks),
+        "parts": hub.equipment_parts(db, item),
+        "costs": hub.costs(db, item.id),
+        "warranty": {"expires": w.isoformat(), "active": w >= today, "days_left": (w - today).days} if w else None,
+        "entities": [e for e in (prof.hours_entity_id, prof.cycles_entity_id) if e],
+    }
+
+
+@router.get("/equipment/{item_id}/checklist")
+def equipment_checklist(item_id: int, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    from ..services import equipment_hub as hub
+
+    item, _ = _managed_item(db, item_id)
+    return hub.checklist(db, item)
+
+
+@router.get("/equipment/{item_id}/checklist.pdf")
+def equipment_checklist_pdf(item_id: int, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    from ..services import equipment_hub as hub
+
+    item, _ = _managed_item(db, item_id)
+    pdf = hub.checklist_pdf(db, item)
+    return Response(pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="checklist-{item.id}.pdf"'})
+
+
+@router.get("/maintenance/reports/{kind}")
+def maintenance_report(kind: Literal["upcoming", "overdue", "history", "consolidated"],
+                       days: int = Query(30, ge=1, le=3650), since: date | None = None,
+                       actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    from ..services import equipment_hub as hub
+
+    return hub.report(db, kind, days=days, since=since)

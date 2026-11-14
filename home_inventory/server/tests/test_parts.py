@@ -264,7 +264,10 @@ def test_reading_a_manual_builds_the_plan(tmp_path):
     assert [(r["product"]["name"], r["status"]) for r in ip[str(task["id"])]] == [("Champion plug W20EPR-U", "in_stock")]
     assert [r["product"]["name"] for r in ip[str(titles["Replace air filter"]["id"])]] == ["Air filter element"]
     refs = {f["role"]: f["source_ref"] for f in out["parts"]["fitments"]}
-    assert refs["Engine oil"] == "Owner's manual, page 12"
+    assert refs["Engine oil"] == "manual.pdf, page 12"  # traceable to the file and page
+    assert res["model_check"]["status"] == "match"
+    assert oil["source"] == "manual" and oil["source_ref"].startswith("manual.pdf") and oil["reading_id"] == reading["id"]
+    assert oil["manual_values"]["interval_hours"] == 50
     # Applying twice isn't possible
     assert u.post(f"/api/v1/manual-readings/{reading['id']}/apply", json=choice).status_code == 422
 

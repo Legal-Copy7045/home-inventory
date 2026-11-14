@@ -92,14 +92,16 @@ function ServiceRow({ e, currency, showItem }: { e: ServiceEntry; currency: stri
 
 // ---------------------------------------------------------------- item page section
 
-export function EquipmentSection({ itemId, edit, onChanged, initial, startTracking, onStartClosed }: {
+export function EquipmentSection({ itemId, edit, onChanged, initial, startTracking, onStartClosed, hideTasks, reloadKey }: {
   itemId: number; edit: boolean; onChanged?: () => void; initial?: "meter" | "service";
+  /** On the equipment page the checklist shows the tasks. */
+  hideTasks?: boolean; reloadKey?: number;
   /** Not equipment yet: open the "Track maintenance" setup (from the item page's link). */
   startTracking?: boolean; onStartClosed?: () => void;
 }) {
   const me = useMe();
-  const s = useApi(() => api.get<MaintenanceSummary>(`items/${itemId}/maintenance`), [itemId]);
-  const parts = useApi(() => api.get<ItemParts>(`items/${itemId}/parts`), [itemId]);
+  const s = useApi(() => api.get<MaintenanceSummary>(`items/${itemId}/maintenance`), [itemId, reloadKey]);
+  const parts = useApi(() => api.get<ItemParts>(`items/${itemId}/parts`), [itemId, reloadKey]);
   const [sheet, setSheet] = useState<null | { kind: "setup" | "profile" | "meter" | "service" | "task" | "parts" | "manual"; task?: MaintTask }>(edit && initial ? { kind: initial } : null);
   const close = () => setSheet(null);
   const done = (data?: MaintenanceSummary) => {
@@ -155,7 +157,7 @@ export function EquipmentSection({ itemId, edit, onChanged, initial, startTracki
         <SensorLink itemId={itemId} profile={d.profile} edit={edit} onDone={() => { s.reload(); onChanged?.(); }} />
       )}
 
-      {d.tasks.length > 0 && (
+      {!hideTasks && d.tasks.length > 0 && (
         <ul className="list">
           {d.tasks.map((t) => (
             <li key={t.id}>
@@ -321,12 +323,17 @@ function ProfileSheet({ itemId, profile, onClose, onDone }: { itemId: number; pr
   const save = async (e: FormEvent) => {
     e.preventDefault();
     const specs = p.specs.filter((s) => s.label.trim());
-    const d = await run(() => api.put<MaintenanceSummary>(`items/${itemId}/equipment`, { ...p, specs }), "Saved");
+    // Only the editable fields: the server refuses read-only ones (id, managed...).
+    const { equipment_type, engine_manufacturer, engine_model, engine_serial, fuel_type, meter, hours_entity_id, cycles_entity_id,
+      notes, lifecycle_status, acquired_from } = p;
+    const body = { equipment_type, engine_manufacturer, engine_model, engine_serial, fuel_type, meter, hours_entity_id,
+      cycles_entity_id, notes, lifecycle_status, acquired_from, specs };
+    const d = await run(() => api.put<MaintenanceSummary>(`items/${itemId}/equipment`, body), "Saved");
     if (d) onDone(d);
   };
   const stop = async () => {
-    if (!window.confirm("Stop tracking maintenance for this item? Its tasks are removed; service history is kept.")) return;
-    await run(() => api.del(`items/${itemId}/equipment`), "Maintenance tracking stopped");
+    if (!window.confirm("Make this an ordinary item again? It leaves the Equipment section and its tasks stop being scheduled. Nothing is deleted: its details, tasks and service history come back if you manage it as equipment again.")) return;
+    await run(() => api.del(`items/${itemId}/equipment`), "Now an ordinary item; equipment details kept");
     onDone();
   };
   return (
@@ -346,6 +353,13 @@ function ProfileSheet({ itemId, profile, onClose, onDone }: { itemId: number; pr
           <label className="field">Engine model<input value={p.engine_model || ""} onChange={set("engine_model")} /></label>
           <label className="field">Engine serial<input value={p.engine_serial || ""} onChange={set("engine_serial")} /></label>
           <label className="field">Fuel<input value={p.fuel_type || ""} onChange={set("fuel_type")} placeholder="Gasoline, 50:1 mix, battery…" /></label>
+          <label className="field">Status
+            <select value={p.lifecycle_status || "active"} onChange={set("lifecycle_status")}>
+              <option value="active">Active</option><option value="storage">In storage</option><option value="under_repair">Under repair</option>
+              <option value="loaned">Loaned out</option><option value="retired">Retired</option><option value="disposed">Disposed of</option>
+            </select>
+          </label>
+          <label className="field">Acquired from<input value={p.acquired_from || ""} onChange={set("acquired_from")} placeholder="Shop, private sale, gift…" /></label>
         </div>
         <SensorFields p={p} setP={setP} />
         <b>Specifications and parts</b>
@@ -360,7 +374,7 @@ function ProfileSheet({ itemId, profile, onClose, onDone }: { itemId: number; pr
         <button type="button" className="btn small" onClick={() => setP({ ...p, specs: [...p.specs, { label: "", value: "", kind: "part", part_number: "" }] })}><Plus size={16} /> Add row</button>
         <label className="field">Notes<textarea rows={3} value={p.notes || ""} onChange={set("notes")} /></label>
         <button className="btn primary block" disabled={busy}>Save</button>
-        <button type="button" className="btn block" disabled={busy} onClick={stop}>Stop tracking maintenance</button>
+        <button type="button" className="btn block" disabled={busy} onClick={stop}>Make it an ordinary item</button>
       </form>
     </Sheet>
   );
@@ -598,7 +612,12 @@ export function ServiceSheet({ itemId, task, summary, onClose, onDone, postTo, t
   );
 }
 
-function TaskSheet({ itemId, task, onClose, onDone }: { itemId: number; task?: MaintTask; onClose: () => void; onDone: (d?: MaintenanceSummary) => void }) {
+export const GROUPS: [string, string][] = [["before_use", "Before each use"], ["after_use", "After each use"], ["hours", "By operating hours / uses"],
+  ["periodic", "Periodic"], ["seasonal", "Seasonal"], ["annual", "Annual"], ["storage", "Storage and winterising"], ["one_time", "One-time"]];
+export const KINDS: [string, string][] = [["inspect", "Inspect"], ["replace", "Replace"], ["service", "Service"], ["clean", "Clean"],
+  ["lubricate", "Lubricate"], ["adjust", "Adjust"]];
+
+export function TaskSheet({ itemId, task, onClose, onDone }: { itemId: number; task?: MaintTask; onClose: () => void; onDone: (d?: MaintenanceSummary) => void }) {
   const [f, setF] = useState({
     title: task?.title || "",
     instructions: task?.instructions || "",
@@ -608,6 +627,8 @@ function TaskSheet({ itemId, task, onClose, onDone }: { itemId: number; task?: M
     next_due_on: task?.next_due_on || "",
     last_done_on: "",
     last_done_hours: "",
+    schedule_group: task?.schedule_group || "",
+    task_kind: task?.task_kind || "",
   });
   const { busy, run } = useAction();
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
@@ -619,6 +640,8 @@ function TaskSheet({ itemId, task, onClose, onDone }: { itemId: number; task?: M
       interval_days: num(f.interval_days),
       interval_hours: num(f.interval_hours),
       interval_cycles: num(f.interval_cycles),
+      schedule_group: f.schedule_group || null,
+      task_kind: f.task_kind || null,
     };
     if (task) {
       if (f.next_due_on !== (task.next_due_on || "")) body.next_due_on = f.next_due_on || null;
@@ -650,7 +673,12 @@ function TaskSheet({ itemId, task, onClose, onDone }: { itemId: number; task?: M
           {!task && <label className="field">Last done (optional)<input type="date" max={today()} value={f.last_done_on} onChange={set("last_done_on")} /></label>}
           {!task && <label className="field">Hours when last done<input type="number" inputMode="decimal" step="0.1" min={0} value={f.last_done_hours} onChange={set("last_done_hours")} /></label>}
         </div>
+        <div className="grid two">
+          <label className="field">Checklist group<select value={f.schedule_group} onChange={set("schedule_group")}><option value="">From the interval</option>{GROUPS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
+          <label className="field">Kind of job<select value={f.task_kind} onChange={set("task_kind")}><option value="">—</option>{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
+        </div>
         <label className="field">Instructions<textarea rows={3} value={f.instructions} onChange={set("instructions")} placeholder="Oil type, torque, steps…" /></label>
+        {task?.source === "manual" && <p className="muted" style={{ margin: 0 }}>From {task.source_ref}. Your changes are kept if the manual is read again.</p>}
         <button className="btn primary block" disabled={busy}>Save</button>
         {task && <button type="button" className="btn block" disabled={busy} onClick={remove}>Remove task</button>}
       </form>
@@ -742,7 +770,7 @@ export function MaintenancePage() {
         <ul className="list">{x.recent.map((e) => <ServiceRow key={e.id} e={e} currency={me.app.currency} showItem />)}</ul>
       ) : <div className="empty">No service recorded yet.</div>)}
       {x.equipment_count === 0 && (
-        <p className="muted">To start, open an item such as a mower or generator and tap <b>Track maintenance</b>.</p>
+        <p className="muted">To start, open an item such as a mower or generator and tap <b>Manage as equipment</b>.</p>
       )}
     </div>
   );

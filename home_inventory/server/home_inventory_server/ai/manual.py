@@ -21,6 +21,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
+# When a job is done (the checklist groups) and what kind of job it is.
+WHEN = ("before_use", "after_use", "periodic", "hours", "seasonal", "annual", "storage", "one_time")
+KINDS = ("inspect", "replace", "service", "clean", "lubricate", "adjust")
+
 _S = {"type": ["string", "null"]}
 _N = {"type": ["number", "null"]}
 _I = {"type": ["integer", "null"]}
@@ -30,8 +34,10 @@ MANUAL_SCHEMA: dict[str, Any] = {
     "properties": {
         "equipment": {
             "type": "object",
-            "properties": {"manufacturer": _S, "model": _S, "engine": _S},
-            "required": ["manufacturer", "model", "engine"],
+            "properties": {"manufacturer": _S, "model": _S, "engine": _S,
+                           "models_covered": {"type": "array", "items": {"type": "string"}},
+                           "schedule_varies_by_model": {"type": "boolean"}},
+            "required": ["manufacturer", "model", "engine", "models_covered", "schedule_varies_by_model"],
             "additionalProperties": False,
         },
         "parts": {
@@ -66,6 +72,9 @@ MANUAL_SCHEMA: dict[str, Any] = {
                     "interval_days": _I,
                     "interval_cycles": _I,
                     "first_at_hours": _N,
+                    "when": {"type": "string", "enum": list(WHEN)},
+                    "kind": {"type": "string", "enum": list(KINDS)},
+                    "section": _S,
                     "instructions": _S,
                     "needs": {
                         "type": "array",
@@ -79,7 +88,7 @@ MANUAL_SCHEMA: dict[str, Any] = {
                     "page": _I,
                 },
                 "required": ["title", "interval_hours", "interval_days", "interval_cycles", "first_at_hours",
-                             "instructions", "needs", "page"],
+                             "when", "kind", "section", "instructions", "needs", "page"],
                 "additionalProperties": False,
             },
         },
@@ -114,6 +123,17 @@ hours or 12 months -> interval_hours 50, interval_days 365. A first / break-in s
 cleaning count as jobs. "needs" lists the parts (by key) THAT job uses and how much: jobs at different intervals
 often need different things - never copy parts into a job that doesn't use them. A job that only inspects or
 cleans needs nothing.
+
+"when" says when the job is done, as the manual's schedule table groups it: "before_use" (before each use / daily
+checks), "after_use" (after each use), "hours" (every N hours or uses), "periodic" (every N days/weeks/months),
+"annual" (once a year), "seasonal" (start of a season), "storage" (before storing / end of season / winterising),
+"one_time" (a single job, e.g. the break-in oil change). "kind": inspect (check, look at), replace, service (change
+oil, sharpen), clean, lubricate (grease, oil), adjust. "section" is the heading the job appears under, as printed
+(e.g. "Maintenance Schedule", "Storage"); null if none.
+
+"equipment": the manufacturer and model this manual is for. "models_covered" lists every model number the manual
+says it covers, exactly as printed (empty if it names none). "schedule_varies_by_model" is true only when the
+maintenance schedule differs between those models (e.g. a different oil capacity or interval for one variant).
 
 "specs": other useful figures (fuel type, tyre pressure, blade bolt torque...).
 
@@ -183,6 +203,9 @@ def clean_manual(d: dict[str, Any]) -> dict[str, Any]:
                 needs.append({"key": k, "quantity": _num(n.get("quantity"), 0, 100000), "unit": _s(n.get("unit"), 10)})
         services.append({
             "title": _s(sv.get("title"), 200),
+            "when": sv.get("when") if sv.get("when") in WHEN else None,
+            "kind": sv.get("kind") if sv.get("kind") in KINDS else None,
+            "section": _s(sv.get("section"), 120),
             "interval_hours": _num(sv.get("interval_hours"), 0, 100000),
             "interval_days": _int(sv.get("interval_days"), 0, 36500),
             "interval_cycles": _int(sv.get("interval_cycles"), 0, 10_000_000),
@@ -196,7 +219,9 @@ def clean_manual(d: dict[str, Any]) -> dict[str, Any]:
     specs = [{"label": _s(x.get("label"), 80), "value": _s(x.get("value"), 200), "page": _int(x.get("page"), 0, 5000)}
              for x in (d.get("specs") or [])[:40] if isinstance(x, dict) and x.get("label") and x.get("value")]
     return {
-        "equipment": {k: _s(eq.get(k), 200) for k in ("manufacturer", "model", "engine")},
+        "equipment": {**{k: _s(eq.get(k), 200) for k in ("manufacturer", "model", "engine")},
+                      "models_covered": [m for m in (_s(x, 80) for x in (eq.get("models_covered") or [])[:30]) if m],
+                      "schedule_varies_by_model": bool(eq.get("schedule_varies_by_model"))},
         "parts": parts,
         "services": services,
         "specs": specs,
@@ -205,13 +230,19 @@ def clean_manual(d: dict[str, Any]) -> dict[str, Any]:
 
 def merge(results: list[dict[str, Any]]) -> dict[str, Any]:
     """Several readings (one per photographed page) as one."""
-    out: dict[str, Any] = {"equipment": {"manufacturer": None, "model": None, "engine": None},
+    out: dict[str, Any] = {"equipment": {"manufacturer": None, "model": None, "engine": None, "models_covered": [],
+                                         "schedule_varies_by_model": False},
                            "parts": [], "services": [], "specs": []}
     keys: set[str] = set()
     jobs: set[tuple] = set()
     for r in results:
         for k, v in (r.get("equipment") or {}).items():
-            out["equipment"][k] = out["equipment"].get(k) or v
+            if k == "models_covered":
+                out["equipment"][k] = list(dict.fromkeys([*out["equipment"][k], *(v or [])]))
+            elif k == "schedule_varies_by_model":
+                out["equipment"][k] = out["equipment"][k] or bool(v)
+            else:
+                out["equipment"][k] = out["equipment"].get(k) or v
         for p in r.get("parts") or []:
             if p["key"] not in keys:
                 keys.add(p["key"])

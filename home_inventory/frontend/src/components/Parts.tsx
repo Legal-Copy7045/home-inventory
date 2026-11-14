@@ -293,6 +293,8 @@ function ManualReview({ reading, onClose, onDone, onDiscard }: { reading: Manual
   const [services, setServices] = useState<ServiceChoice[]>(res.services.map((s) => ({ ...s, include: true, task_id: s.task_match?.id ?? null })));
   const [specs, setSpecs] = useState(res.specs.map((s) => ({ ...s, include: true })));
   const { busy, run } = useAction();
+  const check = res.model_check;
+  const [confirmModel, setConfirmModel] = useState(false);
   const setP = (i: number, patch: Partial<PartChoice>) => setParts(parts.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const setS = (i: number, patch: Partial<ServiceChoice>) => setServices(services.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const byKey = Object.fromEntries(parts.map((p) => [p.key, p]));
@@ -307,9 +309,11 @@ function ManualReview({ reading, onClose, onDone, onDiscard }: { reading: Manual
       services: services.map((s) => ({
         include: s.include, title: s.title, task_id: s.task_id, interval_hours: s.interval_hours, interval_days: s.interval_days,
         interval_cycles: s.interval_cycles, first_at_hours: s.first_at_hours, instructions: s.instructions,
-        needs: s.needs.filter((n) => byKey[n.key]?.include), page: s.page,
+        needs: s.needs.filter((n) => byKey[n.key]?.include), page: s.page, when: s.when ?? null, kind: s.kind ?? null,
+        section: s.section ?? null,
       })),
       specs: specs.map((s) => ({ include: s.include, label: s.label, value: s.value })),
+      confirm_model: confirmModel,
     };
     const r = await run(() => api.post<{ summary: Record<string, number> }>(`manual-readings/${reading.id}/apply`, body));
     if (r) {
@@ -328,6 +332,12 @@ function ManualReview({ reading, onClose, onDone, onDiscard }: { reading: Manual
         <p className="muted" style={{ margin: 0 }}>
           {eq ? <>Read as <b>{eq}</b>. </> : null}Untick anything you don't want, and correct anything that's wrong. Page numbers point to the manual.
           Part numbers are only ever copied from the manual, never guessed.
+          {check && (
+            <span className={check.confirm ? "notice" : undefined} style={{ display: "block", marginTop: 8, color: check.confirm ? undefined : "var(--ok, #2e7d32)" }}>
+              {check.message}
+              {check.confirm && <label className="check" style={{ marginTop: 6 }}><input type="checkbox" checked={confirmModel} onChange={(e) => setConfirmModel(e.target.checked)} /> I've checked: this manual's schedule applies to my item</label>}
+            </span>
+          )}
         </p>
 
         {(res.notes || []).map((n) => <div key={n} className="notice">{n}</div>)}
@@ -415,7 +425,7 @@ function ManualReview({ reading, onClose, onDone, onDiscard }: { reading: Manual
             </ul>
           </>
         )}
-        <button className="btn primary block" disabled={busy} onClick={apply}><Check size={18} /> Save the plan</button>
+        <button className="btn primary block" disabled={busy || (!!check?.confirm && !confirmModel)} onClick={apply}><Check size={18} /> Save the plan</button>
         <button className="btn block" disabled={busy} onClick={discard}><X size={18} /> Discard</button>
       </div>
     </Sheet>
