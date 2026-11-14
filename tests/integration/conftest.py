@@ -63,6 +63,22 @@ class AppProcess:
             raw = r.read()
             return json.loads(raw) if raw else None
 
+    def upload_photo(self, item_id: int, user="ui-user") -> dict:
+        """Attach a small JPEG to an item (multipart, the way the web app does)."""
+        import io
+
+        import requests
+        from PIL import Image
+
+        buf = io.BytesIO()
+        Image.new("RGB", (64, 48), (30, 120, 200)).save(buf, "JPEG")
+        r = requests.post(f"http://127.0.0.1:{self.ingress_port}/api/v1/attachments",
+                          headers={"X-Remote-User-Id": user, "X-Remote-User-Display-Name": "Pat UI"},
+                          files={"file": ("p.jpg", buf.getvalue(), "image/jpeg")},
+                          data={"kind": "photo", "item_id": str(item_id), "recognise": "false"}, timeout=20)
+        r.raise_for_status()
+        return r.json()
+
     def stop(self) -> None:
         self.proc.terminate()
         try:

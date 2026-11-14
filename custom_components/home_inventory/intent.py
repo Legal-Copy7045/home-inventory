@@ -55,6 +55,7 @@ INTENT_WHERE_IS = "HomeInventoryWhereIs"
 INTENT_CHOOSE = "HomeInventoryChoose"
 INTENT_GOES = "HomeInventoryWhereDoesItGo"
 INTENT_MOVE = "HomeInventoryMove"
+INTENT_WHATS_IN = "HomeInventoryWhatsIn"
 YES = {"yes", "yeah", "yep", "yup", "correct", "right", "that right", "thats right", "sure", "ok", "okay", "do it", "yes please"}
 NO = {"no", "nope", "no thanks", "neither", "none", "none of them", "wrong", "cancel", "stop"}
 INTENT_MAINTENANCE = "HomeInventoryMaintenanceDue"
@@ -268,7 +269,16 @@ async def _search(intent_obj: intent.Intent, query: str) -> list[dict[str, Any]]
     return r.get("results") or []
 
 
-async def _notify(intent_obj: intent.Intent, answer: str) -> None:
+def _photo_of(items: list[dict[str, Any]] | None) -> int | None:
+    """The photo to show with an answer: the first record with one."""
+    for it in items or []:
+        photo = it.get("photo") or {}
+        if photo.get("id"):
+            return int(photo["id"])
+    return None
+
+
+async def _notify(intent_obj: intent.Intent, answer: str, items: list[dict[str, Any]] | None = None) -> None:
     """Also send a final answer as a notification, if that's turned on.
 
     Only answers that found something are sent (not questions, not "I
@@ -283,9 +293,15 @@ async def _notify(intent_obj: intent.Intent, answer: str) -> None:
     if mode == VOICE_NOTIFY_ALEXA and intent_obj.platform != "alexa":
         return
     try:
-        await hass.services.async_call(
-            "notify", service, {"title": NAME, "message": answer}, blocking=False, context=intent_obj.context
-        )
+        msg: dict[str, Any] = {"title": NAME, "message": answer}
+        photo = _photo_of(items)
+        if photo is not None:
+            # "Show me": the companion app shows the photo (it signs in to
+            # Home Assistant to fetch a relative /api/ image).
+            from .photo import PHOTO_URL
+
+            msg["data"] = {"image": f"{PHOTO_URL}/{photo}", "attachment": {"url": f"{PHOTO_URL}/{photo}", "content-type": "jpeg"}}
+        await hass.services.async_call("notify", service, msg, blocking=False, context=intent_obj.context)
     except Exception as err:  # noqa: BLE001 - never break the voice answer
         _LOGGER.warning("Couldn't send the voice answer to notify.%s: %s", service, err)
 
@@ -324,7 +340,9 @@ class WhereIsHandler(intent.IntentHandler):
             pending.pop(_key(intent_obj), None)
             response.async_set_speech(speech)
             if results:
-                await _notify(intent_obj, speech)
+                groups = group_by_name(results)
+                exact = [g for g in groups if name_key(g["name"]) == name_key(query)]
+                await _notify(intent_obj, speech, (exact[0] if exact else groups[0])["items"])
         return response
 
 
@@ -405,7 +423,7 @@ async def _move_do(intent_obj: intent.Intent, response: intent.IntentResponse, i
         "home": f"Done. {name} {verb_for(name)} back in {where}.",
     }.get(r.get("result"), f"Done. I've moved {name} to {where}.")
     response.async_set_speech(speech)
-    await _notify(intent_obj, speech)
+    await _notify(intent_obj, speech, [r.get("item") or item])
     return response
 
 
@@ -483,6 +501,78 @@ async def _move_reply(intent_obj: intent.Intent, response: intent.IntentResponse
         return response
 
 
+# ---------------------------------------------------------------------------
+# "What's in box 5?" / "What's on the top shelf?"
+# ---------------------------------------------------------------------------
+
+
+def _count_name(it: dict[str, Any]) -> str:
+    name = it.get("display_name") or it.get("name") or "something"
+    q = it.get("quantity") or 1
+    return f"{q} {name}" if q != 1 else name
+
+
+def contents_answer(place: dict[str, Any], data: dict[str, Any]) -> str:
+    """ "Box number 5, Fittings, has: 3 washers, a drill and 1 more." """
+    label = _place_label(place)
+    things = [_count_name(i) for i in data.get("items") or []]
+    boxes = [(_box(c) if c.get("number") or c.get("type") else c.get("name") or "a box") for c in data.get("containers") or []]
+    places = [c.get("name") for c in data.get("children") or [] if c.get("name")]
+    parts = []
+    if things:
+        parts.append(_spoken_list(things))
+    if boxes:
+        parts.append(f"{_plural(len(boxes), 'box', 'boxes')}: {_spoken_list(boxes)}")
+    if places:
+        parts.append(f"{_plural(len(places), 'place', 'places')} inside it: {_spoken_list(places)}")
+    if not parts:
+        return f"Nothing is recorded in {label}."
+    return f"In {label}: " + "; ".join(parts) + "."
+
+
+async def _say_contents(intent_obj: intent.Intent, response: intent.IntentResponse, place: dict[str, Any]) -> intent.IntentResponse:
+    _pending(intent_obj.hass).pop(_key(intent_obj), None)
+    client, user = await _client_user(intent_obj)
+    path = f"containers/{place['id']}" if place["type"] == "container" else f"locations/{place['id']}"
+    data = await client.request("GET", path, user=user)
+    speech = contents_answer(place, data or {})
+    response.async_set_speech(speech)
+    await _notify(intent_obj, speech)
+    return response
+
+
+class WhatsInHandler(intent.IntentHandler):
+    intent_type = INTENT_WHATS_IN
+    description = "Says what is in a box or on a shelf, using Home Inventory"
+    slot_schema = {vol.Required("place"): cv.string}
+
+    async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
+        slots = self.async_validate_slots(intent_obj.slots)
+        place_text = str(slots["place"]["value"]).strip().strip("?.!")
+        response = intent_obj.create_response()
+        try:
+            client, user = await _client_user(intent_obj)
+            if client is None:
+                response.async_set_speech("Home Inventory isn't set up.")
+                return response
+            res = await client.request("GET", "places/resolve", params={"q": place_text}, user=user)
+            cands = res.get("candidates") or []
+            if not cands:
+                response.async_set_speech(f"I couldn't find a place called {place_text}.")
+                return response
+            if res.get("clear") or len(cands) == 1:
+                return await _say_contents(intent_obj, response, cands[0])
+            shown = cands[:4]
+            _pending(intent_obj.hass)[_key(intent_obj)] = {
+                "kind": "whatsin", "groups": [{"name": _place_label(c), "place": c} for c in shown],
+                "until": time.monotonic() + PENDING_SECONDS}
+            _ask(response, f"Which one: {_list([_place_label(c) for c in shown])}?", "Which place did you mean?")
+            return response
+        except InventoryError:
+            response.async_set_speech("Sorry, I couldn't reach Home Inventory.")
+            return response
+
+
 class WhereDoesItGoHandler(WhereIsHandler):
     intent_type = INTENT_GOES
     description = "Says where something belongs, so it can be put back, using Home Inventory"
@@ -514,6 +604,14 @@ class ChooseHandler(intent.IntentHandler):
                               satellite_id=intent_obj.satellite_id))
         if open_q.get("kind") == "move":
             return await _move_reply(intent_obj, response, open_q, choice)
+        if open_q.get("kind") == "whatsin" and normalize(choice) not in NO:
+            chosen = pick(choice, open_q["groups"])
+            if chosen is not None:
+                try:
+                    return await _say_contents(intent_obj, response, chosen["place"])
+                except InventoryError:
+                    response.async_set_speech("Sorry, I couldn't reach Home Inventory.")
+                    return response
         if normalize(choice) in NO:
             pending.pop(key, None)
             response.async_set_speech("Okay.")
@@ -526,7 +624,7 @@ class ChooseHandler(intent.IntentHandler):
         pending.pop(key, None)
         speech = goes_answer_for(group) if open_q.get("goes") else answer_for(group)
         response.async_set_speech(speech)
-        await _notify(intent_obj, speech)
+        await _notify(intent_obj, speech, group["items"])
         return response
 
 
@@ -681,6 +779,7 @@ def async_setup_intents(hass: HomeAssistant) -> None:
     intent.async_register(hass, _logged(hass, WhereIsHandler()))
     intent.async_register(hass, _logged(hass, WhereDoesItGoHandler()))
     intent.async_register(hass, _logged(hass, MoveHandler()))
+    intent.async_register(hass, _logged(hass, WhatsInHandler()))
     intent.async_register(hass, _logged(hass, ChooseHandler()))
     for handler in QUESTION_HANDLERS:
         intent.async_register(hass, _logged(hass, handler()))
@@ -689,7 +788,7 @@ def async_setup_intents(hass: HomeAssistant) -> None:
 def async_unload_intents(hass: HomeAssistant) -> None:
     remove = getattr(intent, "async_remove", None)
     if remove is not None:
-        for name in (INTENT_WHERE_IS, INTENT_GOES, INTENT_MOVE, INTENT_CHOOSE, INTENT_MAINTENANCE, INTENT_LOW_STOCK, INTENT_ON_LOAN):
+        for name in (INTENT_WHERE_IS, INTENT_GOES, INTENT_MOVE, INTENT_WHATS_IN, INTENT_CHOOSE, INTENT_MAINTENANCE, INTENT_LOW_STOCK, INTENT_ON_LOAN):
             remove(hass, name)
     hass.data.pop(PENDING_KEY, None)
     hass.data.pop(REGISTERED_KEY, None)
