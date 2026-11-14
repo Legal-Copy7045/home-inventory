@@ -73,7 +73,7 @@ await page.getByRole("button", { name: "New top-level location" }).click();
 await page.getByRole("dialog").getByText("New top-level location").waitFor();
 await page.getByLabel("Name").fill("Utility room");
 await page.getByRole("button", { name: "Save" }).click();
-await page.getByText("Location added").first().waitFor();
+await page.getByRole("link", { name: "Utility room" }).waitFor();  // listed in the tree
 const utility = (await api("locations")).find((l) => l.name === "Utility room");
 if (!utility || utility.parent_id !== null) throw new Error("top-level location was not top-level");
 // From inside a place: it goes inside unless changed to the top level
@@ -85,7 +85,7 @@ await page.getByRole("dialog").getByText("New top-level location").waitFor();
 await shot("06b-new-location");
 await page.getByLabel("Name").fill("Loft");
 await page.getByRole("button", { name: "Save" }).click();
-await page.getByText("Location added").first().waitFor();
+await page.getByRole("heading", { name: "Loft" }).waitFor();  // the app opens the new place
 const loft = (await api("locations")).find((l) => l.name === "Loft");
 if (!loft || loft.parent_id !== null) throw new Error("'make it top-level' didn't");
 await page.goto(BASE + "#/labels?ids=" + box.id);
