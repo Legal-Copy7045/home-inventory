@@ -43,6 +43,21 @@ def list_taken(actor: Actor = Depends(current_actor), db: Session = Depends(get_
     return {"items": out}
 
 
+@router.get("/taken/route")
+def taken_route(mine: bool = True, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    """Put-away route: what you've taken (or everyone's, ``mine=false``),
+    grouped by where each thing goes, in the order to walk round."""
+    items = svc.taken_items(db)
+    if mine:
+        note = svc.taken_note(actor)
+        items = [it for it in items if it.status_note == note]
+    r = _resolver(db)
+    stops = svc.route(r, items)
+    for s in stops:
+        s["items"] = inv.items_out(s["items"], r, db)
+    return {"stops": stops, "count": len(items)}
+
+
 class PutAwayIn(BaseModel):
     container_id: int | None = None
     location_id: int | None = None
