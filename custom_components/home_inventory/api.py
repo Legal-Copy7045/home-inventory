@@ -69,6 +69,7 @@ class InventoryClient:
         params: dict[str, Any] | None = None,
         user: User | None = None,
         timeout: float = 30,
+        purpose: str | None = None,
     ) -> Any:
         url = f"{self.base_url}/api/v1/{path.lstrip('/')}"
         clean = {k: v for k, v in (params or {}).items() if v is not None}
@@ -78,7 +79,9 @@ class InventoryClient:
                 url,
                 json=json_body,
                 params=clean,
-                headers=self._headers(user),
+                # A request with no user can't see customer data, except for
+                # a declared purpose the App allows (the repair-ready message).
+                headers={**self._headers(user), **({"X-Home-Inventory-Purpose": purpose} if purpose else {})},
                 timeout=aiohttp.ClientTimeout(total=timeout),
             ) as resp:
                 if resp.status == 401:

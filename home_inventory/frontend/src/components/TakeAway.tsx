@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Camera, Hand, Home, MapPin, Minus, Route, ScanLine } from "lucide-react";
-import { api, type Item } from "../api";
+import { api, ApiError, type Item } from "../api";
 import { ErrorBox, Sheet, Spinner, Thumb, useApi, useToast } from "./ui";
 
 export type TakenItem = Item & { mine: boolean };
@@ -27,8 +27,17 @@ export function useTaken(enabled = true) {
   return { items, reload };
 }
 
+/** Take it.  If someone else already has it, ask before taking it over:
+ * that's only right when you have it in your hands now. */
 export async function takeItem(id: number) {
-  return api.post<Item>(`items/${id}/take`);
+  try {
+    return await api.post<Item>(`items/${id}/take`);
+  } catch (e) {
+    if (e instanceof ApiError && e.code === "already_taken" && window.confirm(`${e.message}\n\nTake it over?`)) {
+      return api.post<Item>(`items/${id}/take?transfer=true`);
+    }
+    throw e;
+  }
 }
 
 /** Put one item away at ``place``; asks "move it here, or just this once?" when the place is new to it. */
@@ -234,21 +243,28 @@ export function WhichPlace() {
   );
 }
 
+type BatchResult = { item_id: number; name?: string; status: "done" | "choose" | "failed"; result?: string; error?: string };
 type Stop = { stop: number; room: string | null; path: string; container_id: number | null; location_id: number | null; items: Item[] };
 
-/** Put-away route: everything taken, grouped by where it goes, in walking order. */
+/** Put-away route: everything taken, grouped by where it goes, room by room then place by place. */
 export function PutAwayRoutePage() {
   const toast = useToast();
   const [everyone, setEveryone] = useState(false);
   const route = useApi(() => api.get<{ stops: Stop[]; count: number }>(`taken/route?mine=${everyone ? "false" : "true"}`), [everyone]);
   const [busy, setBusy] = useState<number | null>(null);
+  // What didn't go back at each stop, and why (kept until the next try).
+  const [problems, setProblems] = useState<Record<number, BatchResult[]>>({});
   async function allBack(s: Stop) {
     setBusy(s.stop);
     try {
-      for (const it of s.items) await api.post(`items/${it.id}/put-away`, { container_id: s.container_id, location_id: s.location_id, mode: "auto" });
-      toast(`${s.items.length} put back in ${s.path}`);
+      const r = await api.post<{ results: BatchResult[]; done: number; choose: number; failed: number }>("put-away/batch", {
+        item_ids: s.items.map((it) => it.id), container_id: s.container_id, location_id: s.location_id, mode: "auto" });
+      const left = r.results.filter((x) => x.status !== "done");
+      setProblems((p) => ({ ...p, [s.stop]: left }));
+      if (!left.length) toast(`All ${r.done} put back in ${s.path}`);
+      else toast(`${r.done} of ${r.results.length} put back; ${left.length} need${left.length === 1 ? "s" : ""} attention`, true);
     } catch (e) {
-      toast((e as Error).message, true);
+      toast(`Nothing was confirmed as put back: ${(e as Error).message}`, true);
     } finally {
       setBusy(null);
       route.reload();
@@ -258,7 +274,7 @@ export function PutAwayRoutePage() {
   return (
     <div className="page">
       <h1><Route size={22} style={{ verticalAlign: "-3px" }} /> Put-away route</h1>
-      <p className="muted">Everything taken out and not back yet, grouped by where it lives, room by room. Put a stop's things back with one tap, or scan the place's label.</p>
+      <p className="muted">Everything taken out and not back yet, grouped by where it lives: room by room, then place by place within the room (in name order, not a measured route). Put a stop's things back with one tap, or scan the place's label.</p>
       <div className="row wrap" style={{ gap: 8, marginBottom: 12 }}>
         <div className="tabs" role="tablist" style={{ margin: 0 }}>
           <button role="tab" aria-selected={!everyone} className={!everyone ? "active" : ""} onClick={() => setEveryone(false)}>Mine</button>
@@ -281,6 +297,11 @@ export function PutAwayRoutePage() {
                 <div><span className="badge">Stop {s.stop}</span> <b>{placeLink ? <Link to={placeLink}>{s.path}</Link> : s.path}</b></div>
                 {placeLink && <button className="btn small primary" disabled={busy !== null} onClick={() => allBack(s)}>{busy === s.stop ? "Putting back…" : `All ${s.items.length} back here`}</button>}
               </div>
+              {(problems[s.stop] || []).filter((p) => s.items.some((it) => it.id === p.item_id)).map((p) => (
+                <div key={p.item_id} className="notice" style={{ marginTop: 8 }}>
+                  <b>{p.name || "An item"}</b>: {p.status === "choose" ? "this isn't its usual place; open it to move it here or put it here just this once." : p.error}
+                </div>
+              ))}
               <div className="list tight" style={{ marginTop: 8 }}>
                 {s.items.map((it) => (
                   <Link key={it.id} to={`/items/${it.id}`}>

@@ -8,7 +8,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from PIL import Image, UnidentifiedImageError
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -19,28 +19,44 @@ from ..services import inventory as inv
 from ..services import scans as scans_svc
 from ..services import search as search_svc
 from ..services import takeaway as svc
+from ..services.placement import PlacementError
 from .routes import _err, _get_or_404, _limit, _resolver, _state
 
 router = APIRouter(prefix="/api/v1")
 
 
 @router.post("/items/{item_id}/take")
-def take_item(item_id: int, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+def take_item(item_id: int, transfer: bool = False, actor: Actor = Depends(require_member),
+              db: Session = Depends(get_db)):
+    """Take it.  Already taken by someone else: 409, unless ``transfer`` says
+    you have it now (taking it over is recorded)."""
     item = _get_or_404(db, Item, item_id)
-    _err(svc.take, db, actor, item)
+    try:
+        svc.take(db, actor, item, transfer=transfer)
+    except svc.AlreadyTaken as err:
+        raise HTTPException(409, {"code": "already_taken", "message": str(err),
+                                  "taken_by": svc.taker_name(db, item)}) from err
+    except inv.Conflict as err:
+        raise HTTPException(409, str(err)) from err
     db.commit()
-    return inv.item_out(item, _resolver(db), db, detail=True)
+    return _with_taker(db, actor, [item], inv.item_out(item, _resolver(db), db, detail=True))
+
+
+def _with_taker(db: Session, actor: Actor, items: list[Item], out):
+    """``mine`` and ``taken_by`` on item responses (by user id, not by name)."""
+    one = not isinstance(out, list)
+    rows = [out] if one else out
+    for o, it in zip(rows, items):
+        o["mine"] = svc.taken_by_me(it, actor)
+        o["taken_by"] = svc.taker_name(db, it) if svc.is_taken(it) else None
+    return rows[0] if one else rows
 
 
 @router.get("/taken")
 def list_taken(actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
     """Everything taken and not yet put away; ``mine`` marks what you took."""
     items = svc.taken_items(db)
-    out = inv.items_out(items, _resolver(db), db)
-    mine = svc.taken_note(actor)
-    for o, it in zip(out, items):
-        o["mine"] = it.status_note == mine
-    return {"items": out}
+    return {"items": _with_taker(db, actor, items, inv.items_out(items, _resolver(db), db))}
 
 
 @router.get("/taken/route")
@@ -49,13 +65,47 @@ def taken_route(mine: bool = True, actor: Actor = Depends(current_actor), db: Se
     grouped by where each thing goes, in the order to walk round."""
     items = svc.taken_items(db)
     if mine:
-        note = svc.taken_note(actor)
-        items = [it for it in items if it.status_note == note]
+        items = [it for it in items if svc.taken_by_me(it, actor)]
     r = _resolver(db)
     stops = svc.route(r, items)
     for s in stops:
-        s["items"] = inv.items_out(s["items"], r, db)
-    return {"stops": stops, "count": len(items)}
+        s["items"] = _with_taker(db, actor, s["items"], inv.items_out(s["items"], r, db))
+    return {"stops": stops, "count": len(items), "order": "room, then place within the room (alphabetical)"}
+
+
+class PutAwayBatchIn(BaseModel):
+    item_ids: list[int] = Field(min_length=1, max_length=200)
+    container_id: int | None = None
+    location_id: int | None = None
+    # auto: back in its own place / usual home, otherwise "needs a decision"
+    mode: Literal["auto", "move", "temporary"] = "auto"
+
+
+@router.post("/put-away/batch")
+def put_away_batch(data: PutAwayBatchIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Put several things away in one place.  Each item is its own small
+    transaction, and every one gets a result: ``done`` (with how), ``choose``
+    (somewhere new: needs "move it here or just this once?") or ``failed``
+    with the reason.  Nothing is reported as done unless it was saved."""
+    results = []
+    for item_id in dict.fromkeys(data.item_ids):
+        item = db.get(Item, item_id)
+        if item is None or item.deleted_at is not None:
+            results.append({"item_id": item_id, "status": "failed", "error": "Item not found"})
+            continue
+        name = item.product.name
+        try:
+            with db.begin_nested():
+                res = svc.put_away(db, actor, item, data.container_id, data.location_id, data.mode)
+            db.commit()
+        except (inv.Conflict, inv.NotFound, PlacementError) as err:
+            db.rollback()
+            results.append({"item_id": item_id, "name": name, "status": "failed", "error": str(err)})
+            continue
+        status = "choose" if res["result"] == "choose" else "done"
+        results.append({"item_id": item_id, "name": name, "status": status, "result": res["result"]})
+    summary = {k: sum(1 for r in results if r["status"] == k) for k in ("done", "choose", "failed")}
+    return {"results": results, **summary}
 
 
 class PutAwayIn(BaseModel):
