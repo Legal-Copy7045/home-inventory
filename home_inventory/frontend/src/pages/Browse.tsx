@@ -204,13 +204,13 @@ export function LocationsPage() {
         {me.can_edit && (
           <div className="row wrap">
             <button className="btn" onClick={() => setImporting(true)}><FileSpreadsheet size={18} /> Import from Excel</button>
-            <button className="btn primary" onClick={() => setAdding(true)}><Plus size={18} /> New</button>
+            <button className="btn primary" onClick={() => setAdding(true)}><Plus size={18} /> New top-level location</button>
           </div>
         )}
       </div>
       <p className="muted">Nest places as deep as you like: Property › Shed › Right side › Ground level. Items can live directly in a location (shelves, drawers, workbenches) or in containers.</p>
       <div className="card">
-        {tree.loading && !tree.data ? <Spinner /> : tree.data?.length ? <ul className="tree">{tree.data.map((n) => <TreeNode key={n.id} n={n} />)}</ul> : <Empty>No locations yet. Add them one by one, or use <b>Import from Excel</b> to create your whole hierarchy at once.</Empty>}
+        {tree.loading && !tree.data ? <Spinner /> : tree.data?.length ? <ul className="tree tree-root">{tree.data.map((n) => <TreeNode key={n.id} n={n} />)}</ul> : <Empty>No locations yet. Add them one by one, or use <b>Import from Excel</b> to create your whole hierarchy at once.</Empty>}
       </div>
       {adding && <LocationFormSheet onClose={() => setAdding(false)} onSaved={() => { setAdding(false); tree.reload(); }} />}
       {importing && <LocationImportSheet onClose={() => setImporting(false)} onDone={() => { setImporting(false); tree.reload(); }} />}
@@ -220,19 +220,34 @@ export function LocationsPage() {
 
 const KINDS = ["Property", "Building", "Room", "Area", "Rack", "Shelf", "Drawer", "Cabinet", "Closet", "Workbench", "Tool rack", "Wall"];
 
-function LocationFormSheet({ parentId, loc, onClose, onSaved }: { parentId?: number | null; loc?: LocationDetail; onClose: () => void; onSaved: (id: number) => void }) {
+function LocationFormSheet({ parentId, parentPath, loc, onClose, onSaved }: {
+  parentId?: number | null; parentPath?: string; loc?: LocationDetail; onClose: () => void; onSaved: (id: number) => void;
+}) {
   const [name, setName] = useState(loc?.name || "");
   const [kind, setKind] = useState(loc?.kind || "");
   const [desc, setDesc] = useState(loc?.description || "");
+  // A new place goes inside the one it was started from, unless changed to the top level.
+  const [inside, setInside] = useState<number | null>(parentId ?? null);
   const { busy, run } = useAction();
+  const title = loc ? "Edit location" : inside ? `New location inside ${parentPath || "this location"}` : "New top-level location";
   return (
-    <Sheet title={loc ? "Edit location" : "New location"} onClose={onClose}>
+    <Sheet title={title} onClose={onClose}>
       <form className="stack" onSubmit={async (e) => {
         e.preventDefault();
         const body = { name, kind: kind || null, description: desc || null };
-        const r = loc ? await run(() => api.patch<{ id: number }>(`locations/${loc.id}`, body), "Saved") : await run(() => api.post<{ id: number }>("locations", { ...body, parent_id: parentId ?? null }), "Location added");
+        const r = loc ? await run(() => api.patch<{ id: number }>(`locations/${loc.id}`, body), "Saved") : await run(() => api.post<{ id: number }>("locations", { ...body, parent_id: inside }), "Location added");
         if (r) onSaved(r.id);
       }}>
+        {!loc && (
+          <div className="notice row between wrap" style={{ gap: 8 }}>
+            <span>{inside ? <>Goes inside <b>{parentPath || "this location"}</b>.</> : <>Goes at the <b>top level</b> (like a building or a room of its own).</>}</span>
+            {parentId ? (
+              <button type="button" className="btn small ghost" onClick={() => setInside(inside ? null : parentId)}>
+                {inside ? "Make it top-level instead" : `Put it inside ${parentPath || "this location"}`}
+              </button>
+            ) : null}
+          </div>
+        )}
         <label className="field">Name<input required autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Shelf 2" /></label>
         <label className="field">Kind<input list="kinds" value={kind} onChange={(e) => setKind(e.target.value)} /><datalist id="kinds">{KINDS.map((k) => <option key={k} value={k} />)}</datalist></label>
         <label className="field">Description<textarea rows={2} value={desc} onChange={(e) => setDesc(e.target.value)} /></label>
@@ -380,10 +395,10 @@ export function LocationDetailPage() {
         <ScanReview scan={scan} target={{ kind: "location", id: l.id, name: l.name, items: l.items || [] }}
           onClose={() => { setSheet(null); setScan(null); d.reload(); scans.reload(); }} />
       )}
-      {sheet === "child" && <LocationFormSheet parentId={l.id} onClose={() => setSheet(null)} onSaved={(nid) => nav(`/locations/${nid}`)} />}
+      {sheet === "child" && <LocationFormSheet parentId={l.id} parentPath={l.path} onClose={() => setSheet(null)} onSaved={(nid) => nav(`/locations/${nid}`)} />}
       {sheet === "edit" && <LocationFormSheet loc={l} onClose={() => setSheet(null)} onSaved={() => { setSheet(null); d.reload(); }} />}
       {sheet === "container" && <ContainerFormSheet initial={{ location_id: l.id, container_id: null, label: l.path }} onClose={() => setSheet(null)} onSaved={(c) => nav(`/containers/${c.id}`)} />}
-      {sheet === "move" && <PlacementPicker title="Move this location under…" allowContainers={false} onClose={() => setSheet(null)} onPick={async (p) => { setSheet(null); await run(() => api.patch(`locations/${l.id}`, { parent_id: p.location_id }), "Moved"); d.reload(); }} />}
+      {sheet === "move" && <PlacementPicker title="Move this location under…" allowContainers={false} topLevelLabel="Move it to the top level" onClose={() => setSheet(null)} onPick={async (p) => { setSheet(null); await run(() => api.patch(`locations/${l.id}`, { parent_id: p.location_id }), "Moved"); d.reload(); }} />}
     </div>
   );
 }

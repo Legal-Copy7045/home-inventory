@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.25.2
+
+- **Clearer where a new location goes.** The Locations page button is **New top-level location**. Adding from inside a place (**Add sub-location**) now says "New location inside Basement" and has **Make it top-level instead**, so a room no longer ends up inside the place you happened to be looking at. Moving a location offers **Move it to the top level**. Top-level places in the tree are separated by a line, so one after a long expanded place doesn't look like part of it.
+
 ## 0.25.1
 
 - **Integration:** the voice intents are registered once, so Home Assistant no longer logs "Intent HomeInventory… is being overwritten" (seven warnings) when the integration is set up again, e.g. after a reload or with a second Home Inventory entry. Voice answers were unaffected. Update the integration (HACS).
