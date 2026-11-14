@@ -185,3 +185,17 @@ def maintenance_report(kind: Literal["upcoming", "overdue", "history", "consolid
     from ..services import equipment_hub as hub
 
     return hub.report(db, kind, days=days, since=since)
+
+
+@router.get("/voice/maintenance")
+def voice_maintenance(kind: Literal["due", "parts", "have_parts", "last_done", "attention", "recent"] = "due",
+                      range: Literal["overdue", "today", "week", "month", "upcoming", "all"] = "upcoming",  # noqa: A002
+                      equipment: str | None = Query(None, max_length=200), equipment_id: int | None = None,
+                      task: str | None = Query(None, max_length=200),
+                      actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    """A spoken maintenance answer for the Home Assistant voice intents.
+    ``choose`` lists the equipment to ask about when the words are ambiguous.
+    The same visibility as the app: household equipment only."""
+    from ..services import voice_maintenance as vm
+
+    return vm.answer(db, kind, range, equipment=equipment, equipment_id=equipment_id, task=task)
