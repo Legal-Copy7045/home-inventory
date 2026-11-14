@@ -41,6 +41,7 @@ from .api.routes import router
 from .api.scans import router as scans_router
 from .api.tags import router as tags_router
 from .api.takeaway import router as takeaway_router
+from .api.verify import router as verify_router
 from .auth import AdminBootstrap, HaAdminDirectory, load_or_create_token
 from .config import Settings
 from .db import Database, run_migrations
@@ -157,6 +158,7 @@ def create_app(state: AppState, channel: str) -> FastAPI:
     app.include_router(tags_router)
     app.include_router(replenishment_router)
     app.include_router(takeaway_router)
+    app.include_router(verify_router)
     app.include_router(equipment_router)
 
     def body_limit(path: str) -> int:

@@ -187,6 +187,14 @@ def stats(request: Request, actor: Actor = Depends(current_actor), db: Session =
     from ..services import replenishment as repl_svc
 
     st.update(repl_svc.counts(db))
+    try:
+        from ..services import attention
+
+        att = attention.collect(db, bool(db.info.get("can_view_customers", False)))
+        st["needs_attention"] = att["urgent"] + att["soon"]
+    except Exception:  # noqa: BLE001 - the totals still matter if this part fails
+        _LOGGER.exception("Couldn't work out what needs attention")
+        st["needs_attention"] = None
     if st["last_activity"]:
         st["last_activity"] = st["last_activity"].isoformat()
     return st

@@ -70,7 +70,30 @@ When AI, a barcode lookup or a photo inventory suggests a category, it's matched
 
 ## Shelf check-ups
 
-Inventories drift. The dashboard's **Shelf check-up** card names the place that most needs a fresh photo inventory: places that hold things and were never photographed come first (most things first), then the longest ago. **Check it** opens the place; one photo inventory shows what's new, what's missing and what's moved. Once a month the App also sends a `home_inventory_checkup_due` event to Home Assistant (with the place's name and path), so an automation can remind you on your phone.
+Inventories drift. The dashboard's **Shelf check-up** card names the place that most needs a fresh photo inventory: places that hold things and were never photographed come first (most things first), then the longest ago. **Photo** opens the place for a photo inventory, which shows what's new, what's missing and what's moved; **Check it** starts an inventory check of it (see *Checking inventory*). Either one counts as the place's check-up. Once a month the App also sends a `home_inventory_checkup_due` event to Home Assistant (with the place's name and path), so an automation can remind you on your phone.
+
+## Needs attention
+
+**Needs attention** (top of the menu, and a card on the dashboard when something is urgent or due soon) answers *what do I need to take care of?* in one list, most urgent first:
+- **Urgent:** overdue maintenance, things lent out and overdue back.
+- **Soon:** maintenance due in the next two weeks, parts that upcoming maintenance needs but you don't have, supplies running low, things taken out and not put back for a couple of days, use-by dates, customer equipment in for repair (members and administrators only), and results to review (a manual or document that's been read, or a task whose manual has changed).
+- **When you can:** equipment still on a generic schedule or without its manual, items to finish, places to check, warranties ending within a month, things moved just for now, and background work that stopped.
+
+Each group shows a few entries that link straight to where you act, and **Open** for the full list. It only reads what the App already knows; nothing changes until you act. The Home Assistant integration has a **Needs attention** sensor with the number of urgent and soon entries, for a dashboard badge or an automation.
+
+## Checking inventory
+
+To make sure the records match what's really there, open a location or box and tap **Check this place** (or **Check contents**), or use **Check Inventory** in the menu (it suggests the places checked longest ago, and can check a whole category).
+
+The check lists everything recorded there, including boxes and shelves inside it. For each thing:
+- **✓** it's here;
+- **#** count it: saving corrects the stock to your count;
+- **✕** it's missing: it's marked *missing*;
+- **Scan barcodes** ticks things as you scan them. Something scanned that the records put elsewhere asks whether to **move its record here** or **just note it**.
+
+**Finish check** records who checked, when, and what was found; the place's check-up date updates. Things you didn't check are left exactly as they were: they are never marked missing, and nothing changes behind your back. The next check of the same place shows what's changed since the last one.
+
+Each item shows how recently it was seen (on its page and in checks): *Checked today*, *in the last 30 days*, *in the last year*, *not checked in over a year* or *never checked*, and *(changed since)* when something has been recorded about it after the check. This is for information only: an old date never makes the App treat something as missing.
 
 ## Possible duplicates
 
