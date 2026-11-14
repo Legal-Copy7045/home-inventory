@@ -988,6 +988,7 @@ def item_out(item: Item, r: Resolver, db: Session | None = None, detail: bool = 
         "status": item.status.value,
         "status_note": item.status_note,
         "taken_by": _taker(db, item),
+        "verified_at": item.verified_at.isoformat() if item.verified_at else None,
         "placement": r.describe_item(item),
         "home_placement": r.describe_item_home(item),
         "photo": attachment_out(photo),

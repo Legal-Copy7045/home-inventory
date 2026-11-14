@@ -110,6 +110,9 @@
       },
       "shopping_list_open": {
         "name": "Shopping list items"
+      },
+      "needs_attention": {
+        "name": "Needs attention"
       }
     },
     "binary_sensor": {
