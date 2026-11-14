@@ -109,7 +109,7 @@ export function MaintenancePlanPage() {
         <button className="btn small" onClick={() => window.print()}><Printer size={16} /> Print / PDF</button>
       </div>
       <p className="muted print-only">Generated {new Date().toLocaleString()}</p>
-      {!eq.length && <div className="card"><div className="empty">No equipment is tracked yet. Set an item's category to Equipment and tap <b>Track maintenance</b>.</div></div>}
+      {!eq.length && <div className="card"><div className="empty">No equipment is tracked yet. Open an item such as a mower and tap <b>Manage as equipment</b>.</div></div>}
       {upcoming.length > 0 && (
         <section className="card tight">
           <div className="card-title" style={{ padding: "14px 16px 0" }}><h2>Due now and soon</h2></div>
@@ -241,7 +241,7 @@ export function SeasonPage() {
             ))}
           </div>
         </section>
-      )) : <div className="card"><div className="empty">No equipment with {s.season} jobs. Track maintenance on a machine to see it here.</div></div>}
+      )) : <div className="card"><div className="empty">No equipment with {s.season} jobs. Manage a machine as equipment to see it here.</div></div>}
     </div>
   );
 }

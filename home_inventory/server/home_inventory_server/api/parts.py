@@ -121,6 +121,9 @@ class ManualServiceChoice(_In):
     instructions: str | None = Field(default=None, max_length=5000)
     needs: list[ManualNeed] = Field(default_factory=list, max_length=60)
     page: int | None = Field(default=None, ge=0, le=5000)
+    when: Literal["before_use", "after_use", "periodic", "hours", "seasonal", "annual", "storage", "one_time"] | None = None
+    kind: Literal["inspect", "replace", "service", "clean", "lubricate", "adjust"] | None = None
+    section: str | None = Field(default=None, max_length=120)
 
 
 class ManualSpecChoice(_In):
@@ -133,6 +136,9 @@ class ManualApplyIn(_In):
     parts: list[ManualPartChoice] = Field(default_factory=list, max_length=60)
     services: list[ManualServiceChoice] = Field(default_factory=list, max_length=40)
     specs: list[ManualSpecChoice] = Field(default_factory=list, max_length=40)
+    # The manual's model doesn't clearly match this item's: the person
+    # confirms it applies (otherwise nothing is applied).
+    confirm_model: bool = False
 
 
 # --------------------------------------------------------------------------- helpers

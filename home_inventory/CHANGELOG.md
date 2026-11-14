@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.32.0
+
+Equipment becomes its own part of the app. One database migration (additive, automatic).
+
+- **Equipment section** (menu: Maintenance & Repairs → Equipment): the things you manage, on the same item records as the rest of your inventory. A list with search and filters (type, overdue/due soon, lifecycle), and a page per machine with its status, next and overdue jobs, last service, where its plan comes from, an interactive **maintenance checklist**, parts and consumables (in stock, where they're kept, what to buy), purchase, warranty, engine, costs and sensors. Ordinary supplies (oil, plugs, filters) stay ordinary inventory.
+- **Manage as equipment** on any item, and **Make it an ordinary item** to turn it back without losing its details, tasks or history.
+- **Checklist from the manual**: reading a manual now also records when each job is done (before/after each use, by hours, periodic, seasonal, annual, storage, one-time), what kind of job it is, and the section and page it came from. Each task shows its source; typical preset schedules are labelled **generic**.
+- **Manual model check**: if the manual's model doesn't clearly match the item's, or it covers variants with different schedules, you must confirm it applies before the plan is saved.
+- **Your edits survive a re-read**: reading a manual again updates unchanged tasks in place, keeps tasks you changed, and flags differences for review (**Keep mine** / **Use the manual's**).
+- **Printable checklist PDF** per machine, and **Maintenance reports**: overdue, upcoming, history (with costs) and all equipment.
+- **Lifecycle status** (active, in storage, under repair, loaned out, retired, disposed of) and where it was acquired.
+- Fixed: saving **Edit** on equipment details failed because the form sent read-only fields.
+
 ## 0.31.0
 
 Security and correctness review. **Update the App and the integration.** One database migration (additive, automatic).

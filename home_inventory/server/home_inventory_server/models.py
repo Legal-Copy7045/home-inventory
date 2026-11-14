@@ -487,6 +487,18 @@ class EquipmentProfile(TimestampMixin, Base):
     cycles_entity_id: Mapped[str | None] = mapped_column(String(255))
     specs: Mapped[list[Any] | None] = mapped_column(JSON)
     notes: Mapped[str | None] = mapped_column(Text)
+    # Managed equipment (its own Equipment pages).  Turning it back into an
+    # ordinary item only clears this: details, tasks and history are kept,
+    # so managing it again restores everything.
+    managed: Mapped[bool] = mapped_column(default=True, server_default="1", index=True)
+    # active | storage | under_repair | loaned | retired | disposed
+    lifecycle_status: Mapped[str] = mapped_column(String(20), default="active", server_default="active")
+    acquired_from: Mapped[str | None] = mapped_column(String(200))
+
+
+TASK_GROUPS = ("before_use", "after_use", "periodic", "hours", "seasonal", "annual", "storage", "one_time")
+TASK_KINDS = ("inspect", "replace", "service", "clean", "lubricate", "adjust")
+LIFECYCLE = ("active", "storage", "under_repair", "loaned", "retired", "disposed")
 
 
 class MaintenanceTask(TimestampMixin, Base):
@@ -525,6 +537,24 @@ class MaintenanceTask(TimestampMixin, Base):
     sort_order: Mapped[int] = mapped_column(default=0)
     # Which due point (date/hours/uses) the last "maintenance due" notice was for.
     due_notified_key: Mapped[str | None] = mapped_column(String(80))
+    # Checklist: when it's done (TASK_GROUPS) and what kind of job (TASK_KINDS).
+    schedule_group: Mapped[str | None] = mapped_column(String(20))
+    task_kind: Mapped[str | None] = mapped_column(String(20))
+    # Where it came from: user (added by hand), manual (the manufacturer's
+    # manual, see source_ref/reading_id) or generic (a typical schedule, not
+    # the manufacturer's).
+    source: Mapped[str] = mapped_column(String(12), default="user", server_default="user")
+    source_ref: Mapped[str | None] = mapped_column(String(300))
+    reading_id: Mapped[int | None] = mapped_column(
+        ForeignKey("manual_readings.id", ondelete="SET NULL", name="fk_maintenance_tasks_reading_id"))
+    # approved | needs_review (uncertain model match, or the manual changed
+    # something the user had edited).
+    review_status: Mapped[str] = mapped_column(String(12), default="approved", server_default="approved")
+    # Changed by a person after it was created: a manual read again never
+    # overwrites it, it only records what the manual now says.
+    user_edited: Mapped[bool] = mapped_column(default=False, server_default="0")
+    # What the manual said for this task (title, intervals, page, section).
+    manual_values: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 

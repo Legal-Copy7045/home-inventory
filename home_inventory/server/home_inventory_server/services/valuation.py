@@ -142,7 +142,13 @@ def _put(db: Session, data: dict[str, Any]) -> None:
 
 
 def running(db: Session) -> bool:
-    j = job(db)
+    return is_live(job(db))
+
+
+def is_live(j: dict[str, Any] | None) -> bool:
+    """Whether this job snapshot is still in progress.  Judged from the one
+    snapshot: reading the job again could see it finish in between and make a
+    finished job look interrupted."""
     if not j or j.get("status") not in ("pending", "running"):
         return False
     # A job from before the App restarted never finishes: let a new one start.

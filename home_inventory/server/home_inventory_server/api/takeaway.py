@@ -14,12 +14,12 @@ from sqlalchemy.orm import Session
 
 from ..ai import AIFailed, AIUnavailable, confidence_label
 from ..auth import Actor, current_actor, get_db, require_admin, require_member
-from ..models import Container, Item, Location
+from ..models import Container, Item, ItemStatus, Location
 from ..services import inventory as inv
 from ..services import scans as scans_svc
 from ..services import search as search_svc
 from ..services import takeaway as svc
-from ..services.placement import PlacementError
+from ..services.placement import PlacementError, validate_item_target
 from .routes import _err, _get_or_404, _limit, _resolver, _state
 
 router = APIRouter(prefix="/api/v1")
@@ -87,6 +87,9 @@ def put_away_batch(data: PutAwayBatchIn, actor: Actor = Depends(require_member),
     transaction, and every one gets a result: ``done`` (with how), ``choose``
     (somewhere new: needs "move it here or just this once?") or ``failed``
     with the reason.  Nothing is reported as done unless it was saved."""
+    if data.container_id is None and data.location_id is None:
+        raise HTTPException(422, "Scan a box or shelf label to put things away")
+    _err(validate_item_target, db, data.container_id, data.location_id)  # the one place: checked once
     results = []
     for item_id in dict.fromkeys(data.item_ids):
         item = db.get(Item, item_id)
@@ -94,13 +97,18 @@ def put_away_batch(data: PutAwayBatchIn, actor: Actor = Depends(require_member),
             results.append({"item_id": item_id, "status": "failed", "error": "Item not found"})
             continue
         name = item.product.name
+        if item.status is ItemStatus.on_loan:
+            results.append({"item_id": item_id, "name": name, "status": "failed",
+                            "error": "It's on loan: mark the loan returned first"})
+            continue
         try:
             with db.begin_nested():
                 res = svc.put_away(db, actor, item, data.container_id, data.location_id, data.mode)
             db.commit()
-        except (inv.Conflict, inv.NotFound, PlacementError) as err:
+        except (inv.Conflict, inv.NotFound, PlacementError):
             db.rollback()
-            results.append({"item_id": item_id, "name": name, "status": "failed", "error": str(err)})
+            results.append({"item_id": item_id, "name": name, "status": "failed",
+                            "error": "Couldn't put it away here: open it to put it away by hand"})
             continue
         status = "choose" if res["result"] == "choose" else "done"
         results.append({"item_id": item_id, "name": name, "status": status, "result": res["result"]})
