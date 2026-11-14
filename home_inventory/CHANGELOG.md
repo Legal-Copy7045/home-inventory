@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.27.0
+
+- **Shelf check-ups.** The dashboard suggests the place that most needs a fresh photo inventory (never photographed and fullest first, then the longest ago), with **Check it**. Once a month a `home_inventory_checkup_due` event goes to Home Assistant for a reminder automation. `GET /api/v1/checkups` lists the top places.
+- **Duplicates by photo.** Possible duplicates also finds products whose photos look the same even when their names differ (a small fingerprint of each photo, kept in `/data/photo_hashes.json`). Records that share one photo aren't suggested.
+
 ## 0.26.0
 
 - **"Show me".** When voice answers go to your phone, an item's photo comes with it, so you can spot it on a crowded shelf. (The photo is fetched through Home Assistant, signed in, as you.)

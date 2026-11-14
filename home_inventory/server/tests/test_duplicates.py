@@ -66,3 +66,37 @@ def test_dismissed_pairs_are_not_suggested_again(env):
     viewer = _viewer(env)
     assert viewer.get("/api/v1/products/duplicates").status_code == 403
     assert viewer.post(f"/api/v1/products/{pa}/merge", json={"other_id": pb}).status_code == 403
+
+
+def test_products_whose_photos_look_the_same(env):
+    import io
+
+    from PIL import Image, ImageDraw
+
+    def photo(shift=0, colour=(200, 40, 40)):
+        img = Image.new("RGB", (320, 240), (240, 240, 240))
+        d = ImageDraw.Draw(img)
+        d.rectangle((60 + shift, 50, 260 + shift, 190), fill=colour)
+        d.ellipse((100 + shift, 80, 160 + shift, 140), fill=(20, 20, 20))
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", quality=70 + shift)
+        return buf.getvalue()
+
+    u = env.admin
+    case = u.item("Black hard case")
+    dewalt = u.item("DeWalt carry box")
+    other = u.item("Garden hose")
+    u.upload(photo(0), item_id=case["id"])
+    u.upload(photo(2), item_id=dewalt["id"])  # the same thing, photographed again
+    blank = Image.new("RGB", (320, 240), (240, 240, 240))
+    ImageDraw.Draw(blank).line((0, 0, 320, 240), fill=(0, 120, 0), width=30)
+    buf = io.BytesIO()
+    blank.save(buf, "JPEG")
+    u.upload(buf.getvalue(), item_id=other["id"])
+    pairs = u.ok("get", "/api/v1/products/duplicates")
+    by_reason = [(sorted(x["name"] for x in p["products"]), p["reason"]) for p in pairs]
+    assert (["Black hard case", "DeWalt carry box"], "Photos look the same") in by_reason
+    assert not any("Garden hose" in names for names, _ in by_reason)
+    # A second look uses the stored fingerprints
+    assert (env.settings.data_dir / "photo_hashes.json").exists()
+    assert u.ok("get", "/api/v1/products/duplicates") == pairs

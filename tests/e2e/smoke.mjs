@@ -474,6 +474,11 @@ await page.getByText("Merged Kitchenware into Kitchen & Dining").first().waitFor
 await shot("15f-categories");
 if ((await api(`items/${whisk.id}`)).category !== "Kitchen & Dining") throw new Error("category merge failed");
 
+// Dashboard: this month's shelf check-up
+await page.goto(BASE);
+await page.getByText("Shelf check-up").waitFor();
+await page.getByRole("link", { name: "Check it" }).waitFor();
+
 // Admin → Voice history
 await api("voice/history", { method: "POST", data: { source: "alexa", device: "Kitchen Echo", intent: "HomeInventoryWhereIs", slots: { item: "flux capacitor" }, answer: "I couldn't find flux capacitor in your inventory." } });
 await page.goto(BASE + "#/voice-history");
