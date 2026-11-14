@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import audit
@@ -203,3 +204,73 @@ def item_jobs(item_id: int, actor: Actor = Depends(require_member), db: Session 
     if db.get(ItemOwner, item_id) is None:
         return []
     return [cust.job_out(db, j) for j in cust.list_jobs(db, None, None, item_id)]
+
+
+@router.get("/repair-jobs/by-number/{number}")
+def job_by_number(number: str, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """For a job ticket's QR code: the job with this number."""
+    job = db.scalar(select(RepairJob).where(func.upper(RepairJob.number) == number.strip().upper(), RepairJob.deleted_at.is_(None)))
+    if job is None:
+        raise HTTPException(404, "Repair job not found")
+    return {"id": job.id, "number": job.number}
+
+
+@router.get("/repair-jobs/{job_id}/ticket.pdf")
+def job_ticket(job_id: int, request: Request, base: str | None = None, actor: Actor = Depends(require_member),
+               db: Session = Depends(get_db)):
+    """A tag for the machine: job number, customer, problem and a QR code
+    that opens the job."""
+    import io
+    from datetime import date as _date
+
+    from reportlab.lib.units import mm
+    from reportlab.lib.utils import ImageReader
+    from reportlab.pdfgen import canvas
+
+    from ..services import labels as labels_svc
+    from .routes import _qr_base, _state
+
+    job = _job(db, job_id)
+    out = cust.job_out(db, job, detail=True)
+    root = labels_svc.clean_base_url(_qr_base(db, _state(request), base))
+    payload = f"{root}/r/{job.number}" if root else f"HINV:R:{job.number}"
+    w, h = 100 * mm, 62 * mm
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=(w, h))
+    c.setTitle(f"Job ticket {job.number}")
+    qr = 40 * mm
+    c.drawImage(ImageReader(io.BytesIO(labels_svc.qr_png(payload, scale=8))), w - qr - 4 * mm, h - qr - 4 * mm, qr, qr)
+    x, y = 5 * mm, h - 10 * mm
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(x, y, job.number)
+    lines = [("Helvetica-Bold", 10, out["customer"]["name"] or ""),
+             ("Helvetica", 9, out["customer"].get("phone") or ""),
+             ("Helvetica", 9, out["item"]["name"] or ""),
+             ("Helvetica", 8, f"In: {out['received_on']}")]
+    y -= 7 * mm
+    for font, size, text in lines:
+        if text:
+            c.setFont(font, size)
+            c.drawString(x, y, str(text)[:34])
+            y -= size + 3
+    problem = (out.get("reported_problem") or "").replace("\n", " ")
+    if problem:
+        c.setFont("Helvetica-Oblique", 8)
+        words, line, yy = problem.split(), "", 14 * mm
+        for wd in words:
+            if c.stringWidth(f"{line} {wd}".strip(), "Helvetica-Oblique", 8) > w - 10 * mm:
+                c.drawString(x, yy, line)
+                yy -= 10
+                line = wd
+                if yy < 4 * mm:
+                    break
+            else:
+                line = f"{line} {wd}".strip()
+        if yy >= 4 * mm and line:
+            c.drawString(x, yy, line)
+    c.setFont("Helvetica", 6)
+    c.drawRightString(w - 4 * mm, 3 * mm, f"Printed {_date.today().isoformat()}")
+    c.showPage()
+    c.save()
+    return Response(buf.getvalue(), media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="ticket-{job.number}.pdf"'})

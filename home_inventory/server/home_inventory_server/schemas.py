@@ -358,6 +358,9 @@ class CategoryIn(_In):
 class SettingsIn(_In):
     currency: str | None = Field(default=None, min_length=3, max_length=3)
     qr_base_url: str | None = Field(default=None, max_length=500)
+    # Printed at the top of repair invoices.
+    business_name: str | None = Field(default=None, max_length=200)
+    business_details: str | None = Field(default=None, max_length=1000)
 
     @field_validator("qr_base_url")
     @classmethod
