@@ -3,7 +3,8 @@
 # Copy this file to <config>/custom_sentences/en/home_inventory.yaml (the
 # folder next to configuration.yaml), then restart Home Assistant or run the
 # "Conversation: Reload" action. Needs the Home Inventory integration 0.16.0+
-# ("where does … go" needs 0.22.0+, "I've moved … to …" 0.23.0+, "what's in …" 0.26.0+).
+# ("where does … go" needs 0.22.0+, "I've moved … to …" 0.23.0+, "what's in …" 0.26.0+,
+# the maintenance questions with equipment, ranges, parts and history 0.33.0+).
 # Siri uses these too when your Shortcut passes your words to Assist.
 language: "en"
 intents:
@@ -71,14 +72,78 @@ intents:
         slots:
           choice: "no"
 
-  # "What maintenance is due?" - overdue jobs and those due in the next two weeks.
+  # "Tell me what upcoming maintenance I need to perform [on the Toro lawn mower]."
+  # "What maintenance is overdue?" / "What maintenance do I need to do this week?"
+  # Answered from the real schedules, most urgent first; asks which machine
+  # when the name could mean more than one.
   HomeInventoryMaintenanceDue:
     data:
       - sentences:
-          - "what maintenance is due"
-          - "what maintenance do I need to do"
+          - "[tell me] what [upcoming] maintenance (do I need|I need|have I got) to (do|perform)"
+          - "what maintenance is (due|coming up)"
           - "what (needs|is due for) servicing"
           - "is anything due for (maintenance|servicing|a service)"
+          - "what('s| is) the upcoming maintenance"
+        slots:
+          range: "upcoming"
+      - sentences:
+          - "[tell me] what [upcoming] maintenance (do I need|I need|have I got) to (do|perform) on [the|my] {equipment}"
+          - "what maintenance is (due|needed|coming up) (on|for) [the|my] {equipment}"
+          - "what does [the|my] {equipment} need"
+          - "is [the|my] {equipment} due for (maintenance|a service)"
+        slots:
+          range: "upcoming"
+      - sentences:
+          - "what maintenance is overdue"
+          - "is any maintenance overdue"
+          - "what('s| is) overdue for (maintenance|servicing)"
+        slots:
+          range: "overdue"
+      - sentences:
+          - "what maintenance is overdue (on|for) [the|my] {equipment}"
+        slots:
+          range: "overdue"
+      - sentences:
+          - "what maintenance (do I need to do|is due) {range}"
+          - "what maintenance (do I need to do|is due) {range} (on|for) [the|my] {equipment}"
+
+  # "What parts do I need for the next mower service?"
+  HomeInventoryMaintenanceParts:
+    data:
+      - sentences:
+          - "what parts do I need for the next [service (on|of|for)] [the|my] {equipment} [service]"
+          - "what (parts|do I need) (to service|for servicing) [the|my] {equipment}"
+
+  # "Do I have the parts I need to service the snowblower?"
+  HomeInventoryHaveParts:
+    data:
+      - sentences:
+          - "do I have [the|all the|everything] [parts] I need to service [the|my] {equipment}"
+          - "have I got [the|everything] [parts] (to service|for) [the|my] {equipment}"
+          - "do I have the parts for [the|my] {equipment} [service]"
+
+  # "When did I last change the oil in the mower?"
+  HomeInventoryLastService:
+    data:
+      - sentences:
+          - "when did (I|we) last {task} (in|on|of|for) [the|my] {equipment}"
+          - "when (was|were) [the|my] {equipment} {task} last"
+          - "when did (I|we) last {task}"
+
+  # "What equipment needs attention?"
+  HomeInventoryNeedsAttention:
+    data:
+      - sentences:
+          - "what equipment needs (attention|servicing|maintenance)"
+          - "does any(thing| equipment) need attention"
+          - "which (machines|equipment) need (attention|servicing)"
+
+  # "What maintenance have I completed recently?"
+  HomeInventoryRecentMaintenance:
+    data:
+      - sentences:
+          - "what maintenance have (I|we) (completed|done) [recently|lately]"
+          - "what (servicing|maintenance) (was|has been) done recently"
 
   # "What's running low?" - supplies below their minimum.
   HomeInventoryRunningLow:
@@ -100,6 +165,18 @@ intents:
           - "who('s| has) borrowed [my] (stuff|things)"
 
 lists:
+  equipment:
+    wildcard: true
+  task:
+    wildcard: true
+  range:
+    values:
+      - in: "today"
+        out: "today"
+      - in: "this week"
+        out: "week"
+      - in: "this month"
+        out: "month"
   item:
     wildcard: true
   choice:
