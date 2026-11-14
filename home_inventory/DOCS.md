@@ -263,7 +263,10 @@ If you repair equipment for other people:
 3. Record its condition when received and the reported problem.
 4. Move the job through *received → awaiting diagnosis → awaiting approval → waiting for parts → in progress → ready for pickup → returned*.
 5. Use **Record work** to log work and parts. These also go into the equipment's own service history, so return visits keep the full record.
-6. **Work order** gives a printable summary with charges. It's a work record, not an invoice.
+6. **Work order** gives a printable summary with charges. **Invoice** gives the same as an invoice, headed with your business name and details (set them in **Settings → Preferences**). Parts taken from your stock for a job are charged at what they cost you (their recorded price), unless you enter a price.
+7. **Job ticket** prints a small tag (100 × 62 mm) for the machine: job number, customer, phone, the problem and a QR code. Scanning it with a phone, or in the Scan page, opens the job.
+
+**Messages to customers.** In the Home Inventory integration's options, choose a notify action that reaches customers (an SMS gateway, or the SMTP email integration), whether to use their phone or email, and which changes to send (by default *ready for collection*). The customer then gets, for example, "Hi Pat, your Toro mower (job RJ-0012) is ready for collection." The integration reads the customer's number or address from the App only when it sends a message; Home Assistant events still carry no customer details.
 
 Customer equipment:
 - is shown with a purple **Customer** badge everywhere;

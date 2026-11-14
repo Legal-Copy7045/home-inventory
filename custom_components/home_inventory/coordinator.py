@@ -14,7 +14,17 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import InventoryAuthError, InventoryClient, InventoryError
-from .const import CONF_MAINTENANCE_NOTIFY, CONF_NOTIFY_SERVICE, DOMAIN, EVENT_TYPES, NAME
+from .const import (
+    CONF_CUSTOMER_NOTIFY_SERVICE,
+    CONF_CUSTOMER_NOTIFY_STATUSES,
+    CONF_CUSTOMER_NOTIFY_TO,
+    CONF_MAINTENANCE_NOTIFY,
+    CONF_NOTIFY_SERVICE,
+    CUSTOMER_STATUS_TEXT,
+    DOMAIN,
+    EVENT_TYPES,
+    NAME,
+)
 
 _LOGGER = logging.getLogger(__name__)
 SIGNAL_CONNECTION = f"{DOMAIN}_connection"
@@ -99,6 +109,8 @@ class InventoryCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.hass.bus.async_fire(f"{DOMAIN}_{etype}", data)
         if etype == "maintenance_due":
             self._notify_maintenance(data)
+        if etype == "repair_job_status":
+            self._notify_customer(data)
         self.hass.async_create_task(self.async_request_refresh())
 
     @callback
@@ -116,5 +128,42 @@ class InventoryCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 )
             except Exception as err:  # noqa: BLE001 - a notice must never break the event stream
                 _LOGGER.warning("Couldn't send the maintenance notice to notify.%s: %s", service, err)
+
+        self.hass.async_create_task(send())
+
+
+    @callback
+    def _notify_customer(self, data: dict[str, Any]) -> None:
+        """Tell the customer their repair has moved on, if that's set up.
+
+        Events carry no customer details, so the job (with the contact) is
+        read from the App here, only when a message is going to be sent."""
+        opts = self.config_entry.options if self.config_entry else {}
+        service = opts.get(CONF_CUSTOMER_NOTIFY_SERVICE)
+        status = data.get("status")
+        if not service or not data.get("job_id") or status not in CUSTOMER_STATUS_TEXT \
+                or status not in (opts.get(CONF_CUSTOMER_NOTIFY_STATUSES) or ["completed"]):
+            return
+
+        async def send() -> None:
+            try:
+                job = await self.client.request("GET", f"repair-jobs/{int(data['job_id'])}")
+            except InventoryError as err:
+                _LOGGER.warning("Couldn't read repair job %s for the customer message: %s", data.get("number"), err)
+                return
+            cust = job.get("customer") or {}
+            to = cust.get("email") if opts.get(CONF_CUSTOMER_NOTIFY_TO) == "email" else cust.get("phone")
+            if not to:
+                return
+            first = (cust.get("name") or "").split(" ")[0]
+            thing = (job.get("item") or {}).get("name") or "equipment"
+            greeting = f"Hi {first}, your" if first else "Your"
+            message = f"{greeting} {thing} (job {job.get('number')}) {CUSTOMER_STATUS_TEXT[status]}."
+            try:
+                await self.hass.services.async_call(
+                    "notify", service, {"title": f"Repair {job.get('number')}", "message": message, "target": [to]},
+                    blocking=False)
+            except Exception as err:  # noqa: BLE001 - a message must never break the event stream
+                _LOGGER.warning("Couldn't send the customer message with notify.%s: %s", service, err)
 
         self.hass.async_create_task(send())
