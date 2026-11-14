@@ -96,6 +96,17 @@ class InventoryClient:
         except (aiohttp.ClientError, asyncio.TimeoutError) as err:
             raise InventoryConnectionError(f"Cannot reach the Home Inventory App at {self.base_url}: {err}") from err
 
+    async def fetch_bytes(self, path: str, user: User | None = None, timeout: float = 20) -> tuple[bytes, str]:
+        """A file from the App (a photo), with its content type."""
+        url = f"{self.base_url}/api/v1/{path.lstrip('/')}"
+        try:
+            async with self._session.get(url, headers=self._headers(user), timeout=aiohttp.ClientTimeout(total=timeout)) as resp:
+                if resp.status >= 400:
+                    raise InventoryApiError(resp.status, "Not available")
+                return await resp.read(), resp.headers.get("Content-Type", "application/octet-stream")
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            raise InventoryConnectionError(str(err)) from err
+
     async def health(self) -> dict[str, Any]:
         try:
             async with self._session.get(f"{self.base_url}/api/health", timeout=aiohttp.ClientTimeout(total=10)) as resp:

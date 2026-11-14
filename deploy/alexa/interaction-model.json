@@ -123,6 +123,33 @@
           ]
         },
         {
+          "name": "HomeInventoryWhatsIn",
+          "slots": [
+            {
+              "name": "place",
+              "type": "HomeInventoryPlace"
+            }
+          ],
+          "samples": [
+            "what's in {place}",
+            "what's in the {place}",
+            "what is in {place}",
+            "what is in the {place}",
+            "what's inside {place}",
+            "what's inside the {place}",
+            "what's on {place}",
+            "what's on the {place}",
+            "what is on {place}",
+            "what is on the {place}",
+            "what do I have in {place}",
+            "what do I have in the {place}",
+            "what do I keep in the {place}",
+            "to list what's in {place}",
+            "to list what's in the {place}",
+            "what's in my {place}"
+          ]
+        },
+        {
           "name": "HomeInventoryChoose",
           "slots": [
             {

@@ -23,7 +23,7 @@ def test_every_intent_is_one_the_integration_handles():
     from custom_components.home_inventory import intent as hi
 
     names = set(_intents().intents)
-    assert names == {hi.INTENT_WHERE_IS, hi.INTENT_GOES, hi.INTENT_MOVE, hi.INTENT_CHOOSE, hi.INTENT_MAINTENANCE, hi.INTENT_LOW_STOCK, hi.INTENT_ON_LOAN}
+    assert names == {hi.INTENT_WHERE_IS, hi.INTENT_GOES, hi.INTENT_MOVE, hi.INTENT_WHATS_IN, hi.INTENT_CHOOSE, hi.INTENT_MAINTENANCE, hi.INTENT_LOW_STOCK, hi.INTENT_ON_LOAN}
 
 
 @pytest.mark.parametrize(("text", "intent", "slots"), [
@@ -41,6 +41,8 @@ def test_every_intent_is_one_the_integration_handles():
     ("that I have moved my engine oil to container number 5", "HomeInventoryMove", {"item": "engine oil", "place": "container number 5"}),
     ("I put the drill in the garage", "HomeInventoryMove", {"item": "drill", "place": "garage"}),
     ("the hedge trimmer is now in the shed", "HomeInventoryMove", {"item": "hedge trimmer", "place": "shed"}),
+    ("what's in box 5", "HomeInventoryWhatsIn", {"place": "box 5"}),
+    ("what's on the top shelf", "HomeInventoryWhatsIn", {"place": "top shelf"}),
     ("yes", "HomeInventoryChoose", {"choice": "yes"}),
     ("none of them", "HomeInventoryChoose", {"choice": "no"}),
     ("the second one", "HomeInventoryChoose", {"choice": "second"}),

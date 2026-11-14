@@ -24,6 +24,7 @@ Copy [`deploy/assist/custom_sentences/en/home_inventory.yaml`](../deploy/assist/
 | `HomeInventoryWhereIs` | "Where is the hedge trimmer?" | where it is (or asks which one) |
 | `HomeInventoryWhereDoesItGo` | "Where does the hammer go?", "Tell me where to put the engine oil" | where it belongs, for putting it back (and where it is now, if it's out) |
 | `HomeInventoryMove` | "I've moved the engine oil to small engine repair", "…to container number 5" | moves it there, asking which one or "did you mean…?" when unclear |
+| `HomeInventoryWhatsIn` | "What's in box 5?", "What's on the top shelf?" | the things, boxes and places recorded there |
 | `HomeInventoryChoose` | "The second one", "yes", "no" | the answer for that one |
 | `HomeInventoryMaintenanceDue` | "What maintenance is due?" | overdue jobs and those due in two weeks |
 | `HomeInventoryRunningLow` | "What's running low?" | supplies below their minimum |
@@ -46,6 +47,12 @@ If your words match several different things, it asks: *"I found 3 things for ho
 - The new place becomes the item's place (a permanent move). It is recorded in Activity history; to move it back, say so the same way, or use Move on the item page.
 
 Moving needs a Home Inventory member (not a viewer); the voice assistant uses the Home Assistant user it runs as.
+
+**What's in a box or on a shelf.** "What's in box 5?", "What's on the top shelf?", "Alexa, ask Home Inventory what's in container number 12". Places are found the same forgiving way as for moving. It reads out what's recorded there (the first five of each kind and how many more), and asks which one if two places have the same name.
+
+**See it on your phone ("show me").** With answers sent to your phone (the integration's options), a notification for an item with a photo shows the photo, so you can spot it on a crowded shelf. Tap it to open Home Assistant.
+
+**Names it didn't recognise.** **Admin → Voice history** lists names asked for that weren't found ("strimmer"), with the items they probably meant. **Another name for String trimmer** adds it, and voice and search find the item by that name from then on.
 
 Three more questions need no item name: **"What maintenance is due?"** (overdue jobs and those due in the next two weeks), **"What's running low?"** (supplies below their minimum) and **"What's lent out?"** (and to whom). Long lists read the first five and say how many more.
 
@@ -170,7 +177,7 @@ The forwarder says what's wrong out loud:
 
 ### Updating the skill
 
-When a release changes `deploy/alexa/` (0.22.1 for "where does it go?", 0.23.0 for "I've moved…" and yes/no):
+When a release changes `deploy/alexa/` (0.22.1 for "where does it go?", 0.23.0 for "I've moved…" and yes/no, 0.26.0 for "what's in…"):
 
 1. Developer console → your skill → **Build → Interaction Model → JSON Editor**: paste the new `deploy/alexa/interaction-model.json`, **Save**, **Build skill**.
 2. **Code** tab: replace `lambda_function.py` with the new `deploy/alexa/lambda_function.py`, put your `HA_URL`, `HA_TOKEN` and `SKILL_ID` back near the top (Alexa-hosted), **Save**, **Deploy**. With your own AWS Lambda, paste the whole file; the settings stay in its environment variables.
