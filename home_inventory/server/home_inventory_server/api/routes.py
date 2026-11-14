@@ -160,6 +160,14 @@ def dashboard(request: Request, actor: Actor = Depends(current_actor), db: Sessi
     return stats_svc.dashboard(db, s.warranty_notice_days, s.expiry_notice_days)
 
 
+@router.get("/checkups")
+def checkups_due(limit: int = 10, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    """Places that most need a fresh photo inventory, never-checked first."""
+    from ..services import checkups
+
+    return {"places": checkups.due(db, max(1, min(limit, 50)))}
+
+
 @router.get("/stats")
 def stats(request: Request, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
     s = _state(request).settings
@@ -851,9 +859,11 @@ def bulk_delete_items(data: BulkDeleteIn, actor: Actor = Depends(require_member)
 
 
 @router.get("/products/duplicates")
-def product_duplicates(actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
-    """Pairs of products that look like the same thing, most likely first."""
-    return dup_svc.find(db)
+def product_duplicates(request: Request, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Pairs of products that look like the same thing (barcode, model, name
+    or photo), most likely first."""
+    st = _state(request)
+    return dup_svc.find(db, media=st.media, data_dir=st.settings.data_dir)
 
 
 class MergeIn(BaseModel):

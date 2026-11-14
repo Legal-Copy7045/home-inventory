@@ -68,6 +68,14 @@ Items choose their category from a fixed list; you can't type a new one on an it
 
 When AI, a barcode lookup or a photo inventory suggests a category, it's matched to yours: the same name spelled differently ("kitchen and dining") or an also-known-as name. If there's no match the item is left without a category and the form says what was suggested; administrators can add it from the category list with **＋ New category…**.
 
+## Shelf check-ups
+
+Inventories drift. The dashboard's **Shelf check-up** card names the place that most needs a fresh photo inventory: places that hold things and were never photographed come first (most things first), then the longest ago. **Check it** opens the place; one photo inventory shows what's new, what's missing and what's moved. Once a month the App also sends a `home_inventory_checkup_due` event to Home Assistant (with the place's name and path), so an automation can remind you on your phone.
+
+## Possible duplicates
+
+**Admin → Possible duplicates** suggests pairs of products that are probably the same thing: the same barcode, the same maker and model, similar names, or **photos that look the same** even when the names differ ("Black hard case" and "DeWalt carry box"). **Merge** keeps one and moves everything from the other onto it; **Not a duplicate** stops suggesting that pair.
+
 ## Quick photos
 
 To inventory a box fast, open the container (or location) and tap **Quick photos**. Take one photo per item; each is saved into that box at once as "Item to identify". Come back later via **To sort & finish** in the menu (the *To finish* tab), which shows the photo beside the details form. **Save & next** moves on to the next one. If AI is configured, a suggested name and category is already filled in. The live shutter needs Home Assistant over https; otherwise the button opens your phone's camera app.

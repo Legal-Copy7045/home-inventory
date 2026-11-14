@@ -23,6 +23,29 @@ export function SearchBox({ hero, initial = "" }: { hero?: boolean; initial?: st
   );
 }
 
+type Checkup = { type: "location" | "container"; id: number; name: string; path: string; things: number; last_checked: string | null; days: number | null };
+
+/** This month's shelf check-up: the place that most needs a fresh photo. */
+function CheckupCard() {
+  const c = useApi(() => api.get<{ places: Checkup[] }>("checkups", { limit: 3 }), []);
+  const p = c.data?.places[0];
+  if (!p || (p.days !== null && p.days < 30)) return null;
+  const to = p.type === "container" ? `/containers/${p.id}` : `/locations/${p.id}`;
+  return (
+    <div className="card" style={{ marginBottom: 14 }}>
+      <div className="row between wrap" style={{ gap: 8 }}>
+        <div>
+          <b>Shelf check-up</b>
+          <div className="s">{p.path} · {p.things} thing{p.things === 1 ? "" : "s"} · {p.days === null ? "never photographed" : `last photographed ${p.days} days ago`}</div>
+          <div className="s muted">One photo inventory shows what's new, missing or moved.</div>
+        </div>
+        <Link className="btn small primary" to={to}><Camera size={16} /> Check it</Link>
+      </div>
+      {(c.data?.places.length ?? 0) > 1 && <div className="s" style={{ marginTop: 6 }}>Next: {c.data!.places.slice(1).map((x) => x.name).join(", ")}</div>}
+    </div>
+  );
+}
+
 export function DashboardPage() {
   const me = useMe();
   const d = useApi(() => api.get<Dashboard>("dashboard"), []);
@@ -52,6 +75,7 @@ export function DashboardPage() {
             {s.low_stock > 0 && <Link className="stat alert" to="/loans?tab=stock"><div className="v">{s.low_stock}</div><div className="l">Running low</div></Link>}
             {s.total_value > 0 && <div className="stat"><div className="v" style={{ fontSize: "1.2rem" }}>{money(s.total_value, s.currency)}</div><div className="l">Recorded value</div></div>}
           </div>
+          {me.can_edit && <CheckupCard />}
           {d.data!.loans.length > 0 && (
             <Section title="Out on loan" action={<Link to="/loans">All</Link>} tight>
               <div className="list">{d.data!.loans.map((l) => <ItemRow key={l.id} item={l.item} right={<div className="s" style={{ textAlign: "right" }}>{l.borrower}<br />{l.expected_return ? `due ${fmtDate(l.expected_return)}` : ""}</div>} />)}</div>
