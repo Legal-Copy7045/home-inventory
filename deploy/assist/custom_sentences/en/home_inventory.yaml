@@ -3,7 +3,7 @@
 # Copy this file to <config>/custom_sentences/en/home_inventory.yaml (the
 # folder next to configuration.yaml), then restart Home Assistant or run the
 # "Conversation: Reload" action. Needs the Home Inventory integration 0.16.0+
-# ("where does … go" needs 0.22.0+, "I've moved … to …" 0.23.0+).
+# ("where does … go" needs 0.22.0+, "I've moved … to …" 0.23.0+, "what's in …" 0.26.0+).
 # Siri uses these too when your Shortcut passes your words to Assist.
 language: "en"
 intents:
@@ -33,6 +33,14 @@ intents:
           - "where (do|should) I put [the|my] {item} (back|away)"
           - "tell me where to (put|keep|store) [the|my] {item} [back|away]"
           - "where (does|do) [the|my] {item} get put away"
+
+  # "What's in box 5?" / "What's on the top shelf?"
+  HomeInventoryWhatsIn:
+    data:
+      - sentences:
+          - "what('s| is) (in|inside|on) [the|my] {place}"
+          - "what do I (have|keep) (in|on) [the|my] {place}"
+          - "list (what's|what is) (in|on) [the|my] {place}"
 
   # "I've moved the engine oil to small engine repair" / "...to container number 5".
   # Asks which one when unclear ("Did you mean...?" takes yes or no).

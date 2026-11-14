@@ -34,7 +34,8 @@ SKILL_ID = os.environ.get("SKILL_ID", "")  # amzn1.ask.skill.xxxxxxxx
 TIMEOUT = 6  # seconds; Alexa gives up after about 8
 # Intents answered by Home Assistant, and the slots each one needs.
 FORWARDED = {"HomeInventoryWhereIs": ("item",), "HomeInventoryWhereDoesItGo": ("item",),
-             "HomeInventoryMove": ("item", "place"), "HomeInventoryChoose": ("choice",),
+             "HomeInventoryMove": ("item", "place"), "HomeInventoryWhatsIn": ("place",),
+             "HomeInventoryChoose": ("choice",),
              "HomeInventoryMaintenanceDue": (), "HomeInventoryRunningLow": (), "HomeInventoryOnLoan": ()}
 
 
@@ -132,7 +133,8 @@ def lambda_handler(event: dict, context=None) -> dict:
     if name == "AMAZON.HelpIntent":
         return _say("Ask where something is kept, for example: where is the hedge trimmer, or where something goes "
                     "back, for example: where does the hammer go. Tell me when you move something, for example: I've moved "
-                    "the engine oil to the garage. You can also ask what maintenance is due, "
+                    "the engine oil to the garage. Ask what's in a box, for example: what's in box 5. "
+                    "You can also ask what maintenance is due, "
                     "what's running low, or what's lent out.", end=False,
                     reprompt="What are you looking for?")
     if name in ("AMAZON.StopIntent", "AMAZON.CancelIntent", "AMAZON.NavigateHomeIntent"):

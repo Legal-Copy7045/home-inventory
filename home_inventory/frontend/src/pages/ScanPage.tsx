@@ -5,7 +5,7 @@ import { api, labelRef, type BarcodeResult, type Container, type Item, type QrTa
 import { ScanWithPhone, nfcSupport } from "./Tags";
 import { PlacementPicker } from "../components/PlacementPicker";
 import { Scanner, type Detection } from "../components/Scanner";
-import { PhotoFind, PutAwaySheet, TakenStrip, takeItem, useTaken, type Place, type TakenItem } from "../components/TakeAway";
+import { PhotoFind, PutAwaySheet, WhichPlace, TakenStrip, takeItem, useTaken, type Place, type TakenItem } from "../components/TakeAway";
 import { Empty, Sheet, Thumb, useAction, useMe, useToast } from "../components/ui";
 
 type UseChoice = { item_id: number; name: string; quantity: number; path: string };
@@ -178,6 +178,7 @@ export default function ScanPage() {
         <PhotoFind here={container ? { container_id: container.id, location_id: null, label: container.name } : null}
                    onChanged={() => { taken.reload(); if (container) loadContainer(container.id); }} />
       )}
+      {me.can_edit && me.app.ai.enabled && !container && <WhichPlace />}
 
       {container && (
         <div className="card tight" style={{ marginTop: 14 }}>
