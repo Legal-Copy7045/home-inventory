@@ -103,6 +103,25 @@ class Resolver:
             c.id for c in self.containers.values() if self.container_effective_location_id(c.id) in loc_ids
         }
 
+    def room(self, container_id: int | None, location_id: int | None) -> Location | None:
+        """The room a place is in: the first level of the location tree where
+        there's a choice.  With one top-level place ("Home"), that's the level
+        under it (Kitchen, Garage); with several, the top level itself."""
+        base = self.container_effective_location_id(container_id) if container_id else location_id
+        chain = self.location_chain(base)
+        if not chain:
+            return None
+        roots = [loc for loc in self.locations.values() if loc.parent_id is None and loc.deleted_at is None]
+        return chain[1] if len(roots) == 1 and len(chain) > 1 else chain[0]
+
+    def room_index(self, room: Location) -> int:
+        """A stable number for a room (its order of creation among rooms), so
+        each room keeps its colour from one print to the next."""
+        roots = [loc for loc in self.locations.values() if loc.parent_id is None and loc.deleted_at is None]
+        parent = roots[0].id if len(roots) == 1 and room.parent_id == roots[0].id else None
+        rooms = sorted(loc.id for loc in self.locations.values() if loc.parent_id == parent)
+        return rooms.index(room.id) if room.id in rooms else room.id
+
     # -- descriptions ----------------------------------------------------
     def describe(self, container_id: int | None, location_id: int | None) -> dict[str, Any]:
         containers = self.container_chain(container_id) if container_id else []
