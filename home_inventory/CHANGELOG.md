@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.34.0
+
+Needs attention, and checking inventory against what's really there. **Update the App and the integration.** One database migration (additive, automatic).
+
+- **Needs attention** (menu and dashboard card): overdue and upcoming maintenance, parts upcoming maintenance needs, low stock, things taken out or lent and overdue, use-by dates, customer repairs (members and administrators), results to review, equipment without its manufacturer's schedule, items to finish, places to check and warranties ending: grouped by urgency, each linking to where to act. A **Needs attention** sensor in Home Assistant counts the urgent and soon entries.
+- **Check inventory**: check a place, box or category: tick what's here (or scan barcodes), recount, mark missing, and record things found there from elsewhere (move their record here, or just note it). Checks are kept with who and when, count as the place's check-up, and the next check shows what's changed since. Things not checked are never changed.
+- **How recently it was seen** on each item and in checks (*checked today*, *in the last 30 days*, … *never checked*, *changed since*). Information only.
+- Security: two voice phrase splitters ("…in the mower", "…is now in the shed") no longer use regular expressions that could run slowly on long input (CodeQL).
+
 ## 0.33.0
 
 Voice maintenance questions. **Update the App and the integration, copy the new Assist sentences file, and update the Alexa skill (interaction model and forwarder).** No database changes.
