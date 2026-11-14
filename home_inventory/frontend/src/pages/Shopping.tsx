@@ -87,7 +87,7 @@ function CapabilityNote({ caps, label }: { caps: Capabilities | null; label: str
 
 export function ShoppingPage() {
   const me = useMe();
-  const [tab, setTab] = useState<"needs" | "list">("needs");
+  const [tab, setTab] = useState<"needs" | "buy" | "list">("needs");
   const dash = useApi(() => api.get<Dashboard>("replenishment"), [tab]);
   const list = useApi(() => api.get<ShoppingList>("shopping-list"), [tab]);
   const [selected, setSelected] = useState<number[]>([]);
@@ -134,8 +134,10 @@ export function ShoppingPage() {
     <div className="page">
       <div className="tabs">
         <button className={tab === "needs" ? "active" : ""} onClick={() => setTab("needs")}>Needs restocking{dash.data ? ` (${dash.data.below_minimum.length + dash.data.approaching.length})` : ""}</button>
+        <button className={tab === "buy" ? "active" : ""} onClick={() => setTab("buy")}>What to buy</button>
         <button className={tab === "list" ? "active" : ""} onClick={() => setTab("list")}>Shopping list{list.data ? ` (${list.data.open_count})` : ""}</button>
       </div>
+      {tab === "buy" && <DemandPanel onAdded={() => list.reload()} />}
       {tab === "needs" && (
         <>
           <ErrorBox error={dash.error} />
@@ -374,5 +376,46 @@ function SourceSheet({ productId, providers, source, onClose, onDone }: { produc
         <button className="btn primary block" disabled={busy}>Save</button>
       </form>
     </Sheet>
+  );
+}
+
+
+type DemandLine = { product_id: number; name: string; buy_quantity: number; in_stock: number; short: number; unit: string | null;
+  reasons: { kind: "maintenance" | "minimum" | "reserved"; text: string; need: number; have: number; reserved: number; unit: string | null }[];
+  source: { retailer_label: string; url?: string | null } | null };
+
+/** Everything that needs buying, one line per part, by shop: maintenance due soon, below-minimum stock and repair reservations. */
+function DemandPanel({ onAdded }: { onAdded: () => void }) {
+  const me = useMe();
+  const [days, setDays] = useState(30);
+  const d = useApi(() => api.get<{ groups: { retailer: string; lines: DemandLine[] }[]; count: number }>("replenishment/demand", { days }), [days]);
+  const { busy, run } = useAction();
+  const add = async (lines: DemandLine[]) => {
+    for (const l of lines) await api.post("shopping-list", { product_id: l.product_id, quantity: l.buy_quantity });
+    if (await run(async () => true, `${lines.length} added to the shopping list`)) onAdded();
+  };
+  return (
+    <>
+      <p className="muted">What your maintenance, minimum stock levels and repair reservations need, added up per part (one line for a plug used by three machines). Nothing is bought or added for you.</p>
+      <label className="field" style={{ maxWidth: 260 }}>Maintenance due within
+        <select value={days} onChange={(e) => setDays(Number(e.target.value))}><option value={14}>2 weeks</option><option value={30}>a month</option><option value={90}>3 months</option><option value={365}>a year</option></select>
+      </label>
+      {d.error && !d.data ? <ErrorBox error={d.error} retry={d.reload} /> : !d.data ? <Spinner /> : !d.data.count ? <div className="card"><div className="empty">Nothing needs buying.</div></div> : d.data.groups.map((g) => (
+        <Section key={g.retailer} title={g.retailer} tight action={me.can_edit && <button className="btn small" disabled={busy} onClick={() => add(g.lines)}><Plus size={16} /> Add all</button>}>
+          <ul className="list">
+            {g.lines.map((l) => (
+              <li key={l.product_id}>
+                <div className="grow">
+                  <div className="t">{l.name} <span className="badge">buy {l.buy_quantity}</span></div>
+                  <div className="s">{l.in_stock} in stock{l.reasons.some((r) => r.reserved) ? ` · ${Math.max(...l.reasons.map((r) => r.reserved))} reserved` : ""}</div>
+                  {l.reasons.map((r, n) => <div key={n} className="s">{r.kind === "maintenance" ? "🔧" : r.kind === "reserved" ? "🔒" : "📉"} {r.text}</div>)}
+                </div>
+                {me.can_edit && <button className="btn small primary" disabled={busy} onClick={() => add([l])}><Plus size={16} /> {l.buy_quantity}</button>}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      ))}
+    </>
   );
 }

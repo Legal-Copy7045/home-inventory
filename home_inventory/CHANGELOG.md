@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.35.0
+
+Home Assistant entities on equipment, stock reserved for repairs, what to buy across everything, and quicker equipment actions. One database migration (additive, automatic).
+
+- **Link Home Assistant entities** to equipment: operating hours and uses (validated readings that move maintenance due dates), plus battery, energy, power and on/off entities shown with their current value. Each link is checked and confirmed first; unavailable entities are shown as such; links can be removed. Display-only entities never record anything.
+- **Reserve parts for a repair job**: reserved stock stays on the shelf but stops counting as available (maintenance readiness included); **Use** takes it out of stock onto the job's parts, **Release** gives it back. Items show how many are reserved.
+- **What to buy**: one line per part from maintenance due soon, below-minimum stock and repair reservations, with the reasons, stock, reserved and how many to buy, grouped by shop. Nothing is added or bought automatically.
+- **Equipment quick actions**: log hours, record service and change status from the top of the equipment page; NFC tags on managed equipment open its equipment page.
+
 ## 0.34.0
 
 Needs attention, and checking inventory against what's really there. **Update the App and the integration.** One database migration (additive, automatic).

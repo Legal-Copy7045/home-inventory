@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -274,3 +275,78 @@ def job_ticket(job_id: int, request: Request, base: str | None = None, actor: Ac
     c.save()
     return Response(buf.getvalue(), media_type="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="ticket-{job.number}.pdf"'})
+
+
+# ---------------------------------------------------------------------------
+# Stock reserved for a job
+# ---------------------------------------------------------------------------
+
+
+class ReserveIn(BaseModel):
+    item_id: int
+    quantity: int = Field(ge=1, le=100000)
+    note: str | None = Field(default=None, max_length=300)
+
+
+def _res(fn, *args, **kwargs):
+    from ..services import reservations as res
+
+    try:
+        return fn(*args, **kwargs)
+    except res.ReservationError as err:
+        raise HTTPException(422, str(err)) from err
+    except mnt.MaintenanceError as err:
+        raise HTTPException(422, str(err)) from err
+
+
+def _reservation(db: Session, rid: int):
+    from ..models import StockReservation
+
+    r = db.get(StockReservation, rid)
+    if r is None or r.repair_job_id is None:
+        raise HTTPException(404, "Reservation not found")
+    _job(db, r.repair_job_id)  # visible to this user?
+    return r
+
+
+@router.get("/repair-jobs/{job_id}/reservations")
+def job_reservations(job_id: int, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
+    from ..services import reservations as res
+
+    return {"reservations": res.for_job(db, _job(db, job_id))}
+
+
+@router.post("/repair-jobs/{job_id}/reservations", status_code=201)
+def reserve_for_job(job_id: int, data: ReserveIn, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
+    """Set stock aside for this job.  The quantity on the shelf doesn't change."""
+    from ..services import reservations as res
+
+    job = _job(db, job_id)
+    item = db.get(Item, data.item_id)
+    if item is None:
+        raise HTTPException(404, "Item not found")
+    _res(res.reserve, db, actor, job, item, data.quantity, data.note)
+    db.commit()
+    return {"reservations": res.for_job(db, job)}
+
+
+@router.post("/reservations/{rid}/release")
+def release_reservation(rid: int, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
+    from ..services import reservations as res
+
+    r = _reservation(db, rid)
+    _res(res.release, db, actor, r)
+    db.commit()
+    return res.out(db, r)
+
+
+@router.post("/reservations/{rid}/use")
+def use_reservation(rid: int, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
+    """Take the reserved parts out of stock, as parts used on the job."""
+    from ..services import reservations as res
+
+    r = _reservation(db, rid)
+    job = _job(db, r.repair_job_id)
+    _res(res.use, db, actor, r, job.currency or stats_svc.currency(db))
+    db.commit()
+    return res.out(db, r)
