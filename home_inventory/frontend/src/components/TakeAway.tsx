@@ -1,9 +1,9 @@
 // Take it / put away, and "what is this?" from a photo.
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Camera, Hand, Home, MapPin, Minus } from "lucide-react";
+import { Camera, Hand, Home, MapPin, Minus, Route, ScanLine } from "lucide-react";
 import { api, type Item } from "../api";
-import { Sheet, Spinner, Thumb, useToast } from "./ui";
+import { ErrorBox, Sheet, Spinner, Thumb, useApi, useToast } from "./ui";
 
 export type TakenItem = Item & { mine: boolean };
 export interface Place { container_id: number | null; location_id: number | null; label: string }
@@ -97,7 +97,7 @@ export function TakenStrip({ items }: { items: TakenItem[] }) {
   if (!mine.length) return null;
   return (
     <div className="notice" style={{ marginBottom: 10 }}>
-      <Hand size={16} style={{ verticalAlign: "-3px" }} /> With you: {mine.map((i, n) => <span key={i.id}>{n ? ", " : ""}<Link to={`/items/${i.id}`}>{i.display_name}</Link></span>)}. Scan a label to put {mine.length === 1 ? "it" : "them"} away.
+      <Hand size={16} style={{ verticalAlign: "-3px" }} /> With you: {mine.map((i, n) => <span key={i.id}>{n ? ", " : ""}<Link to={`/items/${i.id}`}>{i.display_name}</Link></span>)}. Scan a label to put {mine.length === 1 ? "it" : "them"} away{mine.length > 1 ? <>, or follow the <Link to="/put-away">put-away route</Link></> : ""}.
     </div>
   );
 }
@@ -231,5 +231,68 @@ export function WhichPlace() {
         </Sheet>
       )}
     </>
+  );
+}
+
+type Stop = { stop: number; room: string | null; path: string; container_id: number | null; location_id: number | null; items: Item[] };
+
+/** Put-away route: everything taken, grouped by where it goes, in walking order. */
+export function PutAwayRoutePage() {
+  const toast = useToast();
+  const [everyone, setEveryone] = useState(false);
+  const route = useApi(() => api.get<{ stops: Stop[]; count: number }>(`taken/route?mine=${everyone ? "false" : "true"}`), [everyone]);
+  const [busy, setBusy] = useState<number | null>(null);
+  async function allBack(s: Stop) {
+    setBusy(s.stop);
+    try {
+      for (const it of s.items) await api.post(`items/${it.id}/put-away`, { container_id: s.container_id, location_id: s.location_id, mode: "auto" });
+      toast(`${s.items.length} put back in ${s.path}`);
+    } catch (e) {
+      toast((e as Error).message, true);
+    } finally {
+      setBusy(null);
+      route.reload();
+    }
+  }
+  let room: string | null | undefined;
+  return (
+    <div className="page">
+      <h1><Route size={22} style={{ verticalAlign: "-3px" }} /> Put-away route</h1>
+      <p className="muted">Everything taken out and not back yet, grouped by where it lives, room by room. Put a stop's things back with one tap, or scan the place's label.</p>
+      <div className="row wrap" style={{ gap: 8, marginBottom: 12 }}>
+        <div className="tabs" role="tablist" style={{ margin: 0 }}>
+          <button role="tab" aria-selected={!everyone} className={!everyone ? "active" : ""} onClick={() => setEveryone(false)}>Mine</button>
+          <button role="tab" aria-selected={everyone} className={everyone ? "active" : ""} onClick={() => setEveryone(true)}>Everyone's</button>
+        </div>
+        <Link className="btn small" to="/scan?mode=collect"><ScanLine size={16} /> Collect more</Link>
+      </div>
+      {route.error && <ErrorBox error={route.error} />}
+      {!route.data ? (!route.error && <Spinner />) : !route.data.stops.length ? (
+        <div className="empty">Nothing to put away. After a job, use <Link to="/scan?mode=collect">Scan → Collect</Link> to gather what you used.</div>
+      ) : route.data.stops.map((s) => {
+        const newRoom = s.room !== room;
+        room = s.room;
+        const placeLink = s.container_id ? `/containers/${s.container_id}` : s.location_id ? `/locations/${s.location_id}` : null;
+        return (
+          <div key={s.stop}>
+            {newRoom && s.room && <h2 style={{ margin: "16px 0 6px" }}>{s.room}</h2>}
+            <div className="card" style={{ marginBottom: 10 }}>
+              <div className="row between wrap" style={{ gap: 8 }}>
+                <div><span className="badge">Stop {s.stop}</span> <b>{placeLink ? <Link to={placeLink}>{s.path}</Link> : s.path}</b></div>
+                {placeLink && <button className="btn small primary" disabled={busy !== null} onClick={() => allBack(s)}>{busy === s.stop ? "Putting back…" : `All ${s.items.length} back here`}</button>}
+              </div>
+              <div className="list tight" style={{ marginTop: 8 }}>
+                {s.items.map((it) => (
+                  <Link key={it.id} to={`/items/${it.id}`}>
+                    <Thumb src={it.photo?.thumb_url} />
+                    <div className="grow"><div className="t">{it.display_name}</div>{it.status_note && <div className="s">{it.status_note}</div>}</div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }

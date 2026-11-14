@@ -332,6 +332,10 @@ class LabelRequest(_In):
     template: str = "avery_l7160"
     include_contents: bool = False
     include_location: bool = True
+    # standard | large (big text, no contents) | drawer (number and name only)
+    theme: Literal["standard", "large", "drawer"] = "standard"
+    # A colour band per room down the left edge, with the room's name.
+    room_colours: bool = False
     copies: int = Field(default=1, ge=1, le=20)
     start_position: int = Field(default=1, ge=1, le=200)
     # Optional arrow on a label, pointing to where the shelf or box is:

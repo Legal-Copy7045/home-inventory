@@ -26,6 +26,9 @@ export function LabelsPage() {
     setArrows((a) => { const n = { ...a }; keys.forEach((k) => { if (v) n[k] = v; else delete n[k]; }); return n; });
   };
   const [location, setLocation] = useState(true);
+  const [theme, setTheme] = useState(() => localStorageGet("labelTheme") || "standard");
+  const [roomColours, setRoomColours] = useState(() => localStorageGet("labelRoomColours") === "1");
+  useEffect(() => { localStorageSet("labelTheme", theme); localStorageSet("labelRoomColours", roomColours ? "1" : "0"); }, [theme, roomColours]);
   const [copies, setCopies] = useState(1);
   const [start, setStart] = useState(1);
   const { busy, run } = useAction();
@@ -34,7 +37,7 @@ export function LabelsPage() {
   const total = sel.size + locSel.size;
 
   async function print() {
-    const blob = await run(() => api.blob("POST", "labels/pdf", { container_ids: [...sel], location_ids: [...locSel], base_url: appBaseUrl(), template, include_contents: contents, include_location: location, copies, start_position: start, arrows: Object.fromEntries(Object.entries(arrows).filter(([k]) => (k[0] === "C" ? sel : locSel).has(Number(k.slice(1))))) }));
+    const blob = await run(() => api.blob("POST", "labels/pdf", { container_ids: [...sel], location_ids: [...locSel], base_url: appBaseUrl(), template, include_contents: contents, include_location: location, theme, room_colours: roomColours, copies, start_position: start, arrows: Object.fromEntries(Object.entries(arrows).filter(([k]) => (k[0] === "C" ? sel : locSel).has(Number(k.slice(1))))) }));
     if (!blob) return;
     const href = URL.createObjectURL(blob);
     const w = window.open(href, "_blank");
@@ -58,8 +61,16 @@ export function LabelsPage() {
           <label className="field">Copies of each<input type="number" min={1} max={20} value={copies} onChange={(e) => setCopies(Math.max(1, Number(e.target.value) || 1))} /></label>
           <label className="field">Start at label position<span className="hint">Reuse a partly used sheet</span><input type="number" min={1} value={start} onChange={(e) => setStart(Math.max(1, Number(e.target.value) || 1))} /></label>
         </div>
-        <label className="check"><input type="checkbox" checked={location} onChange={(e) => setLocation(e.target.checked)} /> Print location</label>
-        <label className="check"><input type="checkbox" checked={contents} onChange={(e) => setContents(e.target.checked)} /> <span>Print contents list<span className="hint" style={{ display: "block" }}>For a shelf: the places, boxes and items kept on it, so things go back where they belong.</span></span></label>
+        <label className="field">Style
+          <select value={theme} onChange={(e) => setTheme(e.target.value)}>
+            <option value="standard">Standard</option>
+            <option value="large">Large print: big number and name, readable across a garage</option>
+            <option value="drawer">Small drawer: number and name only, as big as fits</option>
+          </select>
+        </label>
+        <label className="check"><input type="checkbox" checked={roomColours} onChange={(e) => setRoomColours(e.target.checked)} /> <span>Colour band per room<span className="hint" style={{ display: "block" }}>A coloured strip with the room's name down the edge; every label for the same room gets the same colour.</span></span></label>
+        {theme !== "drawer" && <label className="check"><input type="checkbox" checked={location} onChange={(e) => setLocation(e.target.checked)} /> Print location</label>}
+        {theme === "standard" && <label className="check"><input type="checkbox" checked={contents} onChange={(e) => setContents(e.target.checked)} /> <span>Print contents list<span className="hint" style={{ display: "block" }}>For a shelf: the places, boxes and items kept on it, so things go back where they belong.</span></span></label>}
         <label className="field">Arrow on the selected labels
           <span className="hint">Points to where the shelf or box is, e.g. a label on the end of a rack pointing up to the top shelf. You can also set one per label below.</span>
           <select value="" onChange={(e) => { setAllArrows(e.target.value); e.target.value = ""; }} disabled={!total} style={{ width: "auto" }}>

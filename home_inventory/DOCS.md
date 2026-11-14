@@ -103,6 +103,8 @@ For tools and other things you borrow from their place and bring back:
 
    No label to hand? On the item page tap **Put away** and choose the place.
 
+**Put-away route.** After a job with lots of things out, use **Scan → Collect**: scan the barcode of each thing you used (when you have more than one of something, pick which). Then open **Put-away Route** (Inventory menu, or the link on the Scan page). It lists everything taken, one stop per place it lives, in walking order: room by room, then shelf by shelf. At each stop tap **All back here**, or scan the place's label. A thing moved somewhere just for now goes back to its usual place. **Everyone's** shows what other people have taken too.
+
 **What is this? Identify by photo.** With AI set up, the Scan page has **What is this? Identify by photo**. Photograph the thing; the AI says what it is and lists your matching items. Pick the right one, then **Take it**, **Take one out** (to use one up), **Put away here** (when a box is open in Scan), or open it. If it isn't in your inventory, **None of these: add it** starts a new item with the name filled in. The photo isn't kept.
 
 ## Taking things out of stock by barcode
@@ -286,6 +288,13 @@ Every container and every location (shelf, cabinet, drawer…) has a permanent 8
 Scan a label with your **phone's normal camera**. It opens Home Assistant (log in the first time) and shows that container's contents, or everything stored at that location, including the containers on it.
 
 **Shelf labels.** To label a shelf, rack, cabinet or drawer, open it and tap the QR icon → **Print label**, or choose it under **Print Labels → Locations**. Tick **Print contents list** (on by default from a shelf) and the label also lists what belongs there: the shelves or drawers within it (› Top shelf), the boxes (#7 Christmas lights) and the loose items. That way anyone putting something away can see where it goes. Scanning it shows the up-to-date list.
+
+**Styles.** Under **Print Labels → Style**:
+- **Standard:** everything above.
+- **Large print:** a bigger number and name, and the end of the location, with no contents list. It's readable from across a garage.
+- **Small drawer:** a small QR code with the number and name as big as they fit. Use it on parts drawers, for example with the **Avery L7651** sheet (65 per A4).
+
+**Colour band per room.** Tick it and each label gets a coloured strip down its left edge with the room's name; every label in the same room has the same colour. The room is the first level of your locations where there's a choice: with a single top-level place (*Home*), it's the places under it (*Kitchen*, *Garage*); with several top-level places, those. A room keeps its colour each time you print.
 
 **Arrows.** A label can carry a large arrow (up, down, left, right or a diagonal) pointing to where the shelf or box is, e.g. a label at eye level on the end of a rack with an arrow up to the top shelf. Set one for all the selected labels, or pick one per label in the list.
 

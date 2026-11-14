@@ -511,6 +511,18 @@ await page.getByText("Only questions it couldn't answer").click();
 await page.getByText("not found").first().waitFor();
 await shot("15g-voice-history");
 
+// Put-away route: two things taken from different places, one stop each, in walking order
+const aa = (await api(`containers/${box.id}`)).items.find((i) => i.name === "AA batteries");
+for (const id of [drill.id, aa.id]) await api(`items/${id}/take`, { method: "POST" });
+await page.goto(BASE + "#/put-away");
+await page.getByText("Stop 2").waitFor();
+await shot("15h-put-away-route");
+await page.getByRole("button", { name: "All 1 back here" }).first().click();
+await page.getByText("Stop 2").waitFor({ state: "detached" });
+await page.getByRole("button", { name: "All 1 back here" }).click();
+await page.getByText("Nothing to put away").waitFor();
+if ((await api("taken")).items.length) throw new Error("put-away route left things out");
+
 const csvRes = await page.request.fetch(BASE + "api/v1/reports/inventory.csv");
 if (!csvRes.ok() || !(await csvRes.text()).includes("Serial number")) throw new Error("CSV export failed");
 const xlsxRes = await page.request.fetch(BASE + "api/v1/reports/inventory.xlsx");
