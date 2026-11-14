@@ -191,7 +191,7 @@ The forwarder says what's wrong out loud:
 
 ### Updating the skill
 
-When a release changes `deploy/alexa/` (0.22.1 for "where does it go?", 0.23.0 for "I've moved…" and yes/no, 0.26.0 for "what's in…", 0.33.0 for the maintenance questions):
+When a release changes `deploy/alexa/` (0.22.1 for "where does it go?", 0.23.0 for "I've moved…" and yes/no, 0.26.0 for "what's in…", 0.33.0 for the maintenance questions, 0.35.1 for the slot-type fix):
 
 1. Developer console → your skill → **Build → Interaction Model → JSON Editor**: paste the new `deploy/alexa/interaction-model.json`, **Save**, **Build skill**.
 2. **Code** tab: replace `lambda_function.py` with the new `deploy/alexa/lambda_function.py`, put your `HA_URL`, `HA_TOKEN` and `SKILL_ID` back near the top (Alexa-hosted), **Save**, **Deploy**. With your own AWS Lambda, paste the whole file; the settings stay in its environment variables.
