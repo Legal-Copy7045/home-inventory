@@ -25,7 +25,7 @@ Season = Literal["spring", "autumn"]
 @router.get("/maintenance/season")
 def season(season: Season | None = None, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
     """Getting the equipment ready for spring, or put away for winter."""
-    which = season or eq.which_season()
+    which = season or eq.which_season(hemisphere=eq.hemisphere(db))
     out = eq.season_jobs(maintenance_plan(owner="household", actor=actor, db=db), which)
     out["consumables"] = eq.consumables(db)
     return out
@@ -37,7 +37,7 @@ def season_shopping(season: Season | None = None, actor: Actor = Depends(require
     from ..services import parts as parts_svc
     from ..services import replenishment as repl
 
-    which = season or eq.which_season()
+    which = season or eq.which_season(hemisphere=eq.hemisphere(db))
     plan = eq.season_jobs(maintenance_plan(owner="household", actor=actor, db=db), which)
     open_ids = set(db.scalars(select(ShoppingListItem.product_id).where(ShoppingListItem.status.in_(repl.OPEN))))
     added = []
