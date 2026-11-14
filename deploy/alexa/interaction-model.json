@@ -77,7 +77,7 @@
           "name": "HomeInventoryMove",
           "slots": [
             {
-              "name": "item",
+              "name": "thing",
               "type": "HomeInventoryThing"
             },
             {
@@ -86,40 +86,40 @@
             }
           ],
           "samples": [
-            "I've moved the {item} to {place}",
-            "I've moved the {item} to the {place}",
-            "I've moved my {item} to {place}",
-            "I've moved my {item} to the {place}",
-            "I've moved {item} to {place}",
-            "I've moved {item} to the {place}",
-            "I have moved the {item} to {place}",
-            "I have moved the {item} to the {place}",
-            "I have moved my {item} to {place}",
-            "I have moved my {item} to the {place}",
-            "I have moved {item} to {place}",
-            "I have moved {item} to the {place}",
-            "I moved the {item} to {place}",
-            "I moved the {item} to the {place}",
-            "I moved my {item} to {place}",
-            "I moved my {item} to the {place}",
-            "I moved {item} to {place}",
-            "I moved {item} to the {place}",
-            "I've put the {item} in {place}",
-            "I've put the {item} in the {place}",
-            "I've put my {item} in {place}",
-            "I've put my {item} in the {place}",
-            "I put the {item} in {place}",
-            "I put the {item} in the {place}",
-            "I put my {item} in {place}",
-            "I put my {item} in the {place}",
-            "the {item} is now in {place}",
-            "the {item} is now in the {place}",
-            "my {item} is now in {place}",
-            "the {item} are now in {place}",
-            "to move the {item} to {place}",
-            "to move the {item} to the {place}",
-            "move the {item} to {place}",
-            "move my {item} to {place}"
+            "I've moved the {thing} to {place}",
+            "I've moved the {thing} to the {place}",
+            "I've moved my {thing} to {place}",
+            "I've moved my {thing} to the {place}",
+            "I've moved {thing} to {place}",
+            "I've moved {thing} to the {place}",
+            "I have moved the {thing} to {place}",
+            "I have moved the {thing} to the {place}",
+            "I have moved my {thing} to {place}",
+            "I have moved my {thing} to the {place}",
+            "I have moved {thing} to {place}",
+            "I have moved {thing} to the {place}",
+            "I moved the {thing} to {place}",
+            "I moved the {thing} to the {place}",
+            "I moved my {thing} to {place}",
+            "I moved my {thing} to the {place}",
+            "I moved {thing} to {place}",
+            "I moved {thing} to the {place}",
+            "I've put the {thing} in {place}",
+            "I've put the {thing} in the {place}",
+            "I've put my {thing} in {place}",
+            "I've put my {thing} in the {place}",
+            "I put the {thing} in {place}",
+            "I put the {thing} in the {place}",
+            "I put my {thing} in {place}",
+            "I put my {thing} in the {place}",
+            "the {thing} is now in {place}",
+            "the {thing} is now in the {place}",
+            "my {thing} is now in {place}",
+            "the {thing} are now in {place}",
+            "to move the {thing} to {place}",
+            "to move the {thing} to the {place}",
+            "move the {thing} to {place}",
+            "move my {thing} to {place}"
           ]
         },
         {
@@ -209,7 +209,7 @@
           "slots": [
             {
               "name": "equipment",
-              "type": "HomeInventoryThing"
+              "type": "AMAZON.SearchQuery"
             },
             {
               "name": "range",
@@ -232,9 +232,7 @@
             "what does my {equipment} need",
             "what maintenance is {range}",
             "what maintenance do I need to do {range}",
-            "what maintenance is due {range}",
-            "what maintenance is due {range} on the {equipment}",
-            "what maintenance is {range} on the {equipment}"
+            "what maintenance is due {range}"
           ]
         },
         {
@@ -242,7 +240,7 @@
           "slots": [
             {
               "name": "equipment",
-              "type": "HomeInventoryThing"
+              "type": "AMAZON.SearchQuery"
             }
           ],
           "samples": [
@@ -257,7 +255,7 @@
           "slots": [
             {
               "name": "equipment",
-              "type": "HomeInventoryThing"
+              "type": "AMAZON.SearchQuery"
             }
           ],
           "samples": [
@@ -271,20 +269,14 @@
           "slots": [
             {
               "name": "task",
-              "type": "HomeInventoryThing"
-            },
-            {
-              "name": "equipment",
-              "type": "HomeInventoryPlace"
+              "type": "AMAZON.SearchQuery"
             }
           ],
           "samples": [
-            "when did I last {task} in the {equipment}",
-            "when did I last {task} on the {equipment}",
-            "when did I last {task} on my {equipment}",
-            "when did I last {task} in my {equipment}",
-            "when did I last {task} for the {equipment}",
-            "when did I last {task}"
+            "when did I last {task}",
+            "when did we last {task}",
+            "when was the last time I {task}",
+            "when was the last time we {task}"
           ]
         },
         {
