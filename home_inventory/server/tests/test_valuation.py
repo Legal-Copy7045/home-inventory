@@ -75,3 +75,14 @@ def test_members_cant_start_a_run_and_one_at_a_time(tmp_path, monkeypatch):
     db.close()
     assert u.post("/api/v1/value-estimates", json={"scope": "all"}).status_code == 409
     env.state.db.dispose()
+
+
+def test_a_job_finishing_mid_poll_is_not_reported_as_interrupted(env, monkeypatch):
+    """The status poll judged a running job by reading it twice; if it
+    finished in between, the poll said "interrupted (the App restarted)"."""
+    snapshots = iter([{"status": "running", "boot": valuation.BOOT, "done": 1}, {"status": "finished", "done": 2}])
+    monkeypatch.setattr(valuation, "job", lambda db: next(snapshots))
+    assert env.admin.ok("get", "/api/v1/value-estimates")["job"]["status"] == "running"
+    # A job left over from before a restart is still reported as interrupted.
+    monkeypatch.setattr(valuation, "job", lambda db: {"status": "running", "boot": "an-earlier-boot"})
+    assert env.admin.ok("get", "/api/v1/value-estimates")["job"]["status"] == "failed"
