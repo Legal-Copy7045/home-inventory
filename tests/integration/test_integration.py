@@ -529,3 +529,22 @@ def test_question_answers_read_naturally():
     assert low_stock_answer(rows) == "You're running low on AA batteries (3 left)."
     many = [{"item": {"name": f"Tool {n}"}, "borrower": "Pat"} for n in range(7)]
     assert loans_answer(many).endswith("Tool 4 to Pat and 2 more.")
+
+
+def test_voice_intents_are_registered_once(hass: HomeAssistant, monkeypatch):
+    """A second entry or a reload doesn't register them again ("being overwritten")."""
+    from homeassistant.helpers import intent as ha_intent
+
+    from custom_components.home_inventory import intent as hi
+
+    calls = []
+    monkeypatch.setattr(ha_intent, "async_register", lambda h, handler: calls.append(handler.intent_type))
+    monkeypatch.setattr(ha_intent, "async_remove", lambda h, name: None, raising=False)
+    hi.async_setup_intents(hass)
+    first = len(calls)
+    hi.async_setup_intents(hass)
+    assert first == 7 and len(calls) == 7
+    hi.async_unload_intents(hass)
+    hi.async_setup_intents(hass)  # after unloading, registered afresh
+    assert len(calls) == 14
+    hi.async_unload_intents(hass)
