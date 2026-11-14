@@ -54,7 +54,62 @@ def dismiss(db: Session, a: int, b: int) -> None:
         s.value = sorted(keys)
 
 
-def find(db: Session, threshold: float = 0.8, limit: int = 100) -> list[dict[str, Any]]:
+def photo_hash(data: bytes) -> int | None:
+    """A 64-bit difference hash: the same photo (or near enough) gives the
+    same bits, whatever its size or compression."""
+    import io
+
+    from PIL import Image, ImageOps
+
+    try:
+        img = ImageOps.exif_transpose(Image.open(io.BytesIO(data))).convert("L").resize((9, 8), Image.Resampling.LANCZOS)
+    except Exception:  # noqa: BLE001 - not a readable image: no hash
+        return None
+    px = list(img.getdata())
+    bits = 0
+    for row in range(8):
+        for col in range(8):
+            bits = (bits << 1) | (1 if px[row * 9 + col] > px[row * 9 + col + 1] else 0)
+    return bits
+
+
+def _photo_hashes(db: Session, media, products: list[Product], cache_path) -> dict[int, tuple[int, int]]:
+    """{product id: (attachment id, hash)} for products whose items have a photo.
+    Hashes are kept in a small JSON file so each photo is read once."""
+    import json
+
+    try:
+        cache = {int(k): v for k, v in json.loads(cache_path.read_text()).items()} if cache_path.exists() else {}
+    except (OSError, ValueError):
+        cache = {}
+    ids = {p.id for p in products}
+    rows = db.execute(select(Item.product_id, Attachment.id, Attachment.thumb_path, Attachment.stored_path)
+                      .join(Attachment, Attachment.id == Item.primary_photo_id)
+                      .where(Item.deleted_at.is_(None), Item.product_id.in_(ids))).all()
+    out: dict[int, tuple[int, int]] = {}
+    changed = False
+    for pid, att_id, thumb, stored in rows:
+        if pid in out:
+            continue
+        h = cache.get(att_id)
+        if h is None:
+            try:
+                h = photo_hash(media.read(thumb or stored))
+            except OSError:
+                h = None
+            cache[att_id] = h
+            changed = True
+        if h is not None:
+            out[pid] = (att_id, h)
+    if changed:
+        try:
+            cache_path.write_text(json.dumps({str(k): v for k, v in cache.items()}))
+        except OSError:
+            pass
+    return out
+
+
+def find(db: Session, threshold: float = 0.8, limit: int = 100, media=None, data_dir=None) -> list[dict[str, Any]]:
     products = list(db.scalars(select(Product).where(Product.deleted_at.is_(None))))
     holdings = defaultdict(int)
     for pid, qty in db.execute(select(Item.product_id, Item.quantity).where(Item.deleted_at.is_(None))):
@@ -98,6 +153,21 @@ def find(db: Session, threshold: float = 0.8, limit: int = 100) -> list[dict[str
             s = similarity(a.name, b.name)
             if s >= threshold and not (a.model_number and b.model_number and _norm(a.model_number) != _norm(b.model_number)):
                 add(a, b, s, "Similar name")
+    # Photos that look the same ("Black hard case" and "DeWalt case"),
+    # whatever the names say.  Not two records sharing one photo.
+    if media is not None and data_dir is not None and len(products) <= 5000:
+        from pathlib import Path
+
+        hashes = _photo_hashes(db, media, products, Path(data_dir) / "photo_hashes.json")
+        by_id = {p.id: p for p in products}
+        items = list(hashes.items())
+        for i, (pa, (aa, ha)) in enumerate(items):
+            for pb, (ab, hb) in items[i + 1:]:
+                if aa == ab:
+                    continue
+                dist = bin(ha ^ hb).count("1")
+                if dist <= 6:
+                    add(by_id[pa], by_id[pb], round(0.95 - dist * 0.02, 2), "Photos look the same")
     return sorted(found.values(), key=lambda d: -d["score"])[:limit]
 
 
