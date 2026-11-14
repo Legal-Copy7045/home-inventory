@@ -224,7 +224,7 @@ export function LoansPage() {
 
 // ---------------------------------------------------------------- settings
 
-interface SettingsData { currency: string; qr_base_url: string; amazon_domain: string | null; amazon_associate_tag: string | null; synonyms: Record<string, string[]>; ai: { enabled: boolean; provider?: string; model?: string; error?: string; usage?: { requests_last_minute: number; requests_last_24h: number; limits: { per_minute: number; tokens_per_minute: number; per_day: number }; paused_for: number } | null }; barcode_providers: string[]; mode: string; version: string; maintenance_auto_shopping: boolean; hemisphere: "north" | "south" }
+interface SettingsData { currency: string; qr_base_url: string; amazon_domain: string | null; amazon_associate_tag: string | null; synonyms: Record<string, string[]>; ai: { enabled: boolean; provider?: string; model?: string; error?: string; usage?: { requests_last_minute: number; requests_last_24h: number; limits: { per_minute: number; tokens_per_minute: number; per_day: number }; paused_for: number } | null }; barcode_providers: string[]; mode: string; version: string; maintenance_auto_shopping: boolean; hemisphere: "north" | "south"; business_name: string | null; business_details: string | null }
 interface UserRow { id: number; name: string; username: string | null; ha_is_admin: boolean; role: string; role_override: string | null; last_seen: string }
 
 export function SettingsPage() {
@@ -239,6 +239,8 @@ export function SettingsPage() {
   const [amazonTag, setAmazonTag] = useState("");
   const [autoShop, setAutoShop] = useState(true);
   const [hemi, setHemi] = useState<"north" | "south">("north");
+  const [bizName, setBizName] = useState("");
+  const [bizDetails, setBizDetails] = useState("");
   const { busy, run } = useAction();
   const toast = useToast();
   useEffect(() => {
@@ -249,6 +251,8 @@ export function SettingsPage() {
       setAmazonTag(s.data.amazon_associate_tag || "");
       setAutoShop(s.data.maintenance_auto_shopping !== false);
       setHemi(s.data.hemisphere || "north");
+      setBizName(s.data.business_name || "");
+      setBizDetails(s.data.business_details || "");
       setSyn(Object.entries(s.data.synonyms || {}).map(([k, v]) => `${k}: ${v.join(", ")}`).join("\n"));
     }
   }, [s.data]);
@@ -264,6 +268,7 @@ export function SettingsPage() {
       currency: currency.toUpperCase(), qr_base_url: qrBase.trim(), synonyms,
       amazon_domain: amazonDomain.trim() || null, amazon_associate_tag: amazonTag.trim() || null,
       maintenance_auto_shopping: autoShop, hemisphere: hemi,
+      business_name: bizName.trim() || null, business_details: bizDetails.trim() || null,
     }), "Settings saved");
   }
 
@@ -293,6 +298,8 @@ export function SettingsPage() {
         <Section title="Preferences">
           <div className="stack">
             <label className="field">Currency<input maxLength={3} value={currency} onChange={(e) => setCurrency(e.target.value)} style={{ width: 100 }} /></label>
+            <label className="field">Business name (for repair invoices)<input maxLength={200} value={bizName} onChange={(e) => setBizName(e.target.value)} placeholder="Optional" /></label>
+            <label className="field">Business details (address, phone, tax number…)<textarea rows={3} maxLength={1000} value={bizDetails} onChange={(e) => setBizDetails(e.target.value)} /></label>
             <label className="field">QR label link (optional)
               <span className="hint">Leave empty to use the address you opened Home Assistant with{appBaseUrl() ? ` (${appBaseUrl()})` : ""}. Set it if labels should open a different address, e.g. your external one.</span>
               <input value={qrBase} onChange={(e) => setQrBase(e.target.value)} placeholder={appBaseUrl() || "https://…"} />

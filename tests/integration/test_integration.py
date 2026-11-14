@@ -600,3 +600,32 @@ def test_every_app_event_type_reaches_home_assistant():
     app_types = next(ast.literal_eval(n.value) for n in tree.body
                      if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "EVENT_TYPES")
     assert set(app_types) == set(EVENT_TYPES)
+
+
+async def test_customer_message_when_a_repair_is_ready(hass: HomeAssistant, inventory_app):
+    from pytest_homeassistant_custom_component.common import async_mock_service
+
+    sms = async_mock_service(hass, "notify", "sms_gateway")
+    entry = await _setup_via_user_flow(hass, inventory_app)
+    flow = await hass.config_entries.options.async_init(entry.entry_id)
+    await hass.config_entries.options.async_configure(flow["flow_id"], {
+        "customer_notify_service": "notify.sms_gateway", "customer_notify_to": "phone",
+        "customer_notify_statuses": ["completed"]})
+    await hass.async_block_till_done()
+    coord = hass.data["home_inventory"][entry.entry_id].coordinator
+    cust = inventory_app.ui("POST", "customers", {"name": "Pat Neighbour", "phone": "07700 900123", "email": "pat@example.com"})
+    job = inventory_app.ui("POST", "repair-jobs", {"customer_id": cust["id"], "new_equipment": {"name": "Toro mower"},
+                                                   "reported_problem": "Won't start"})
+    base = {"job_id": job["id"], "number": job["number"]}
+    coord._handle({"type": "repair_job_status", "data": {**base, "status": "in_progress"}})
+    await hass.async_block_till_done()
+    assert sms == []  # only the chosen statuses
+    coord._handle({"type": "repair_job_status", "data": {**base, "status": "completed"}})
+    await hass.async_block_till_done()
+    assert len(sms) == 1 and sms[0].data["target"] == ["07700 900123"]
+    assert sms[0].data["message"] == f"Hi Pat, your Toro mower (job {job['number']}) is ready for collection."
+    nophone = inventory_app.ui("POST", "customers", {"name": "No Phone"})
+    job2 = inventory_app.ui("POST", "repair-jobs", {"customer_id": nophone["id"], "new_equipment": {"name": "Saw"}})
+    coord._handle({"type": "repair_job_status", "data": {"job_id": job2["id"], "number": job2["number"], "status": "completed"}})
+    await hass.async_block_till_done()
+    assert len(sms) == 1  # no number: nothing sent
