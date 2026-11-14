@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from .. import audit
 from ..auth import Actor
-from ..models import TAG_TARGETS, Container, Item, Kit, Location, Tag
+from ..models import TAG_TARGETS, Container, EquipmentProfile, Item, Kit, Location, Tag
 
 ACTIONS: dict[str, tuple[str, ...]] = {
     "item": ("view", "move", "adjust", "service", "meter", "repair", "return"),
@@ -202,4 +202,7 @@ def tag_out(db: Session, tag: Tag, base: str) -> dict[str, Any]:
         "last_scanned_at": tag.last_scanned_at.isoformat() if tag.last_scanned_at else None,
         "scan_count": tag.scan_count,
         "replaces_tag_id": tag.replaces_tag_id,
+        # Managed equipment opens its equipment page (checklist, hours, manual...).
+        "equipment": tag.target_type == "item" and db.scalar(select(EquipmentProfile.id).where(
+            EquipmentProfile.item_id == tag.target_id, EquipmentProfile.managed.is_(True))) is not None,
     }

@@ -18,6 +18,8 @@ export interface TagRow {
   hardware_id: string | null;
   default_action: string;
   actions: string[];
+  /** The tag's item is managed equipment: it opens the equipment page. */
+  equipment?: boolean;
   last_scanned_at: string | null;
   scan_count: number;
 }
@@ -107,6 +109,7 @@ export function TagScanPage() {
       return run(() => api.post(`loans/${item.loan!.id}/return`, {}), "Marked as returned").then(() => nav(`/items/${item.id}`));
     }
     if (action === "return") return toast("This item isn't on loan", true);
+    if (tag.equipment && (action === "meter" || action === "service")) return nav(`/equipment/${tag.target_id}?do=${action}`);
     return nav(`/items/${tag.target_id}?do=${action}`);
   };
   const actions = tag.actions.filter((a) => (a !== "repair" || item?.owner) && (a !== "return" || item?.loan));
@@ -126,8 +129,8 @@ export function TagScanPage() {
   );
 }
 
-export function targetPath(t: { target_type: TagTarget; target_id: number }) {
-  return { item: `/items/${t.target_id}`, container: `/containers/${t.target_id}`, location: `/locations/${t.target_id}`, kit: `/kits/${t.target_id}` }[t.target_type];
+export function targetPath(t: { target_type: TagTarget; target_id: number; equipment?: boolean }) {
+  return { item: t.equipment ? `/equipment/${t.target_id}` : `/items/${t.target_id}`, container: `/containers/${t.target_id}`, location: `/locations/${t.target_id}`, kit: `/kits/${t.target_id}` }[t.target_type];
 }
 
 // ---------------------------------------------------------------- tags on a record page

@@ -7,7 +7,8 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -123,7 +124,7 @@ def list_equipment(q: str | None = Query(None, max_length=200), equipment_type: 
 
 
 @router.get("/equipment/{item_id}")
-def equipment_overview(item_id: int, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+def equipment_overview(item_id: int, request: Request, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
     """Everything the equipment page shows at the top: identity, condition,
     what's due, the plan's source, parts, costs and recent history."""
     from ..services import equipment_hub as hub
@@ -156,8 +157,15 @@ def equipment_overview(item_id: int, actor: Actor = Depends(current_actor), db: 
         "parts": hub.equipment_parts(db, item),
         "costs": hub.costs(db, item.id),
         "warranty": {"expires": w.isoformat(), "active": w >= today, "days_left": (w - today).days} if w else None,
-        "entities": [e for e in (prof.hours_entity_id, prof.cycles_entity_id) if e],
+        "entities": _entities(request, db, item),
     }
+
+
+def _entities(request: Request, db: Session, item) -> list:
+    from ..ha_api import HAClient
+    from ..services import equipment_entities as ents
+
+    return ents.linked(db, HAClient.maybe(request.app.state.settings), item)
 
 
 @router.get("/equipment/{item_id}/checklist")
@@ -199,3 +207,61 @@ def voice_maintenance(kind: Literal["due", "parts", "have_parts", "last_done", "
     from ..services import voice_maintenance as vm
 
     return vm.answer(db, kind, range, equipment=equipment, equipment_id=equipment_id, task=task)
+
+
+class EntityIn(BaseModel):
+    entity_id: str = Field(min_length=3, max_length=255)
+    purpose: Literal["runtime", "usage", "battery", "energy", "power", "status", "other"]
+    label: str | None = Field(default=None, max_length=80)
+    confirm: bool = False
+
+
+def _ents(fn, *args, **kwargs):
+    from ..services import equipment_entities as ents
+
+    try:
+        return fn(*args, **kwargs)
+    except ents.EntityError as err:
+        raise HTTPException(422, str(err)) from err
+
+
+@router.get("/equipment/{item_id}/entities")
+def equipment_entities(item_id: int, request: Request, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
+    item, _ = _managed_item(db, item_id)
+    return {"entities": _entities(request, db, item)}
+
+
+@router.post("/equipment/{item_id}/entities/check")
+def check_equipment_entity(item_id: int, data: EntityIn, request: Request, actor: Actor = Depends(require_member),
+                           db: Session = Depends(get_db)):
+    """What linking this entity would show (state, and whether it suits),
+    for the person to confirm before it's saved."""
+    from ..ha_api import HAClient
+    from ..services import equipment_entities as ents
+
+    _managed_item(db, item_id)
+    return _ents(ents.check, HAClient.maybe(request.app.state.settings), data.entity_id, data.purpose)
+
+
+@router.post("/equipment/{item_id}/entities", status_code=201)
+def link_equipment_entity(item_id: int, data: EntityIn, request: Request, actor: Actor = Depends(require_member),
+                          db: Session = Depends(get_db)):
+    from ..ha_api import HAClient
+    from ..services import equipment_entities as ents
+
+    item, _ = _managed_item(db, item_id)
+    _ents(ents.link, db, actor, HAClient.maybe(request.app.state.settings), item, data.entity_id, data.purpose,
+          data.confirm, data.label)
+    db.commit()
+    return {"entities": _entities(request, db, item)}
+
+
+@router.delete("/equipment/{item_id}/entities/{entity_id}")
+def unlink_equipment_entity(item_id: int, entity_id: str, request: Request, actor: Actor = Depends(require_member),
+                            db: Session = Depends(get_db)):
+    from ..services import equipment_entities as ents
+
+    item, _ = _managed_item(db, item_id)
+    _ents(ents.unlink, db, actor, item, entity_id)
+    db.commit()
+    return {"entities": _entities(request, db, item)}
