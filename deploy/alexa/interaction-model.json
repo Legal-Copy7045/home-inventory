@@ -206,12 +206,105 @@
         },
         {
           "name": "HomeInventoryMaintenanceDue",
-          "slots": [],
+          "slots": [
+            {
+              "name": "equipment",
+              "type": "HomeInventoryThing"
+            },
+            {
+              "name": "range",
+              "type": "HomeInventoryRange"
+            }
+          ],
           "samples": [
             "what maintenance is due",
+            "what maintenance do I need to do",
+            "what upcoming maintenance I need to perform",
+            "tell me what upcoming maintenance I need to perform",
+            "is anything due for a service",
             "what needs servicing",
-            "what is due for servicing",
-            "what maintenance do I need to do"
+            "what maintenance is due on the {equipment}",
+            "what maintenance is due on my {equipment}",
+            "what maintenance is due for the {equipment}",
+            "tell me what upcoming maintenance I need to perform on the {equipment}",
+            "what upcoming maintenance I need to perform on the {equipment}",
+            "what does the {equipment} need",
+            "what does my {equipment} need",
+            "what maintenance is {range}",
+            "what maintenance do I need to do {range}",
+            "what maintenance is due {range}",
+            "what maintenance is due {range} on the {equipment}",
+            "what maintenance is {range} on the {equipment}"
+          ]
+        },
+        {
+          "name": "HomeInventoryMaintenanceParts",
+          "slots": [
+            {
+              "name": "equipment",
+              "type": "HomeInventoryThing"
+            }
+          ],
+          "samples": [
+            "what parts do I need for the next {equipment} service",
+            "what parts do I need for the next service on the {equipment}",
+            "what parts do I need to service the {equipment}",
+            "what do I need to service the {equipment}"
+          ]
+        },
+        {
+          "name": "HomeInventoryHaveParts",
+          "slots": [
+            {
+              "name": "equipment",
+              "type": "HomeInventoryThing"
+            }
+          ],
+          "samples": [
+            "do I have everything I need to service the {equipment}",
+            "do I have the parts I need to service the {equipment}",
+            "do I have the parts for the {equipment}"
+          ]
+        },
+        {
+          "name": "HomeInventoryLastService",
+          "slots": [
+            {
+              "name": "task",
+              "type": "HomeInventoryThing"
+            },
+            {
+              "name": "equipment",
+              "type": "HomeInventoryPlace"
+            }
+          ],
+          "samples": [
+            "when did I last {task} in the {equipment}",
+            "when did I last {task} on the {equipment}",
+            "when did I last {task} on my {equipment}",
+            "when did I last {task} in my {equipment}",
+            "when did I last {task} for the {equipment}",
+            "when did I last {task}"
+          ]
+        },
+        {
+          "name": "HomeInventoryNeedsAttention",
+          "slots": [],
+          "samples": [
+            "what equipment needs attention",
+            "does anything need attention",
+            "which machines need servicing",
+            "what needs attention"
+          ]
+        },
+        {
+          "name": "HomeInventoryRecentMaintenance",
+          "slots": [],
+          "samples": [
+            "what maintenance have I completed recently",
+            "what maintenance have I done recently",
+            "what maintenance have I done lately",
+            "what servicing was done recently"
           ]
         },
         {
@@ -540,6 +633,56 @@
             {
               "name": {
                 "value": "under the stairs"
+              }
+            }
+          ]
+        },
+        {
+          "name": "HomeInventoryRange",
+          "values": [
+            {
+              "name": {
+                "value": "overdue",
+                "synonyms": [
+                  "overdue",
+                  "late"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "today",
+                "synonyms": [
+                  "due today",
+                  "today"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "week",
+                "synonyms": [
+                  "this week",
+                  "due this week"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "month",
+                "synonyms": [
+                  "this month",
+                  "due this month"
+                ]
+              }
+            },
+            {
+              "name": {
+                "value": "upcoming",
+                "synonyms": [
+                  "coming up",
+                  "upcoming"
+                ]
               }
             }
           ]

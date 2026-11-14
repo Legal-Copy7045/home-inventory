@@ -36,7 +36,10 @@ TIMEOUT = 6  # seconds; Alexa gives up after about 8
 FORWARDED = {"HomeInventoryWhereIs": ("item",), "HomeInventoryWhereDoesItGo": ("item",),
              "HomeInventoryMove": ("item", "place"), "HomeInventoryWhatsIn": ("place",),
              "HomeInventoryChoose": ("choice",),
-             "HomeInventoryMaintenanceDue": (), "HomeInventoryRunningLow": (), "HomeInventoryOnLoan": ()}
+             "HomeInventoryMaintenanceDue": (), "HomeInventoryRunningLow": (), "HomeInventoryOnLoan": (),
+             "HomeInventoryMaintenanceParts": ("equipment",), "HomeInventoryHaveParts": ("equipment",),
+             "HomeInventoryLastService": ("task",), "HomeInventoryNeedsAttention": (),
+             "HomeInventoryRecentMaintenance": ()}
 
 
 def _say(text: str, end: bool = True, reprompt: str | None = None) -> dict:
