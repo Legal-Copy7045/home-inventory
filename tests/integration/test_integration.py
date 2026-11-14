@@ -586,3 +586,17 @@ def test_voice_intents_are_registered_once(hass: HomeAssistant, monkeypatch):
     hi.async_setup_intents(hass)  # after unloading, registered afresh
     assert len(calls) == 16
     hi.async_unload_intents(hass)
+
+
+def test_every_app_event_type_reaches_home_assistant():
+    """The integration forwards each event the App can publish."""
+    import ast
+    from pathlib import Path
+
+    from custom_components.home_inventory.const import EVENT_TYPES
+
+    src = (Path(__file__).parents[2] / "home_inventory" / "server" / "home_inventory_server" / "events.py").read_text()
+    tree = ast.parse(src)
+    app_types = next(ast.literal_eval(n.value) for n in tree.body
+                     if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "EVENT_TYPES")
+    assert set(app_types) == set(EVENT_TYPES)

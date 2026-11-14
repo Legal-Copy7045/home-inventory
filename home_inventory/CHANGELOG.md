@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.28.0
+
+- **Season mode** (Reports): spring get-ready or autumn winterising for every machine (following the hemisphere set in Settings), with anything overdue; the parts still to get, all onto the shopping list in one tap; fuel and oils the machines use and whether you have them; hour meters to photograph.
+- **Fuel & consumables:** which fuels and oils your machines need (from their fuel type and kind: 2-stroke oil, petrol, engine oil, bar oil, stabiliser), the items you have for each, and what's missing or low.
+- **Hour-meter reminders:** machines on hours without a sensor whose last reading is over 30 days old are listed in Season mode, and a monthly `home_inventory_meter_reading_due` event lets an automation remind you.
+- **Service history PDF** for each machine: details, specs and parts, every service, and the schedule.
+- **Is it worth fixing?** Compare a repair cost with a new one and the second-hand value.
+- Fixed: the monthly `home_inventory_checkup_due` event (0.27.0) didn't reach Home Assistant; **update the integration** for it and `home_inventory_meter_reading_due`.
+- Fixed: the Reports pages (Reports, Maintenance plan) were titled "Inventory report" in the top bar.
+
 ## 0.27.0
 
 - **Shelf check-ups.** The dashboard suggests the place that most needs a fresh photo inventory (never photographed and fullest first, then the longest ago), with **Check it**. Once a month a `home_inventory_checkup_due` event goes to Home Assistant for a reminder automation. `GET /api/v1/checkups` lists the top places.

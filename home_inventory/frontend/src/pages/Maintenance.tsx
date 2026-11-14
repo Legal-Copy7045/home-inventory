@@ -131,6 +131,10 @@ export function EquipmentSection({ itemId, edit, onChanged, initial, startTracki
       title={d.profile?.equipment_type ? `Maintenance · ${d.profile.equipment_type}` : "Maintenance"}
       action={edit && <button className="btn small" onClick={() => setSheet({ kind: "profile" })}>Edit</button>}
     >
+      <div className="row wrap" style={{ gap: 6, marginBottom: 10 }}>
+        <a className="btn small ghost" href={url(`api/v1/items/${itemId}/service-history.pdf`)} download>Service history PDF</a>
+        <WorthFixingButton itemId={itemId} />
+      </div>
       {(meter === "hours" || meter === "both" || meter === "cycles") && (
         <div className="row between wrap" style={{ marginBottom: 10 }}>
           <div className="row" style={{ gap: 8 }}>
@@ -789,5 +793,43 @@ function SeasonalPanel({ onChanged }: { onChanged: () => void }) {
         </Section>
       )}
     </div>
+  );
+}
+
+
+type Verdict = { verdict: "fix" | "think" | "replace" | "unknown"; reason: string; repair_cost: string; replacement: string | null; paid?: string | null; second_hand: string | null; age_years: number | null };
+
+/** "Is it worth fixing?": compare a repair quote with replacing the machine. */
+export function WorthFixingButton({ itemId }: { itemId: number }) {
+  const [open, setOpen] = useState(false);
+  const [cost, setCost] = useState("");
+  const [res, setRes] = useState<Verdict | null>(null);
+  const { busy, run } = useAction();
+  const head = { fix: "Worth fixing", think: "Borderline", replace: "Probably not worth fixing", unknown: "Can't tell yet" };
+  return (
+    <>
+      <button className="btn small ghost" onClick={() => { setOpen(true); setRes(null); }}>Worth fixing?</button>
+      {open && (
+        <Sheet title="Is it worth fixing?" onClose={() => setOpen(false)}>
+          <form className="stack" onSubmit={async (e) => {
+            e.preventDefault();
+            const r = await run(() => api.get<Verdict>(`items/${itemId}/worth-fixing`, { repair_cost: cost }));
+            if (r) setRes(r);
+          }}>
+            <label className="field">Repair cost (parts and labour)<input inputMode="decimal" required value={cost} onChange={(e) => setCost(e.target.value)} placeholder="e.g. 85" /></label>
+            <button className="btn primary block" disabled={busy || !cost.trim()}>Compare</button>
+          </form>
+          {res && (
+            <div className={`notice ${res.verdict === "replace" ? "danger" : ""}`} style={{ marginTop: 12 }}>
+              <b>{head[res.verdict]}.</b> {res.reason}
+              <div className="s" style={{ marginTop: 4 }}>
+                {[res.replacement && `New: about ${res.replacement}`, res.paid && `Paid: ${res.paid}`, res.second_hand && `Second-hand: up to ${res.second_hand}`, res.age_years !== null && `${res.age_years} years old`].filter(Boolean).join(" · ")}
+              </div>
+              {!res.replacement && res.verdict !== "unknown" && <div className="s">Estimate its value with AI (Inventory report) for a better comparison.</div>}
+            </div>
+          )}
+        </Sheet>
+      )}
+    </>
   );
 }
