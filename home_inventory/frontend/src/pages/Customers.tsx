@@ -407,6 +407,8 @@ export function RepairJobPage() {
         ) : <p className="muted">Nothing recorded yet.</p>}
       </Section>
 
+      <ReservedParts jobId={j.id} edit={me.can_edit && !["returned", "cancelled"].includes(j.status)} onUsed={() => job.reload()} />
+
       {!!j.attachments?.length && (
         <Section title="Photos & documents">
           <div className="row wrap" style={{ gap: 8 }}>
@@ -648,5 +650,60 @@ function OwnerSheet({ item, onClose, onDone }: { item: Item; onClose: () => void
         <button className="btn primary block" disabled={busy}>Save</button>
       </form>
     </Sheet>
+  );
+}
+
+
+type Reservation = { id: number; item_id: number; name: string | null; quantity: number; state: "reserved" | "released" | "used"; in_stock: number; available: number; note: string | null };
+
+/** Household stock set aside for this job: reserved (still on the shelf), released, or used (taken out of stock). */
+function ReservedParts({ jobId, edit, onUsed }: { jobId: number; edit: boolean; onUsed: () => void }) {
+  const list = useApi(() => api.get<{ reservations: Reservation[] }>(`repair-jobs/${jobId}/reservations`), [jobId]);
+  const [q, setQ] = useState("");
+  const found = useApi(() => (q.trim().length > 1 ? api.get<{ items: Item[] }>("items", { q, limit: 8 }) : Promise.resolve({ items: [] as Item[] })), [q]);
+  const [qty, setQty] = useState(1);
+  const { busy, run } = useAction();
+  const rows = list.data?.reservations || [];
+  const reserve = async (it: Item) => {
+    if (await run(() => api.post(`repair-jobs/${jobId}/reservations`, { item_id: it.id, quantity: qty }), `Reserved ${qty} × ${it.display_name}`)) { setQ(""); list.reload(); }
+  };
+  const act = async (r: Reservation, what: "release" | "use") => {
+    if (what === "use" && !window.confirm(`Take ${r.quantity} × ${r.name} out of stock for this job?`)) return;
+    if (await run(() => api.post(`reservations/${r.id}/${what}`), what === "use" ? "Used: taken out of stock" : "Released")) { list.reload(); if (what === "use") onUsed(); }
+  };
+  if (!edit && !rows.length) return null;
+  return (
+    <Section title="Parts reserved">
+      <p className="muted s" style={{ marginTop: 0 }}>Reserving sets stock aside for this job without taking it off the shelf; it stops counting as available elsewhere. <b>Use</b> takes it out of stock and adds it to the job's parts.</p>
+      {list.error && !list.data ? <ErrorBox error={list.error} retry={list.reload} /> : rows.length > 0 && (
+        <ul className="list">
+          {rows.map((r) => (
+            <li key={r.id}>
+              <div className="grow">
+                <div className="t"><Link to={`/items/${r.item_id}`}>{r.name}</Link> × {r.quantity} <span className="badge">{r.state}</span></div>
+                <div className="s">{r.in_stock} on the shelf · {r.available} available</div>
+              </div>
+              {edit && r.state === "reserved" && (
+                <div className="row" style={{ gap: 4 }}>
+                  <button className="btn small primary" disabled={busy} onClick={() => act(r, "use")}>Use</button>
+                  <button className="btn small" disabled={busy} onClick={() => act(r, "release")}>Release</button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {edit && (
+        <div className="stack" style={{ marginTop: 8 }}>
+          <div className="row" style={{ gap: 6 }}>
+            <input className="grow" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Reserve a part from stock: search…" />
+            <input type="number" min={1} value={qty} onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))} style={{ width: 70 }} aria-label="Quantity to reserve" />
+          </div>
+          {(found.data?.items || []).filter((it) => !it.owner).map((it) => (
+            <button key={it.id} className="btn small block" disabled={busy} onClick={() => reserve(it)}>Reserve {qty} × {it.display_name} ({it.quantity} in {it.placement.path})</button>
+          ))}
+        </div>
+      )}
+    </Section>
   );
 }

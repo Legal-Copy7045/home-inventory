@@ -6,7 +6,7 @@ import { AlertTriangle, BookOpen, Check, ClipboardList, FileText, Gauge, Package
 import { api, url, type EquipmentProfile, type Item, type MaintenanceSummary, type MaintTask, type ReadinessLine, type ServiceEntry } from "../api";
 import { EquipmentSection, ServiceSheet, TaskBadge, TaskSheet, dueText } from "./Maintenance";
 import { ManualSheet, ReadyBadge, TaskPartsSheet } from "../components/Parts";
-import { Empty, ErrorBox, Section, Spinner, Thumb, fmtDate, money, useAction, useApi, useMe } from "../components/ui";
+import { Empty, ErrorBox, Section, Sheet, Spinner, Thumb, fmtDate, money, useAction, useApi, useMe } from "../components/ui";
 
 type Attention = "overdue" | "due_soon" | "ok";
 interface EquipmentRow {
@@ -30,7 +30,11 @@ interface Overview {
   upcoming: MaintTask[]; last_completed: ServiceEntry | null; recent: ServiceEntry[];
   plan: { state: PlanState; manuals: { id: number; name: string | null; url: string }[]; applied_reading_id: number | null; needs_review: number };
   parts: PartLine[]; costs: { services: number; labor: number; parts: number; total: number };
-  warranty: { expires: string; active: boolean; days_left: number } | null; entities: string[];
+  warranty: { expires: string; active: boolean; days_left: number } | null; entities: LinkedEntity[];
+}
+interface LinkedEntity {
+  entity_id: string; purpose: string; purpose_label: string; label: string | null; meter: boolean; error: string | null;
+  state: { value: string | null; unit: string | null; name: string | null; available: boolean; last_changed: string | null } | null;
 }
 interface Checklist { groups: { key: string; label: string; tasks: (MaintTask & { parts: ReadinessLine[] })[] }[]; meters: { hours: number | null } }
 
@@ -128,7 +132,10 @@ export function EquipmentPage() {
   const ov = useApi(() => api.get<Overview>(`equipment/${itemId}`), [itemId, key]);
   const cl = useApi(() => api.get<Checklist>(`equipment/${itemId}/checklist`), [itemId, key]);
   const summary = useApi(() => api.get<MaintenanceSummary>(`items/${itemId}/maintenance`), [itemId, key]);
-  const [sheet, setSheet] = useState<null | { kind: "done" | "edit" | "add" | "parts" | "manual"; task?: MaintTask & { parts?: ReadinessLine[] } }>(null);
+  const [sheet, setSheet] = useState<null | { kind: "done" | "edit" | "add" | "parts" | "manual" | "entity"; task?: MaintTask & { parts?: ReadinessLine[] } }>(null);
+  const [params, setParams] = useSearchParams();
+  const doAction = params.get("do");
+  const quick = (what: "meter" | "service") => setParams({ do: what }, { replace: true });
   const { busy, run } = useAction();
   const close = () => setSheet(null);
   const done = () => { setSheet(null); refresh(); };
@@ -177,6 +184,18 @@ export function EquipmentPage() {
         </div>
       </div>
 
+      {edit && (
+        <div className="row wrap" style={{ gap: 6, marginTop: 12 }}>
+          {p.meter !== "none" && <button className="btn small primary" onClick={() => quick("meter")}><Gauge size={16} /> Log {p.meter === "cycles" ? "uses" : "hours"}</button>}
+          <button className="btn small" onClick={() => quick("service")}>Record service</button>
+          <select aria-label="Equipment status" value={p.lifecycle_status || "active"} style={{ width: "auto" }} disabled={busy} onChange={async (e) => {
+            if (await run(() => api.put(`items/${itemId}/equipment`, { lifecycle_status: e.target.value }), "Status updated")) refresh();
+          }}>
+            <option value="active">Active</option><option value="storage">In storage</option><option value="under_repair">Under repair</option>
+            <option value="loaned">Loaned out</option><option value="retired">Retired</option><option value="disposed">Disposed of</option>
+          </select>
+        </div>
+      )}
       <div className="row wrap" style={{ gap: 6, margin: "12px 0" }}>
         <a className="btn small" href={url(`api/v1/equipment/${itemId}/checklist.pdf`)} target="_blank" rel="noreferrer"><Printer size={16} /> Print checklist</a>
         <a className="btn small ghost" href={url(`api/v1/items/${itemId}/service-history.pdf`)} download>Service history PDF</a>
@@ -281,13 +300,34 @@ export function EquipmentPage() {
           {engine && <div><b>Engine</b><div>{engine}{p.engine_serial ? ` · ${p.engine_serial}` : ""}</div></div>}
           {p.fuel_type && <div><b>Fuel</b><div>{p.fuel_type}</div></div>}
           <div><b>Maintenance spent</b><div>{money(o.costs.total, me.app.currency) || "—"} over {o.costs.services} service{o.costs.services === 1 ? "" : "s"}</div></div>
-          {o.entities.length > 0 && <div><b>Home Assistant</b><div className="mono s">{o.entities.join(", ")}</div></div>}
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <div className="row between"><b>Home Assistant</b>{edit && <button className="btn small ghost" onClick={() => setSheet({ kind: "entity" })}>Link an entity</button>}</div>
+          {o.entities.length ? (
+            <ul className="list">
+              {o.entities.map((e) => (
+                <li key={e.entity_id}>
+                  <div className="grow">
+                    <div className="t">{e.label || e.state?.name || e.purpose_label} <span className="s">· {e.purpose_label}{e.meter ? " (feeds maintenance)" : ""}</span></div>
+                    <div className="s mono">{e.entity_id}</div>
+                    <div className="s" style={{ color: e.error || !e.state?.available ? "var(--warn)" : undefined }}>
+                      {e.error || (e.state?.available ? `${e.state.value}${e.state.unit ? ` ${e.state.unit}` : ""}` : "unavailable right now")}</div>
+                  </div>
+                  {edit && <button className="iconbtn" aria-label={`Unlink ${e.entity_id}`} disabled={busy} onClick={async () => {
+                    if (window.confirm(`Unlink ${e.entity_id}? Readings already recorded are kept.`) && await run(() => api.del(`equipment/${itemId}/entities/${e.entity_id}`), "Unlinked")) refresh();
+                  }}>✕</button>}
+                </li>
+              ))}
+            </ul>
+          ) : <p className="muted s" style={{ margin: "4px 0 0" }}>None linked. Link a runtime sensor to count operating hours, or a battery, energy or smart-plug entity to see it here.</p>}
         </div>
         {p.specs.length > 0 && <div className="s" style={{ marginTop: 8 }}>{p.specs.filter((s) => s.value).map((s) => `${s.label}: ${s.value}`).join(" · ")}</div>}
       </Section>
 
       {/* Meter, readings, sensors, service history, editing: the existing maintenance tools */}
-      <EquipmentSection itemId={itemId} edit={edit} hideTasks reloadKey={key} onChanged={refresh} />
+      <EquipmentSection key={doAction || "-"} itemId={itemId} edit={edit} hideTasks reloadKey={key} onChanged={refresh}
+        initial={doAction === "meter" || doAction === "service" ? doAction : undefined} />
+      {sheet?.kind === "entity" && <EntitySheet itemId={itemId} onClose={close} onDone={done} />}
 
       {sheet?.kind === "done" && sheet.task && summary.data && (
         <ServiceSheet itemId={itemId} task={sheet.task} summary={summary.data} needs={sheet.task.parts} onClose={close} onDone={done} />
@@ -296,6 +336,46 @@ export function EquipmentPage() {
       {sheet?.kind === "parts" && sheet.task && <TaskPartsSheet taskId={sheet.task.id} title={sheet.task.title} rows={sheet.task.parts || []} onClose={close} onDone={done} />}
       {sheet?.kind === "manual" && <ManualSheet itemId={itemId} onClose={close} onDone={done} />}
     </div>
+  );
+}
+
+function EntitySheet({ itemId, onClose, onDone }: { itemId: number; onClose: () => void; onDone: () => void }) {
+  const [entity, setEntity] = useState("");
+  const [purpose, setPurpose] = useState("battery");
+  const [label, setLabel] = useState("");
+  const [checked, setChecked] = useState<{ exists: boolean; problems: string[]; state: LinkedEntity["state"]; entity_id: string } | null>(null);
+  const { busy, run } = useAction();
+  const check = async () => {
+    const r = await run(() => api.post<typeof checked>(`equipment/${itemId}/entities/check`, { entity_id: entity, purpose }));
+    if (r) setChecked(r);
+  };
+  const save = async () => {
+    if (await run(() => api.post(`equipment/${itemId}/entities`, { entity_id: entity, purpose, label: label || null, confirm: true }), "Linked")) onDone();
+  };
+  return (
+    <Sheet title="Link a Home Assistant entity" onClose={onClose}>
+      <div className="stack">
+        <label className="field">Entity id<input value={entity} onChange={(e) => { setEntity(e.target.value.trim()); setChecked(null); }} placeholder="sensor.generator_battery" autoCapitalize="none" /></label>
+        <label className="field">What it tells you
+          <select value={purpose} onChange={(e) => { setPurpose(e.target.value); setChecked(null); }}>
+            <option value="runtime">Operating hours (feeds maintenance)</option><option value="usage">Uses / cycles (feeds maintenance)</option>
+            <option value="battery">Battery level</option><option value="energy">Energy used</option><option value="power">Power</option>
+            <option value="status">On / off</option><option value="other">Something else</option>
+          </select>
+        </label>
+        <label className="field">Name (optional)<input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={80} /></label>
+        {!checked ? <button className="btn primary block" disabled={busy || !entity} onClick={check}>Check it</button> : (
+          <>
+            <div className={checked.problems.length ? "notice" : "card tight"} style={{ padding: 10 }}>
+              {checked.exists ? <>Now: <b>{checked.state?.available ? `${checked.state.value}${checked.state.unit ? ` ${checked.state.unit}` : ""}` : "unavailable"}</b>{checked.state?.name ? ` (${checked.state.name})` : ""}</> : "Home Assistant doesn't know this entity."}
+              {checked.problems.map((p) => <div key={p} className="s">⚠ {p}</div>)}
+            </div>
+            {checked.exists && <button className="btn primary block" disabled={busy} onClick={save}>{checked.problems.length ? "Link it anyway" : "Link it"}</button>}
+            <p className="muted s" style={{ margin: 0 }}>Only operating-hour and use sensors change anything: they record validated readings that move maintenance due dates. Nothing else is recorded from these.</p>
+          </>
+        )}
+      </div>
+    </Sheet>
   );
 }
 

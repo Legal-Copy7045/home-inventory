@@ -206,6 +206,14 @@ On **Items**, tap **Select**, tick the items you want (or **Select all**), then 
 - **Details**: purchase, warranty, engine, fuel, specifications, what its maintenance has cost so far, and its Home Assistant sensors.
 - Below: the hour meter and readings chart, sensors, **Log service**, **Add task**, **Read the manual**, the service history, and **Edit** for its details (type, engine, fuel, meter, status and where it came from).
 
+**Quick actions** at the top of an equipment page: **Log hours** (or uses), **Record service**, and its status (active, in storage, under repair, loaned out, retired, disposed of). An NFC tag on a machine (see *NFC tags*) opens its equipment page, and its "log hours" and "record service" actions go straight there too.
+
+**Home Assistant entities.** Under *Details → Home Assistant*, **Link an entity** connects the machine to things Home Assistant knows about it:
+- **Operating hours** or **uses**: a runtime sensor or counter. These record readings that move maintenance due dates, so only a suitable sensor (a number in a time unit, for hours) is accepted, and a reading never goes backwards.
+- **Battery**, **energy**, **power**, **on/off** or **something else**: shown with its current value on the equipment page. Nothing is recorded from these, and they never create maintenance on their own.
+
+**Check it** first shows the entity's current state and anything that looks wrong (a temperature sensor offered as a battery, an unknown entity); you then link it, or not. An entity that is later unavailable or removed is shown as such, and **✕** unlinks it (readings already recorded are kept).
+
 **Print checklist** makes a PDF service checklist: each job with tick box, interval, last done and next due, the parts it needs (marked *have* or *BUY*), and its source. Tasks from a generic schedule are marked GENERIC.
 
 **Maintenance reports** (link on the Equipment list): **Overdue** (most overdue first), **Upcoming** (due within a week, month, 3 months or year), **History** (completed work with dates, hours, parts and costs, and the total) and **All equipment** (each machine's status, next jobs, plan source and last service). Each prints.
@@ -290,6 +298,8 @@ Each task can list the parts it uses: tap **+ Parts** under the task. Each part 
 
 ## Restocking
 
+**What to buy** (on *Restock & Shopping*) adds up everything that needs stock, one line per part: parts that maintenance due within a chosen time needs (a spark plug the mower, generator and snowblower all use is one line), products below their minimum, and repair reservations bigger than what's on the shelf. Each line says why, how many are in stock and reserved, and how many to buy (in whole packs from the preferred shop), grouped by shop. **Add** or **Add all** puts them on the shopping list; nothing is bought for you.
+
 Set a minimum and a restock level in an item's **Restock** section, and add where to buy it (Amazon, Lowe's, Tractor Supply or any shop). The **Restock & Shopping** page (under **Reports** in the menu) lists what's running low with suggested quantities, and keeps a shopping list grouped by shop.
 
 **Open at <shop>** opens the product pages; for Amazon, it opens Amazon's own add-to-cart confirmation. Nothing is bought or added for you. Tap **It's in my cart** when it is, and **Bought** to add it to your stock. See the [restock guide](https://github.com/Legal-Copy7045/home-inventory/blob/main/docs/replenishment.md) for what each shop allows.
@@ -307,6 +317,8 @@ Keep accessories as separate items, each with its own place, QR label and search
 - Moving one item never moves another. Removing a link or deleting a kit never deletes items.
 
 ## Customers and repairs
+
+**Parts reserved for a job.** On a repair job, **Parts reserved** sets household stock aside for it: search for the part, choose how many, **Reserve**. The parts stay on the shelf and in your stock count, but stop counting as *available*, so maintenance readiness and other jobs don't plan on them. **Use** is the separate, explicit step that takes them out of stock and adds them to the job's parts (charged at what they cost you); **Release** gives them back. Each item shows how many of it are reserved.
 
 If you repair equipment for other people:
 
