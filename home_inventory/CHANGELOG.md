@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.25.1
+
+- **Integration:** the voice intents are registered once, so Home Assistant no longer logs "Intent HomeInventory… is being overwritten" (seven warnings) when the integration is set up again, e.g. after a reload or with a second Home Inventory entry. Voice answers were unaffected. Update the integration (HACS).
+
 ## 0.25.0
 
 - **Photo inventory: Look closer for missed things.** A button in the review has the AI look again at overlapping close-ups of the photo (2 × 2, more across a panorama) and adds what the first look missed (small, half-hidden and edge items) to the list for checking. Things already listed or already recorded there aren't added twice. A few AI requests, within your rate limits.
