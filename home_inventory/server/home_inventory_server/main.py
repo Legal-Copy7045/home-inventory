@@ -236,6 +236,10 @@ def _daily_jobs(state: AppState) -> None:
         if res["sent"]:
             _LOGGER.info("Published %s maintenance due notice(s); %s part(s) added to the shopping list",
                          res["sent"], res["added_to_shopping_list"])
+        from .services import checkups
+
+        if checkups.monthly_notice(db):
+            _LOGGER.info("Published this month's shelf check-up suggestion")
         # Remove photos uploaded but never attached (abandoned add-item flows).
         cutoff = datetime.now(UTC) - timedelta(days=2)
         orphans = db.scalars(
