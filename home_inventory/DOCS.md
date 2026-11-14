@@ -78,9 +78,11 @@ Quick photos are saved on your phone before they upload. If you lose signal, or 
 
 ## Asking by voice
 
-Ask "Where is the hedge trimmer?", "Where does the hammer go?" (where it belongs, for putting it back), "I've moved the engine oil to container number 5" (moves it, and asks if the place is unclear), "What maintenance is due?", "What's running low?" or "What's lent out?". It works with Home Assistant Assist once you add a small sentences file, with Siri through an Apple Shortcut that hands your words to Assist, and with Alexa through your own custom skill ("Alexa, ask Home Inventory where the hedge trimmer is"). See `docs/voice.md` in the repository for the setup and the trade-offs (Alexa needs Home Assistant reachable from the internet).
+Ask "Where is the hedge trimmer?", "Where does the hammer go?" (where it belongs, for putting it back), "I've moved the engine oil to container number 5" (moves it, and asks if the place is unclear), "What's in box 5?", "What maintenance is due?", "What's running low?" or "What's lent out?". It works with Home Assistant Assist once you add a small sentences file, with Siri through an Apple Shortcut that hands your words to Assist, and with Alexa through your own custom skill ("Alexa, ask Home Inventory where the hedge trimmer is"). See `docs/voice.md` in the repository for the setup and the trade-offs (Alexa needs Home Assistant reachable from the internet).
 
 **Voice history** (Admin, administrators): every question asked by voice (Alexa, Assist, Siri through Assist) with its answer, newest first, and a filter for the ones it couldn't answer. Useful to see which names it doesn't recognise. The last 500 are kept for 90 days, on your Home Assistant machine only; **Clear** empties it. Alexa's own "Sorry, I didn't catch that" isn't in it, because that question never reached Home Assistant; the Alexa app's voice history (Settings → Alexa Privacy) shows what Alexa heard.
+
+**Which shelf is this?** On the Scan page (with AI), **Which shelf is this?** takes a photo of a shelf, drawer or open box, works out which of your places it is from the things it sees, and lists what's recorded there but wasn't in the photo. The photo isn't kept.
 
 ## Take it and put away
 

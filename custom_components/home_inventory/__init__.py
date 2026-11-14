@@ -21,6 +21,7 @@ from .const import CONF_PANEL, CONF_SCAN_INTERVAL, CONF_TOKEN, CONF_URL, DEFAULT
 from .coordinator import InventoryCoordinator
 from .intent import async_setup_intents, async_unload_intents
 from .panel import async_register_panel, async_remove_panel
+from .photo import async_register_photo_view
 from .services import async_setup_services, async_unload_services
 
 _LOGGER = logging.getLogger(__name__)
@@ -42,6 +43,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await async_setup_services(hass)
     async_setup_intents(hass)
+    if getattr(hass, "http", None) is not None:
+        async_register_photo_view(hass)
     if entry.options.get(CONF_PANEL):
         await async_register_panel(hass)
     entry.async_on_unload(entry.add_update_listener(_options_updated))

@@ -171,7 +171,8 @@ class Doc:
 
 def _build_doc(item: Item, r: Resolver) -> Doc:
     p: Product = item.product
-    name = normalise_text(f"{p.name} {item.label or ''}")
+    # Other names (kept with the tags, e.g. "strimmer") count like the name.
+    name = normalise_text(f"{p.name} {item.label or ''} {(p.tags or '').replace(',', ' ')}")
     exact = {normalise_text(x) for x in (p.model_number, p.barcode, p.sku, item.serial_number, p.gtin) if x}
     body = normalise_text(" ".join(filter(None, [p.description, p.tags, item.notes, item.status_note])))
     place = normalise_text(r.describe_item(item)["path"])

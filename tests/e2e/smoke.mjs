@@ -477,7 +477,8 @@ if ((await api(`items/${whisk.id}`)).category !== "Kitchen & Dining") throw new 
 // Admin → Voice history
 await api("voice/history", { method: "POST", data: { source: "alexa", device: "Kitchen Echo", intent: "HomeInventoryWhereIs", slots: { item: "flux capacitor" }, answer: "I couldn't find flux capacitor in your inventory." } });
 await page.goto(BASE + "#/voice-history");
-await page.getByText("“flux capacitor”", { exact: false }).waitFor();
+await page.getByText("Where is: “flux capacitor”", { exact: false }).waitFor();
+await page.getByRole("heading", { name: "Names it didn't recognise" }).waitFor();  // with what it might have meant
 await page.getByText("Only questions it couldn't answer").click();
 await page.getByText("not found").first().waitFor();
 await shot("15g-voice-history");

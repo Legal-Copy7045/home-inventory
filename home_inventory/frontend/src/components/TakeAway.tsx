@@ -179,3 +179,57 @@ export function PhotoFind({ here, onChanged }: { here?: Place | null; onChanged?
     </>
   );
 }
+
+type PlaceGuess = { type: "location" | "container"; id: number; path: string | null; score: number; matched: string[]; recorded: string[]; not_seen: string[] };
+
+/** "Which shelf is this?": photograph a shelf or box; see which place it is and what should be there. */
+export function WhichPlace() {
+  const toast = useToast();
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState<{ seen: string[]; places: PlaceGuess[] } | null>(null);
+  async function onFile(f: File | undefined) {
+    if (!f) return;
+    setBusy(true);
+    try {
+      const form = new FormData();
+      form.append("file", f);
+      setRes(await api.upload<{ seen: string[]; places: PlaceGuess[] }>("ai/which-place", form));
+    } catch (e) {
+      toast((e as Error).message, true);
+    } finally {
+      setBusy(false);
+      if (input.current) input.current.value = "";
+    }
+  }
+  const best = res?.places[0];
+  return (
+    <>
+      <input ref={input} type="file" accept="image/*" hidden onChange={(e) => void onFile(e.target.files?.[0])} />
+      <button className="btn block" disabled={busy} onClick={() => input.current?.click()} style={{ marginTop: 8 }}>
+        <MapPin size={18} /> {busy ? "Working out where this is…" : "Which shelf is this? Identify a place by photo"}
+      </button>
+      {res && (
+        <Sheet title={best ? `Looks like ${best.path || "this place"}` : "I don't recognise this place"} onClose={() => setRes(null)}>
+          {best ? (
+            <div className="stack">
+              <p className="muted" style={{ marginTop: 0 }}>I saw {res.seen.length} thing{res.seen.length === 1 ? "" : "s"}; {best.matched.length} of them {best.matched.length === 1 ? "is" : "are"} recorded here.</p>
+              <Link className="btn primary block" to={best.type === "container" ? `/containers/${best.id}` : `/locations/${best.id}`}>Open {best.path}</Link>
+              {best.not_seen.length > 0 && (
+                <div className="card tight" style={{ padding: 12 }}>
+                  <b>Recorded here but not in the photo</b>
+                  <div className="s">{best.not_seen.join(", ")}</div>
+                </div>
+              )}
+              {res.places.slice(1).map((p) => (
+                <Link key={`${p.type}${p.id}`} className="btn block" to={p.type === "container" ? `/containers/${p.id}` : `/locations/${p.id}`}>Or: {p.path} ({p.matched.length} match{p.matched.length === 1 ? "" : "es"})</Link>
+              ))}
+            </div>
+          ) : (
+            <p>None of the things in the photo{res.seen.length ? ` (${res.seen.slice(0, 6).join(", ")})` : ""} are recorded yet. Do a photo inventory of the place to add them.</p>
+          )}
+        </Sheet>
+      )}
+    </>
+  );
+}

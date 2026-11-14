@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.26.0
+
+- **"Show me".** When voice answers go to your phone, an item's photo comes with it, so you can spot it on a crowded shelf. (The photo is fetched through Home Assistant, signed in, as you.)
+- **"What's in box 5?"** Ask Assist or Alexa what's in a box or on a shelf ("What's on the top shelf?", "What's in container number 12?"). It reads what's recorded there and asks which one if two places share a name. **Update the Assist sentences file and the Alexa skill** (interaction model and forwarder code).
+- **Which shelf is this?** (Scan page, AI): photograph a shelf, drawer or open box; it works out which place it is from what it sees, and lists what's recorded there but wasn't in the photo.
+- **Names it didn't recognise** (Admin → Voice history): names said that weren't found ("strimmer"), with the item they probably meant; one tap adds it as another name, and search and voice find it by that name. Other names count like the item's own name in search.
+
 ## 0.25.2
 
 - **Clearer where a new location goes.** The Locations page button is **New top-level location**. Adding from inside a place (**Add sub-location**) now says "New location inside Basement" and has **Make it top-level instead**, so a room no longer ends up inside the place you happened to be looking at. Moving a location offers **Move it to the top level**. Top-level places in the tree are separated by a line, so one after a long expanded place doesn't look like part of it.

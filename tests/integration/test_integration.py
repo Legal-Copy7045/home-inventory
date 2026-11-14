@@ -330,6 +330,44 @@ async def test_voice_move_clear_place_and_box_number(hass: HomeAssistant, invent
         "I couldn't find a place called the moon, so I haven't moved Engine oil.")
 
 
+async def test_voice_answer_notification_shows_the_photo(hass: HomeAssistant, inventory_app, hass_client):
+    from homeassistant.helpers import intent
+    from pytest_homeassistant_custom_component.common import async_mock_service
+
+    sent = async_mock_service(hass, "notify", "mobile_app_photo_phone")
+    item = inventory_app.ui("POST", "items", {"name": "Photographed bench vice", "location_id": inventory_app.seed["shed"]["id"]})["items"][0]
+    att = inventory_app.upload_photo(item["id"])
+    entry = await _setup_via_user_flow(hass, inventory_app)
+    flow = await hass.config_entries.options.async_init(entry.entry_id)
+    await hass.config_entries.options.async_configure(flow["flow_id"], {"voice_notify": "all", "notify_service": "notify.mobile_app_photo_phone"})
+    await hass.async_block_till_done()
+    await intent.async_handle(hass, "conversation", "HomeInventoryWhereIs", {"item": {"value": "photographed bench vice"}})
+    await hass.async_block_till_done()
+    data = sent[-1].data["data"]
+    assert data["image"] == f"/api/home_inventory/photo/{att['id']}"
+    # The image address needs a Home Assistant login and serves the photo
+    client = await hass_client()
+    r = await client.get(data["image"])
+    assert r.status == 200 and r.headers["Content-Type"] == "image/jpeg" and len(await r.read()) > 100
+    assert (await client.get("/api/home_inventory/photo/abc")).status == 404
+
+
+async def test_voice_whats_in_a_box_or_on_a_shelf(hass: HomeAssistant, inventory_app):
+    from homeassistant.helpers import intent
+
+    app = inventory_app
+    shed = app.seed["shed"]
+    tray = app.ui("POST", "containers", {"name": "Odds tray", "number": "77", "location_id": shed["id"]})
+    for name, qty in (("Wall plugs", 40), ("Spirit level", 1)):
+        app.ui("POST", "items", {"name": name, "quantity": qty, "container_id": tray["id"]})
+    await _setup_via_user_flow(hass, app)
+    r = await intent.async_handle(hass, "conversation", "HomeInventoryWhatsIn", {"place": {"value": "box 77"}})
+    speech = r.speech["plain"]["speech"]
+    assert speech.startswith("In Container number 77, Odds tray") and "40 Wall plugs" in speech and "Spirit level" in speech
+    r = await intent.async_handle(hass, "conversation", "HomeInventoryWhatsIn", {"place": {"value": "the moon"}})
+    assert r.speech["plain"]["speech"] == "I couldn't find a place called the moon."
+
+
 async def test_voice_questions_are_kept_in_voice_history(hass: HomeAssistant, inventory_app):
     import json
 
@@ -543,8 +581,8 @@ def test_voice_intents_are_registered_once(hass: HomeAssistant, monkeypatch):
     hi.async_setup_intents(hass)
     first = len(calls)
     hi.async_setup_intents(hass)
-    assert first == 7 and len(calls) == 7
+    assert first == 8 and len(calls) == 8
     hi.async_unload_intents(hass)
     hi.async_setup_intents(hass)  # after unloading, registered afresh
-    assert len(calls) == 14
+    assert len(calls) == 16
     hi.async_unload_intents(hass)

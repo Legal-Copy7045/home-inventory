@@ -123,3 +123,39 @@ def test_voice_history_is_kept_for_admins(env):
     hook.ok("post", "/api/v1/voice/history", json={"answer": "x" * 5000, "slots": {"item": "y" * 900}})
     e = env.admin.ok("get", "/api/v1/voice/history")["entries"][0]
     assert len(e["answer"]) == 600 and len(e["slots"]["item"]) == 200
+
+
+def test_voice_names_not_found_suggest_another_name(env):
+    hook = env.integration()
+    trimmer = env.admin.item("String trimmer")
+    env.admin.item("Hedge trimmer")
+    for _ in range(2):
+        hook.ok("post", "/api/v1/voice/history", json={"intent": "HomeInventoryWhereIs", "slots": {"item": "strimmer"},
+                                                     "answer": "I couldn't find strimmer in your inventory."})
+    hook.ok("post", "/api/v1/voice/history", json={"intent": "HomeInventoryWhereIs", "slots": {"item": "hedge trimmer"},
+                                                 "answer": "Hedge trimmer is in Shed."})
+    res = env.admin.ok("get", "/api/v1/voice/suggestions")["phrases"]
+    assert [p["phrase"] for p in res] == ["strimmer"] and res[0]["count"] == 2
+    assert res[0]["suggestions"][0]["name"] == "String trimmer"
+    pid = res[0]["suggestions"][0]["product_id"]
+    env.admin.ok("post", f"/api/v1/products/{pid}/aliases", json={"alias": "strimmer"})
+    # Found by the other name now, and no longer suggested
+    found = env.admin.ok("get", "/api/v1/search", params={"q": "strimmer", "ai": "false"})["results"]
+    assert found[0]["id"] == trimmer["id"]
+    assert env.admin.ok("get", "/api/v1/voice/suggestions")["phrases"] == []
+
+
+def test_which_place_ranks_where_the_seen_things_are(ai_env, fake_ai):
+    u = ai_env.admin
+    top = u.location("Top shelf")
+    low = u.location("Bottom shelf")
+    for n in ("Paint tins", "WD-40", "Masking tape"):
+        u.item(n, location_id=top["id"])
+    u.item("Sandpaper", location_id=low["id"])
+    fake_ai.responses.append({"items": [{"name": "Paint tins"}, {"name": "WD-40"}, {"name": "Sandpaper"}], "notes": None})
+    r = u.ok("post", "/api/v1/ai/which-place", files={"file": ("p.jpg", jpeg_bytes())})
+    assert r["seen"] == ["Paint tins", "WD-40", "Sandpaper"]
+    best = r["places"][0]
+    assert (best["type"], best["id"]) == ("location", top["id"])
+    assert sorted(best["matched"]) == ["Paint tins", "WD-40"] and best["not_seen"] == ["Masking tape"]
+    assert r["places"][1]["id"] == low["id"]
