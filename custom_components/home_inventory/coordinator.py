@@ -147,7 +147,7 @@ class InventoryCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         async def send() -> None:
             try:
-                job = await self.client.request("GET", f"repair-jobs/{int(data['job_id'])}")
+                job = await self.client.request("GET", f"repair-jobs/{int(data['job_id'])}", purpose="customer-message")
             except InventoryError as err:
                 _LOGGER.warning("Couldn't read repair job %s for the customer message: %s", data.get("number"), err)
                 return
