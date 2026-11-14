@@ -7,6 +7,7 @@
 - **Hour-meter reminders:** machines on hours without a sensor whose last reading is over 30 days old are listed in Season mode, and a monthly `home_inventory_meter_reading_due` event lets an automation remind you.
 - **Service history PDF** for each machine: details, specs and parts, every service, and the schedule.
 - **Is it worth fixing?** Compare a repair cost with a new one and the second-hand value.
+- Fixed: the monthly `home_inventory_checkup_due` event (0.27.0) didn't reach Home Assistant; **update the integration** for it and `home_inventory_meter_reading_due`.
 - Fixed: the Reports pages (Reports, Maintenance plan) were titled "Inventory report" in the top bar.
 
 ## 0.27.0
