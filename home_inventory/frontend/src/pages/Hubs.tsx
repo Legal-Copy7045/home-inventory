@@ -1,7 +1,7 @@
 import { Link, useSearchParams } from "react-router-dom";
-import { CalendarClock, ClipboardList, FileText, Printer, ShieldCheck, ShoppingCart, Wrench } from "lucide-react";
+import { CalendarClock, ClipboardList, FileText, Leaf, Printer, ShieldCheck, ShoppingCart, Wrench } from "lucide-react";
 import { api } from "../api";
-import { ErrorBox, Spinner, fmtDate, useApi, useMe } from "../components/ui";
+import { ErrorBox, Spinner, fmtDate, useAction, useApi, useMe } from "../components/ui";
 import SortPhotos from "./SortPhotos";
 import ToFinish from "./ToFinish";
 import { MaintenancePage } from "./Maintenance";
@@ -54,6 +54,7 @@ export function ReportsPage() {
   const reports: { to: string; icon: typeof FileText; title: string; text: string }[] = [
     { to: "/report", icon: FileText, title: "Inventory report", text: "Everything you own by room, with values, serial numbers and paperwork. Print it or download CSV / Excel; estimate values with AI." },
     { to: "/care?tab=maintenance", icon: CalendarClock, title: "Upcoming maintenance", text: "What's overdue and due soon, this season's jobs, and parts needed." },
+    { to: "/reports/season", icon: Leaf, title: "Season mode", text: "Spring get-ready or autumn winterising: every machine's jobs, the parts to buy in one go, fuel and oils, and hour meters to photograph." },
     { to: "/reports/maintenance-plan", icon: Wrench, title: "Maintenance plan & guide", text: "Every machine with its jobs, how often, when they're next due, instructions and parts. Printable." },
     { to: "/shopping", icon: ShoppingCart, title: "Restock & shopping list", text: "What's running low, and the shopping list with where to buy." },
     { to: "/loans?tab=warranty", icon: ShieldCheck, title: "Warranties & expiry", text: "Warranties ending soon and things to use before they expire." },
@@ -150,6 +151,97 @@ export function MaintenancePlanPage() {
           </table>
         </section>
       ))}
+    </div>
+  );
+}
+
+interface SeasonJob { id: number; title: string; status: string; next_due_on: string | null; parts?: { name: string; status: string }[] }
+interface Consumable { need: string; machines: string[]; have: { item_id: number; name: string; quantity: number }[]; status: "ok" | "low" | "none" }
+interface SeasonData {
+  season: "spring" | "autumn";
+  machines: { item: { id: number; name: string; place: string }; fuel_type: string | null; jobs: SeasonJob[] }[];
+  parts_to_get: { name: string; quantity: number; unit: string | null; for: string[] }[];
+  consumables: Consumable[];
+}
+
+/** Season mode: get the equipment ready for spring, or put it away for winter. */
+export function SeasonPage() {
+  const me = useMe();
+  const [params, setParams] = useSearchParams();
+  const which = params.get("season") as "spring" | "autumn" | null;
+  const d = useApi(() => api.get<SeasonData>("maintenance/season", which ? { season: which } : undefined), [which]);
+  const readings = useApi(() => api.get<{ machines: { item_id: number; name: string; days: number | null }[] }>("maintenance/readings-due"), []);
+  const { busy, run } = useAction();
+  if (!d.data) return d.error ? <div className="page"><ErrorBox error={d.error} /></div> : <Spinner />;
+  const s = d.data;
+  const label = s.season === "spring" ? "Spring: get ready" : "Autumn: put away for winter";
+  return (
+    <div className="page">
+      <div className="row between wrap">
+        <h1 style={{ margin: 0 }}>{label}</h1>
+        <div className="tabs" style={{ margin: 0 }}>
+          {(["spring", "autumn"] as const).map((x) => <button key={x} className={s.season === x ? "active" : ""} onClick={() => setParams({ season: x }, { replace: true })}>{x === "spring" ? "Spring" : "Autumn"}</button>)}
+        </div>
+      </div>
+      <p className="muted">{s.season === "spring" ? "Jobs to do before the mowing season, and what to buy for them." : "Winterising jobs (fuel stabiliser, running dry, batteries in) and what they need."} Anything overdue is included too.</p>
+
+      {s.consumables.length > 0 && (
+        <section className="card tight" style={{ marginBottom: 12 }}>
+          <div className="card-title" style={{ padding: "14px 16px 0" }}><h2>Fuel &amp; oils</h2></div>
+          <div className="list">
+            {s.consumables.map((c) => (
+              <li key={c.need}>
+                <div className="grow">
+                  <div className="t">{c.need} {c.status !== "ok" && <span className={`badge ${c.status === "none" ? "danger" : "warn"}`}>{c.status === "none" ? "none in stock" : "running low"}</span>}</div>
+                  <div className="s">For {c.machines.join(", ")}</div>
+                  <div className="s">{c.have.length ? c.have.map((h) => <Link key={h.item_id} to={`/items/${h.item_id}`} style={{ marginRight: 8 }}>{h.name} ({h.quantity})</Link>) : "Not in your inventory"}</div>
+                </div>
+              </li>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {s.parts_to_get.length > 0 && (
+        <section className="card" style={{ marginBottom: 12 }}>
+          <div className="row between wrap"><h2 style={{ margin: 0 }}>Parts to get</h2>
+            {me.can_edit && <button className="btn small primary" disabled={busy} onClick={async () => {
+              const r = await run(() => api.post<{ added: string[] }>(`maintenance/season/shopping?season=${s.season}`));
+              if (r) d.reload();
+            }}><ShoppingCart size={16} /> Add all to the shopping list</button>}
+          </div>
+          <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
+            {s.parts_to_get.map((p) => <li key={p.name}><b>{p.quantity}{p.unit ? ` ${p.unit}` : ""} × {p.name}</b> <span className="muted">— {p.for.join("; ")}</span></li>)}
+          </ul>
+        </section>
+      )}
+
+      {(readings.data?.machines.length ?? 0) > 0 && (
+        <section className="card" style={{ marginBottom: 12 }}>
+          <h2 style={{ marginTop: 0 }}>Hour meters to photograph</h2>
+          <p className="muted">These have no sensor; a photo of the hour meter keeps their hour-based jobs right.</p>
+          {readings.data!.machines.map((m) => <Link key={m.item_id} className="btn small" style={{ marginRight: 6, marginBottom: 6 }} to={`/items/${m.item_id}`}>{m.name} · {m.days === null ? "never read" : `${m.days} days ago`}</Link>)}
+        </section>
+      )}
+
+      {s.machines.length ? s.machines.map((m) => (
+        <section key={m.item.id} className="card tight" style={{ marginBottom: 10 }}>
+          <div className="card-title" style={{ padding: "14px 16px 0" }}>
+            <h2><Link to={`/items/${m.item.id}`}>{m.item.name}</Link></h2>
+            <span className="muted">{m.item.place}{m.fuel_type ? ` · ${m.fuel_type}` : ""}</span>
+          </div>
+          <div className="list">
+            {m.jobs.map((j) => (
+              <li key={j.id}>
+                <div className="grow">
+                  <div className="t">{j.title} {j.status === "overdue" && <span className="badge danger">overdue</span>}{j.status === "due_soon" && <span className="badge warn">due soon</span>}</div>
+                  {j.parts && j.parts.length > 0 && <div className="s">Needs: {j.parts.map((p) => `${p.name}${p.status === "in_stock" ? "" : " (to get)"}`).join(", ")}</div>}
+                </div>
+              </li>
+            ))}
+          </div>
+        </section>
+      )) : <div className="card"><div className="empty">No equipment with {s.season} jobs. Track maintenance on a machine to see it here.</div></div>}
     </div>
   );
 }

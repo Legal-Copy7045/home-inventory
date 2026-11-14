@@ -30,6 +30,7 @@ from .ai import AIService
 from .api.admin import router as admin_router
 from .api.attachments import router as attachments_router
 from .api.customers import router as customers_router
+from .api.equipment import router as equipment_router
 from .api.lookup import router as lookup_router
 from .api.maintenance import router as maintenance_router
 from .api.maps import router as maps_router
@@ -156,6 +157,7 @@ def create_app(state: AppState, channel: str) -> FastAPI:
     app.include_router(tags_router)
     app.include_router(replenishment_router)
     app.include_router(takeaway_router)
+    app.include_router(equipment_router)
 
     def body_limit(path: str) -> int:
         if path.endswith("/backup/restore"):
@@ -237,7 +239,11 @@ def _daily_jobs(state: AppState) -> None:
             _LOGGER.info("Published %s maintenance due notice(s); %s part(s) added to the shopping list",
                          res["sent"], res["added_to_shopping_list"])
         from .services import checkups
+        from .services import equipment as equipment_svc
 
+        n = equipment_svc.monthly_reading_reminder(db)
+        if n:
+            _LOGGER.info("Published %s meter reading reminder(s)", n)
         if checkups.monthly_notice(db):
             _LOGGER.info("Published this month's shelf check-up suggestion")
         # Remove photos uploaded but never attached (abandoned add-item flows).

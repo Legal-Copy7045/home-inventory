@@ -41,4 +41,6 @@ EVENT_TYPES = (
     "repair_job_status",
     "tag_scanned",
     "shopping_list_updated",
+    "checkup_due",
+    "meter_reading_due",
 )
