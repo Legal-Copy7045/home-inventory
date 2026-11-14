@@ -97,6 +97,7 @@ export default function ItemDetail() {
   const [putPick, setPutPick] = useState(false);
   const [putPlace, setPutPlace] = useState<PlacementValue | null>(null);
 
+  if (item.error && !item.data) return <ErrorBox error={item.error} retry={item.reload} />;
   if (item.loading && !item.data) return <Spinner />;
   if (item.error || !item.data) return <div className="page"><ErrorBox error={item.error} /></div>;
   const it = item.data;

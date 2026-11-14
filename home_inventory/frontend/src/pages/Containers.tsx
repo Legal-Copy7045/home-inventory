@@ -21,7 +21,7 @@ export function ContainersPage() {
       <input placeholder="Filter by name or number" value={q} onChange={(e) => setQ(e.target.value)} style={{ marginBottom: 12 }} />
       <ErrorBox error={list.error} />
       <div className="card tight">
-        {list.loading && !list.data ? <Spinner /> : list.data?.length ? (
+        {list.error && !list.data ? <ErrorBox error={list.error} retry={list.reload} /> : list.loading && !list.data ? <Spinner /> : list.data?.length ? (
           <div className="list">{list.data.map((c) => <ContainerRow key={c.id} c={c} />)}</div>
         ) : <Empty>No containers yet. Create boxes, bins and crates, then print QR labels for them.</Empty>}
       </div>
@@ -98,6 +98,7 @@ export function ContainerDetail() {
   const { busy, run } = useAction();
   const toast = useToast();
 
+  if (c.error && !c.data) return <ErrorBox error={c.error} retry={c.reload} />;
   if (c.loading && !c.data) return <Spinner />;
   if (!c.data) return <div className="page"><ErrorBox error={c.error} /></div>;
   const ct = c.data;

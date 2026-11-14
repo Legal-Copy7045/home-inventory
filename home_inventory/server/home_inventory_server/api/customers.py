@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import audit
-from ..auth import Actor, get_db, require_member
+from ..auth import Actor, get_db, require_customer_access
 from ..models import Customer, Item, ItemOwner, RepairJob
 from ..schemas import (
     ContactIn,
@@ -64,25 +64,25 @@ def _job(db: Session, job_id: int) -> RepairJob:
 
 
 @router.get("/customers")
-def list_customers(q: str | None = Query(None, max_length=200), actor: Actor = Depends(require_member),
+def list_customers(q: str | None = Query(None, max_length=200), actor: Actor = Depends(require_customer_access),
                    db: Session = Depends(get_db)):
     return [cust.customer_out(c, db) for c in cust.search_customers(db, q)]
 
 
 @router.post("/customers", status_code=201)
-def add_customer(data: CustomerIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+def add_customer(data: CustomerIn, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
     c = cust.create_customer(db, actor, data.model_dump())
     db.commit()
     return cust.customer_out(c, db, detail=True)
 
 
 @router.get("/customers/{customer_id}")
-def get_customer(customer_id: int, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+def get_customer(customer_id: int, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
     return cust.customer_out(_customer(db, customer_id), db, detail=True)
 
 
 @router.patch("/customers/{customer_id}")
-def change_customer(customer_id: int, data: CustomerPatch, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+def change_customer(customer_id: int, data: CustomerPatch, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
     c = _customer(db, customer_id)
     fields = data.model_dump(exclude_unset=True)
     if fields.get("name") is None:
@@ -93,13 +93,13 @@ def change_customer(customer_id: int, data: CustomerPatch, actor: Actor = Depend
 
 
 @router.delete("/customers/{customer_id}", status_code=204)
-def remove_customer(customer_id: int, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+def remove_customer(customer_id: int, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
     _run(cust.delete_customer, db, actor, _customer(db, customer_id))
     db.commit()
 
 
 @router.post("/customers/{customer_id}/contacts", status_code=201)
-def add_contact(customer_id: int, data: ContactIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+def add_contact(customer_id: int, data: ContactIn, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
     c = _customer(db, customer_id)
     cust.add_contact(db, actor, c, data.channel, data.note)
     db.commit()
@@ -107,7 +107,7 @@ def add_contact(customer_id: int, data: ContactIn, actor: Actor = Depends(requir
 
 
 @router.post("/customers/{customer_id}/equipment", status_code=201)
-def add_equipment(customer_id: int, data: CustomerEquipmentIn, actor: Actor = Depends(require_member),
+def add_equipment(customer_id: int, data: CustomerEquipmentIn, actor: Actor = Depends(require_customer_access),
                   db: Session = Depends(get_db)):
     c = _customer(db, customer_id)
     item = _run(cust.add_customer_equipment, db, actor, c, data.model_dump(exclude_none=True))
@@ -116,7 +116,7 @@ def add_equipment(customer_id: int, data: CustomerEquipmentIn, actor: Actor = De
 
 
 @router.post("/items/{item_id}/owner")
-def change_owner(item_id: int, data: OwnerIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+def change_owner(item_id: int, data: OwnerIn, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
     """The only way to change who owns an item (audited; needs ``confirm``)."""
     if not data.confirm:
         raise HTTPException(422, "Confirm the change of owner")
@@ -137,12 +137,12 @@ def change_owner(item_id: int, data: OwnerIn, actor: Actor = Depends(require_mem
 
 @router.get("/repair-jobs")
 def list_repair_jobs(status: str | None = Query(None, max_length=30), customer_id: int | None = None,
-                     item_id: int | None = None, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+                     item_id: int | None = None, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
     return [cust.job_out(db, j) for j in cust.list_jobs(db, status, customer_id, item_id)]
 
 
 @router.post("/repair-jobs", status_code=201)
-def open_repair_job(data: RepairJobIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+def open_repair_job(data: RepairJobIn, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
     payload = data.model_dump(exclude_unset=True)
     if data.new_equipment is not None:
         payload["new_equipment"] = data.new_equipment.model_dump(exclude_none=True)
@@ -152,12 +152,12 @@ def open_repair_job(data: RepairJobIn, actor: Actor = Depends(require_member), d
 
 
 @router.get("/repair-jobs/{job_id}")
-def get_repair_job(job_id: int, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+def get_repair_job(job_id: int, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
     return cust.job_out(db, _job(db, job_id), detail=True)
 
 
 @router.patch("/repair-jobs/{job_id}")
-def change_repair_job(job_id: int, data: RepairJobFields, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+def change_repair_job(job_id: int, data: RepairJobFields, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
     job = _job(db, job_id)
     cust.update_job(db, actor, job, data.model_dump(exclude_unset=True))
     db.commit()
@@ -165,7 +165,7 @@ def change_repair_job(job_id: int, data: RepairJobFields, actor: Actor = Depends
 
 
 @router.post("/repair-jobs/{job_id}/status")
-def set_repair_status(job_id: int, data: RepairStatusIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+def set_repair_status(job_id: int, data: RepairStatusIn, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
     job = _job(db, job_id)
     _run(cust.change_status, db, actor, job, data.status, data.note)
     db.commit()
@@ -173,7 +173,7 @@ def set_repair_status(job_id: int, data: RepairStatusIn, actor: Actor = Depends(
 
 
 @router.post("/repair-jobs/{job_id}/service", status_code=201)
-def add_job_service(job_id: int, data: ServiceIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+def add_job_service(job_id: int, data: ServiceIn, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
     """Record work and parts for this job; it also appears in the equipment's service history."""
     job = _job(db, job_id)
     item = db.get(Item, job.item_id) if job.item_id else None
@@ -192,7 +192,7 @@ def add_job_service(job_id: int, data: ServiceIn, actor: Actor = Depends(require
 
 
 @router.delete("/repair-jobs/{job_id}", status_code=204)
-def remove_repair_job(job_id: int, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+def remove_repair_job(job_id: int, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
     job = _job(db, job_id)
     job.deleted_at = datetime.now(UTC)
     audit.record(db, actor, "repair_deleted", "item", job.item_id or 0, f"{job.number}: deleted")
@@ -200,14 +200,14 @@ def remove_repair_job(job_id: int, actor: Actor = Depends(require_member), db: S
 
 
 @router.get("/items/{item_id}/repair-jobs")
-def item_jobs(item_id: int, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+def item_jobs(item_id: int, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
     if db.get(ItemOwner, item_id) is None:
         return []
     return [cust.job_out(db, j) for j in cust.list_jobs(db, None, None, item_id)]
 
 
 @router.get("/repair-jobs/by-number/{number}")
-def job_by_number(number: str, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+def job_by_number(number: str, actor: Actor = Depends(require_customer_access), db: Session = Depends(get_db)):
     """For a job ticket's QR code: the job with this number."""
     job = db.scalar(select(RepairJob).where(func.upper(RepairJob.number) == number.strip().upper(), RepairJob.deleted_at.is_(None)))
     if job is None:
@@ -216,7 +216,7 @@ def job_by_number(number: str, actor: Actor = Depends(require_member), db: Sessi
 
 
 @router.get("/repair-jobs/{job_id}/ticket.pdf")
-def job_ticket(job_id: int, request: Request, base: str | None = None, actor: Actor = Depends(require_member),
+def job_ticket(job_id: int, request: Request, base: str | None = None, actor: Actor = Depends(require_customer_access),
                db: Session = Depends(get_db)):
     """A tag for the machine: job number, customer, problem and a QR code
     that opens the job."""

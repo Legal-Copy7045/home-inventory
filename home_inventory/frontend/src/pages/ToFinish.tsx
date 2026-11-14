@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Sparkles } from "lucide-react";
 import { api, type Item } from "../api";
 import { SelectableItems } from "../components/BulkActions";
-import { Empty, Spinner, Thumb, useApi } from "../components/ui";
+import { ErrorBox, Empty, Spinner, Thumb, useApi } from "../components/ui";
 
 /** Items added with Quick photos that still need their details. */
 export default function ToFinish() {
@@ -11,7 +11,7 @@ export default function ToFinish() {
     <div className="page">
       <h1>To finish</h1>
       <p className="muted">Items added with Quick photos. Open one, check the details (AI suggestions are pre-filled where available) and save — then carry on to the next. Use <b>Select</b> to move or delete several at once.</p>
-      {list.loading && !list.data ? <Spinner /> : (
+      {list.error && !list.data ? <ErrorBox error={list.error} retry={list.reload} /> : list.loading && !list.data ? <Spinner /> : (
         <SelectableItems
           items={list.data?.items || []}
           total={list.data?.total}

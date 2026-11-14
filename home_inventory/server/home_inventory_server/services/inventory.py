@@ -29,6 +29,7 @@ from ..models import (
     Loan,
     Location,
     Product,
+    User,
 )
 from ..schemas import (
     ContainerIn,
@@ -948,6 +949,18 @@ def prefetch(db: Session, items: list[Item]) -> set[int]:
     return household
 
 
+def _taker(db: Session | None, item: Item) -> str | None:
+    """Who has it (Take it), by their current name; None when not taken."""
+    if item.status is not ItemStatus.in_use:
+        return None
+    if item.taken_by_id is not None and db is not None:
+        u = db.get(User, item.taken_by_id)
+        if u is not None:
+            return u.display_name or u.username or "someone"
+    note = item.status_note or ""
+    return note[len("Taken by "):] or None if note.startswith("Taken by ") else None
+
+
 def items_out(items: list[Item], r: Resolver, db: Session, detail: bool = False) -> list[dict[str, Any]]:
     items = list(items)
     household = prefetch(db, items)
@@ -974,6 +987,7 @@ def item_out(item: Item, r: Resolver, db: Session | None = None, detail: bool = 
         "quantity": item.quantity,
         "status": item.status.value,
         "status_note": item.status_note,
+        "taken_by": _taker(db, item),
         "placement": r.describe_item(item),
         "home_placement": r.describe_item_home(item),
         "photo": attachment_out(photo),

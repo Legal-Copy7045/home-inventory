@@ -281,7 +281,7 @@ export function TagsPage() {
       </div>
       {nfcSupport() !== "no" && <ScanWithPhone />}
       <ErrorBox error={tags.error} />
-      {tags.loading && !tags.data ? <Spinner /> : tags.data?.length ? (
+      {tags.error && !tags.data ? <ErrorBox error={tags.error} retry={tags.reload} /> : tags.loading && !tags.data ? <Spinner /> : tags.data?.length ? (
         <ul className="list card tight">
           {tags.data.map((t) => (
             <li key={t.id} style={{ flexWrap: "wrap" }}>
@@ -387,7 +387,7 @@ function ReassignSheet({ tag, onClose, onPick }: { tag: TagRow; onClose: () => v
       </div>
       <input autoFocus placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="list card tight" style={{ marginTop: 10, maxHeight: 360, overflow: "auto" }}>
-        {rows.loading && !rows.data ? <Spinner /> : (rows.data || []).map((r) => (
+        {rows.error && !rows.data ? <ErrorBox error={rows.error} retry={rows.reload} /> : rows.loading && !rows.data ? <Spinner /> : (rows.data || []).map((r) => (
           <a key={r.id} href="#" onClick={(e) => { e.preventDefault(); onPick(type, r.id, r.name); }}>
             <div className="grow"><div className="t">{r.name}</div><div className="s">{r.sub}</div></div>
           </a>

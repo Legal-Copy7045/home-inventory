@@ -15,7 +15,7 @@ export function ItemPickerSheet({ title, exclude = [], onPick, onClose }: { titl
   return (
     <Sheet title={title} onClose={onClose}>
       <input type="search" autoFocus placeholder="Search your items" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: "100%", marginBottom: 10 }} />
-      {res.loading && !res.data ? <Spinner /> : (
+      {res.error && !res.data ? <ErrorBox error={res.error} retry={res.reload} /> : res.loading && !res.data ? <Spinner /> : (
         <div className="list">
           {(res.data?.items || []).filter((i) => !exclude.includes(i.id)).map((i) => (
             <button key={i.id} className="row" style={{ width: "100%", textAlign: "left", background: "none", border: 0, borderBottom: "1px solid var(--border)", padding: "12px 4px", font: "inherit", cursor: "pointer" }} onClick={() => onPick(i)}>
@@ -126,7 +126,7 @@ export function KitsPage() {
     <div className="page">
       {me.can_edit && <div className="row" style={{ justifyContent: "flex-end", marginBottom: 10 }}><button className="btn primary" onClick={() => setAdding(true)}><Plus size={18} /> Kit</button></div>}
       <ErrorBox error={kits.error} />
-      {kits.loading && !kits.data ? <Spinner /> : kits.data?.length ? (
+      {kits.error && !kits.data ? <ErrorBox error={kits.error} retry={kits.reload} /> : kits.loading && !kits.data ? <Spinner /> : kits.data?.length ? (
         <div className="list">
           {kits.data.map((k) => (
             <Link key={k.id} to={`/kits/${k.id}`}>
@@ -182,6 +182,7 @@ export function KitPage() {
   const kit = useApi(() => api.get<Kit>(`kits/${id}`), [id]);
   const [sheet, setSheet] = useState<null | "edit" | "add">(null);
   const { run } = useAction();
+  if (kit.error && !kit.data) return <ErrorBox error={kit.error} retry={kit.reload} />;
   if (kit.loading && !kit.data) return <Spinner />;
   if (kit.error || !kit.data) return <div className="page"><ErrorBox error={kit.error} /></div>;
   const k = kit.data;

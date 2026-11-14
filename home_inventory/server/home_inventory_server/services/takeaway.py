@@ -14,9 +14,11 @@ from typing import Any, Literal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .. import audit
 from ..auth import Actor
 from ..models import Item, ItemStatus
 from ..schemas import MoveIn
+from . import inventory
 from .inventory import Conflict, move_item, return_item_home, set_status
 from .placement import Resolver, validate_item_target
 
@@ -28,17 +30,46 @@ def taken_note(actor: Actor) -> str:
 
 
 def is_taken(item: Item) -> bool:
-    return item.status is ItemStatus.in_use and (item.status_note or "").startswith(TAKEN_PREFIX)
+    # Recorded by user id since 0.31.0; older records only have the note.
+    return item.status is ItemStatus.in_use and (
+        item.taken_by_id is not None or (item.status_note or "").startswith(TAKEN_PREFIX))
 
 
-def take(db: Session, actor: Actor, item: Item) -> Item:
+def taken_by_me(item: Item, actor: Actor) -> bool:
+    return is_taken(item) and item.taken_by_id == actor.user_id
+
+
+def taker_name(db: Session, item: Item) -> str | None:
+    """Who has it, by their current name (they may have been renamed)."""
+    return inventory._taker(db, item)
+
+
+class AlreadyTaken(Conflict):
+    """Someone else has it: taking it over must be asked for (``transfer``)."""
+
+
+def take(db: Session, actor: Actor, item: Item, transfer: bool = False) -> Item:
     if item.deleted_at is not None:
         raise Conflict("This item has been deleted")
     if item.status is ItemStatus.on_loan:
         raise Conflict("This item is on loan; mark the loan returned first")
     if is_taken(item):
+        if item.taken_by_id == actor.user_id:
+            return item
+        if not transfer:
+            who = taker_name(db, item)
+            raise AlreadyTaken(f"{item.product.name} is already taken{f' by {who}' if who else ''}. "
+                               "Take it over only if you have it now.")
+        before = taker_name(db, item)
+        item.taken_by_id = actor.user_id
+        item.status_note = taken_note(actor)
+        audit.record(db, actor, "status_changed", "item", item.id,
+                     f"{item.product.name}: taken over from {before or 'someone'} by {actor.name}", None, None,
+                     [item.container_id])
         return item
-    return set_status(db, actor, item, ItemStatus.in_use, taken_note(actor))
+    set_status(db, actor, item, ItemStatus.in_use, taken_note(actor))
+    item.taken_by_id = actor.user_id
+    return item
 
 
 def taken_items(db: Session) -> list[Item]:
@@ -89,7 +120,8 @@ def destination(item: Item) -> tuple[int | None, int | None]:
 
 def route(r: Resolver, items: list[Item]) -> list[dict[str, Any]]:
     """Put-away route: the items grouped by where they go, one stop per place,
-    in walking order (room by room, then shelf by shelf, following the tree)."""
+    grouped room by room, then place by place within the room (by name: an
+    organised list, not a measured walking route)."""
     stops: dict[tuple[int | None, int | None], dict[str, Any]] = {}
     for it in items:
         dest = destination(it)

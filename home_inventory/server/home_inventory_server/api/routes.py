@@ -173,7 +173,17 @@ def stats(request: Request, actor: Actor = Depends(current_actor), db: Session =
     s = _state(request).settings
     st = stats_svc.stats(db, s.warranty_notice_days, s.expiry_notice_days)
     st.update(maintenance_svc.counts(db))
-    st.update(customers_svc.counts(db))
+    # Repair counts are totals, not customer details: the integration's
+    # sensors get them although its requests can't see customer records.
+    lift = actor.contextless and actor.can(Role.member)
+    before = db.info.get("can_view_customers")
+    if lift:
+        db.info["can_view_customers"] = True
+    try:
+        st.update(customers_svc.counts(db))
+    finally:
+        if lift:
+            db.info["can_view_customers"] = before
     from ..services import replenishment as repl_svc
 
     st.update(repl_svc.counts(db))

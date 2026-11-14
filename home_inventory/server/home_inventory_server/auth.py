@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import hmac
 import logging
+import re
 import secrets
 import threading
 import time
@@ -56,6 +57,9 @@ _LOGGER = logging.getLogger(__name__)
 
 ROLE_RANK = {Role.read_only: 0, Role.member: 1, Role.admin: 2}
 SYSTEM_USER_ID = "system"
+# Home Assistant user ids are 32 hex characters; allow any reasonable id but
+# nothing that could smuggle odd characters into logs or names.
+_VALID_HA_ID = re.compile(r"[A-Za-z0-9_.@-]{1,64}")
 INTEGRATION_USER_ID = "integration"
 
 
@@ -66,6 +70,12 @@ class Actor:
     name: str
     role: Role
     channel: str
+    # A request from the integration with no Home Assistant user behind it
+    # (a voice platform that sends none, an automation, the integration's
+    # own polling).  It may read and change household inventory, as
+    # automations need, but never sees customer information and can't
+    # administer.
+    contextless: bool = False
 
     def can(self, needed: Role) -> bool:
         return ROLE_RANK[self.role] >= ROLE_RANK[needed]
@@ -352,6 +362,9 @@ def resolve_actor(request: Request, db: Session) -> Actor:
         if scheme.lower() != "bearer" or not hmac.compare_digest(token.strip().encode(), state.api_token.encode()):
             raise HTTPException(status_code=401, detail="Invalid API token", headers={"WWW-Authenticate": "Bearer"})
         ha_id = _header(request, "X-Remote-User-Id")
+        if ha_id and (ha_id in (SYSTEM_USER_ID, INTEGRATION_USER_ID) or not _VALID_HA_ID.fullmatch(ha_id)):
+            # Never let a header name one of the App's own identities.
+            raise HTTPException(status_code=401, detail="Invalid Home Assistant user identity")
         if ha_id:
             admin_hdr = _header(request, "X-Remote-User-Is-Admin")
             user = upsert_user(
@@ -364,16 +377,25 @@ def resolve_actor(request: Request, db: Session) -> Actor:
         else:
             user = system_user(db, INTEGRATION_USER_ID, "Home Assistant")
 
+    contextless = channel != "ingress" and user.ha_user_id == INTEGRATION_USER_ID
     role = effective_role(user, settings)
+    if contextless and role is Role.admin:
+        role = Role.member  # an administrator made it admin: still not for contextless requests
     # Read by response builders sharing this session: customer names and
-    # contact details are only shown to members and administrators.
-    db.info["can_view_customers"] = ROLE_RANK[role] >= ROLE_RANK[Role.member]
+    # contact details are only shown to members and administrators, and
+    # never to contextless integration requests - except the integration's
+    # own "repair ready" message, which needs the customer's contact.
+    purpose = _header(request, "X-Home-Inventory-Purpose") if contextless else None
+    db.info["can_view_customers"] = ROLE_RANK[role] >= ROLE_RANK[Role.member] and (
+        not contextless or (purpose == "customer-message" and request.method == "GET"
+                            and request.url.path.startswith("/api/v1/repair-jobs/")))
     return Actor(
         user_id=user.id,
         ha_user_id=user.ha_user_id,
         name=user.display_name or user.username or user.ha_user_id,
         role=role,
         channel=channel,
+        contextless=contextless,
     )
 
 
@@ -402,4 +424,12 @@ def require_member(actor: Actor = Depends(current_actor)) -> Actor:
 def require_admin(actor: Actor = Depends(current_actor)) -> Actor:
     if not actor.can(Role.admin):
         raise HTTPException(status_code=403, detail="Administrator access required")
+    return actor
+
+
+def require_customer_access(actor: Actor = Depends(require_member), db: Session = Depends(get_db)) -> Actor:
+    """Customer records: members and administrators, never a request without
+    a Home Assistant user (see ``resolve_actor``)."""
+    if not db.info.get("can_view_customers", False):
+        raise HTTPException(status_code=403, detail="Customer records need a signed-in Home Assistant user")
     return actor

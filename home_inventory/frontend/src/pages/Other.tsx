@@ -92,7 +92,7 @@ export function LabelsPage() {
         </div>
       </div>
       <div className="card tight">
-        {tab === "containers" && (all.loading ? <Spinner /> : (
+        {tab === "containers" && (all.error && !all.data ? <ErrorBox error={all.error} retry={all.reload} /> : all.loading ? <Spinner /> : (
           <div className="list">
             {all.data?.map((c) => (
               <label key={c.id} className="row" style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
@@ -104,7 +104,7 @@ export function LabelsPage() {
             {!all.data?.length && <Empty>Create containers first.</Empty>}
           </div>
         ))}
-        {tab === "locations" && (locs.loading ? <Spinner /> : (
+        {tab === "locations" && (locs.error && !locs.data ? <ErrorBox error={locs.error} retry={locs.reload} /> : locs.loading ? <Spinner /> : (
           <div className="list">
             {locs.data?.map((l) => (
               <label key={l.id} className="row" style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
@@ -201,7 +201,7 @@ export function LoansPage() {
         {[["loans", "On loan"], ["temporary", "Moved / in use"], ["expiry", "Expiring"], ["stock", "Stock levels"], ["warranty", "Warranties"]].map(([k, l]) => <button key={k} className={tab === k ? "active" : ""} onClick={() => setTab(k)}>{l}</button>)}
       </div>
       {tab === "loans" && (
-        <div className="card tight">{loans.loading ? <Spinner /> : loans.data?.length ? (
+        <div className="card tight">{loans.error && !loans.data ? <ErrorBox error={loans.error} retry={loans.reload} /> : loans.loading ? <Spinner /> : loans.data?.length ? (
           <div className="list">{loans.data.map((l) => (
             <div key={l.id} style={{ borderBottom: "1px solid var(--border)" }}>
               <ItemRow item={l.item} right={<div className="s" style={{ textAlign: "right" }}><b style={{ color: "var(--text)" }}>{l.borrower}</b><br />since {fmtDate(l.loaned_at)}{l.expected_return && <><br /><span style={{ color: l.overdue ? "var(--danger)" : undefined }}>due {fmtDate(l.expected_return)}</span></>}</div>} />
@@ -210,15 +210,15 @@ export function LoansPage() {
           ))}</div>
         ) : <Empty>Nothing is lent out.</Empty>}</div>
       )}
-      {tab === "temporary" && (temp.loading ? <Spinner /> : (
+      {tab === "temporary" && (temp.error && !temp.data ? <ErrorBox error={temp.error} retry={temp.reload} /> : temp.loading ? <Spinner /> : (
         <>
           <Section title="Items" tight>{temp.data?.items.length ? <div className="list">{temp.data.items.map((i) => <ItemRow key={i.id} item={i} />)}</div> : <Empty>Everything is in its place.</Empty>}</Section>
           {!!temp.data?.containers.length && <Section title="Containers" tight><div className="list">{temp.data.containers.map((c) => <ContainerRow key={c.id} c={c} />)}</div></Section>}
         </>
       ))}
-      {tab === "expiry" && <div className="card tight">{exp.loading ? <Spinner /> : exp.data?.length ? <div className="list">{exp.data.map((i) => <ItemRow key={i.id} item={i} right={<div className="s" style={{ textAlign: "right" }}>×{i.quantity}<br />{fmtDate(i.expires_on)}</div>} />)}</div> : <Empty>Nothing expires in the next 60 days.</Empty>}</div>}
+      {tab === "expiry" && <div className="card tight">{exp.error && !exp.data ? <ErrorBox error={exp.error} retry={exp.reload} /> : exp.loading ? <Spinner /> : exp.data?.length ? <div className="list">{exp.data.map((i) => <ItemRow key={i.id} item={i} right={<div className="s" style={{ textAlign: "right" }}>×{i.quantity}<br />{fmtDate(i.expires_on)}</div>} />)}</div> : <Empty>Nothing expires in the next 60 days.</Empty>}</div>}
       {tab === "stock" && (
-        <div className="card tight">{stock.loading ? <Spinner /> : stock.data?.length ? (
+        <div className="card tight">{stock.error && !stock.data ? <ErrorBox error={stock.error} retry={stock.reload} /> : stock.loading ? <Spinner /> : stock.data?.length ? (
           <div className="list">{stock.data.map((p) => (
             <Link key={p.product_id} to={p.item_id ? `/items/${p.item_id}` : "/items"}>
               {p.quantity < (p.min_quantity || 0) ? <AlertTriangle size={20} color="var(--warn)" /> : <span style={{ width: 20 }} />}
@@ -228,7 +228,7 @@ export function LoansPage() {
           ))}</div>
         ) : <Empty>No products have a low-stock alert. Set "Low-stock alert below" on consumables like batteries or light bulbs.</Empty>}</div>
       )}
-      {tab === "warranty" && <div className="card tight">{warr.loading ? <Spinner /> : warr.data?.length ? <div className="list">{warr.data.map((i) => <ItemRow key={i.id} item={i} right={<div className="s">{fmtDate(i.warranty_expires)}</div>} />)}</div> : <Empty>No warranties end in the next year.</Empty>}</div>}
+      {tab === "warranty" && <div className="card tight">{warr.error && !warr.data ? <ErrorBox error={warr.error} retry={warr.reload} /> : warr.loading ? <Spinner /> : warr.data?.length ? <div className="list">{warr.data.map((i) => <ItemRow key={i.id} item={i} right={<div className="s">{fmtDate(i.warranty_expires)}</div>} />)}</div> : <Empty>No warranties end in the next year.</Empty>}</div>}
     </div>
   );
 }
