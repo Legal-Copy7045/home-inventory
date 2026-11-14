@@ -556,13 +556,8 @@ async def test_voice_questions_without_slots(hass: HomeAssistant, inventory_app,
 
 
 def test_question_answers_read_naturally():
-    from custom_components.home_inventory.intent import loans_answer, low_stock_answer, maintenance_answer
+    from custom_components.home_inventory.intent import loans_answer, low_stock_answer
 
-    dash = {"overdue": [{"item": {"name": "Mower"}, "title": "Engine oil change"}],
-            "due": [{"item": {"name": "Generator"}, "title": "Exercise run"}]}
-    assert maintenance_answer(dash) == ("1 job is overdue: Mower engine oil change. "
-                                        "1 job is due in the next two weeks: Generator exercise run.")
-    assert maintenance_answer({"overdue": [], "due": []}) == "Nothing is due for maintenance in the next two weeks."
     rows = [{"name": "AA batteries", "quantity": 3, "min_quantity": 4}, {"name": "Bin bags", "quantity": 9, "min_quantity": 2}]
     assert low_stock_answer(rows) == "You're running low on AA batteries (3 left)."
     many = [{"item": {"name": f"Tool {n}"}, "borrower": "Pat"} for n in range(7)]
@@ -581,10 +576,10 @@ def test_voice_intents_are_registered_once(hass: HomeAssistant, monkeypatch):
     hi.async_setup_intents(hass)
     first = len(calls)
     hi.async_setup_intents(hass)
-    assert first == 8 and len(calls) == 8
+    assert first == 13 and len(calls) == 13
     hi.async_unload_intents(hass)
     hi.async_setup_intents(hass)  # after unloading, registered afresh
-    assert len(calls) == 16
+    assert len(calls) == 26
     hi.async_unload_intents(hass)
 
 
@@ -661,3 +656,55 @@ async def test_voice_questions_without_a_device_never_cross(hass: HomeAssistant,
     assert a.reprompt and b.reprompt
     pick = await intent.async_handle(hass, "conversation", "HomeInventoryChoose", {"choice": {"value": "claw hammer"}}, device_id="hall")
     assert say(pick).startswith("Claw hammer is in") and not pick.reprompt
+
+
+async def test_voice_maintenance_questions(hass: HomeAssistant, inventory_app):
+    """General and equipment-specific maintenance questions, "which one?"
+    for an ambiguous name, and a request with no Home Assistant user."""
+    import datetime as dt
+
+    from homeassistant.helpers import intent
+
+    def say(r):
+        return r.speech["plain"]["speech"]
+
+    ui = inventory_app.ui
+    gens = []
+    for name, maker in (("Quiet generator 2200", "Honda"), ("Big generator 4500", "Champion")):
+        g = ui("POST", "items", {"name": name, "manufacturer": maker})["items"][0]
+        ui("PUT", f"items/{g['id']}/equipment", {"equipment_type": "Generator", "meter": "none"})
+        gens.append(g)
+    old = (dt.date.today() - dt.timedelta(days=40)).isoformat()
+    ui("POST", f"items/{gens[0]['id']}/maintenance-tasks", {"title": "Exercise run", "interval_days": 30, "last_done_on": old})
+    await _setup_via_user_flow(hass, inventory_app)
+
+    general = await intent.async_handle(hass, "alexa", "HomeInventoryMaintenanceDue", {"range": {"value": "overdue"}},
+                                        device_id="garage")
+    assert "Honda generator exercise run is overdue by 10 days" in say(general)
+    ask = await intent.async_handle(hass, "alexa", "HomeInventoryMaintenanceDue",
+                                    {"equipment": {"value": "generator"}}, device_id="garage")
+    assert say(ask).startswith("Which one:") and ask.reprompt
+    pick = await intent.async_handle(hass, "alexa", "HomeInventoryChoose", {"choice": {"value": "Honda generator"}},
+                                     device_id="garage")
+    assert say(pick).startswith("Your Honda generator has 1 maintenance task coming up.")
+    att = await intent.async_handle(hass, "conversation", "HomeInventoryNeedsAttention", {})
+    assert "Honda generator" in say(att)
+    none = await intent.async_handle(hass, "conversation", "HomeInventoryMaintenanceParts",
+                                     {"equipment": {"value": "spaceship"}})
+    assert say(none) == "I couldn't find any equipment called spaceship."
+    recent = await intent.async_handle(hass, "conversation", "HomeInventoryRecentMaintenance", {})
+    assert say(recent).startswith(("You haven't recorded", "In the last month"))
+
+
+async def test_move_said_as_is_now_in_reaches_the_move(hass: HomeAssistant, inventory_app):
+    """Assist ranks "the {choice}" above "the {item} is now in the {place}":
+    with no question open, the Choose handler does the move itself."""
+    from homeassistant.helpers import intent
+
+    shed = inventory_app.seed["shed"]
+    inventory_app.ui("POST", "items", {"name": "Pruning saw zx", "location_id": shed["id"]})
+    inventory_app.ui("POST", "locations", {"name": "Potting bench zx"})
+    await _setup_via_user_flow(hass, inventory_app)
+    r = await intent.async_handle(hass, "conversation", "HomeInventoryChoose",
+                                  {"choice": {"value": "pruning saw zx is now in the potting bench zx"}}, device_id="porch")
+    assert r.speech["plain"]["speech"] == "Done. I've moved Pruning saw zx to Potting bench zx."

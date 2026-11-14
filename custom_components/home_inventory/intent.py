@@ -60,6 +60,13 @@ INTENT_WHATS_IN = "HomeInventoryWhatsIn"
 YES = {"yes", "yeah", "yep", "yup", "correct", "right", "that right", "thats right", "sure", "ok", "okay", "do it", "yes please"}
 NO = {"no", "nope", "no thanks", "neither", "none", "none of them", "wrong", "cancel", "stop"}
 INTENT_MAINTENANCE = "HomeInventoryMaintenanceDue"
+INTENT_MAINT_PARTS = "HomeInventoryMaintenanceParts"
+INTENT_HAVE_PARTS = "HomeInventoryHaveParts"
+INTENT_LAST_SERVICE = "HomeInventoryLastService"
+INTENT_ATTENTION = "HomeInventoryNeedsAttention"
+INTENT_RECENT_MAINT = "HomeInventoryRecentMaintenance"
+MAINT_RANGES = ("overdue", "today", "week", "month", "upcoming", "all")
+MOVED_RE = re.compile(r"(?i)^(?:the |my )?(.+?) (?:is|are) now (?:in|on|at) (?:the )?(.+)$")
 INTENT_LOW_STOCK = "HomeInventoryRunningLow"
 INTENT_ON_LOAN = "HomeInventoryOnLoan"
 SPOKEN_MAX = 5  # read out at most this many things, then "and N more"
@@ -639,6 +646,16 @@ class ChooseHandler(intent.IntentHandler):
             if normalize(choice) in YES | NO:
                 response.async_set_speech("There's nothing to confirm right now.")
                 return response
+            # Assist ranks "the {choice}" (one wildcard) above "the {item} is now in
+            # the {place}" (two), so a move said that way arrives here: do the move.
+            moved = MOVED_RE.match(choice)
+            if moved:
+                return await MoveHandler().async_handle(
+                    intent.Intent(intent_obj.hass, intent_obj.platform, INTENT_MOVE,
+                                  {"item": {"value": moved.group(1)}, "place": {"value": moved.group(2)}},
+                                  intent_obj.text_input, intent_obj.context, intent_obj.language,
+                                  assistant=intent_obj.assistant, device_id=intent_obj.device_id,
+                                  satellite_id=intent_obj.satellite_id))
             # No question open: a bare name ("the toro lawn mower") is a question itself.
             return await WhereIsHandler().async_handle(
                 intent.Intent(intent_obj.hass, intent_obj.platform, INTENT_WHERE_IS,
@@ -655,6 +672,10 @@ class ChooseHandler(intent.IntentHandler):
                       key: str, open_q: dict[str, Any], choice: str) -> intent.IntentResponse:
         if open_q.get("kind") == "move":
             return await _move_reply(intent_obj, response, open_q, choice)
+        if open_q.get("kind") == "maint" and normalize(choice) not in NO:
+            chosen = pick(choice, open_q["groups"])
+            if chosen is not None:
+                return await _maintenance(intent_obj, {**open_q["params"], "equipment": None, "equipment_id": chosen["id"]})
         if open_q.get("kind") == "whatsin" and normalize(choice) not in NO:
             chosen = pick(choice, open_q["groups"])
             if chosen is not None:
@@ -752,14 +773,106 @@ class _QuestionHandler(intent.IntentHandler):
         return response
 
 
-class MaintenanceDueHandler(_QuestionHandler):
-    intent_type = INTENT_MAINTENANCE
-    description = "Says which equipment maintenance is overdue or due soon, using Home Inventory"
-    path = "maintenance/dashboard"
-    params = {"within": 14}
+# ---------------------------------------------------------------------------
+# Maintenance questions.  The App words the answer from the real schedules;
+# here we only pass the question on, and ask "which one?" when the
+# equipment named could be more than one machine.
+# ---------------------------------------------------------------------------
 
-    def answer(self, data: Any) -> str:
-        return maintenance_answer(data)
+
+def _slot(intent_obj: intent.Intent, name: str) -> str | None:
+    v = (intent_obj.slots or {}).get(name, {}).get("value")
+    v = str(v).strip().strip("?.!") if v is not None else ""
+    return v or None
+
+
+async def _maintenance(intent_obj: intent.Intent, params: dict[str, Any]) -> intent.IntentResponse:
+    response = intent_obj.create_response()
+    try:
+        data = await _get(intent_obj, "voice/maintenance", params)
+    except InventoryError:
+        response.async_set_speech("Sorry, I couldn't reach Home Inventory.")
+        return response
+    if data is None:
+        response.async_set_speech("Home Inventory isn't set up.")
+        return response
+    choose = data.get("choose")
+    if choose:
+        groups = [{"name": c["name"], "id": c["id"]} for c in choose]
+        if not _open(intent_obj, {"kind": "maint", "groups": groups, "params": params}):
+            return _no_question(response, [g["name"] for g in groups])
+        _ask(response, data.get("speech") or f"Which one: {_list([g['name'] for g in groups])}?", "Which one did you mean?")
+        return response
+    _close(intent_obj)
+    response.async_set_speech(data.get("speech") or "")
+    await _notify(intent_obj, data.get("speech") or "")
+    return response
+
+
+class MaintenanceDueHandler(intent.IntentHandler):
+    """ "What upcoming maintenance do I need to do?", "...on the Toro mower?",
+    "What maintenance is overdue / due this week?" """
+
+    intent_type = INTENT_MAINTENANCE
+    description = "Says which equipment maintenance is due (overdue, this week, upcoming...), optionally for one machine"
+    slot_schema = {vol.Optional("equipment"): cv.string, vol.Optional("range"): cv.string}
+
+    async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
+        rng = (_slot(intent_obj, "range") or "upcoming").lower()
+        return await _maintenance(intent_obj, {"kind": "due", "range": rng if rng in MAINT_RANGES else "upcoming",
+                                               "equipment": _slot(intent_obj, "equipment")})
+
+
+class MaintenancePartsHandler(intent.IntentHandler):
+    """ "What parts do I need for the next mower service?" """
+
+    intent_type = INTENT_MAINT_PARTS
+    description = "Says which parts the next service on a machine needs, and whether they're in stock"
+    slot_schema = {vol.Required("equipment"): cv.string}
+    kind = "parts"
+
+    async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
+        return await _maintenance(intent_obj, {"kind": self.kind, "equipment": _slot(intent_obj, "equipment")})
+
+
+class HavePartsHandler(MaintenancePartsHandler):
+    """ "Do I have the parts I need to service the snowblower?" """
+
+    intent_type = INTENT_HAVE_PARTS
+    description = "Says whether everything the next service on a machine needs is in stock"
+    kind = "have_parts"
+
+
+class LastServiceHandler(intent.IntentHandler):
+    """ "When did I last change the oil in the mower?" """
+
+    intent_type = INTENT_LAST_SERVICE
+    description = "Says when a maintenance job was last done, from the service history"
+    slot_schema = {vol.Required("task"): cv.string, vol.Optional("equipment"): cv.string}
+
+    async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
+        return await _maintenance(intent_obj, {"kind": "last_done", "task": _slot(intent_obj, "task"),
+                                               "equipment": _slot(intent_obj, "equipment")})
+
+
+class NeedsAttentionHandler(intent.IntentHandler):
+    intent_type = INTENT_ATTENTION
+    description = "Says which equipment has overdue or due-soon maintenance"
+
+    async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
+        return await _maintenance(intent_obj, {"kind": "attention"})
+
+
+class RecentMaintenanceHandler(intent.IntentHandler):
+    intent_type = INTENT_RECENT_MAINT
+    description = "Says what maintenance was completed in the last month"
+
+    async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
+        return await _maintenance(intent_obj, {"kind": "recent"})
+
+
+MAINTENANCE_HANDLERS = (MaintenanceDueHandler, MaintenancePartsHandler, HavePartsHandler, LastServiceHandler, NeedsAttentionHandler,
+                        RecentMaintenanceHandler)
 
 
 class RunningLowHandler(_QuestionHandler):
@@ -780,7 +893,7 @@ class OnLoanHandler(_QuestionHandler):
         return loans_answer(data)
 
 
-QUESTION_HANDLERS = (MaintenanceDueHandler, RunningLowHandler, OnLoanHandler)
+QUESTION_HANDLERS = (*MAINTENANCE_HANDLERS, RunningLowHandler, OnLoanHandler)
 
 
 async def _log(intent_obj: intent.Intent, response: intent.IntentResponse) -> None:
@@ -839,7 +952,9 @@ def async_setup_intents(hass: HomeAssistant) -> None:
 def async_unload_intents(hass: HomeAssistant) -> None:
     remove = getattr(intent, "async_remove", None)
     if remove is not None:
-        for name in (INTENT_WHERE_IS, INTENT_GOES, INTENT_MOVE, INTENT_WHATS_IN, INTENT_CHOOSE, INTENT_MAINTENANCE, INTENT_LOW_STOCK, INTENT_ON_LOAN):
+        for name in (INTENT_WHERE_IS, INTENT_GOES, INTENT_MOVE, INTENT_WHATS_IN, INTENT_CHOOSE, INTENT_MAINTENANCE,
+                     INTENT_MAINT_PARTS, INTENT_HAVE_PARTS, INTENT_LAST_SERVICE, INTENT_ATTENTION, INTENT_RECENT_MAINT, INTENT_LOW_STOCK,
+                     INTENT_ON_LOAN):
             remove(hass, name)
     hass.data.pop(PENDING_KEY, None)
     hass.data.pop(REGISTERED_KEY, None)
