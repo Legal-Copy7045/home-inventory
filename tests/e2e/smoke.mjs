@@ -529,6 +529,27 @@ await page.getByRole("link", { name: /Toro Recycler/ }).first().waitFor();
 // The bottle of oil is ordinary inventory: not in the Equipment list.
 if ((await api("equipment")).equipment.some((e) => /oil/i.test(e.name))) throw new Error("ordinary item listed as equipment");
 
+// Check a box: tick one thing, recount another, finish (the rest stay as they were)
+await page.goto(BASE + `#/verify?container=${box.id}`);
+await page.getByRole("heading", { name: /Check: / }).waitFor();
+const boxItems = (await api(`containers/${box.id}`)).items;
+const first = boxItems[0], second = boxItems[1];
+await page.getByRole("button", { name: `${first.name} is here` }).first().click();
+await page.getByText("here", { exact: true }).first().waitFor();
+await page.getByRole("button", { name: `Count ${second.name}` }).first().click();
+await page.getByRole("spinbutton", { name: "Count" }).fill(String(second.quantity + 1));
+await page.getByRole("button", { name: "Save count" }).click();
+await page.getByText(`counted ${second.quantity + 1}`).waitFor();
+await shot("15j-check-box");
+page.once("dialog", (d) => d.accept());
+await page.getByRole("button", { name: "Finish check" }).click();
+await page.getByText(/^Finished /).waitFor();
+if ((await api(`items/${second.id}`)).quantity !== second.quantity + 1) throw new Error("recount not saved");
+// Needs attention lists the overdue equipment work and links to it
+await page.goto(BASE + "#/attention");
+await page.getByRole("heading", { name: "Needs attention" }).waitFor();
+await shot("15k-attention");
+
 // Put-away route: two things taken from different places, one stop each, in walking order
 const aa = (await api(`containers/${box.id}`)).items.find((i) => i.name === "AA batteries");
 for (const id of [drill.id, aa.id]) await api(`items/${id}/take`, { method: "POST" });

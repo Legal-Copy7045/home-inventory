@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { TagsSection } from "./Tags";
-import { AlertTriangle, Box, Camera, ChevronDown, ChevronRight, FileSpreadsheet, Images, Map as MapIcon, MapPin, Package, Pencil, Plus, Printer, QrCode, RotateCw, ScanBarcode, Search as SearchIcon, Sparkles, Trash2 } from "lucide-react";
+import { AlertTriangle, BellRing, Box, Camera, ChevronDown, ChevronRight, ClipboardCheck, FileSpreadsheet, Images, Map as MapIcon, MapPin, Package, Pencil, Plus, Printer, QrCode, RotateCw, ScanBarcode, Search as SearchIcon, Sparkles, Trash2 } from "lucide-react";
 import { api, qrImageUrl, type Dashboard, type Item, type LocationDetail, type LocationNode, type Scan, type SearchResult } from "../api";
 import { rememberList } from "../browse";
 import { ScanReview, scanPlaceholder } from "../components/PhotoInventory";
@@ -25,6 +25,19 @@ export function SearchBox({ hero, initial = "" }: { hero?: boolean; initial?: st
 
 type Checkup = { type: "location" | "container"; id: number; name: string; path: string; things: number; last_checked: string | null; days: number | null };
 
+/** "What do I need to take care of?": the most urgent groups, linking to the full list. */
+function AttentionCard() {
+  const a = useApi(() => api.get<{ groups: { key: string; title: string; severity: string; count: number }[]; urgent: number; soon: number }>("attention"), []);
+  if (!a.data || !(a.data.urgent + a.data.soon)) return null;
+  const top = a.data.groups.filter((g) => g.severity !== "info").slice(0, 4);
+  return (
+    <Link to="/attention" className="card" style={{ display: "block", marginBottom: 14, color: "inherit" }}>
+      <div className="row between"><b><BellRing size={16} style={{ verticalAlign: "-3px" }} /> Needs attention</b><span className="badge" style={{ background: a.data.urgent ? "var(--danger)" : "var(--warn)", color: "#fff" }}>{a.data.urgent + a.data.soon}</span></div>
+      {top.map((g) => <div key={g.key} className="s" style={{ color: g.severity === "urgent" ? "var(--danger)" : undefined }}>{g.count} · {g.title}</div>)}
+    </Link>
+  );
+}
+
 /** This month's shelf check-up: the place that most needs a fresh photo. */
 function CheckupCard() {
   const c = useApi(() => api.get<{ places: Checkup[] }>("checkups", { limit: 3 }), []);
@@ -39,7 +52,10 @@ function CheckupCard() {
           <div className="s">{p.path} · {p.things} thing{p.things === 1 ? "" : "s"} · {p.days === null ? "never photographed" : `last photographed ${p.days} days ago`}</div>
           <div className="s muted">One photo inventory shows what's new, missing or moved.</div>
         </div>
-        <Link className="btn small primary" to={to}><Camera size={16} /> Check it</Link>
+        <div className="row" style={{ gap: 6 }}>
+          <Link className="btn small primary" to={to}><Camera size={16} /> Photo</Link>
+          <Link className="btn small" to={`/verify?${p.type}=${p.id}`}><ClipboardCheck size={16} /> Check it</Link>
+        </div>
       </div>
       {(c.data?.places.length ?? 0) > 1 && <div className="s" style={{ marginTop: 6 }}>Next: {c.data!.places.slice(1).map((x) => x.name).join(", ")}</div>}
     </div>
@@ -75,6 +91,7 @@ export function DashboardPage() {
             {s.low_stock > 0 && <Link className="stat alert" to="/loans?tab=stock"><div className="v">{s.low_stock}</div><div className="l">Running low</div></Link>}
             {s.total_value > 0 && <div className="stat"><div className="v" style={{ fontSize: "1.2rem" }}>{money(s.total_value, s.currency)}</div><div className="l">Recorded value</div></div>}
           </div>
+          <AttentionCard />
           {me.can_edit && <CheckupCard />}
           {d.data!.loans.length > 0 && (
             <Section title="Out on loan" action={<Link to="/loans">All</Link>} tight>
@@ -353,6 +370,7 @@ export function LocationDetailPage() {
       {me.can_edit && (
         <div className="quick" style={{ marginBottom: 14 }}>
           <Link to={`/add?location_id=${l.id}&return=/locations/${l.id}`}><span className="ico"><Package size={20} /></span>Add loose item</Link>
+          <Link to={`/verify?location=${l.id}`}><span className="ico"><ClipboardCheck size={20} /></span>Check this place</Link>
           {me.app.ai.enabled && (
             <label style={{ cursor: "pointer" }}>
               <span className="ico"><Sparkles size={20} /></span>Photo inventory

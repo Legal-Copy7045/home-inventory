@@ -12,6 +12,7 @@ import { RelatedSection } from "./Kits";
 import { RestockSection } from "./Shopping";
 import { TagsSection } from "./Tags";
 import { EquipmentSection } from "./Maintenance";
+import { ConfidenceBadge } from "./Verify";
 import { PartDetailsSection } from "../components/Parts";
 import { DocumentsList } from "../components/Documents";
 import { PhotoViewer } from "../components/PhotoViewer";
@@ -50,6 +51,15 @@ function toForm(it: Item): ItemFormValue {
 // "Track maintenance" link.  Items already being tracked keep their section.
 function isEquipmentCategory(it: Item): boolean {
   return (it.category || "").trim().toLowerCase() === "equipment";
+}
+
+/** When it was last seen in an inventory check (information only). */
+function VerifiedLine({ itemId }: { itemId: number }) {
+  const v = useApi(() => api.get<{ confidence: { level: "never" | "today" | "recent" | "year" | "old"; label: string; verified_at: string | null; changed_since: boolean };
+    history: { where: string; result: string; at: string; by: string | null }[] }>(`items/${itemId}/verification`), [itemId]);
+  if (!v.data) return <>—</>;
+  const last = v.data.history[0];
+  return <><ConfidenceBadge c={v.data.confidence} />{last ? <span className="s"> · {fmtDate(last.at)} in {last.where}{last.by ? ` by ${last.by}` : ""}</span> : null}</>;
 }
 
 /** Previous / next through the list the user last browsed (or the whole inventory by name). */
@@ -265,6 +275,7 @@ export default function ItemDetail() {
           {it.product?.description && (<><dt>Description</dt><dd>{it.product.description}</dd></>)}
           {it.notes && (<><dt>Notes</dt><dd style={{ whiteSpace: "pre-line" }}>{it.notes}</dd></>)}
           <dt>Added</dt><dd>{fmtDate(it.created_at)}</dd>
+          <dt>Last checked</dt><dd><VerifiedLine itemId={it.id} /></dd>
         </dl>
         {managed && (
           <p className="notice" style={{ margin: "8px 0 0" }}>

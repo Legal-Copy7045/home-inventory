@@ -259,6 +259,11 @@ class Item(TimestampMixin, Base):
     taken_by_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL", name="fk_items_taken_by_id"), index=True
     )
+    # Last seen in a physical check (inventory verification), and by whom.
+    # Information only: an old date never means the item is missing.
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    verified_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL", name="fk_items_verified_by_id"))
 
     # Current placement
     container_id: Mapped[int | None] = mapped_column(ForeignKey("containers.id", ondelete="SET NULL"), index=True)
@@ -1086,3 +1091,51 @@ class DocumentReading(Base):
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# ---------------------------------------------------------------------------
+# Inventory verification (a physical check of a place, box or category)
+# ---------------------------------------------------------------------------
+
+VERIFY_RESULTS = ("present", "adjusted", "missing", "found_here")
+
+
+class VerificationSession(Base):
+    """One physical check: what was expected in a place (or category), and
+    what was found.  Items not checked are left exactly as they were."""
+
+    __tablename__ = "verification_sessions"
+    __table_args__ = (CheckConstraint("scope_type IN ('location', 'container', 'category')", name="ck_verification_scope"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    scope_type: Mapped[str] = mapped_column(String(12))
+    scope_id: Mapped[int] = mapped_column(Integer, index=True)
+    # The place's or category's name when checked (it may be renamed later).
+    scope_label: Mapped[str] = mapped_column(String(300))
+    started_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    started_by: Mapped[str | None] = mapped_column(String(128))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Expected item ids when started, and the counts when finished.
+    expected: Mapped[list[Any] | None] = mapped_column(JSON)
+    summary: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+
+
+class VerificationEntry(Base):
+    __tablename__ = "verification_entries"
+    __table_args__ = (
+        CheckConstraint("result IN ('present', 'adjusted', 'missing', 'found_here')", name="ck_verification_result"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("verification_sessions.id", ondelete="CASCADE"), index=True)
+    item_id: Mapped[int | None] = mapped_column(ForeignKey("items.id", ondelete="SET NULL"), index=True)
+    item_name: Mapped[str] = mapped_column(String(300))
+    result: Mapped[str] = mapped_column(String(12))
+    quantity_before: Mapped[int | None] = mapped_column(Integer)
+    quantity_after: Mapped[int | None] = mapped_column(Integer)
+    # For found_here: where the record said it was.
+    recorded_place: Mapped[str | None] = mapped_column(String(500))
+    note: Mapped[str | None] = mapped_column(String(300))
+    checked_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

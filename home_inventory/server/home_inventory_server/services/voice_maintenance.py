@@ -10,7 +10,6 @@ given the candidates to ask about instead of a guess.
 
 from __future__ import annotations
 
-import re
 from datetime import date, timedelta
 from difflib import SequenceMatcher
 from typing import Any
@@ -296,6 +295,20 @@ def recent(db: Session, today: date, days: int = 30) -> str:
     return f"In the last month you completed {_plural(len(rows), 'job', 'jobs')}: {_list(said)}{more}."
 
 
+def split_machine(text: str) -> tuple[str, str] | None:
+    """ "change the oil in the mower" -> ("change the oil", "mower"): split at
+    the last in/on/of/for (word by word, no regular expression)."""
+    ws = text.split()
+    for i in range(len(ws) - 2, 0, -1):
+        if ws[i].lower() in ("in", "on", "of", "for"):
+            rest = ws[i + 1:]
+            if rest and rest[0].lower() in ("the", "my"):
+                rest = rest[1:]
+            if rest:
+                return " ".join(ws[:i]), " ".join(rest)
+    return None
+
+
 def answer(db: Session, kind: str, rng: str = "upcoming", equipment: str | None = None, equipment_id: int | None = None,
            task: str | None = None, today: date | None = None) -> dict[str, Any]:
     """``{"speech": ...}``, or ``{"choose": [...], "speech": question}`` when
@@ -304,9 +317,9 @@ def answer(db: Session, kind: str, rng: str = "upcoming", equipment: str | None 
     cand = None
     if kind == "last_done" and not equipment and equipment_id is None and task:
         # "change the oil in the mower": the machine can come at the end.
-        m = re.match(r"(?i)^(.+?)\s+(?:in|on|of|for)\s+(?:the\s+|my\s+)?(.+)$", task.strip())
-        if m and resolve(db, m.group(2)):
-            task, equipment = m.group(1), m.group(2)
+        split = split_machine(task)
+        if split and resolve(db, split[1]):
+            task, equipment = split
     if equipment_id is not None or (equipment and equipment.strip()):
         cands = resolve(db, equipment) if equipment_id is None else []
         if equipment_id is not None:

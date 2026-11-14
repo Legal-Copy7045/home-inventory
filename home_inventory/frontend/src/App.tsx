@@ -1,6 +1,6 @@
 import { Fragment, Suspense, lazy, useEffect, useState, type ComponentType } from "react";
 import { HashRouter, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Activity, ArrowLeft, Box, Mic, Tags, ChevronDown, ChevronRight, Copy, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings, Trash2, Wrench, ClipboardList, Boxes, Nfc, ShoppingCart, Camera, FileText, Route as RouteIcon, Tractor } from "lucide-react";
+import { Activity, ArrowLeft, Box, Mic, Tags, ChevronDown, ChevronRight, Copy, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings, Trash2, Wrench, ClipboardList, Boxes, Nfc, ShoppingCart, Camera, FileText, Route as RouteIcon, Tractor, BellRing, ClipboardCheck } from "lucide-react";
 import { api, appBaseUrl, labelRef, type Me, type QrTarget } from "./api";
 import { MeContext, Sheet, Spinner, ToastHost, useToast } from "./components/ui";
 import { DashboardPage, ItemsPage, LocationDetailPage, LocationsPage, SearchBox, SearchPage } from "./pages/Browse";
@@ -60,6 +60,8 @@ const PutAwayRoutePage = page(() => import("./components/TakeAway"), "PutAwayRou
 const EquipmentListPage = page(() => import("./pages/Equipment"), "EquipmentListPage");
 const EquipmentPage = page(() => import("./pages/Equipment"), "EquipmentPage");
 const MaintenanceReportsPage = page(() => import("./pages/Equipment"), "MaintenanceReportsPage");
+const VerifyPage = page(() => import("./pages/Verify"), "VerifyPage");
+const AttentionPage = page(() => import("./pages/Verify"), "AttentionPage");
 
 type NavEntry = { to: string; label: string; icon: typeof Home; end?: boolean; edit?: boolean; admin?: boolean };
 
@@ -67,6 +69,7 @@ type NavEntry = { to: string; label: string; icon: typeof Home; end?: boolean; e
 const NAV_GROUPS: { title: string | null; items: NavEntry[] }[] = [
   { title: null, items: [
     { to: "/", label: "Dashboard", icon: Home, end: true },
+    { to: "/attention", label: "Needs Attention", icon: BellRing },
     { to: "/search", label: "Search", icon: Search },
     { to: "/add", label: "Add Item", icon: Plus, edit: true },
     { to: "/scan", label: "Scan", icon: ScanLine },
@@ -83,6 +86,7 @@ const NAV_GROUPS: { title: string | null; items: NavEntry[] }[] = [
     { to: "/maps", label: "Visual Maps", icon: MapIcon },
     { to: "/loans", label: "Loans & Temporary", icon: Handshake },
     { to: "/put-away", label: "Put-away Route", icon: RouteIcon, edit: true },
+    { to: "/verify", label: "Check Inventory", icon: ClipboardCheck },
   ] },
   { title: "Reports", items: [
     { to: "/reports", label: "All reports", icon: FileText },
@@ -105,7 +109,7 @@ const NAV_GROUPS: { title: string | null; items: NavEntry[] }[] = [
 const TITLES: [RegExp, string][] = [
   [/^\/$/, "Home Inventory"], [/^\/search/, "Search"], [/^\/add/, "Add item"], [/^\/scan/, "Scan"], [/^\/items\/\d+/, "Item"], [/^\/items/, "Items"],
   [/^\/containers\/\d+/, "Container"], [/^\/containers/, "Containers"], [/^\/locations/, "Locations"], [/^\/maps/, "Visual maps"], [/^\/labels/, "Labels"],
-  [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/sort/, "To sort"], [/^\/deleted/, "Recently deleted"], [/^\/report(?!s)/, "Inventory report"], [/^\/duplicates/, "Possible duplicates"], [/^\/maintenance\/reports/, "Maintenance reports"], [/^\/maintenance/, "Maintenance"], [/^\/kits\/\d+/, "Kit"], [/^\/tags/, "NFC tags"], [/^\/shopping/, "Restock & shopping"], [/^\/tag\//, "Tag"], [/^\/kits/, "Kits"], [/^\/customers\/\d+/, "Customer"], [/^\/customers/, "Customers"], [/^\/repairs\/\d+\/print/, "Work order"], [/^\/repairs\/\d+/, "Repair job"], [/^\/repairs/, "Repairs"], [/^\/activity/, "Activity"], [/^\/loans/, "Loans & temporary"], [/^\/settings/, "Settings"], [/^\/todo/, "To sort & finish"], [/^\/categories/, "Categories"], [/^\/voice-history/, "Voice history"], [/^\/care/, "Maintenance & repairs"], [/^\/reports\/maintenance-plan/, "Maintenance plan"], [/^\/reports\/season/, "Season mode"], [/^\/put-away/, "Put-away route"], [/^\/equipment\/\d+/, "Equipment"], [/^\/equipment/, "Equipment"], [/^\/reports/, "Reports"],
+  [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/sort/, "To sort"], [/^\/deleted/, "Recently deleted"], [/^\/report(?!s)/, "Inventory report"], [/^\/duplicates/, "Possible duplicates"], [/^\/maintenance\/reports/, "Maintenance reports"], [/^\/maintenance/, "Maintenance"], [/^\/kits\/\d+/, "Kit"], [/^\/tags/, "NFC tags"], [/^\/shopping/, "Restock & shopping"], [/^\/tag\//, "Tag"], [/^\/kits/, "Kits"], [/^\/customers\/\d+/, "Customer"], [/^\/customers/, "Customers"], [/^\/repairs\/\d+\/print/, "Work order"], [/^\/repairs\/\d+/, "Repair job"], [/^\/repairs/, "Repairs"], [/^\/activity/, "Activity"], [/^\/loans/, "Loans & temporary"], [/^\/settings/, "Settings"], [/^\/todo/, "To sort & finish"], [/^\/categories/, "Categories"], [/^\/voice-history/, "Voice history"], [/^\/care/, "Maintenance & repairs"], [/^\/reports\/maintenance-plan/, "Maintenance plan"], [/^\/reports\/season/, "Season mode"], [/^\/put-away/, "Put-away route"], [/^\/verify/, "Check inventory"], [/^\/attention/, "Needs attention"], [/^\/equipment\/\d+/, "Equipment"], [/^\/equipment/, "Equipment"], [/^\/reports/, "Reports"],
 ];
 
 /** QR labels can encode `<base>?c=CODE`; open the container when launched that way. */
@@ -306,6 +310,9 @@ function Shell({ me }: { me: Me }) {
           <Route path="/equipment" element={<EquipmentListPage />} />
           <Route path="/equipment/:id" element={<EquipmentPage />} />
           <Route path="/maintenance/reports" element={<MaintenanceReportsPage />} />
+          <Route path="/verify" element={<VerifyPage />} />
+          <Route path="/verify/:id" element={<VerifyPage />} />
+          <Route path="/attention" element={<AttentionPage />} />
           <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/kits" element={<KitsPage />} />
           <Route path="/tags" element={<TagsPage />} />
