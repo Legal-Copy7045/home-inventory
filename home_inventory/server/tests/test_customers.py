@@ -200,3 +200,30 @@ def test_customer_search(env):
     _customer(u, "Bob Smith")
     assert [c["name"] for c in u.ok("get", "/api/v1/customers?q=smi")] == ["Bob Smith"]
     assert [c["name"] for c in u.ok("get", "/api/v1/customers?q=555")] == ["Alice Jones", "Bob Smith"]
+
+
+def test_job_ticket_number_lookup_stock_part_cost_and_status_message_data(env):
+    u = env.admin
+    c = _customer(u)
+    job = _job(u, c)
+    # Ticket: a small PDF with the job's QR code; the QR's number opens the job
+    r = u.get(f"/api/v1/repair-jobs/{job['id']}/ticket.pdf", params={"base": "https://ha.example"})
+    assert r.status_code == 200 and r.content[:4] == b"%PDF"
+    assert u.ok("get", "/api/v1/repair-jobs/by-number/rj-0001")["id"] == job["id"]
+    assert u.get("/api/v1/repair-jobs/by-number/RJ-9999").status_code == 404
+    # A part taken from household stock is costed at what it cost
+    plug = u.item("Spark plug RN9YC", quantity=4, purchase_price="3.25")
+    job = u.ok("post", f"/api/v1/repair-jobs/{job['id']}/service", json={
+        "title": "New plug", "parts": [{"description": "Spark plug", "item_id": plug["id"], "quantity": "1", "deduct_stock": True}]})
+    assert job["parts_charge"] == 3.25
+    assert u.ok("get", f"/api/v1/items/{plug['id']}")["quantity"] == 3
+    # The status event says what happened, but never who the customer is
+    u.ok("post", f"/api/v1/repair-jobs/{job['id']}/status", json={"status": "completed"})
+    ev = [m for m in env.state.bus.recent if m["type"] == "repair_job_status"][-1]["data"]
+    assert ev["status"] == "completed" and ev["status_label"].startswith("Completed") and ev["job_id"] == job["id"]
+    assert not any(v in str(ev) for v in ("Pat", "555-0100", "pat@example.com"))
+
+
+def test_business_details_for_invoices_are_settings(env):
+    s = env.admin.ok("patch", "/api/v1/settings", json={"business_name": "Steve's Small Engines", "business_details": "1 High St\nVAT 123"})
+    assert s["business_name"] == "Steve's Small Engines" and s["business_details"].startswith("1 High St")

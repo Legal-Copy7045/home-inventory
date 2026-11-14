@@ -15,6 +15,9 @@ from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 
 from .api import InventoryAuthError, InventoryClient, InventoryError
 from .const import (
+    CONF_CUSTOMER_NOTIFY_SERVICE,
+    CONF_CUSTOMER_NOTIFY_STATUSES,
+    CONF_CUSTOMER_NOTIFY_TO,
     CONF_MAINTENANCE_NOTIFY,
     CONF_NOTIFY_SERVICE,
     CONF_PANEL,
@@ -22,6 +25,7 @@ from .const import (
     CONF_TOKEN,
     CONF_URL,
     CONF_VOICE_NOTIFY,
+    CUSTOMER_STATUSES,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     NAME,
@@ -126,6 +130,10 @@ class HomeInventoryOptionsFlow(OptionsFlow):
                     errors[CONF_NOTIFY_SERVICE] = "notify_service_required"
                 elif service not in notify:
                     errors[CONF_NOTIFY_SERVICE] = "notify_service_unknown"
+            cservice = (user_input.get(CONF_CUSTOMER_NOTIFY_SERVICE) or "").strip().removeprefix("notify.")
+            user_input[CONF_CUSTOMER_NOTIFY_SERVICE] = cservice
+            if cservice and cservice not in notify:
+                errors[CONF_CUSTOMER_NOTIFY_SERVICE] = "notify_service_unknown"
             if not errors:
                 return self.async_create_entry(data=user_input)
         opts = {**self.config_entry.options, **(user_input or {})}
@@ -148,6 +156,18 @@ class HomeInventoryOptionsFlow(OptionsFlow):
                     vol.Optional(CONF_MAINTENANCE_NOTIFY, default=opts.get(CONF_MAINTENANCE_NOTIFY, False)): bool,
                     vol.Optional(CONF_NOTIFY_SERVICE, default=opts.get(CONF_NOTIFY_SERVICE, "")): SelectSelector(
                         SelectSelectorConfig(options=notify, custom_value=True, mode=SelectSelectorMode.DROPDOWN)
+                    ),
+                    vol.Optional(CONF_CUSTOMER_NOTIFY_SERVICE, default=opts.get(CONF_CUSTOMER_NOTIFY_SERVICE, "")): SelectSelector(
+                        SelectSelectorConfig(options=notify, custom_value=True, mode=SelectSelectorMode.DROPDOWN)
+                    ),
+                    vol.Optional(CONF_CUSTOMER_NOTIFY_TO, default=opts.get(CONF_CUSTOMER_NOTIFY_TO, "phone")): SelectSelector(
+                        SelectSelectorConfig(options=["phone", "email"], translation_key=CONF_CUSTOMER_NOTIFY_TO,
+                                             mode=SelectSelectorMode.LIST)
+                    ),
+                    vol.Optional(CONF_CUSTOMER_NOTIFY_STATUSES,
+                                 default=opts.get(CONF_CUSTOMER_NOTIFY_STATUSES, ["completed"])): SelectSelector(
+                        SelectSelectorConfig(options=list(CUSTOMER_STATUSES), multiple=True,
+                                             translation_key=CONF_CUSTOMER_NOTIFY_STATUSES, mode=SelectSelectorMode.LIST)
                     ),
                 }
             ),

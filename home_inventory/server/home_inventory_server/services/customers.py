@@ -292,7 +292,10 @@ def change_status(db: Session, actor: Actor, job: RepairJob, status: str, note: 
                  f"{job.number}: {STATUS_LABELS[before]} → {STATUS_LABELS[status]}" + (f" ({note})" if note else ""))
     from ..events import queue_event
 
-    queue_event(db, "repair_job_status", {"job_id": job.id, "number": job.number, "status": status, "previous": before, "user": actor.name})
+    # No customer details in Home Assistant events: the integration fetches
+    # the contact itself when it sends the customer a message.
+    queue_event(db, "repair_job_status", {"job_id": job.id, "number": job.number, "status": status,
+                                          "status_label": STATUS_LABELS[status], "previous": before, "user": actor.name})
     return job
 
 

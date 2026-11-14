@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ClipboardList, Phone, Plus, Printer, Search, User, Wrench } from "lucide-react";
 import {
   api,
+  appBaseUrl,
   REPAIR_STATUS_LABELS,
   uploadPhoto,
   url,
@@ -335,6 +336,8 @@ export function RepairJobPage() {
       <div className="owner-banner">
         <span><User size={18} /> {j.customer.name}'s equipment</span>
         <Link className="btn small no-print" to={`/repairs/${j.id}/print`}><Printer size={16} /> Work order</Link>
+        <Link className="btn small no-print" to={`/repairs/${j.id}/print?invoice=1`}><Printer size={16} /> Invoice</Link>
+        <a className="btn small no-print" href={url(`api/v1/repair-jobs/${j.id}/ticket.pdf${appBaseUrl() ? `?base=${encodeURIComponent(appBaseUrl()!)}` : ""}`)} target="_blank" rel="noreferrer"><Printer size={16} /> Job ticket</a>
       </div>
       <div className="row between wrap">
         <h1 style={{ margin: 0 }}>{j.number} · {j.item.name}</h1>
@@ -493,7 +496,10 @@ function JobDetailsSheet({ j, onClose, onDone }: { j: RepairJob; onClose: () => 
 export function WorkOrderPage() {
   const { id } = useParams();
   const me = useMe();
+  const [params] = useSearchParams();
+  const invoice = params.get("invoice") === "1";
   const job = useApi(() => api.get<RepairJob>(`repair-jobs/${id}`), [id]);
+  const biz = useApi(() => api.get<{ business_name: string | null; business_details: string | null }>("settings"), []);
   if (job.loading && !job.data) return <Spinner />;
   if (job.error || !job.data) return <div className="page"><ErrorBox error={job.error} /></div>;
   const j = job.data;
@@ -508,7 +514,14 @@ export function WorkOrderPage() {
       <div className="card">
         <div className="row between wrap">
           <div>
-            <h1>Repair work order {j.number}</h1>
+            {invoice && (biz.data?.business_name || biz.data?.business_details) && (
+              <div style={{ marginBottom: 10 }}>
+                {biz.data?.business_name && <div style={{ fontWeight: 700, fontSize: "1.2rem" }}>{biz.data.business_name}</div>}
+                {biz.data?.business_details && <div className="muted" style={{ whiteSpace: "pre-line" }}>{biz.data.business_details}</div>}
+              </div>
+            )}
+            <h1>{invoice ? `Invoice ${j.number}` : `Repair work order ${j.number}`}</h1>
+            {invoice && <div className="muted">Date {fmtDate(new Date().toISOString().slice(0, 10))}</div>}
             <div className="muted">Received {fmtDate(j.received_on)}{j.completed_on ? ` · completed ${fmtDate(j.completed_on)}` : ""}{j.returned_on ? ` · returned ${fmtDate(j.returned_on)}` : ""}</div>
           </div>
           <div><b>{REPAIR_STATUS_LABELS[j.status]}</b></div>
@@ -559,7 +572,9 @@ export function WorkOrderPage() {
             <tr><td><b>Total</b></td><td className="num"><b>{money(j.total, cur)}</b></td></tr>
           </tbody>
         </table>
-        <p className="muted" style={{ marginTop: 18 }}>Customer signature ____________________________ Date ____________</p>
+        {invoice
+          ? <p className="muted" style={{ marginTop: 18 }}>Thank you. Please quote {j.number} with your payment.</p>
+          : <p className="muted" style={{ marginTop: 18 }}>Customer signature ____________________________ Date ____________</p>}
       </div>
     </div>
   );
