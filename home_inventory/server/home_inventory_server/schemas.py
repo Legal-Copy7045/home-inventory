@@ -435,9 +435,12 @@ class EquipmentIn(_In):
     # When starting to track used equipment: schedules start from here.
     current_hours: Hours | None = Field(default=None, ge=0, le=1_000_000, max_digits=10, decimal_places=1)
     current_cycles: int | None = Field(default=None, ge=0)
+    lifecycle_status: Literal["active", "storage", "under_repair", "loaned", "retired", "disposed"] | None = None
+    acquired_from: str | None = Field(default=None, max_length=200)
 
     _blank = field_validator(
-        "equipment_type", "engine_manufacturer", "engine_model", "engine_serial", "fuel_type", "notes", mode="before"
+        "equipment_type", "engine_manufacturer", "engine_model", "engine_serial", "fuel_type", "notes", "acquired_from",
+        mode="before"
     )(_blank_to_none)
 
 
@@ -456,6 +459,12 @@ class TaskFields(_In):
     next_due_on: date | None = None
     next_due_hours: Hours | None = Field(default=None, ge=0, max_digits=10, decimal_places=1)
     next_due_cycles: int | None = Field(default=None, ge=0)
+    # Checklist: when it's done and what kind of job (see models.TASK_GROUPS / TASK_KINDS).
+    schedule_group: Literal["before_use", "after_use", "periodic", "hours", "seasonal", "annual", "storage",
+                            "one_time"] | None = None
+    task_kind: Literal["inspect", "replace", "service", "clean", "lubricate", "adjust"] | None = None
+    # Marking a task that needs review as checked.
+    review_status: Literal["approved"] | None = None
 
     _blank = field_validator("instructions", mode="before")(_blank_to_none)
 

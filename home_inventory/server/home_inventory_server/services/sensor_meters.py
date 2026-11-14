@@ -89,6 +89,7 @@ def sync_profile(db: Session, client: HAClient, profile: EquipmentProfile, actor
 
 def sync_all(db: Session, client: HAClient) -> int:
     profiles = db.scalars(select(EquipmentProfile).where(
+        EquipmentProfile.managed.is_(True),
         (EquipmentProfile.hours_entity_id.is_not(None)) | (EquipmentProfile.cycles_entity_id.is_not(None))
     )).all()
     if not profiles:
