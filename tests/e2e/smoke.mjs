@@ -474,6 +474,20 @@ await page.getByText("Merged Kitchenware into Kitchen & Dining").first().waitFor
 await shot("15f-categories");
 if ((await api(`items/${whisk.id}`)).category !== "Kitchen & Dining") throw new Error("category merge failed");
 
+// Reports → Season mode, and the mower's service history PDF and "worth fixing?"
+await page.goto(BASE + "#/reports/season?season=spring");
+await page.getByRole("heading", { name: /Spring: get ready/ }).waitFor();
+await page.getByRole("link", { name: "Lawn mower" }).first().waitFor();
+await shot("15h-season");
+const pdf = await page.request.fetch(BASE + `api/v1/items/${mower.id}/service-history.pdf`, { headers });
+if (!pdf.ok() || (await pdf.body()).subarray(0, 4).toString() !== "%PDF") throw new Error("service history PDF failed");
+await page.goto(BASE + "#/items/" + mower.id);
+await page.getByRole("button", { name: "Worth fixing?" }).click();
+await page.getByLabel(/Repair cost/).fill("50");
+await page.getByRole("button", { name: "Compare" }).click();
+await page.getByText(/Can't tell yet|Worth fixing\.|Borderline|Probably not/).first().waitFor();
+await page.keyboard.press("Escape");
+
 // Dashboard: this month's shelf check-up
 await page.goto(BASE);
 await page.getByText("Shelf check-up").waitFor();

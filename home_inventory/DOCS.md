@@ -193,6 +193,12 @@ Service history is kept when tasks are changed or removed, and even when you sto
 
 **Maintenance plan.** **Reports → Maintenance plan** lists every piece of equipment with its service jobs, how often each is due, when it was last done and the parts each job needs (with whether they're in stock). Print it to keep in the workshop.
 
+**Season mode.** **Reports → Season mode** gets the equipment ready for spring (pre-season checks, oil, plugs, filters, blades, chains) or put away for winter (stabiliser, running dry, batteries in), with anything overdue too. It lists each machine's jobs, the parts still to get (**Add all to the shopping list** in one tap), the **fuel and oils** your machines use (2-stroke oil, petrol, engine oil, bar oil, stabiliser) with what you have and what's missing, and the **hour meters to photograph** on machines without a sensor. A monthly `home_inventory_meter_reading_due` event (for each machine whose last reading is over 30 days old) lets an automation remind you.
+
+**Service history PDF.** On a machine's Maintenance section, **Service history PDF** downloads a record of the machine: make, model, serial and engine, its specifications and parts, every service with date, hours, work and parts, and its schedule. Useful when selling it or for a warranty claim.
+
+**Is it worth fixing?** **Worth fixing?** on the Maintenance section compares a repair quote with the price of a new one (the AI value estimate, or what you paid) and the second-hand value: over about half the price of a new one, or more than an older machine is worth second-hand, usually isn't worth it.
+
 ### Reading the manual
 
 On equipment you track, **Read the manual** has the AI read its owner's manual. Choose the PDF attached to the item, or add one. A scanned PDF is read page by page as pictures: the first 12 pages, or the pages you type in **Pages to read** (e.g. 18-26). For a paper manual, photograph the maintenance pages. For equipment you haven't set up yet, **Track maintenance** offers **Read the manual** first: reading it sets up the schedule and parts and turns tracking on.
