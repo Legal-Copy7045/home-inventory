@@ -164,10 +164,13 @@ def test_move_and_yes_no_are_forwarded(monkeypatch, fake_ha):
     url, seen = fake_ha
     mod = _load(monkeypatch, url)
     ev = _event(intent="HomeInventoryMove")
-    ev["request"]["intent"]["slots"] = {"item": {"name": "item", "value": "engine oil"}, "place": {"name": "place", "value": "garage"}}
+    # The model calls the moved thing "thing" (Alexa allows one type per slot
+    # name); Home Assistant's intent calls it "item".
+    ev["request"]["intent"]["slots"] = {"thing": {"name": "thing", "value": "engine oil"}, "place": {"name": "place", "value": "garage"}}
     mod.lambda_handler(ev)
     sent = seen[-1][2]["request"]["intent"]
     assert sent["name"] == "HomeInventoryMove" and sent["slots"]["place"]["value"] == "garage"
+    assert sent["slots"]["item"] == {"name": "item", "value": "engine oil"} and "thing" not in sent["slots"]
     missing = _event(intent="HomeInventoryMove")
     missing["request"]["intent"]["slots"] = {"item": {"name": "item", "value": "engine oil"}, "place": {"name": "place"}}
     assert _text(mod.lambda_handler(missing)).startswith("What did you move, and where to?")
@@ -180,3 +183,27 @@ def test_move_and_yes_no_are_forwarded(monkeypatch, fake_ha):
     before = len(seen)
     assert _text(mod.lambda_handler(_event(intent="AMAZON.NoIntent"))) == "Okay."  # nothing was asked
     assert len(seen) == before
+
+
+
+def test_interaction_model_follows_alexas_slot_rules():
+    """Rules the Alexa console enforces when building the model."""
+    import re
+
+    path = Path(__file__).parents[2] / "deploy" / "alexa" / "interaction-model.json"
+    model = json.loads(path.read_text(encoding="utf-8"))["interactionModel"]["languageModel"]
+    custom = {t["name"] for t in model["types"]}
+    types: dict[str, str] = {}
+    for i in model["intents"]:
+        slot_types = {s["name"]: s["type"] for s in i.get("slots", [])}
+        for name, kind in slot_types.items():
+            # One type per slot name across the whole skill.
+            assert types.setdefault(name, kind) == kind, f"slot {name} is {types[name]} and {kind}"
+            assert kind.startswith("AMAZON.") or kind in custom, f"{kind} isn't defined"
+        for sample in i.get("samples", []):
+            used = re.findall(r"{(\w+)}", sample)
+            assert set(used) <= set(slot_types), f"{sample!r} uses a slot {i['name']} doesn't have"
+            if any(slot_types[u] == "AMAZON.SearchQuery" for u in used):
+                # A search-query slot can't share an utterance, or be the whole of it.
+                assert len(used) == 1, f"{sample!r}: a SearchQuery slot must be the only slot"
+                assert sample.strip() != "{" + used[0] + "}", f"{sample!r} needs a carrier phrase"
