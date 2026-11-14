@@ -82,8 +82,9 @@ export default function ItemDetail() {
   const [partOpen, setPartOpen] = useState(false);
   const [trackOpen, setTrackOpen] = useState(false);
   // Equipment = maintenance is tracked; only then does the Maintenance section show.
-  const maint = useApi(() => api.get<{ profile: unknown; tasks: unknown[]; history: unknown[] }>(`items/${id}/maintenance`), [id]);
-  const isEquipment = !!maint.data && (!!maint.data.profile || maint.data.tasks.length > 0 || maint.data.history.length > 0);
+  const maint = useApi(() => api.get<{ profile: { managed?: boolean } | null; tasks: unknown[]; history: unknown[] }>(`items/${id}/maintenance`), [id]);
+  // Managed equipment has its own pages; an item that was equipment once keeps its history here.
+  const managed = !!maint.data?.profile && maint.data.profile.managed !== false;
   const [sheet, setSheet] = useState<null | "edit" | "move" | "lend" | "status" | "docs">(params.get("finish") ? "edit" : null);
   // Moving to another item reuses this page: close any sheet from the previous one.
   // ?do=move (e.g. from an NFC tag) opens that action straight away.
@@ -265,9 +266,16 @@ export default function ItemDetail() {
           {it.notes && (<><dt>Notes</dt><dd style={{ whiteSpace: "pre-line" }}>{it.notes}</dd></>)}
           <dt>Added</dt><dd>{fmtDate(it.created_at)}</dd>
         </dl>
-        {edit && !isEquipment && isEquipmentCategory(it) && (
+        {managed && (
+          <p className="notice" style={{ margin: "8px 0 0" }}>
+            Managed equipment. <Link to={`/equipment/${it.id}`}><b>Open its equipment page</b></Link> for its checklist, parts and maintenance.
+          </p>
+        )}
+        {edit && !managed && !it.owner && (
           <p className="muted" style={{ margin: "8px 0 0" }}>
-            Equipment. <button className="linkish" onClick={() => setTrackOpen(true)}>Track maintenance</button>
+            {isEquipmentCategory(it) ? "Equipment. " : ""}<button className="linkish" onClick={() => setTrackOpen(true)}>
+              {maint.data?.profile ? "Manage as equipment again" : "Manage as equipment"}</button>
+            {!isEquipmentCategory(it) && <> (for things you maintain, like a mower or generator)</>}
           </p>
         )}
       </Section>

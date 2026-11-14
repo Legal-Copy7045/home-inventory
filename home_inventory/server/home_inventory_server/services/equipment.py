@@ -89,7 +89,7 @@ def needs_for(profile: dict[str, Any] | None, equipment_type: str | None, specs:
 def consumables(db: Session) -> list[dict[str, Any]]:
     """Each fuel or oil your machines use, which machines, and what you have."""
     users: dict[str, list[str]] = {}
-    for prof, item in db.execute(select(EquipmentProfile, Item).join(Item, Item.id == EquipmentProfile.item_id)
+    for prof, item in db.execute(select(EquipmentProfile, Item).join(Item, Item.id == EquipmentProfile.item_id).where(EquipmentProfile.managed.is_(True))
                                  .where(Item.deleted_at.is_(None))):
         for need in needs_for({"fuel_type": prof.fuel_type}, prof.equipment_type, prof.specs):
             users.setdefault(need, []).append(item.product.name)
@@ -120,7 +120,7 @@ def readings_due(db: Session, days: int = 30) -> list[dict[str, Any]]:
     """Hour-meter machines without a sensor whose last reading is old."""
     cutoff = datetime.now(UTC) - timedelta(days=days)
     out = []
-    for prof, item in db.execute(select(EquipmentProfile, Item).join(Item, Item.id == EquipmentProfile.item_id)
+    for prof, item in db.execute(select(EquipmentProfile, Item).join(Item, Item.id == EquipmentProfile.item_id).where(EquipmentProfile.managed.is_(True))
                                  .where(Item.deleted_at.is_(None))):
         if prof.meter not in ("hours", "both") or prof.hours_entity_id:
             continue
