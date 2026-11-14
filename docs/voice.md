@@ -26,7 +26,12 @@ Copy [`deploy/assist/custom_sentences/en/home_inventory.yaml`](../deploy/assist/
 | `HomeInventoryMove` | "I've moved the engine oil to small engine repair", "…to container number 5" | moves it there, asking which one or "did you mean…?" when unclear |
 | `HomeInventoryWhatsIn` | "What's in box 5?", "What's on the top shelf?" | the things, boxes and places recorded there |
 | `HomeInventoryChoose` | "The second one", "yes", "no" | the answer for that one |
-| `HomeInventoryMaintenanceDue` | "What maintenance is due?" | overdue jobs and those due in two weeks |
+| `HomeInventoryMaintenanceDue` | "Tell me what upcoming maintenance I need to perform", "…on the Toro lawn mower", "What maintenance is overdue?", "What maintenance do I need to do this week?" | jobs in that range, most urgent first, from the real schedules (and, for one machine, whether its parts are in stock) |
+| `HomeInventoryMaintenanceParts` | "What parts do I need for the next mower service?" | the parts its next service needs, what you have and what to buy |
+| `HomeInventoryHaveParts` | "Do I have the parts I need to service the snowblower?" | yes, or what's missing |
+| `HomeInventoryLastService` | "When did I last change the oil in the mower?" | the date (and hours) from the service history |
+| `HomeInventoryNeedsAttention` | "What equipment needs attention?" | machines with overdue or due-soon work |
+| `HomeInventoryRecentMaintenance` | "What maintenance have I completed recently?" | work recorded in the last month |
 | `HomeInventoryRunningLow` | "What's running low?" | supplies below their minimum |
 | `HomeInventoryOnLoan` | "What's lent out?" | what's on loan, and to whom |
 
@@ -54,7 +59,16 @@ Moving needs a Home Inventory member (not a viewer); the voice assistant uses th
 
 **Names it didn't recognise.** **Admin → Voice history** lists names asked for that weren't found ("strimmer"), with the items they probably meant. **Another name for String trimmer** adds it, and voice and search find the item by that name from then on.
 
-Three more questions need no item name: **"What maintenance is due?"** (overdue jobs and those due in the next two weeks), **"What's running low?"** (supplies below their minimum) and **"What's lent out?"** (and to whom). Long lists read the first five and say how many more.
+**Maintenance (0.33.0).** Answers come from your equipment's actual schedules (the Equipment section), never generic guesses:
+- *"Tell me what upcoming maintenance I need to perform."* → *"You have 3 maintenance tasks coming up. The Ariens snowblower seasonal preparation is overdue by 15 days. The Toro lawn mower oil change is due within the next 5 operating hours. The Toro lawn mower blade inspection is due in 2 weeks."* Overdue first, then soonest; four at most, then "and N more".
+- Ranges: **overdue**, **today**, **this week**, **this month**, upcoming (the default: overdue plus the next month and anything due soon by hours).
+- *"…on the Toro lawn mower"* (or "the mower", "the lawnmower", "the Toro", its model number or label) → *"Your Toro lawn mower has 2 maintenance tasks coming up. The oil change is due within the next 5 operating hours. The blade inspection is due in 2 weeks. You have the spark plug in stock. You need to buy air filter 36905."*
+- If the name fits two machines ("the generator" when you have two), it asks *"Which one: Honda generator or Champion generator?"*. Answer as for any other question.
+- *"When did I last change the oil in the mower?"* → *"The last oil change on your Toro lawn mower was on 3 May 2026, at 44 operating hours."*
+- *"What parts do I need for the next mower service?"*, *"Do I have the parts I need to service the snowblower?"*, *"What equipment needs attention?"*, *"What maintenance have I completed recently?"*
+- Machines are named the way people say them: their label if they have one, otherwise make and type ("Toro lawn mower"). Customer equipment is never included, and a voice request with no Home Assistant user gets the same household-only answers.
+
+Two more questions need no item name: **"What's running low?"** (supplies below their minimum) and **"What's lent out?"** (and to whom). Long lists read the first five and say how many more.
 
 Other languages: put a file with the same intent name in `custom_sentences/<language>/`, with sentences in that language.
 
@@ -177,7 +191,7 @@ The forwarder says what's wrong out loud:
 
 ### Updating the skill
 
-When a release changes `deploy/alexa/` (0.22.1 for "where does it go?", 0.23.0 for "I've moved…" and yes/no, 0.26.0 for "what's in…"):
+When a release changes `deploy/alexa/` (0.22.1 for "where does it go?", 0.23.0 for "I've moved…" and yes/no, 0.26.0 for "what's in…", 0.33.0 for the maintenance questions):
 
 1. Developer console → your skill → **Build → Interaction Model → JSON Editor**: paste the new `deploy/alexa/interaction-model.json`, **Save**, **Build skill**.
 2. **Code** tab: replace `lambda_function.py` with the new `deploy/alexa/lambda_function.py`, put your `HA_URL`, `HA_TOKEN` and `SKILL_ID` back near the top (Alexa-hosted), **Save**, **Deploy**. With your own AWS Lambda, paste the whole file; the settings stay in its environment variables.
