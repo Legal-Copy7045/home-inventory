@@ -668,7 +668,16 @@ def _logged(hass: HomeAssistant, handler: intent.IntentHandler) -> intent.Intent
     return handler
 
 
+REGISTERED_KEY = f"{DOMAIN}_intents_registered"
+
+
 def async_setup_intents(hass: HomeAssistant) -> None:
+    """Register the voice intents once, however many Home Inventory entries
+    are set up (a second entry or a reload would otherwise log "Intent … is
+    being overwritten" for each one)."""
+    if hass.data.get(REGISTERED_KEY):
+        return
+    hass.data[REGISTERED_KEY] = True
     intent.async_register(hass, _logged(hass, WhereIsHandler()))
     intent.async_register(hass, _logged(hass, WhereDoesItGoHandler()))
     intent.async_register(hass, _logged(hass, MoveHandler()))
@@ -683,3 +692,4 @@ def async_unload_intents(hass: HomeAssistant) -> None:
         for name in (INTENT_WHERE_IS, INTENT_GOES, INTENT_MOVE, INTENT_CHOOSE, INTENT_MAINTENANCE, INTENT_LOW_STOCK, INTENT_ON_LOAN):
             remove(hass, name)
     hass.data.pop(PENDING_KEY, None)
+    hass.data.pop(REGISTERED_KEY, None)
