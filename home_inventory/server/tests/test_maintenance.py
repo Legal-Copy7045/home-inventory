@@ -167,7 +167,11 @@ def test_history_survives_task_and_profile_changes(env):
     u.ok("delete", f"/api/v1/maintenance-tasks/{oil['id']}", expected=204)
     u.ok("delete", f"/api/v1/items/{mower['id']}/equipment", expected=204)
     s = _summary(u, mower["id"])
-    assert s["profile"] is None and s["tasks"] == []
+    # Back to an ordinary item: nothing is deleted, it's just not managed (or scheduled).
+    assert s["profile"]["managed"] is False
+    assert all(t["title"] != "Oil" for t in s["tasks"])  # the deleted task stays deleted
+    assert not [t for t in u.ok("get", "/api/v1/maintenance/dashboard", params={"days": 3650})["overdue"]
+                if t["item"]["id"] == mower["id"]]
     titles = {e["title"]: e for e in s["history"]}
     assert titles["Engine oil change"]["task_title"] == "Engine oil change" and titles["Engine oil change"]["hours"] == 42.5
     assert titles["Blade sharpened"]["performed_on"] == "2025-06-10"

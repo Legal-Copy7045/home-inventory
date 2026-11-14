@@ -296,7 +296,39 @@ def _match_standard(db: Session, spec: str | None, specs: dict[str, str]) -> Pro
     return None
 
 
+def _model_key(v: str | None) -> str:
+    return re.sub(r"[^a-z0-9]", "", (v or "").lower())
+
+
+def model_check(item: Item, equipment: dict[str, Any]) -> dict[str, Any]:
+    """Is this manual for this item's model?  ``confirm`` means a person must
+    say it applies before its schedule is used (never chosen silently)."""
+    p = item.product
+    mine = _model_key(p.model_number)
+    covered = [m for m in [equipment.get("model"), *(equipment.get("models_covered") or [])] if m]
+    keys = [_model_key(m) for m in covered if _model_key(m)]
+    maker, theirs = _model_key(p.manufacturer), _model_key(equipment.get("manufacturer"))
+    if maker and theirs and maker not in theirs and theirs not in maker:
+        return {"status": "mismatch", "confirm": True,
+                "message": f"This manual is for {equipment.get('manufacturer')}, but the item is {p.manufacturer}."}
+    if not mine:
+        return {"status": "unknown", "confirm": True,
+                "message": "This item has no model number recorded, so the manual can't be matched to it"
+                           + (f" (the manual is for {', '.join(covered[:4])})." if covered else ".")}
+    if not keys:
+        return {"status": "unknown", "confirm": True, "message": "The manual doesn't say which model it's for."}
+    if not any(k == mine or (min(len(k), len(mine)) >= 4 and (k in mine or mine in k)) for k in keys):
+        return {"status": "mismatch", "confirm": True,
+                "message": f"This manual is for {', '.join(covered[:4])}, but the item is model {p.model_number}."}
+    if equipment.get("schedule_varies_by_model") and len(keys) > 1:
+        return {"status": "variants", "confirm": True,
+                "message": f"The manual covers {', '.join(covered[:6])} and its schedule differs between them: "
+                           f"check each service is the one for model {p.model_number}."}
+    return {"status": "match", "confirm": False, "message": f"The manual covers model {p.model_number}."}
+
+
 def annotate(db: Session, item: Item, data: dict[str, Any]) -> dict[str, Any]:
+    data["model_check"] = model_check(item, data.get("equipment") or {})
     tasks = db.scalars(select(MaintenanceTask).where(MaintenanceTask.item_id == item.id,
                                                      MaintenanceTask.deleted_at.is_(None))).all()
     for p in data["parts"]:
@@ -344,7 +376,12 @@ def apply(db: Session, actor: Actor, item: Item, reading: ManualReading, choice:
         raise ManualError("This reading has already been handled" if reading.status in ("applied", "discarded")
                           else "This reading has no result to apply")
     profile = equipment_item(db, item)
-    ref = "Owner's manual"
+    check = model_check(item, (reading.result or {}).get("equipment") or {})
+    if check["confirm"] and not choice.get("confirm_model"):
+        raise ManualError(f"{check['message']} Confirm the manual applies to this item before using its schedule.")
+    first = db.get(Attachment, (reading.attachment_ids or [None])[0]) if reading.attachment_ids else None
+    ref = (first.original_name or "Owner's manual") if first is not None else "Owner's manual"
+    ref = ref[:150]
     products: dict[str, tuple[Product, dict[str, Any]]] = {}
     made = {"parts_created": 0, "standards_created": 0, "parts_linked": 0, "tasks_created": 0, "tasks_updated": 0}
     for p in choice.get("parts") or []:
@@ -386,19 +423,46 @@ def apply(db: Session, actor: Actor, item: Item, reading: ManualReading, choice:
                   "interval_cycles": s.get("interval_cycles") or None}
         if s.get("instructions"):
             fields["instructions"] = str(s["instructions"])[:5000]
+        where = ", ".join(x for x in (ref, s.get("section"), f"page {s['page']}" if s.get("page") else None) if x)[:300]
+        said = {"title": title, "interval_hours": float(fields["interval_hours"]) if fields["interval_hours"] else None,
+                "interval_days": fields["interval_days"], "interval_cycles": fields["interval_cycles"],
+                "first_at_hours": s.get("first_at_hours") and float(s["first_at_hours"]), "page": s.get("page"),
+                "section": s.get("section"), "when": s.get("when"), "kind": s.get("kind"), "source": where,
+                "instructions": fields.get("instructions")}
+        source = {"source": "manual", "source_ref": where, "reading_id": reading.id,
+                  "review_status": "approved", "manual_values": said}
         task = db.get(MaintenanceTask, int(s["task_id"])) if s.get("task_id") else None
         if task is not None and (task.item_id != item.id or task.deleted_at is not None):
             raise ManualError("That task belongs to something else")
         if task is None:
-            task = mnt.create_task(db, actor, item, {"title": title, **{k: v for k, v in fields.items() if v is not None}})
-            first = _dec(s.get("first_at_hours"))
-            if first is not None and (meters.hours is None or meters.hours < first):
-                task.next_due_hours = first
+            # Read again: the same job from an earlier reading is updated, not duplicated.
+            task = next((t for t in db.scalars(select(MaintenanceTask).where(
+                MaintenanceTask.item_id == item.id, MaintenanceTask.deleted_at.is_(None),
+                MaintenanceTask.source == "manual")) if t.title.strip().lower() == title.lower()), None)
+        if task is None:
+            task = mnt.create_task(db, actor, item, {"title": title, **{k: v for k, v in fields.items() if v is not None},
+                                                     "schedule_group": s.get("when"), "task_kind": s.get("kind"),
+                                                     **source})
+            first_due = _dec(s.get("first_at_hours"))
+            if first_due is not None and (meters.hours is None or meters.hours < first_due):
+                task.next_due_hours = first_due
             made["tasks_created"] += 1
+        elif task.user_edited:
+            # The person changed this task: keep their version, record what the
+            # manual says, and flag it if the two now differ.
+            differs = any(said.get(k) != (float(getattr(task, k)) if k == "interval_hours" and getattr(task, k) is not None
+                                          else getattr(task, k))
+                          for k in ("interval_hours", "interval_days", "interval_cycles"))
+            task.manual_values = said
+            task.reading_id = reading.id
+            task.source_ref = task.source_ref or where
+            if differs:
+                task.review_status = "needs_review"
+            made["tasks_kept"] = made.get("tasks_kept", 0) + 1
         else:
             changes = {k: v for k, v in fields.items() if v is not None}
-            if changes:
-                mnt.update_task(db, actor, task, changes)
+            changes.update({k: v for k, v in (("schedule_group", s.get("when")), ("task_kind", s.get("kind"))) if v})
+            mnt.update_task(db, actor, task, {**changes, **source}, by_user=False)
             made["tasks_updated"] += 1
         # This service's own needs, merged into what the task already lists.
         rows = {tp.product_id: {"product_id": tp.product_id, "quantity": tp.quantity, "unit": tp.unit,

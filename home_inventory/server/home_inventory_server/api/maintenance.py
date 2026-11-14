@@ -116,19 +116,13 @@ def save_equipment(item_id: int, data: EquipmentIn, actor: Actor = Depends(requi
 
 @router.delete("/items/{item_id}/equipment", status_code=204)
 def delete_equipment(item_id: int, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
-    """Stop tracking: removes the profile and open tasks; service history stays."""
-    from datetime import UTC, datetime
-
-    from .. import audit
-
+    """Back to an ordinary item.  Its equipment details, tasks and service
+    history are kept (unscheduled); managing it again restores them."""
     item = _item(db, item_id)
     profile = db.scalar(select(EquipmentProfile).where(EquipmentProfile.item_id == item.id))
-    if profile is None:
-        raise HTTPException(404, "This item has no equipment details")
-    db.delete(profile)
-    for task in db.scalars(select(MaintenanceTask).where(MaintenanceTask.item_id == item.id, MaintenanceTask.deleted_at.is_(None))):
-        task.deleted_at = datetime.now(UTC)
-    audit.record(db, actor, "equipment_profile_removed", "item", item.id, f"{item.product.name}: stopped tracking maintenance")
+    if profile is None or not profile.managed:
+        raise HTTPException(404, "This item isn't managed as equipment")
+    _run(mnt.stop_managing, db, actor, item)
     db.commit()
 
 
@@ -357,7 +351,7 @@ def maintenance_plan(owner: Literal["all", "household", "customer"] = "all", act
     item_filter = {"household": cust.household_only(), "customer": cust.customer_owned()}.get(owner)
     if item_filter is None and not actor.can(Role.member):
         item_filter = cust.household_only()
-    stmt = (select(EquipmentProfile, Item).join(Item, Item.id == EquipmentProfile.item_id)
+    stmt = (select(EquipmentProfile, Item).join(Item, Item.id == EquipmentProfile.item_id).where(EquipmentProfile.managed.is_(True))
             .where(Item.deleted_at.is_(None)))
     if item_filter is not None:
         stmt = stmt.where(item_filter)
