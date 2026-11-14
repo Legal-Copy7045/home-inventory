@@ -14,6 +14,7 @@ def _mower(u, name="Lawn mower", preset="lawn_mower"):
 def test_which_season():
     assert eq.which_season(date(2026, 3, 1)) == "spring" and eq.which_season(date(2026, 12, 1)) == "spring"
     assert eq.which_season(date(2026, 9, 15)) == "autumn"
+    assert eq.which_season(date(2026, 9, 15), "south") == "spring" and eq.which_season(date(2026, 4, 1), "south") == "autumn"
 
 
 def test_season_jobs_and_consumables(env):

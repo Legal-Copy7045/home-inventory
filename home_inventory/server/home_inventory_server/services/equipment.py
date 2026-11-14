@@ -22,10 +22,18 @@ SPRING_WORDS = ("pre-season", "pre season", "inspect", "oil", "spark", "air filt
 AUTUMN_WORDS = ("winteri", "stabil", "run dry", "drain", "store", "battery", "clean", "fog")
 
 
-def which_season(today: date | None = None) -> str:
-    """The season to get ready for: spring from December to June, autumn from July to November."""
+def which_season(today: date | None = None, hemisphere: str = "north") -> str:
+    """The season to get ready for. North: spring from December to June,
+    autumn from July to November; south: six months on."""
     m = (today or date.today()).month
+    if hemisphere == "south":
+        m = (m + 5) % 12 + 1
     return "autumn" if 7 <= m <= 11 else "spring"
+
+
+def hemisphere(db: Session) -> str:
+    s = db.get(Setting, "hemisphere")
+    return "south" if s is not None and s.value == "south" else "north"
 
 
 def season_jobs(plan: dict[str, Any], season: str) -> dict[str, Any]:

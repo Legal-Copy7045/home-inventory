@@ -2,7 +2,7 @@
 
 ## 0.28.0
 
-- **Season mode** (Reports): spring get-ready or autumn winterising for every machine, with anything overdue; the parts still to get, all onto the shopping list in one tap; fuel and oils the machines use and whether you have them; hour meters to photograph.
+- **Season mode** (Reports): spring get-ready or autumn winterising for every machine (following the hemisphere set in Settings), with anything overdue; the parts still to get, all onto the shopping list in one tap; fuel and oils the machines use and whether you have them; hour meters to photograph.
 - **Fuel & consumables:** which fuels and oils your machines need (from their fuel type and kind: 2-stroke oil, petrol, engine oil, bar oil, stabiliser), the items you have for each, and what's missing or low.
 - **Hour-meter reminders:** machines on hours without a sensor whose last reading is over 30 days old are listed in Season mode, and a monthly `home_inventory_meter_reading_due` event lets an automation remind you.
 - **Service history PDF** for each machine: details, specs and parts, every service, and the schedule.
