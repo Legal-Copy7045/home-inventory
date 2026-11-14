@@ -1139,3 +1139,50 @@ class VerificationEntry(Base):
     note: Mapped[str | None] = mapped_column(String(300))
     checked_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Home Assistant entities linked to equipment, and reserved stock
+# ---------------------------------------------------------------------------
+
+ENTITY_PURPOSES = ("battery", "energy", "power", "status", "other")
+
+
+class EquipmentEntity(Base):
+    """A Home Assistant entity shown with a piece of equipment (its battery,
+    energy use, a smart plug...).  Display only: nothing is ever recorded
+    from these automatically.  Hour meters and use counters are linked on
+    the equipment profile instead, where readings are validated."""
+
+    __tablename__ = "equipment_entities"
+    __table_args__ = (
+        UniqueConstraint("item_id", "entity_id", name="uq_equipment_entity"),
+        CheckConstraint("purpose IN ('battery', 'energy', 'power', 'status', 'other')", name="ck_equipment_entity_purpose"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"), index=True)
+    entity_id: Mapped[str] = mapped_column(String(255))
+    purpose: Mapped[str] = mapped_column(String(12))
+    label: Mapped[str | None] = mapped_column(String(80))
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class StockReservation(Base):
+    """Stock set aside for a repair job.  Reserving never changes the
+    quantity on the shelf: it only stops the same stock being counted as
+    available elsewhere.  Using it is a separate, explicit step."""
+
+    __tablename__ = "stock_reservations"
+    __table_args__ = (CheckConstraint("quantity > 0", name="ck_reservation_quantity"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"), index=True)
+    quantity: Mapped[int] = mapped_column(Integer)
+    repair_job_id: Mapped[int | None] = mapped_column(ForeignKey("repair_jobs.id", ondelete="SET NULL"), index=True)
+    note: Mapped[str | None] = mapped_column(String(300))
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -153,3 +153,13 @@ def purchased(entry_id: int, data: PurchasedIn, actor: Actor = Depends(require_m
     _run(repl.mark_purchased, db, actor, _entry(db, entry_id), data.quantity, data.unit_price, data.add_to_stock, data.item_id)
     db.commit()
     return repl.list_out(db)
+
+
+@router.get("/replenishment/demand")
+def replenishment_demand(days: int = Query(30, ge=1, le=365), actor: Actor = Depends(current_actor),
+                         db: Session = Depends(get_db)):
+    """Everything that needs buying, one line per part (maintenance due in
+    ``days``, below-minimum stock, repair reservations), by retailer."""
+    from ..services import demand
+
+    return demand.demand(db, days)
