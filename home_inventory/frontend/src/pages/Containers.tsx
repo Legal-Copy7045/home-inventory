@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { TagsSection } from "./Tags";
-import { ArrowRightLeft, Camera, Home, Images, Pencil, Plus, Printer, QrCode, RotateCw, ScanLine, Sparkles, Trash2 } from "lucide-react";
+import { ArrowRightLeft, Camera, ClipboardCheck, Home, Images, Pencil, Plus, Printer, QrCode, RotateCw, ScanLine, Sparkles, Trash2 } from "lucide-react";
 import { api, qrImageUrl, url, type Container, type HistoryEvent, type Scan } from "../api";
 import { PlacementPicker, type PlacementValue } from "../components/PlacementPicker";
 import { ScanReview, scanPlaceholder } from "../components/PhotoInventory";
@@ -167,6 +167,7 @@ export function ContainerDetail() {
             <button onClick={analyseAgain}><span className="ico"><RotateCw size={20} /></span>Last photo again</button>
           )}
           <button onClick={() => setSheet("move")}><span className="ico"><ArrowRightLeft size={20} /></span>Move</button>
+          <Link to={`/verify?container=${ct.id}`}><span className="ico"><ClipboardCheck size={20} /></span>Check contents</Link>
           <Link to={`/capture?container_id=${ct.id}`}><span className="ico"><Images size={20} /></span>Quick photos</Link>
           <Link to={`/scan?container=${ct.id}`}><span className="ico"><ScanLine size={20} /></span>Scan mode</Link>
         </div>

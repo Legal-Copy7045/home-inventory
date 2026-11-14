@@ -1,6 +1,7 @@
-"""Shelf check-ups: which place most needs a fresh photo inventory.
+"""Shelf check-ups: which place most needs a fresh photo inventory or check.
 
-A place's last check-up is its latest confirmed photo inventory. Places
+A place's last check-up is its latest confirmed photo inventory or finished
+inventory check (Check this place). Places
 that hold things and were never checked come first (most things first),
 then the longest ago. Once a month the top one is published as a
 ``checkup_due`` event, so Home Assistant can remind you.
@@ -15,7 +16,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..events import queue_event
-from ..models import Container, ContainerScan, Item, Location, ScanStatus, Setting
+from ..models import Container, ContainerScan, Item, Location, ScanStatus, Setting, VerificationSession
 from .placement import Resolver
 
 NOTICE_KEY = "checkup_last_notice"
@@ -41,6 +42,15 @@ def due(db: Session, limit: int = 10) -> list[dict[str, Any]]:
                                    .group_by(ContainerScan.container_id, ContainerScan.location_id)):
         key = ("container", cid) if cid else ("location", lid)
         checked[key] = _aware(at)
+    # A finished inventory check counts as a check-up too.
+    for kind, sid, at in db.execute(select(VerificationSession.scope_type, VerificationSession.scope_id,
+                                           func.max(VerificationSession.finished_at))
+                                    .where(VerificationSession.finished_at.is_not(None),
+                                           VerificationSession.scope_type.in_(("container", "location")))
+                                    .group_by(VerificationSession.scope_type, VerificationSession.scope_id)):
+        at = _aware(at)
+        if checked.get((kind, sid)) is None or at > checked[(kind, sid)]:
+            checked[(kind, sid)] = at
     now = datetime.now(UTC)
     out = []
     for (kind, pid), n in counts.items():

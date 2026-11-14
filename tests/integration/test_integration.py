@@ -70,7 +70,9 @@ async def test_sensors(hass: HomeAssistant, inventory_app):
     assert float(value.state) == 80.0 and value.attributes["unit_of_measurement"] == "USD"
     assert hass.states.get(ids["app_available"]).state == "on"
     # Only summary entities: never one per inventory item
-    assert len(ids) == 18  # 17 sensors + availability
+    assert len(ids) == 19  # 18 sensors + availability
+    assert ids["needs_attention"] == "sensor.home_inventory_needs_attention"
+    assert hass.states.get(ids["needs_attention"]).state.isdigit()
     assert hass.states.get(ids["maintenance_overdue"]).state == "0"
     await hass.config_entries.async_unload(entry.entry_id)
 

@@ -66,7 +66,21 @@ INTENT_LAST_SERVICE = "HomeInventoryLastService"
 INTENT_ATTENTION = "HomeInventoryNeedsAttention"
 INTENT_RECENT_MAINT = "HomeInventoryRecentMaintenance"
 MAINT_RANGES = ("overdue", "today", "week", "month", "upcoming", "all")
-MOVED_RE = re.compile(r"(?i)^(?:the |my )?(.+?) (?:is|are) now (?:in|on|at) (?:the )?(.+)$")
+
+
+def split_moved(text: str) -> tuple[str, str] | None:
+    """ "the drill is now in the garage" -> ("drill", "garage"), word by word."""
+    ws = text.split()
+    low = [w.lower() for w in ws]
+    for i in range(1, len(ws) - 3):
+        if low[i] in ("is", "are") and low[i + 1] == "now" and low[i + 2] in ("in", "on", "at"):
+            item = ws[1:i] if low[0] in ("the", "my") and i > 1 else ws[:i]
+            place = ws[i + 3:]
+            if place and place[0].lower() == "the":
+                place = place[1:]
+            if item and place:
+                return " ".join(item), " ".join(place)
+    return None
 INTENT_LOW_STOCK = "HomeInventoryRunningLow"
 INTENT_ON_LOAN = "HomeInventoryOnLoan"
 SPOKEN_MAX = 5  # read out at most this many things, then "and N more"
@@ -648,11 +662,11 @@ class ChooseHandler(intent.IntentHandler):
                 return response
             # Assist ranks "the {choice}" (one wildcard) above "the {item} is now in
             # the {place}" (two), so a move said that way arrives here: do the move.
-            moved = MOVED_RE.match(choice)
+            moved = split_moved(choice)
             if moved:
                 return await MoveHandler().async_handle(
                     intent.Intent(intent_obj.hass, intent_obj.platform, INTENT_MOVE,
-                                  {"item": {"value": moved.group(1)}, "place": {"value": moved.group(2)}},
+                                  {"item": {"value": moved[0]}, "place": {"value": moved[1]}},
                                   intent_obj.text_input, intent_obj.context, intent_obj.language,
                                   assistant=intent_obj.assistant, device_id=intent_obj.device_id,
                                   satellite_id=intent_obj.satellite_id))
