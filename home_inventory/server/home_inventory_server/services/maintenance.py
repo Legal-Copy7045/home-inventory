@@ -23,7 +23,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
 from .. import audit
@@ -371,8 +371,29 @@ def task_out(task: MaintenanceTask, meters: Meters, today: date | None = None,
         "deferred_until": task.deferred_until.isoformat() if task.deferred_until else None,
         "not_applicable": task.not_applicable,
         "estimated_due_on": est.isoformat() if est else None,
+        "schedule_group": task.schedule_group or default_group(task),
+        "task_kind": task.task_kind,
+        "source": task.source,
+        "source_ref": task.source_ref,
+        "reading_id": task.reading_id,
+        "review_status": task.review_status,
+        "user_edited": task.user_edited,
+        "manual_values": task.manual_values,
         **state,
     }
+
+
+def default_group(task: MaintenanceTask) -> str:
+    """Checklist group for a task that hasn't been given one."""
+    if task.interval_hours is not None or task.interval_cycles is not None:
+        return "hours"
+    if task.interval_days == 365:
+        return "annual"
+    return "periodic" if task.interval_days else "one_time"
+
+
+# What a person changing these counts as "edited" (a manual read again won't overwrite it).
+USER_FIELDS = ("title", "instructions", "interval_days", "interval_hours", "interval_cycles", "schedule_group", "task_kind")
 
 
 def _schedule_from(task: MaintenanceTask, on: date, hours: Decimal | None, cycles: Decimal | None) -> None:
@@ -400,8 +421,13 @@ def create_task(db: Session, actor: Actor, item: Item, data: dict[str, Any]) -> 
     return task
 
 
-def update_task(db: Session, actor: Actor, task: MaintenanceTask, data: dict[str, Any]) -> MaintenanceTask:
+def update_task(db: Session, actor: Actor, task: MaintenanceTask, data: dict[str, Any],
+                by_user: bool = True) -> MaintenanceTask:
     intervals_changed = any(k in data and data[k] != getattr(task, k) for k in ("interval_days", "interval_hours", "interval_cycles"))
+    if by_user and any(k in data and data[k] != getattr(task, k) for k in USER_FIELDS):
+        task.user_edited = True
+    if by_user and data.get("review_status") == "approved":
+        task.review_status = "approved"
     for k, v in data.items():
         setattr(task, k, v)
     if intervals_changed and not any(k in data for k in ("next_due_on", "next_due_hours", "next_due_cycles")):
@@ -629,15 +655,20 @@ def profile_out(p: EquipmentProfile | None) -> dict[str, Any] | None:
         "cycles_entity_id": p.cycles_entity_id,
         "specs": p.specs or [],
         "notes": p.notes,
+        "managed": p.managed,
+        "lifecycle_status": p.lifecycle_status,
+        "acquired_from": p.acquired_from,
     }
 
 
 def save_profile(db: Session, actor: Actor, item: Item, data: dict[str, Any], preset: str | None) -> EquipmentProfile:
     profile = db.scalar(select(EquipmentProfile).where(EquipmentProfile.item_id == item.id))
     created = profile is None
+    resumed = not created and not profile.managed
     if created:
         profile = EquipmentProfile(item_id=item.id, meter="hours")
         db.add(profile)
+    profile.managed = True
     if preset:
         if preset not in PRESETS:
             raise MaintenanceError("Unknown equipment type")
@@ -659,9 +690,26 @@ def save_profile(db: Session, actor: Actor, item: Item, data: dict[str, Any], pr
             if spec["title"].lower() not in existing:
                 data_t = {k: (Decimal(str(v)) if k == "interval_hours" and v is not None else v)
                           for k, v in spec.items()}
+                # A typical schedule, clearly not the manufacturer's.
+                data_t.update(source="generic", source_ref=f"Typical {PRESETS[preset]['name'].lower()} schedule, "
+                                                           "not from this model's manual")
                 create_task(db, actor, item, data_t)
+    what = ("started managing it as equipment" if created else "managed as equipment again (details and history kept)"
+            if resumed else "updated equipment details")
     audit.record(db, actor, "equipment_profile_" + ("added" if created else "changed"), "item", item.id,
-                 f"{item.product.name}: {'started tracking maintenance' if created else 'updated equipment details'}")
+                 f"{item.product.name}: {what}")
+    return profile
+
+
+def stop_managing(db: Session, actor: Actor, item: Item) -> EquipmentProfile:
+    """Back to an ordinary item.  Nothing is deleted: its details, tasks and
+    service history stay, unscheduled, until it's managed again."""
+    profile = db.scalar(select(EquipmentProfile).where(EquipmentProfile.item_id == item.id))
+    if profile is None or not profile.managed:
+        raise MaintenanceError("This item isn't managed as equipment")
+    profile.managed = False
+    audit.record(db, actor, "equipment_profile_removed", "item", item.id,
+                 f"{item.product.name}: now an ordinary item (equipment details, tasks and history kept)")
     return profile
 
 
@@ -694,10 +742,16 @@ def item_maintenance(db: Session, item: Item, attachments_for, today: date | Non
 # ---------------------------------------------------------------------------
 
 
+def paused_equipment(item_id_col):
+    """SQL: the item was managed equipment and has been turned back into an
+    ordinary item (its tasks are kept, but not scheduled)."""
+    return exists().where(EquipmentProfile.item_id == item_id_col, EquipmentProfile.managed.is_(False))
+
+
 def dashboard(db: Session, within_days: int = 30, today: date | None = None, item_filter=None) -> dict[str, Any]:
     today = today or date.today()
     stmt = (select(MaintenanceTask, Item).join(Item, Item.id == MaintenanceTask.item_id)
-            .where(MaintenanceTask.deleted_at.is_(None), Item.deleted_at.is_(None)))
+            .where(MaintenanceTask.deleted_at.is_(None), Item.deleted_at.is_(None), ~paused_equipment(Item.id)))
     if item_filter is not None:
         stmt = stmt.where(item_filter)
     rows = db.execute(stmt).all()
@@ -729,7 +783,7 @@ def dashboard(db: Session, within_days: int = 30, today: date | None = None, ite
     overdue.sort(key=lambda t: t["days_left"] if t["days_left"] is not None else 0)
     due.sort(key=soonest)
 
-    prof_stmt = select(EquipmentProfile, Item).join(Item, Item.id == EquipmentProfile.item_id).where(Item.deleted_at.is_(None))
+    prof_stmt = select(EquipmentProfile, Item).join(Item, Item.id == EquipmentProfile.item_id).where(EquipmentProfile.managed.is_(True)).where(Item.deleted_at.is_(None))
     if item_filter is not None:
         prof_stmt = prof_stmt.where(item_filter)
     with_history = set(db.scalars(select(ServiceEvent.item_id).where(ServiceEvent.deleted_at.is_(None),

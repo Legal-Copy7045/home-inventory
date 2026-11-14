@@ -248,7 +248,7 @@ await putSheet.getByRole("button", { name: "Done" }).click();
 // Maintenance: track a mower, log hours, record the overdue oil change
 const mower = (await api("items", { method: "POST", data: { name: "Lawn mower", category: "Equipment", location_id: garage.id } })).items[0];
 await page.goto(BASE + "#/items/" + mower.id);
-const track = page.getByRole("button", { name: "Track maintenance" });
+const track = page.getByRole("button", { name: "Manage as equipment" });
 await track.scrollIntoViewIfNeeded();
 await track.click();
 await page.getByRole("button", { name: /Lawn mower/ }).click();
@@ -510,6 +510,24 @@ await page.getByRole("heading", { name: "Names it didn't recognise" }).waitFor()
 await page.getByText("Only questions it couldn't answer").click();
 await page.getByText("not found").first().waitFor();
 await shot("15g-voice-history");
+
+// Equipment: an item managed as equipment gets its own pages (list, checklist, parts, reports)
+const tractor = await api("items", { method: "POST", data: { name: "Toro Recycler 22-inch Personal Pace", manufacturer: "Toro", model_number: "20333" } });
+const tractorId = tractor.items[0].id;
+await api(`items/${tractorId}/equipment`, { method: "PUT", data: { preset: "lawn_mower", current_hours: 3 } });
+await api(`items/${tractorId}/maintenance-tasks`, { method: "POST", data: { title: "Check oil level", schedule_group: "before_use", task_kind: "inspect" } });
+await page.goto(BASE + "#/equipment");
+await page.getByRole("link", { name: /Toro Recycler/ }).click();
+await page.getByRole("heading", { name: "Maintenance checklist" }).waitFor();
+await page.getByRole("heading", { name: "Before each use" }).waitFor();
+await page.getByText(/Generic plan/).first().waitFor();  // a preset is never presented as the manufacturer's
+await shot("15i-equipment");
+const cl = await page.request.fetch(BASE + `api/v1/equipment/${tractorId}/checklist.pdf`, { headers });
+if (!cl.ok() || (await cl.body()).subarray(0, 4).toString() !== "%PDF") throw new Error("checklist PDF failed");
+await page.goto(BASE + "#/maintenance/reports?kind=consolidated");
+await page.getByRole("link", { name: /Toro Recycler/ }).first().waitFor();
+// The bottle of oil is ordinary inventory: not in the Equipment list.
+if ((await api("equipment")).equipment.some((e) => /oil/i.test(e.name))) throw new Error("ordinary item listed as equipment");
 
 // Put-away route: two things taken from different places, one stop each, in walking order
 const aa = (await api(`containers/${box.id}`)).items.find((i) => i.name === "AA batteries");

@@ -75,7 +75,7 @@ def checklist(db: Session, today: date | None = None) -> dict[str, Any]:
                           "overdue": task.next_due_on < today, "item": {"id": item.id, "name": item.product.name}})
 
     suggestions = []
-    profiles = db.execute(select(EquipmentProfile, Item).join(Item, Item.id == EquipmentProfile.item_id)
+    profiles = db.execute(select(EquipmentProfile, Item).join(Item, Item.id == EquipmentProfile.item_id).where(EquipmentProfile.managed.is_(True))
                           .where(Item.deleted_at.is_(None))).all()
     for profile, item in profiles:
         text = f"{profile.equipment_type or ''} {item.product.name}".lower()

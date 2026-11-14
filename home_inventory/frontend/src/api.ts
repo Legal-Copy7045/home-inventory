@@ -532,6 +532,16 @@ export interface MaintTask {
   /** When an hours/uses threshold is reached at the recent rate of use. */
   estimated_due_on?: string | null;
   item?: { id: number; name: string; label: string | null };
+  schedule_group?: string;
+  task_kind?: string | null;
+  /** user: added by hand; manual: the manufacturer's manual (source_ref); generic: a typical schedule */
+  source?: "user" | "manual" | "generic";
+  source_ref?: string | null;
+  reading_id?: number | null;
+  review_status?: "approved" | "needs_review";
+  user_edited?: boolean;
+  manual_values?: { title?: string; interval_hours?: number | null; interval_days?: number | null; interval_cycles?: number | null; page?: number | null; section?: string | null; source?: string } | null;
+  parts?: ReadinessLine[];
 }
 
 export interface ServicePartRow {
@@ -580,6 +590,9 @@ export interface EquipmentProfile {
   cycles_entity_id?: string | null;
   specs: SpecRow[];
   notes: string | null;
+  managed?: boolean;
+  lifecycle_status?: string;
+  acquired_from?: string | null;
 }
 
 export interface MaintenanceSummary {
@@ -823,6 +836,9 @@ export interface ManualService {
   needs: { key: string; quantity: number | null; unit: string | null }[];
   page: number | null;
   task_match: { id: number; title: string } | null;
+  when?: string | null;
+  kind?: string | null;
+  section?: string | null;
 }
 
 export interface ManualReading {
@@ -832,7 +848,9 @@ export interface ManualReading {
   status: "pending" | "ready" | "failed" | "applied" | "discarded";
   error: string | null;
   result: {
-    equipment: { manufacturer: string | null; model: string | null; engine: string | null };
+    equipment: { manufacturer: string | null; model: string | null; engine: string | null; models_covered?: string[]; schedule_varies_by_model?: boolean };
+    /** Is the manual for this item's model?  ``confirm``: a person must say it applies. */
+    model_check?: { status: "match" | "mismatch" | "unknown" | "variants"; confirm: boolean; message: string };
     parts: ManualPart[];
     services: ManualService[];
     specs: { label: string; value: string; page: number | null }[];

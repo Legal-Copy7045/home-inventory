@@ -168,12 +168,31 @@ Quick changes don't ask "are you sure?" first; they tell you what happened with 
 
 On **Items**, tap **Select**, tick the items you want (or **Select all**), then use **Move**, **Edit** or **Delete** in the bar at the bottom. **Edit** changes only the fields you fill in. Choose **Sort: Location** to see items grouped by where they are.
 
+## Equipment
+
+**Equipment versus inventory.** A Toro mower is something you *manage*; a bottle of engine oil is something you *store*. Both are ordinary items underneath, with the same search, barcodes, labels, photos and voice answers, but managed equipment also has its own **Equipment** section (in the menu, under *Maintenance & Repairs*) with what managing it takes: its checklist, manual, parts, readings and history. The oil stays ordinary inventory even when the mower uses it.
+
+**Making something equipment.** Open the item and tap **Manage as equipment** (at the foot of *Details*). Any item can be; items in the *Equipment* category get the link first. **Make it an ordinary item** (in the equipment's **Edit** details) turns it back: it leaves the Equipment section and its tasks stop being scheduled, but **nothing is deleted**. Its details, tasks and service history come back if you manage it again.
+
+**The Equipment list** shows each machine with its next job, overdue and due-soon work, hours and last service, most urgent first. Search by name, make, model or serial number, or filter by type, status (overdue, due soon, up to date) and lifecycle (active, in storage, under repair, loaned out, retired, disposed of; retired and disposed equipment is hidden unless you ask for it).
+
+**An equipment page** answers "what does it need?" at a glance:
+- **Status**: the next job, what's overdue or due soon (with **Done**), the last completed service, where it is, and where its maintenance plan comes from: *the manufacturer's manual*, *a manual you confirmed fits*, or *generic* (a typical schedule, not this model's).
+- **Maintenance checklist**: every task grouped as the manual groups them (before each use, after each use, by hours, periodic, seasonal, annual, storage, one-time), each with its interval, when it was last done and is next due, its parts, and **where it comes from**: the manual's file, section and page, "generic", or "added by hand". **Done** records the work; **Disable** takes a task out of this machine's schedule without deleting it (**Enable** brings it back). Tap a task to edit it.
+- **Parts and consumables**: everything its tasks use (one service each), with what you have, **where it's kept**, what to buy (**Add to shopping list**), and which are needed soon. A part shared with other machines (the same oil or plug) is one stock record, never counted separately per machine.
+- **Details**: purchase, warranty, engine, fuel, specifications, what its maintenance has cost so far, and its Home Assistant sensors.
+- Below: the hour meter and readings chart, sensors, **Log service**, **Add task**, **Read the manual**, the service history, and **Edit** for its details (type, engine, fuel, meter, status and where it came from).
+
+**Print checklist** makes a PDF service checklist: each job with tick box, interval, last done and next due, the parts it needs (marked *have* or *BUY*), and its source. Tasks from a generic schedule are marked GENERIC.
+
+**Maintenance reports** (link on the Equipment list): **Overdue** (most overdue first), **Upcoming** (due within a week, month, 3 months or year), **History** (completed work with dates, hours, parts and costs, and the total) and **All equipment** (each machine's status, next jobs, plan source and last service). Each prints.
+
 ## Maintenance
 
 For mowers, trimmers, saws, generators, pressure washers, snow blowers or anything else that needs servicing:
 
-1. Make sure the item's category is **Equipment** (the AI suggests it for powered machines), then open it and tap **Track maintenance** (at the foot of *Details*). Only Equipment items get this link, and the **Maintenance** section only appears on items tracked this way, so other things stay uncluttered.
-2. Pick the kind of equipment. Typical tasks are added as a starting point, such as oil every 50 hours or yearly, whichever comes first. Check them against your manual, then change, add or remove them.
+1. Open it and tap **Manage as equipment** (see *Equipment* above).
+2. Pick the kind of equipment. A **generic** schedule is added as a starting point, such as oil every 50 hours or yearly, whichever comes first, clearly marked as generic: it isn't your model's manual. Read the manual (below) to replace it with the manufacturer's schedule, or check it against the manual yourself and change, add or remove tasks.
 3. For a used machine, enter its current hours first, so it isn't shown as overdue for everything.
 
 On the item page:
@@ -191,7 +210,9 @@ The **Maintenance** page lists what's overdue, what's due in the next 7, 30 or 9
 
 **Reminders.** Once a day, each task that has just become due soon or overdue sends one `home_inventory_maintenance_due` event to Home Assistant. It says whether the parts are in stock and which are missing. Parts it needs that aren't in stock are added to **Restock** (turn this off under **Settings → Add missing maintenance parts to the shopping list**). To get these on your phone, turn on **Send maintenance reminders to your phone** in the Home Inventory integration's options and choose your phone's notify action.
 
-Service history is kept when tasks are changed or removed, and even when you stop tracking an item.
+Service history is kept when tasks are changed or removed, and even when you make the equipment an ordinary item again.
+
+**Stock is only used when you say so.** Recording a service with its parts doesn't take anything out of stock; tick **Take from stock** on a part to do that.
 
 **Maintenance plan.** **Reports → Maintenance plan** lists every piece of equipment with its service jobs, how often each is due, when it was last done and the parts each job needs (with whether they're in stock). Print it to keep in the workshop.
 
@@ -203,7 +224,7 @@ Service history is kept when tasks are changed or removed, and even when you sto
 
 ### Reading the manual
 
-On equipment you track, **Read the manual** has the AI read its owner's manual. Choose the PDF attached to the item, or add one. A scanned PDF is read page by page as pictures: the first 12 pages, or the pages you type in **Pages to read** (e.g. 18-26). For a paper manual, photograph the maintenance pages. For equipment you haven't set up yet, **Track maintenance** offers **Read the manual** first: reading it sets up the schedule and parts and turns tracking on.
+On equipment you track, **Read the manual** has the AI read its owner's manual. Choose the PDF attached to the item, or add one. A scanned PDF is read page by page as pictures: the first 12 pages, or the pages you type in **Pages to read** (e.g. 18-26). For a paper manual, photograph the maintenance pages. For equipment you haven't set up yet, **Manage as equipment** offers **Read the manual** first: reading it sets up the schedule and parts.
 
 The AI picks out:
 - **each service and its interval**, such as "change oil every 50 hours or yearly, first at 5 hours";
@@ -217,6 +238,12 @@ You then review the result:
 - Oil or grease given only by its grade becomes a **standard** (see below).
 
 Nothing is saved until you tap **Save the plan**. Part numbers are only copied from the manual, never guessed.
+
+**Is it the right manual?** The App compares the manual's manufacturer and model numbers with the item's. If they don't clearly match, if the item has no model number, if the manual doesn't say which model it's for, or if it covers several models whose schedules differ, you're told why and must tick **I've checked: this manual's schedule applies to my item** before the plan can be saved. Nothing is chosen silently.
+
+**Where every task comes from.** A task from the manual records the file, the section and the page, which reading it came from, and exactly what the manual said. The checklist shows this source, and the printed checklist too.
+
+**Your changes are kept.** Edit a task from the manual (its interval, say) and it's marked as changed by you. When the manual is read again (a better scan, a newer manual), tasks you haven't changed are updated in place (never duplicated); a task you changed keeps your version, and if the manual now says something different it's flagged for review with both values: **Keep mine** or **Use the manual's**. Disabled tasks stay disabled.
 
 ### Parts, consumables and standards
 
