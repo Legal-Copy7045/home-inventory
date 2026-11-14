@@ -33,6 +33,8 @@ SKILL_ID = os.environ.get("SKILL_ID", "")  # amzn1.ask.skill.xxxxxxxx
 
 TIMEOUT = 6  # seconds; Alexa gives up after about 8
 # Intents answered by Home Assistant, and the slots each one needs.
+# Slots named differently in the Alexa model than in Home Assistant.
+SLOT_RENAMES = {"HomeInventoryMove": {"thing": "item"}}
 FORWARDED = {"HomeInventoryWhereIs": ("item",), "HomeInventoryWhereDoesItGo": ("item",),
              "HomeInventoryMove": ("item", "place"), "HomeInventoryWhatsIn": ("place",),
              "HomeInventoryChoose": ("choice",),
@@ -125,6 +127,13 @@ def lambda_handler(event: dict, context=None) -> dict:
         request["intent"] = {"name": "HomeInventoryChoose", "confirmationStatus": "NONE",
                              "slots": {"choice": {"name": "choice", "value": "yes" if name == "AMAZON.YesIntent" else "no"}}}
         name = "HomeInventoryChoose"
+    if name in SLOT_RENAMES:
+        # Alexa needs one type per slot name across the skill, so the model's
+        # name differs from Home Assistant's here ("thing" -> "item").
+        slots = (request.get("intent") or {}).get("slots") or {}
+        for alexa_name, ha_name in SLOT_RENAMES[name].items():
+            if alexa_name in slots and ha_name not in slots:
+                slots[ha_name] = {**slots.pop(alexa_name), "name": ha_name}
     if name in FORWARDED:
         slots = (request.get("intent") or {}).get("slots") or {}
         if any(not (slots.get(s) or {}).get("value") for s in FORWARDED[name]):

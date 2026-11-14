@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.35.1
+
+- **Alexa skill: the interaction model now builds.** The Alexa console refused it ("Slot "item" … cannot reference more than one slot type"): a slot name must have one type across the whole skill, and `item` and `equipment` had two. Now `item`, `equipment` and `task` are free-text search slots (any name you've added is understood, not just the examples), and the thing you moved is a separate `thing` slot (Alexa doesn't allow a search slot alongside another slot in one phrase); the forwarder passes it to Home Assistant as before. "When did I last change the oil in the mower?" is one free-text phrase that the App splits into the job and the machine. **Update the Alexa skill**: paste the new interaction model and the new forwarder code. Nothing else changes.
+
 ## 0.35.0
 
 Home Assistant entities on equipment, stock reserved for repairs, what to buy across everything, and quicker equipment actions. One database migration (additive, automatic).
