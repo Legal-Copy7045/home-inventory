@@ -4,9 +4,14 @@
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** A machine-readable reason, e.g. "already_taken". */
+  code?: string;
+  detail?: Record<string, unknown>;
+  constructor(status: number, message: string, code?: string, detail?: Record<string, unknown>) {
     super(message);
     this.status = status;
+    this.code = code;
+    this.detail = detail;
   }
 }
 
@@ -22,7 +27,12 @@ async function handle<T>(r: Response): Promise<T> {
     let msg = `${r.status} ${r.statusText}`;
     if (type.includes("json")) {
       const body = await r.json().catch(() => null);
-      if (body?.detail) msg = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail);
+      const d = body?.detail;
+      if (typeof d === "string") msg = d;
+      else if (d && typeof d === "object" && typeof d.message === "string") {
+        throw new ApiError(r.status, d.message, typeof d.code === "string" ? d.code : undefined, d);
+      } else if (Array.isArray(d)) msg = d.map((e: { msg?: string }) => e?.msg || "").filter(Boolean).join("; ") || msg;
+      else if (d) msg = JSON.stringify(d);
     }
     throw new ApiError(r.status, msg);
   }

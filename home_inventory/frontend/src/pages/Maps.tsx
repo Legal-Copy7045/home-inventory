@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { Camera, Check, Move, Pencil, Plus, Trash2 } from "lucide-react";
 import { api, uploadPhoto, url, type FlatLocation, type LocationMap, type MapMarker } from "../api";
 import { PlacementPicker } from "../components/PlacementPicker";
-import { Empty, Sheet, Spinner, useAction, useApi, useMe } from "../components/ui";
+import { ErrorBox, Empty, Sheet, Spinner, useAction, useApi, useMe } from "../components/ui";
 
 export function MapsPage() {
   const me = useMe();
@@ -16,7 +16,7 @@ export function MapsPage() {
     <div className="page">
       <div className="row between"><h1>Visual maps</h1>{me.can_edit && <button className="btn primary" onClick={() => setCreating(true)}><Plus size={18} /> New map</button>}</div>
       <p className="muted">Photograph a storage area — shelving, a garage wall, the loft — and pin locations and containers on it.</p>
-      {maps.loading && !maps.data ? <Spinner /> : maps.data?.length ? (
+      {maps.error && !maps.data ? <ErrorBox error={maps.error} retry={maps.reload} /> : maps.loading && !maps.data ? <Spinner /> : maps.data?.length ? (
         <div className="grid two">
           {maps.data.map((m) => (
             <Link key={m.id} to={`/maps/${m.id}`} className="card tight" style={{ color: "inherit" }}>
@@ -78,6 +78,7 @@ export function MapView() {
   const [dragging, setDragging] = useState<number | null>(null);
   const imgRef = useRef<HTMLDivElement>(null);
   const { busy, run } = useAction();
+  if (m.error && !m.data) return <ErrorBox error={m.error} retry={m.reload} />;
   if (m.loading && !m.data) return <Spinner />;
   if (!m.data) return null;
   const map = m.data;

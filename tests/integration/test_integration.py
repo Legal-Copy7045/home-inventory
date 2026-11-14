@@ -629,3 +629,35 @@ async def test_customer_message_when_a_repair_is_ready(hass: HomeAssistant, inve
     coord._handle({"type": "repair_job_status", "data": {"job_id": job2["id"], "number": job2["number"], "status": "completed"}})
     await hass.async_block_till_done()
     assert len(sms) == 1  # no number: nothing sent
+
+
+async def test_voice_questions_without_a_device_never_cross(hass: HomeAssistant, inventory_app):
+    """Alexa requests carry no device id, so two Echo conversations share a
+    key: a second question must not replace (or clear) the first one."""
+    from homeassistant.helpers import intent
+
+    shed = inventory_app.seed["shed"]
+    for name in ("Garden hose", "Siphon hose", "Claw hammer", "Sledge hammer", "Cordless drill"):
+        inventory_app.ui("POST", "items", {"name": name, "location_id": shed["id"]})
+    await _setup_via_user_flow(hass, inventory_app)
+
+    def say(r):
+        return r.speech["plain"]["speech"]
+
+    first = await intent.async_handle(hass, "alexa", "HomeInventoryWhereIs", {"item": {"value": "hose"}})
+    assert say(first).endswith("Which one did you mean?")
+    # Another Echo asks something with several answers: it gets the list, no open question.
+    second = await intent.async_handle(hass, "alexa", "HomeInventoryWhereIs", {"item": {"value": "hammer"}})
+    assert "Please ask again with the full name" in say(second) and not second.reprompt
+    # ...and one with a single answer: answered, without closing the first question.
+    third = await intent.async_handle(hass, "alexa", "HomeInventoryWhereIs", {"item": {"value": "cordless drill"}})
+    assert say(third).startswith("Cordless drill is in") and not third.reprompt
+    # The first conversation's reply still answers its own question.
+    reply = await intent.async_handle(hass, "alexa", "HomeInventoryChoose", {"choice": {"value": "garden hose"}})
+    assert say(reply).startswith("Garden hose is in") and not reply.reprompt
+    # Devices that identify themselves keep separate questions as before.
+    a = await intent.async_handle(hass, "conversation", "HomeInventoryWhereIs", {"item": {"value": "hammer"}}, device_id="hall")
+    b = await intent.async_handle(hass, "conversation", "HomeInventoryWhereIs", {"item": {"value": "hose"}}, device_id="kitchen")
+    assert a.reprompt and b.reprompt
+    pick = await intent.async_handle(hass, "conversation", "HomeInventoryChoose", {"choice": {"value": "claw hammer"}}, device_id="hall")
+    assert say(pick).startswith("Claw hammer is in") and not pick.reprompt

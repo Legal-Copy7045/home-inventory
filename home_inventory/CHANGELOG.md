@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.31.0
+
+Security and correctness review. **Update the App and the integration.** One database migration (additive, automatic).
+
+- **Requests without a Home Assistant user** (Alexa without a user, automations, the integration's polling) now act as a restricted service identity. They can still read and change household inventory, but never see customer data and are never administrators. The integration's repair-ready message declares its purpose to read one job's contact. Identity headers naming the App's own identities, or malformed ones, are refused.
+- **Take it is owned by user, not by name.** Taking something someone else has taken now says who has it and asks before taking it over; a takeover is recorded. Two people with the same name, and renamed users, no longer get each other's items. The migration matches existing "Taken by <name>" records to users where the name is unique.
+- **Put-away route:** **All back here** uses a new batch call that reports each item: put back, needs a decision (not its usual place), or failed with the reason. The page never reports everything done when only some was. The order is described honestly: room by room, then by place name, not a measured walking route.
+- **Voice:** questions from devices that don't identify themselves (Alexa) can no longer replace or clear another conversation's open "which one?" question; the second one gets the options and is asked to repeat with the full name.
+- **Loading errors** now show "Couldn't load this" with **Retry** instead of looking like an empty list, across the app. API errors with structured details show their message instead of raw JSON.
+
 ## 0.30.0
 
 - **Put-away route:** after a job, **Scan → Collect** gathers what you used by barcode; **Put-away Route** lists it one stop per place, room by room in walking order, with **All back here** at each stop.

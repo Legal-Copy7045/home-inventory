@@ -114,8 +114,14 @@ export function Spinner() {
   );
 }
 
-export function ErrorBox({ error }: { error: string | null }) {
-  return error ? <div className="error">{error}</div> : null;
+/** A failed load: says so (never looks like an empty list) and offers Retry. */
+export function ErrorBox({ error, retry }: { error: string | null; retry?: () => void }) {
+  if (!error) return null;
+  return (
+    <div className="error" role="alert">
+      {retry ? <>Couldn't load this: {error} <button className="btn small" style={{ marginLeft: 8 }} onClick={retry}>Retry</button></> : error}
+    </div>
+  );
 }
 
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
