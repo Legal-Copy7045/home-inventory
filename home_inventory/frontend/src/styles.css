@@ -428,3 +428,4 @@ button.linkish { background: none; border: 0; padding: 0; color: var(--primary);
 .nav-group:disabled, .menu-group:disabled { cursor: default; opacity: 1; }
 .nav-count { margin-left: auto; font-weight: 600; letter-spacing: 0; background: var(--border); color: var(--muted); border-radius: 999px; padding: 0 7px; font-size: .7rem; }
 .item-steps { margin-bottom: 8px; gap: 8px; }
+.tree-root > li + li { border-top: 1px solid var(--border); margin-top: 2px; padding-top: 2px; }

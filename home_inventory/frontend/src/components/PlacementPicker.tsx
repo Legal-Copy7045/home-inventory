@@ -19,12 +19,15 @@ export function PlacementPicker({
   title = "Choose where",
   allowContainers = true,
   excludeContainerId,
+  topLevelLabel,
   onPick,
   onClose,
 }: {
   title?: string;
   allowContainers?: boolean;
   excludeContainerId?: number;
+  /** Moving a location: picking nothing puts it at the top level. */
+  topLevelLabel?: string;
   onPick: (v: PlacementValue) => void;
   onClose: () => void;
 }) {
@@ -107,7 +110,7 @@ export function PlacementPicker({
         </button>
       )}
       <button className="btn ghost block" style={{ marginTop: 8 }} onClick={() => onPick({ container_id: null, location_id: null, label: "Unassigned" })}>
-        Leave unassigned
+        {topLevelLabel || "Leave unassigned"}
       </button>
     </Sheet>
   );
