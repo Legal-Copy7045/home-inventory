@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.33.0
+
+Voice maintenance questions. **Update the App and the integration, copy the new Assist sentences file, and update the Alexa skill (interaction model and forwarder).** No database changes.
+
+- **"Tell me what upcoming maintenance I need to perform"**, optionally **"…on the Toro lawn mower"**, and ranges: overdue, today, this week, this month. Answers come from the real schedules, most urgent first, short enough to listen to; for one machine they also say which parts you have and what to buy.
+- **"What parts do I need for the next mower service?"**, **"Do I have the parts I need to service the snowblower?"**, **"When did I last change the oil in the mower?"**, **"What equipment needs attention?"**, **"What maintenance have I completed recently?"**
+- Machines are recognised by name, make, model, label, type and aliases ("the mower", "the lawnmower", "the Toro"); when a name fits more than one, you're asked which.
+- Same visibility as the app: customer equipment is never included, and requests without a Home Assistant user get household answers only.
+- Fixed: with Assist, "the hedge trimmer is now in the shed" was taken as an answer to a question rather than a move; it now moves it.
+
 ## 0.32.0
 
 Equipment becomes its own part of the app. One database migration (additive, automatic).
@@ -12,6 +22,7 @@ Equipment becomes its own part of the app. One database migration (additive, aut
 - **Printable checklist PDF** per machine, and **Maintenance reports**: overdue, upcoming, history (with costs) and all equipment.
 - **Lifecycle status** (active, in storage, under repair, loaned out, retired, disposed of) and where it was acquired.
 - Fixed: saving **Edit** on equipment details failed because the form sent read-only fields.
+- Fixed: **Estimate values** progress could show a run that had just finished as "interrupted (the App restarted)".
 
 ## 0.31.0
 
