@@ -147,6 +147,14 @@ def label_templates(actor: Actor = Depends(current_actor)):
     return [{"key": t.key, "name": t.name, "per_page": t.cols * t.rows} for t in labels_svc.TEMPLATES.values()]
 
 
+def _band(r, on: bool, container_id: int | None, location_id: int | None) -> dict:
+    """A label's room colour band, when asked for and the place is in a room."""
+    room = r.room(container_id, location_id) if on else None
+    if room is None:
+        return {}
+    return {"band": labels_svc.room_colour(r.room_index(room)), "band_text": room.name}
+
+
 @router.post("/labels/pdf")
 def labels_pdf(data: LabelRequest, request: Request, actor: Actor = Depends(current_actor), db: Session = Depends(get_db)):
     r = _resolver(db)
@@ -169,6 +177,7 @@ def labels_pdf(data: LabelRequest, request: Request, actor: Actor = Depends(curr
                 location=place["path"] if data.include_location and (c.location_id or c.parent_container_id) else None,
                 contents=contents,
                 arrow=data.arrows.get(f"C{c.id}"),
+                **_band(r, data.room_colours, c.id, None),
             )
         )
     for lid in data.location_ids:
@@ -196,7 +205,8 @@ def labels_pdf(data: LabelRequest, request: Request, actor: Actor = Depends(curr
                 location=parent if data.include_location else None,
                 contents=contents,
                 arrow=data.arrows.get(f"L{loc.id}"),
+                **_band(r, data.room_colours, None, loc.id),
             )
         )
-    pdf = labels_svc.render_pdf(out, data.template, data.copies, data.start_position)
+    pdf = labels_svc.render_pdf(out, data.template, data.copies, data.start_position, data.theme)
     return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": 'inline; filename="labels.pdf"'})

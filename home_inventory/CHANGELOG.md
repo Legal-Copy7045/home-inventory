@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.30.0
+
+- **Put-away route:** after a job, **Scan → Collect** gathers what you used by barcode; **Put-away Route** lists it one stop per place, room by room in walking order, with **All back here** at each stop.
+- **Label styles:** **Large print** (big number and name, readable across a garage) and **Small drawer** (number and name only, as big as they fit), plus the Avery L7651 sheet (65 per A4) for drawers.
+- **Colour band per room** on labels: a coloured strip with the room's name; each room keeps its colour.
+
 ## 0.29.0
 
 - **Messages to repair customers** (integration options): when a job becomes ready for collection (or another status you choose), the customer gets a message through a notify action you pick (SMS gateway or email): "Hi Pat, your Toro mower (job RJ-0012) is ready for collection." The integration reads their contact from the App only when sending; events still carry no customer details. **Update the integration.**
