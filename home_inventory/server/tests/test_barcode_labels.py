@@ -197,3 +197,34 @@ def test_location_labels_list_whats_there_and_can_carry_arrows(env):
     assert "› Top shelf" in text and "#7 Christmas" in text and "Hose reel" in text
     bad = u.post("/api/v1/labels/pdf", json={"location_ids": [rack["id"]], "arrows": {f"L{rack['id']}": "sideways"}})
     assert bad.status_code == 422
+
+
+@pytest.mark.parametrize("theme", ["standard", "large", "drawer"])
+@pytest.mark.parametrize("template", ["avery_l7651", "avery_l7160", "single_62x100"])
+def test_label_themes_and_room_bands_render(theme, template):
+    labels = [LabelData(code="CODE0001", payload="HINV:C:CODE0001", title="Resistors and capacitors, assorted", number="12",
+                        location="Garage › Bench", contents=["Hammer"], band=(0.8, 0.1, 0.1), band_text="Garage")]
+    assert render_pdf(labels, template, theme=theme).startswith(b"%PDF")
+
+
+def test_label_room_colours_follow_the_room(env):
+    from home_inventory_server.services import labels as labels_svc
+    from home_inventory_server.services.placement import Resolver
+
+    u = env.admin
+    home = u.location("Home")
+    kitchen = u.location("Kitchen", parent_id=home["id"])
+    garage = u.location("Garage", parent_id=home["id"])
+    shelf = u.location("Top shelf", parent_id=garage["id"])
+    box = u.container("Fuses", "3", location_id=shelf["id"])
+    with env.state.db.SessionLocal() as db:
+        r = Resolver.load(db)
+        assert r.room(box["id"], None).name == "Garage"
+        assert r.room(None, kitchen["id"]).name == "Kitchen"
+        assert r.room(None, home["id"]).name == "Home"
+        assert r.room_index(r.room(box["id"], None)) == 1
+        assert labels_svc.room_colour(r.room_index(r.room(None, kitchen["id"]))) != labels_svc.room_colour(1)
+    pdf = u.post("/api/v1/labels/pdf", json={"container_ids": [box["id"]], "location_ids": [kitchen["id"]],
+                                              "theme": "large", "room_colours": True})
+    assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")
+    assert u.post("/api/v1/labels/pdf", json={"container_ids": [box["id"]], "theme": "huge"}).status_code == 422

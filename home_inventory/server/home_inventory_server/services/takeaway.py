@@ -18,7 +18,7 @@ from ..auth import Actor
 from ..models import Item, ItemStatus
 from ..schemas import MoveIn
 from .inventory import Conflict, move_item, return_item_home, set_status
-from .placement import validate_item_target
+from .placement import Resolver, validate_item_target
 
 TAKEN_PREFIX = "Taken by "
 
@@ -77,3 +77,32 @@ def put_away(db: Session, actor: Actor, item: Item, container_id: int | None, lo
     moved = move_item(db, actor, item, MoveIn(container_id=container_id, location_id=location_id,
                                              temporary=mode == "temporary", note="Put away"))
     return {"result": "temporary" if mode == "temporary" else "moved", "item": moved}
+
+
+def destination(item: Item) -> tuple[int | None, int | None]:
+    """Where a taken item goes back: its usual place when it was moved just
+    for now, otherwise where its record says it lives."""
+    if item.home_container_id is not None or item.home_location_id is not None:
+        return item.home_container_id, item.home_location_id
+    return item.container_id, item.location_id
+
+
+def route(r: Resolver, items: list[Item]) -> list[dict[str, Any]]:
+    """Put-away route: the items grouped by where they go, one stop per place,
+    in walking order (room by room, then shelf by shelf, following the tree)."""
+    stops: dict[tuple[int | None, int | None], dict[str, Any]] = {}
+    for it in items:
+        dest = destination(it)
+        if dest not in stops:
+            where = r.describe(*dest)
+            room = r.room(*dest)
+            stops[dest] = {"container_id": dest[0], "location_id": dest[1], "path": where["path"],
+                           "room": room.name if room else None,
+                           "_key": [p.casefold() for p in where["path"].split(" › ")] if dest != (None, None) else ["\uffff"],
+                           "items": []}
+        stops[dest]["items"].append(it)
+    ordered = sorted(stops.values(), key=lambda s: s["_key"])
+    for n, s in enumerate(ordered, 1):
+        s.pop("_key")
+        s["stop"] = n
+    return ordered
