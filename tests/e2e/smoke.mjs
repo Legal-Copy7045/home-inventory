@@ -550,6 +550,25 @@ await page.goto(BASE + "#/attention");
 await page.getByRole("heading", { name: "Needs attention" }).waitFor();
 await shot("15k-attention");
 
+// Reserve a part for the repair job: it stays on the shelf until it's used
+await page.goto(BASE + `#/repairs/${job.id}`);
+await page.getByRole("heading", { name: "Parts reserved" }).waitFor();
+await page.getByPlaceholder("Reserve a part from stock: search…").fill("AA batteries");
+await page.getByRole("button", { name: /^Reserve 1 × AA batteries/ }).first().click();
+await page.getByText("reserved", { exact: true }).waitFor();
+const aaRes = (await api(`repair-jobs/${job.id}/reservations`)).reservations[0];
+if (aaRes.in_stock !== aaRes.available + 1) throw new Error("reservation should leave stock on the shelf");
+await shot("15l-reserved");
+// What to buy: one line per part across maintenance, minimum stock and reservations
+await page.goto(BASE + "#/shopping");
+await page.getByRole("button", { name: "What to buy" }).click();
+await page.getByText(/below its minimum|Nothing needs buying/).first().waitFor();
+// Equipment quick action: log hours straight from the equipment page
+await page.goto(BASE + `#/equipment/${tractorId}`);
+await page.getByRole("heading", { name: "Maintenance checklist" }).waitFor();
+await page.getByRole("button", { name: "Log hours" }).first().click();
+await page.getByRole("dialog").waitFor();
+
 // Put-away route: two things taken from different places, one stop each, in walking order
 const aa = (await api(`containers/${box.id}`)).items.find((i) => i.name === "AA batteries");
 for (const id of [drill.id, aa.id]) await api(`items/${id}/take`, { method: "POST" });

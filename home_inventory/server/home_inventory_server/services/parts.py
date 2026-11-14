@@ -443,11 +443,17 @@ def evaluate(db: Session, needs: list[_Need]) -> dict[str, Any]:
         for c in candidates(db, n.product, n.allow_equivalent):
             if c.product.id not in pool or (c.sure and not pool[c.product.id].sure):
                 pool[c.product.id] = c
+    from .reservations import reserved_by_item
+
     sure, maybe, unknown = Decimal(0), Decimal(0), False
     sources = []
+    held_back = 0
     for c in pool.values():
         hold = _holdings(db, c.product.id)
-        count = sum(i.quantity for i in hold)
+        # Stock reserved for a repair job isn't available for maintenance.
+        res = reserved_by_item(db, [i.id for i in hold])
+        held_back += sum(res.values())
+        count = sum(max(0, i.quantity - res.get(i.id, 0)) for i in hold)
         if not count:
             continue
         amt = _amount(c.product, count, first.dim) if len(dims) == 1 else None
@@ -485,6 +491,7 @@ def evaluate(db: Session, needs: list[_Need]) -> dict[str, Any]:
         "have": float(_from_base(sure, first.unit)),
         "have_uncertain": float(_from_base(maybe, first.unit)),
         "short": float(_from_base(short, first.unit)),
+        "reserved": held_back,
         "sources": sources,
         "buy": buy,
     }

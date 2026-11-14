@@ -949,6 +949,15 @@ def prefetch(db: Session, items: list[Item]) -> set[int]:
     return household
 
 
+def _reserved(db: Session | None, item: Item) -> int:
+    """How much of this holding is set aside for repair jobs (still on the shelf)."""
+    if db is None:
+        return 0
+    from .reservations import reserved
+
+    return reserved(db, item.id)
+
+
 def _taker(db: Session | None, item: Item) -> str | None:
     """Who has it (Take it), by their current name; None when not taken."""
     if item.status is not ItemStatus.in_use:
@@ -989,6 +998,7 @@ def item_out(item: Item, r: Resolver, db: Session | None = None, detail: bool = 
         "status_note": item.status_note,
         "taken_by": _taker(db, item),
         "verified_at": item.verified_at.isoformat() if item.verified_at else None,
+        "reserved": _reserved(db, item) if detail else None,
         "placement": r.describe_item(item),
         "home_placement": r.describe_item_home(item),
         "photo": attachment_out(photo),
