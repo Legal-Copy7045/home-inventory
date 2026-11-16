@@ -248,19 +248,31 @@ function Shell({ me }: { me: Me }) {
   const isRoot = ["/", "/search", "/scan", "/items", "/capture", "/sort", "/report", "/to-finish", "/maintenance", "/kits", "/tags", "/shopping", "/repairs", "/customers", "/containers", "/locations", "/maps", "/labels", "/activity", "/loans", "/settings", "/todo", "/categories", "/voice-history", "/care", "/reports", "/deleted", "/duplicates"].includes(loc.pathname);
   const allowed = (n: NavEntry) => (!n.edit || me.can_edit) && (!n.admin || me.is_admin);
   const groups = NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter(allowed) })).filter((g) => g.items.length);
-  // Menu sections fold away; the one holding the current page is always open.
+  // Menu sections fold away.  Each heading always opens and closes it; the
+  // section holding the current page opens when you arrive there (and can
+  // still be closed).  ``opened`` holds explicit choices: true / false.
   const [opened, setOpened] = useState<Record<string, boolean>>(() => {
     try { return JSON.parse(localStorage.getItem("hi.menu.open") || "{}") as Record<string, boolean>; } catch { return {}; }
   });
   const here = (g: { items: NavEntry[] }) => g.items.some((n) => (n.end ? loc.pathname === n.to : loc.pathname === n.to || loc.pathname.startsWith(n.to + "/")));
-  const isOpen = (g: { title: string | null; items: NavEntry[] }) => !g.title || g.items.length === 1 || here(g) || !!opened[g.title];
-  const toggle = (title: string) => setOpened((o) => {
-    const next = { ...o, [title]: !o[title] };
+  const isOpen = (g: { title: string | null; items: NavEntry[] }) =>
+    !g.title || g.items.length === 1 || (opened[g.title] ?? here(g));
+  const save = (next: Record<string, boolean>) => {
     try { localStorage.setItem("hi.menu.open", JSON.stringify(next)); } catch { /* private mode */ }
     return next;
-  });
+  };
+  const toggle = (g: { title: string | null; items: NavEntry[] }) => {
+    const now = isOpen(g);
+    setOpened((o) => save({ ...o, [g.title!]: !now }));
+  };
+  // Arriving at a page opens its section, even if it was folded earlier.
+  useEffect(() => {
+    const g = groups.find((x) => x.title && here(x));
+    if (g?.title && opened[g.title] === false) setOpened((o) => save({ ...o, [g.title!]: true }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loc.pathname]);
   const heading = (g: { title: string | null; items: NavEntry[] }, cls: string) => g.title && g.items.length > 1 && (
-    <button type="button" className={cls} aria-expanded={isOpen(g)} onClick={() => toggle(g.title!)} disabled={here(g)}>
+    <button type="button" className={cls} aria-expanded={isOpen(g)} onClick={() => toggle(g)}>
       {isOpen(g) ? <ChevronDown size={14} /> : <ChevronRight size={14} />} {g.title}
       {!isOpen(g) && <span className="nav-count">{g.items.length}</span>}
     </button>

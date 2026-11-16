@@ -219,15 +219,19 @@ await page.goto(BASE + "#/scan");
 await page.getByText("With you:").waitFor();
 await shot("09b-taken");
 await page.goto(BASE + "#/items/" + drill.id);
+// Put away returns it to where it came from (somewhere else is a Move).
 await page.getByRole("button", { name: "Put away" }).click();
-await page.getByRole("dialog").getByPlaceholder("Search by name, number or place…").fill("Shed");
-await page.getByRole("dialog").getByText("Shed", { exact: false }).first().click();
-await page.getByRole("button", { name: "Put away here" }).click();
-await page.getByRole("button", { name: "Just this once" }).click();
-await page.getByText(/Here for now/).first().waitFor();
+await page.getByRole("dialog").getByText(/It lives in .*Garage/).waitFor();
+await page.getByRole("button", { name: "Put it back there" }).click();
+await page.getByText(/^Put back in/).first().waitFor();
+const backDrill = await api(`items/${drill.id}`);
+if (backDrill.status !== "stored" || backDrill.placement.location?.id !== garage.id) throw new Error("put back failed");
+// Used in the shed for now (temporary move), then taken again: scanning the garage's label puts it back home.
+await api(`items/${drill.id}/take`, { method: "POST" });
+await api(`items/${drill.id}/put-away`, { method: "POST", data: { location_id: shed.id, mode: "temporary" } });
 const putDrill = await api(`items/${drill.id}`);
 if (putDrill.status !== "temporarily_relocated" || putDrill.home_placement?.location?.id !== garage.id) throw new Error("put away just this once failed");
-// Take it again and scan the garage's label: it goes back home.
+await page.goto(BASE + "#/items/" + drill.id);
 await page.getByRole("button", { name: "Take it" }).click();
 for (let i = 0; (await api(`items/${drill.id}`)).status !== "in_use"; i++) {
   if (i > 50) throw new Error("second take it failed");

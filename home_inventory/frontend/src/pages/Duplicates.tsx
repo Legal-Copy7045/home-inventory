@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Check, X } from "lucide-react";
 import { api } from "../api";
-import { ErrorBox, Spinner, useAction, useApi, useMe } from "../components/ui";
+import { ErrorBox, Sheet, Spinner, useAction, useApi, useMe, useToast } from "../components/ui";
 
 interface P { id: number; name: string; manufacturer: string | null; model_number: string | null; category: string | null; barcode: string | null; quantity: number; needs_details: boolean }
 interface Pair { key: string; score: number; reason: string; products: [P, P] }
@@ -11,8 +12,16 @@ export default function DuplicatesPage() {
   const me = useMe();
   const list = useApi(() => api.get<Pair[]>("products/duplicates"), []);
   const { busy, run } = useAction();
-  const merge = async (keep: P, other: P) => {
-    if (await run(() => api.post(`products/${keep.id}/merge`, { other_id: other.id }), `Merged into ${keep.name}`)) list.reload();
+  const toast = useToast();
+  const [ask, setAsk] = useState<{ keep: P; other: P } | null>(null);
+  const merge = async (keep: P, other: P, quantities: "separate" | "sum" | "same") => {
+    const res = await run(() => api.post<{ combined: { quantity: number }[]; kept_apart: { why: string }[] }>(
+      `products/${keep.id}/merge`, { other_id: other.id, quantities }), `Merged into ${keep.name}`);
+    if (res) {
+      setAsk(null);
+      list.reload();
+      if (res.kept_apart?.length) toast(`Some records stayed separate: ${res.kept_apart.map((k) => k.why).join("; ")}`);
+    }
   };
   const dismiss = async (pair: Pair) => {
     if (await run(() => api.post("products/duplicates/dismiss", { product_ids: pair.products.map((p) => p.id) }), "Won't suggest that pair again")) list.reload();
@@ -33,7 +42,7 @@ export default function DuplicatesPage() {
                 <div className="muted" style={{ fontSize: ".9rem" }}>{desc(p) || "No other details"}</div>
                 <div className="muted" style={{ fontSize: ".9rem" }}>You have {p.quantity}</div>
                 {me.can_edit && (
-                  <button className="btn small primary" style={{ marginTop: 8 }} disabled={busy} onClick={() => merge(p, pair.products[1 - i])}>
+                  <button className="btn small primary" style={{ marginTop: 8 }} disabled={busy} onClick={() => setAsk({ keep: p, other: pair.products[1 - i] })}>
                     <Check size={16} /> Keep this one
                   </button>
                 )}
@@ -43,6 +52,23 @@ export default function DuplicatesPage() {
           {me.can_edit && <button className="btn small ghost" style={{ marginTop: 8 }} disabled={busy} onClick={() => dismiss(pair)}><X size={16} /> Not the same thing</button>}
         </div>
       )) : <div className="card"><div className="empty">No likely duplicates found.</div></div>}
+      {ask && (
+        <Sheet title={`Keep “${ask.keep.name}”`} onClose={() => setAsk(null)}>
+          <p>“{ask.other.name}” (you have {ask.other.quantity}) becomes “{ask.keep.name}” (you have {ask.keep.quantity}). Where both are kept in the same place, what should happen to the quantities?</p>
+          <div className="stack">
+            <button className="btn primary choice" disabled={busy} onClick={() => merge(ask.keep, ask.other, "sum")}>
+              Add them together <small>two boxes: 2 and 3 become one record of 5</small>
+            </button>
+            <button className="btn choice" disabled={busy} onClick={() => merge(ask.keep, ask.other, "same")}>
+              It's the same thing recorded twice <small>one record, the larger count</small>
+            </button>
+            <button className="btn choice" disabled={busy} onClick={() => merge(ask.keep, ask.other, "separate")}>
+              Keep the records separate <small>quantities unchanged</small>
+            </button>
+          </div>
+          <p className="muted" style={{ fontSize: ".85rem" }}>Things in different places always stay separate. A record that's lent out, in use, managed equipment, tagged, in a kit or a customer's is never combined.</p>
+        </Sheet>
+      )}
     </div>
   );
 }

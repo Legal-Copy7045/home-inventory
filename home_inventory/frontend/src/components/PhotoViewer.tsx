@@ -44,7 +44,7 @@ export function PhotoViewer({ photos, mainId, onMakeMain }: { photos: Attachment
   );
 }
 
-function Lightbox({ photos, index, onIndex, onClose }: { photos: Attachment[]; index: number; onIndex: (i: number) => void; onClose: () => void }) {
+export function Lightbox({ photos, index, onIndex, onClose }: { photos: Attachment[]; index: number; onIndex: (i: number) => void; onClose: () => void }) {
   const start = useRef<{ x: number; y: number; touches: number } | null>(null);
   const n = photos.length;
   const go = (d: number) => onIndex((index + d + n) % n);
