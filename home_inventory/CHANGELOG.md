@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.39.0
+
+A printed contents checklist for a box, read back from photos. No database changes.
+
+- **Printed checklist** on every box: a printable list of everything in it (and in boxes inside it), one numbered row each with its photo, name, record number and quantity, and boxes to tick: **Back here**, **Dispose**, **Missing**, **Move to ___**, **Qty now ___**, plus space for anything else found.
+- **Read completed checklist**: photograph the pages or scan them to a PDF, one at a time or several at once. The AI reads the ticks and handwriting, matching each row by its printed record number. It suggests a place for each "move to" and flags marks it wasn't sure of.
+- **Review, then apply**: nothing changes until you've checked each row and tapped **Apply**. Moves, disposals (to **Recently deleted**), missing items and new counts are applied together, and only for things in that box. Everything is saved as a check of the box. Without AI, **Fill in by hand** gives the same review.
+
 ## 0.38.0
 
 Several manuals per machine, and which one wins. One database migration (additive, automatic).

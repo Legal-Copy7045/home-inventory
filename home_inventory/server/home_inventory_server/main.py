@@ -29,6 +29,7 @@ from . import __version__
 from .ai import AIService
 from .api.admin import router as admin_router
 from .api.attachments import router as attachments_router
+from .api.checklist import router as checklist_router
 from .api.customers import router as customers_router
 from .api.equipment import router as equipment_router
 from .api.lookup import router as lookup_router
@@ -160,6 +161,7 @@ def create_app(state: AppState, channel: str) -> FastAPI:
     app.include_router(takeaway_router)
     app.include_router(verify_router)
     app.include_router(equipment_router)
+    app.include_router(checklist_router)
 
     def body_limit(path: str) -> int:
         if path.endswith("/backup/restore"):
