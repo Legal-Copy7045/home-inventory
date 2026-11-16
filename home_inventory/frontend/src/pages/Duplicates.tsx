@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Check, X } from "lucide-react";
+import { Merge, X } from "lucide-react";
 import { api } from "../api";
 import { ErrorBox, Sheet, Spinner, useAction, useApi, useMe, useToast } from "../components/ui";
 
@@ -30,7 +30,7 @@ export default function DuplicatesPage() {
   return (
     <div className="page">
       <h1>Possible duplicates</h1>
-      <p className="muted">Things recorded twice under slightly different names, the same barcode, or the same maker and model. Choose which one to keep: the other's holdings, photos, shop links and restock settings move onto it, and its missing details are filled in. Holdings stay in their own places.</p>
+      <p className="muted">Things recorded twice under slightly different names, the same barcode, or the same maker and model. To merge a pair, tap <b>Merge into this one</b> on the one to keep: the other's holdings, photos, shop links and restock settings move onto it, its missing details are filled in, and you choose whether quantities kept in the same place are added together.</p>
       <ErrorBox error={list.error} />
       {list.error && !list.data ? <ErrorBox error={list.error} retry={list.reload} /> : list.loading && !list.data ? <Spinner /> : list.data?.length ? list.data.map((pair) => (
         <div key={pair.key} className="card">
@@ -43,7 +43,7 @@ export default function DuplicatesPage() {
                 <div className="muted" style={{ fontSize: ".9rem" }}>You have {p.quantity}</div>
                 {me.can_edit && (
                   <button className="btn small primary" style={{ marginTop: 8 }} disabled={busy} onClick={() => setAsk({ keep: p, other: pair.products[1 - i] })}>
-                    <Check size={16} /> Keep this one
+                    <Merge size={16} /> Merge into this one
                   </button>
                 )}
               </div>
@@ -53,7 +53,7 @@ export default function DuplicatesPage() {
         </div>
       )) : <div className="card"><div className="empty">No likely duplicates found.</div></div>}
       {ask && (
-        <Sheet title={`Keep “${ask.keep.name}”`} onClose={() => setAsk(null)}>
+        <Sheet title={`Merge into “${ask.keep.name}”`} onClose={() => setAsk(null)}>
           <p>“{ask.other.name}” (you have {ask.other.quantity}) becomes “{ask.keep.name}” (you have {ask.keep.quantity}). Where both are kept in the same place, what should happen to the quantities?</p>
           <div className="stack">
             <button className="btn primary choice" disabled={busy} onClick={() => merge(ask.keep, ask.other, "sum")}>

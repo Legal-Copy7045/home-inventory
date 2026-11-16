@@ -413,7 +413,8 @@ await page.getByText("Opened at shop").waitFor();  // not "in cart"
 await page.getByRole("button", { name: "It's in my cart" }).click();
 await page.getByText("In cart (you confirmed)").waitFor();
 await page.getByRole("button", { name: "Bought" }).click();
-await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+await page.getByRole("dialog").getByText(/Add to the 1 in .*Garage/).waitFor();  // asks where it goes: the place you keep it
+await page.getByRole("dialog").getByRole("button", { name: "Confirm purchase" }).click();
 await page.getByText("The shopping list is empty").waitFor();
 if ((await api(`items/${oilItem.id}`)).quantity !== 5) throw new Error("purchase did not update stock");
 

@@ -186,3 +186,66 @@ def test_amazon_settings(env):
     oil = _oil(u)
     d = u.ok("post", f"/api/v1/products/{oil['product_id']}/sources", json={"retailer": "amazon", "retailer_product_id": "B000BQ7JXA"})
     assert d["sources"][0]["link"] == "https://www.amazon.co.uk/dp/B000BQ7JXA"
+
+
+def _entry(lst, name):
+    return next(e for g in lst["groups"] for e in g["entries"] if e["name"] == name)
+
+
+def test_entries_show_what_identifies_them(env):
+    u = env.admin
+    oil = _oil(u)
+    u.ok("patch", f"/api/v1/items/{oil['id']}", json={"manufacturer": "Briggs & Stratton", "model_number": "100005E",
+                                                      "url": "https://example.com/oil"})
+    e = _entry(u.ok("post", "/api/v1/shopping-list", json={"product_id": oil["product_id"]}), "SAE 30 engine oil")
+    labels = {i["label"]: i["value"] for i in e["identifiers"]}
+    assert labels["Maker"] == "Briggs & Stratton" and labels["Part / model no."] == "100005E"
+    assert e["in_inventory"] is True
+    assert e["product_url"] == "https://example.com/oil"  # no shop page set: the product's own link
+
+
+def test_add_something_by_hand_and_buy_it_into_a_new_place(env):
+    u = env.admin
+    shed = u.location("Shed")
+    lst = u.ok("post", "/api/v1/shopping-list", json={"name": "Trimmer line 2.4mm", "manufacturer": "Oregon",
+                                                      "model_number": "69-358", "url": "https://example.com/line",
+                                                      "quantity": 2})
+    e = _entry(lst, "Trimmer line 2.4mm")
+    assert e["in_inventory"] is False and e["product_url"] == "https://example.com/line"
+    assert {"label": "Part / model no.", "value": "69-358"} in e["identifiers"]
+    assert u.ok("get", f"/api/v1/shopping-list/{e['id']}/purchase-options")["holdings"] == []
+    # Nothing to add to and no place: asked where it goes, nothing changes.
+    assert u.post(f"/api/v1/shopping-list/{e['id']}/purchased", json={}).status_code == 422
+    assert u.ok("get", "/api/v1/shopping-list")["open_count"] == 1
+    assert u.post(f"/api/v1/shopping-list/{e['id']}/purchased", json={"location_id": 999999}).status_code == 422
+    u.ok("post", f"/api/v1/shopping-list/{e['id']}/purchased", json={"location_id": shed["id"], "unit_price": "6.50"})
+    found = u.ok("get", "/api/v1/items", params={"q": "Trimmer line"})
+    items = found["items"] if isinstance(found, dict) else found
+    assert len(items) == 1 and items[0]["quantity"] == 2 and items[0]["placement"]["location"]["id"] == shed["id"]
+    # Bought again: now there's a holding to add to.
+    e2 = _entry(u.ok("post", "/api/v1/shopping-list", json={"product_id": e["product_id"], "quantity": 1}), "Trimmer line 2.4mm")
+    opts = u.ok("get", f"/api/v1/shopping-list/{e2['id']}/purchase-options")["holdings"]
+    assert opts[0]["item_id"] == items[0]["id"] and "Shed" in opts[0]["place"]
+    u.ok("post", f"/api/v1/shopping-list/{e2['id']}/purchased", json={"item_id": items[0]["id"]})
+    assert u.ok("get", f"/api/v1/items/{items[0]['id']}")["quantity"] == 3
+
+
+def test_adding_by_hand_needs_a_name_and_reuses_a_known_barcode(env):
+    u = env.admin
+    assert u.post("/api/v1/shopping-list", json={"quantity": 1}).status_code == 422
+    assert u.post("/api/v1/shopping-list", json={"name": "x", "url": "javascript:alert(1)"}).status_code == 422
+    shed = u.location("Shed")
+    known = u.item("WD-40", barcode="5012345678900", location_id=shed["id"])
+    pid = u.ok("get", f"/api/v1/items/{known['id']}")["product"]["id"]
+    e = _entry(u.ok("post", "/api/v1/shopping-list", json={"name": "Something else", "barcode": "5012345678900"}), "WD-40")
+    assert e["product_id"] == pid
+    assert u.post(f"/api/v1/shopping-list/{e['id']}/purchased",
+                  json={"item_id": known["id"], "location_id": shed["id"]}).status_code == 422  # one target only
+
+
+def test_a_purchase_can_wait_to_be_put_away(env):
+    u = env.admin
+    e = _entry(u.ok("post", "/api/v1/shopping-list", json={"name": "Bar oil"}), "Bar oil")
+    u.ok("post", f"/api/v1/shopping-list/{e['id']}/purchased", json={"new_holding": True})
+    opts = u.ok("get", f"/api/v1/shopping-list/{e['id']}/purchase-options")["holdings"]
+    assert len(opts) == 1 and opts[0]["quantity"] == 1
