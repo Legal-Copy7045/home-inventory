@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Check, ExternalLink, Plus, ShoppingCart, Star, Trash2 } from "lucide-react";
-import { api } from "../api";
+import { api, type PartBrief } from "../api";
+import { PlacementPicker, type PlacementValue } from "../components/PlacementPicker";
 import { Empty, ErrorBox, Section, Sheet, Spinner, fmtDate, money, useAction, useApi, useMe, useToast } from "../components/ui";
 
 type Capabilities = { product_url: boolean; search_url: boolean; cart_handoff: boolean; cart_api: boolean; cart_inspection: boolean; price_lookup: boolean; availability: boolean };
@@ -51,6 +52,10 @@ interface Entry {
   stock: number;
   source: Source | null;
   estimated_cost: number | null;
+  note: string | null;
+  in_inventory: boolean;
+  identifiers: { label: string; value: string }[];
+  product_url: string | null;
 }
 
 interface ShoppingList {
@@ -93,6 +98,7 @@ export function ShoppingPage() {
   const [selected, setSelected] = useState<number[]>([]);
   const [handoff, setHandoff] = useState<Handoff | null>(null);
   const [buying, setBuying] = useState<Entry | null>(null);
+  const [adding, setAdding] = useState(false);
   const { busy, run } = useAction();
   const toast = useToast();
 
@@ -153,6 +159,7 @@ export function ShoppingPage() {
       )}
       {tab === "list" && (
         <>
+          {me.can_edit && <button className="btn block" style={{ marginBottom: 12 }} onClick={() => setAdding(true)}><Plus size={18} /> Add to the list</button>}
           <ErrorBox error={list.error} />
           {!list.data ? <Spinner /> : list.data.groups.length ? list.data.groups.map((g) => {
             const open = g.entries.filter((e) => ["listed", "handed_off", "in_cart"].includes(e.status));
@@ -168,7 +175,8 @@ export function ShoppingPage() {
                       )}
                       <div className="grow">
                         <div className="t">{e.quantity} × {e.item_id ? <Link to={`/items/${e.item_id}`}>{e.name}</Link> : e.name}</div>
-                        <div className="s">{e.stock} in stock{e.estimated_cost ? ` · about ${money(e.estimated_cost, me.app.currency)}` : ""}{e.deferred_until ? ` · later: ${fmtDate(e.deferred_until)}` : ""}</div>
+                        <div className="s">{e.in_inventory ? `${e.stock} in stock` : "Not in your inventory yet"}{e.estimated_cost ? ` · about ${money(e.estimated_cost, me.app.currency)}` : ""}{e.deferred_until ? ` · later: ${fmtDate(e.deferred_until)}` : ""}</div>
+                        <Identifiers entry={e} />
                       </div>
                       <span className={`badge ${STATUS_TEXT[e.status][0]}`}>{STATUS_TEXT[e.status][1]}</span>
                       {me.can_edit && (
@@ -217,19 +225,123 @@ export function ShoppingPage() {
           </div>
         </Sheet>
       )}
+      {adding && <AddSheet onClose={() => setAdding(false)} onDone={(l) => { setAdding(false); list.setData(l); dash.reload(); }} />}
       {buying && <PurchasedSheet entry={buying} onClose={() => setBuying(null)} onDone={(l) => { setBuying(null); list.setData(l); dash.reload(); }} />}
     </div>
   );
 }
 
+/** Maker, part number, codes and the product page: what to look for at the shop. */
+function Identifiers({ entry }: { entry: Entry }) {
+  const toast = useToast();
+  if (!entry.identifiers.length && !entry.product_url && !entry.note) return null;
+  return (
+    <div className="row wrap" style={{ gap: 4, marginTop: 4 }}>
+      {entry.identifiers.map((i) => (
+        <button key={i.label} type="button" className="badge copy" title={`Copy ${i.label}`}
+          onClick={() => navigator.clipboard?.writeText(i.value).then(() => toast(`Copied ${i.value}`))}>
+          {i.label}: <b>{i.value}</b>
+        </button>
+      ))}
+      {entry.product_url && <a className="badge blue" href={entry.product_url} target="_blank" rel="noopener noreferrer"><ExternalLink size={12} /> Product page</a>}
+      {entry.note && <span className="muted" style={{ fontSize: ".85rem" }}>{entry.note}</span>}
+    </div>
+  );
+}
+
+/** Add to the list by hand: something you have (search), or something new. */
+function AddSheet({ onClose, onDone }: { onClose: () => void; onDone: (l: ShoppingList) => void }) {
+  const [q, setQ] = useState("");
+  const [found, setFound] = useState<PartBrief[]>([]);
+  const [picked, setPicked] = useState<PartBrief | null>(null);
+  const [qty, setQty] = useState("1");
+  const [note, setNote] = useState("");
+  const [f, setF] = useState({ manufacturer: "", model_number: "", sku: "", barcode: "", url: "" });
+  const { busy, run } = useAction();
+  useEffect(() => {
+    if (picked || q.trim().length < 2) { setFound([]); return; }
+    const t = setTimeout(() => api.get<PartBrief[]>("parts/search", { q }).then(setFound).catch(() => setFound([])), 250);
+    return () => clearTimeout(t);
+  }, [q, picked]);
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    const body = picked ? { product_id: picked.id } : { name: q.trim(), ...f };
+    const l = await run(() => api.post<ShoppingList>("shopping-list", { ...body, quantity: Number(qty) || 1, note: note || null }), `Added ${picked?.name || q.trim()}`);
+    if (l) onDone(l);
+  };
+  const field = (k: keyof typeof f, label: string, extra: Record<string, string> = {}) => (
+    <label className="field">{label}<input value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} {...extra} /></label>
+  );
+  return (
+    <Sheet title="Add to the shopping list" onClose={onClose}>
+      <form className="stack" onSubmit={save}>
+        {picked ? (
+          <div className="row between card" style={{ margin: 0 }}>
+            <span><b>{picked.name}</b>{picked.model_number ? ` · ${picked.model_number}` : ""}</span>
+            <button type="button" className="btn small ghost" onClick={() => { setPicked(null); setQ(""); }}>Change</button>
+          </div>
+        ) : (
+          <>
+            <label className="field">What to buy<input autoFocus required value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search your inventory, or type something new" /></label>
+            {found.length > 0 && (
+              <ul className="list" aria-label="In your inventory">
+                {found.map((p) => (
+                  <li key={p.id}><button type="button" className="linkish grow" style={{ textAlign: "left" }} onClick={() => setPicked(p)}>
+                    <div className="t">{p.name}</div>
+                    <div className="s">{[p.manufacturer, p.model_number].filter(Boolean).join(" · ") || "In your inventory"}</div>
+                  </button></li>
+                ))}
+              </ul>
+            )}
+            {q.trim().length > 0 && (
+              <details>
+                <summary>Something new: add what identifies it (optional)</summary>
+                <div className="grid two" style={{ marginTop: 8 }}>
+                  {field("manufacturer", "Maker")}
+                  {field("model_number", "Part / model number")}
+                  {field("sku", "Shop's code (SKU)")}
+                  {field("barcode", "Barcode", { inputMode: "numeric" })}
+                </div>
+                {field("url", "Product page link", { type: "url", placeholder: "https://…" })}
+              </details>
+            )}
+          </>
+        )}
+        <div className="grid two">
+          <label className="field">Quantity<input type="number" inputMode="numeric" min={1} required value={qty} onChange={(e) => setQty(e.target.value)} /></label>
+          <label className="field">Note (optional)<input value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} /></label>
+        </div>
+        <button className="btn primary block" disabled={busy || (!picked && !q.trim())}><Plus size={18} /> Add to the list</button>
+      </form>
+    </Sheet>
+  );
+}
+
+interface Holding { item_id: number; quantity: number; label: string | null; place: string }
+
+/** Confirm a purchase and put it in the inventory: add it to something you
+ * already have, start a new holding in a place, or just record it. */
 function PurchasedSheet({ entry, onClose, onDone }: { entry: Entry; onClose: () => void; onDone: (l: ShoppingList) => void }) {
   const [qty, setQty] = useState(String(entry.quantity));
   const [price, setPrice] = useState(entry.source?.estimated_price ? String(entry.source.estimated_price) : "");
-  const [addToStock, setAddToStock] = useState(true);
+  const opts = useApi(() => api.get<{ holdings: Holding[] }>(`shopping-list/${entry.id}/purchase-options`), [entry.id]);
+  const [target, setTarget] = useState<string | null>(null); // "item:<id>" | "new" | "none"
+  const [place, setPlace] = useState<PlacementValue | null>(null);
+  const [picking, setPicking] = useState(false);
   const { busy, run } = useAction();
+  const holdings = opts.data?.holdings ?? [];
+  const chosen = target ?? (opts.data ? (holdings.length ? `item:${holdings[0].item_id}` : "new") : null);
+  const n = Number(qty) || 0;
   const save = async (e: FormEvent) => {
     e.preventDefault();
-    const l = await run(() => api.post<ShoppingList>(`shopping-list/${entry.id}/purchased`, { quantity: Number(qty), unit_price: price === "" ? null : price, add_to_stock: addToStock }), "Recorded");
+    if (chosen === "new" && !place) { setPicking(true); return; }
+    const where = chosen === "none" ? { add_to_stock: false }
+      : chosen === "new" ? (place!.container_id || place!.location_id
+        ? { container_id: place!.container_id, location_id: place!.container_id ? null : place!.location_id }
+        : { new_holding: true })
+      : { item_id: Number(chosen!.split(":")[1]) };
+    const done = chosen === "none" ? "Recorded as bought" : chosen === "new" ? `Bought: ${place!.label || "added, no place yet"}` : "Bought and added to your stock";
+    const l = await run(() => api.post<ShoppingList>(`shopping-list/${entry.id}/purchased`, { quantity: n, unit_price: price === "" ? null : price, ...where }), done);
     if (l) onDone(l);
   };
   return (
@@ -239,9 +351,30 @@ function PurchasedSheet({ entry, onClose, onDone }: { entry: Entry; onClose: () 
           <label className="field">Quantity<input type="number" inputMode="numeric" min={1} required value={qty} onChange={(e) => setQty(e.target.value)} /></label>
           <label className="field">Price each (optional)<input type="number" inputMode="decimal" step="0.01" min={0} value={price} onChange={(e) => setPrice(e.target.value)} /></label>
         </div>
-        <label className="row"><input type="checkbox" checked={addToStock} onChange={(e) => setAddToStock(e.target.checked)} /> Add to my stock now ({entry.stock} → {entry.stock + (Number(qty) || 0)})</label>
-        <button className="btn primary block" disabled={busy}>Save</button>
+        <ErrorBox error={opts.error} />
+        {!opts.data ? <Spinner /> : (
+          <fieldset className="stack" style={{ border: 0, padding: 0, margin: 0, gap: 8 }}>
+            <legend style={{ fontWeight: 600, marginBottom: 6 }}>Put it in your inventory</legend>
+            {holdings.map((h) => (
+              <label key={h.item_id} className="row">
+                <input type="radio" name="target" checked={chosen === `item:${h.item_id}`} onChange={() => setTarget(`item:${h.item_id}`)} />
+                <span>Add to the {h.quantity} in <b>{h.place}</b>{h.label ? ` (${h.label})` : ""} → {h.quantity + n}</span>
+              </label>
+            ))}
+            <label className="row">
+              <input type="radio" name="target" checked={chosen === "new"} onChange={() => { setTarget("new"); if (!place) setPicking(true); }} />
+              <span>{holdings.length ? "Keep it somewhere else" : "Put it in"}{place ? <>: <b>{place.label || "no place yet (To sort)"}</b> <button type="button" className="linkish" onClick={() => setPicking(true)}>change</button></> : "…"}</span>
+            </label>
+            <label className="row">
+              <input type="radio" name="target" checked={chosen === "none"} onChange={() => setTarget("none")} />
+              <span>Just record that I bought it</span>
+            </label>
+          </fieldset>
+        )}
+        <button className="btn primary block" disabled={busy || !opts.data}><Check size={18} /> {chosen === "new" && !place ? "Choose where it goes" : "Confirm purchase"}</button>
       </form>
+      {picking && <PlacementPicker title={`Where does ${entry.name} go?`} onClose={() => setPicking(false)}
+        onPick={(v) => { setPlace(v); setTarget("new"); setPicking(false); }} />}
     </Sheet>
   );
 }
