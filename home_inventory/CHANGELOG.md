@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.38.0
+
+Several manuals per machine, and which one wins. One database migration (additive, automatic).
+
+- **Manuals (first one wins)** on the equipment page: say what each manual is (operator's, engine, service/shop, parts list) and put them in order.
+- When manuals disagree about a job, the higher one wins. Read together, its answer is kept and the review shows what the other manual says. Read separately, a lower-ranked manual never changes a job that a higher-ranked one set, and the App lists the jobs it left alone. Your own edits still win over every manual.
+- Unranked manuals count after the ranked ones, oldest first, so nothing changes until you rank them.
+
 ## 0.37.0
 
 A shopping list you can shop from, and spark plugs that count. No database changes.

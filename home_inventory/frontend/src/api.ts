@@ -828,6 +828,10 @@ export interface ManualPart {
 
 export interface ManualService {
   title: string;
+  /** Which manual it came from, when several were read together. */
+  manual?: string;
+  /** Lower-priority manuals that say something different about this job. */
+  other_manuals?: { manual: string; interval_hours: number | null; interval_days: number | null; interval_cycles: number | null }[];
   interval_hours: number | null;
   interval_days: number | null;
   interval_cycles: number | null;
