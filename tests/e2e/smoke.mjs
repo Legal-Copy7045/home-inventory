@@ -595,6 +595,18 @@ const after = await api(`containers/${box.id}`);
 const cord = after.items.find((i) => i.name === "Extension cord");
 if (!after.items.some((i) => i.name === "Hammer")) throw new Error("finished quick photo missing from box");
 if (cord.quantity !== 3) throw new Error(`expected 3 cords in box after scan, got ${cord.quantity}`);
+// Printed box checklist: the PDF prints, and a by-hand review applies as a check of the box
+const clPdf = await page.request.fetch(BASE + `api/v1/containers/${box.id}/checklist.pdf`);
+if (!clPdf.ok() || (await clPdf.body()).subarray(0, 4).toString() !== "%PDF") throw new Error("checklist PDF failed");
+await page.goto(BASE + `#/containers/${box.id}/checklist`);
+await page.getByRole("button", { name: "Fill in by hand" }).click();
+await page.getByLabel("What happened to Hammer").selectOption("back");
+await page.getByRole("button", { name: "Apply 1 change" }).click();
+await page.waitForURL(new RegExp(`#/containers/${box.id}$`));
+const clChecks = await api(`verifications?scope_type=container&scope_id=${box.id}`);
+if (!clChecks.checks.length) throw new Error("checklist not saved as a check");
+await shot("20-checklist-applied");
+
 if (errors.length) throw new Error("Browser errors:\n" + errors.join("\n"));
 await browser.close();
 console.log("E2E smoke test passed");
