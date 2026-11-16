@@ -144,15 +144,18 @@ export default function QuickCapture() {
       )}
 
       {cameraAvailable() && !camError ? (
-        <div className="camera" style={{ aspectRatio: "3/4" }}>
-          <video ref={videoRef} muted playsInline />
-          {flash && <div style={{ position: "absolute", inset: 0, background: "#fff", opacity: 0.6 }} />}
+        <>
+          {/* Sized to leave room for the shutter below it, above the phone's tab bar. */}
+          <div className="camera capture">
+            <video ref={videoRef} muted playsInline />
+            {flash && <div style={{ position: "absolute", inset: 0, background: "#fff", opacity: 0.6 }} />}
+          </div>
           {live && (
-            <button className="shutter" onClick={snap} aria-label="Take photo">
+            <button className="shutter inline" onClick={snap} aria-label="Take photo">
               <span />
             </button>
           )}
-        </div>
+        </>
       ) : (
         <div className="notice">{camError || "Live camera needs Home Assistant opened over https."} Use the button below to take photos with your camera app instead.</div>
       )}

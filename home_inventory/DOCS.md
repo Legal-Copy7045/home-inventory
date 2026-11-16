@@ -19,7 +19,7 @@ The menu is grouped:
 - **Reports:** All reports (inventory report, maintenance plan, upcoming maintenance, restock & shopping, the maintenance guide and more), the inventory report, and Restock & Shopping.
 - **Admin:** Print labels, NFC tags, Activity history, Categories, Voice history, Possible duplicates, Recently deleted and Settings.
 
-Tap a section's heading to fold it away or open it; the menu remembers your choice. The section with the page you're on always stays open.
+Tap a section's heading to fold it away or open it, including the section you're in; the menu remembers your choice. Going to a page opens its section again.
 
 On an item page, **Previous** and **Next** step through the list you came from (the Items page with its search and filters, or the inventory report), or the whole inventory by name. In the inventory report, tap an item's name to open it.
 ## Configuration
@@ -97,7 +97,7 @@ Each item shows how recently it was seen (on its page and in checks): *Checked t
 
 ## Possible duplicates
 
-**Admin → Possible duplicates** suggests pairs of products that are probably the same thing: the same barcode, the same maker and model, similar names, or **photos that look the same** even when the names differ ("Black hard case" and "DeWalt carry box"). **Merge** keeps one and moves everything from the other onto it; **Not a duplicate** stops suggesting that pair.
+**Admin → Possible duplicates** suggests pairs of products that are probably the same thing: the same barcode, the same maker and model, similar names, or **photos that look the same** even when the names differ ("Black hard case" and "DeWalt carry box"). **Keep this one** moves everything from the other onto it; **Not a duplicate** stops suggesting that pair. When you merge, you're asked what to do where both were kept in the same place: **Add them together** (two boxes of screws, 2 and 3, become one record of 5), **It's the same thing recorded twice** (one record with the larger count), or **Keep the records separate**. Things in different places always stay separate records, and a record that's lent out, in use, managed equipment, tagged, in a kit, linked to other items or a customer's is never combined (the App says which were kept apart).
 
 ## Quick photos
 
@@ -124,7 +124,7 @@ For tools and other things you borrow from their place and bring back:
    - if it's the item's own place, or the usual place it was temporarily moved from, it simply goes back;
    - if it's somewhere new, choose **Move it here** (its new home) or **Just this once** (a temporary move: the item remembers its usual place, and *Put back* returns it there).
 
-   No label to hand? On the item page tap **Put away** and choose the place.
+   No label to hand? On the item page tap **Put away**: it shows where the thing lives, and **Put it back there** returns it. If it's going somewhere else, use **Move** instead.
 
 **Put-away route.** After a job with lots of things out, use **Scan → Collect**: scan the barcode of each thing you used (when you have more than one of something, pick which). Then open **Put-away Route** (Inventory menu, or the link on the Scan page). It lists everything taken, one stop per place it lives, grouped room by room and then place by place within each room (in name order; it is an organised list, not a measured walking route). At each stop tap **All back here**, or scan the place's label. Each thing's result is shown: anything that isn't its usual place is left for you to decide (open it to move it there or put it there just this once), and anything that failed says why. A thing moved somewhere just for now goes back to its usual place. **Everyone's** shows what other people have taken too.
 
@@ -189,7 +189,7 @@ Quick changes don't ask "are you sure?" first; they tell you what happened with 
 
 ## Working with several items
 
-On **Items**, tap **Select**, tick the items you want (or **Select all**), then use **Move**, **Edit** or **Delete** in the bar at the bottom. **Edit** changes only the fields you fill in. Choose **Sort: Location** to see items grouped by where they are.
+On **Items**, tap **Select**, tick the items you want (or **Select all**), then use **Move**, **Edit** or **Delete** in the bar at the bottom. Tap an item's photo to see it full size (tapping the rest of the row ticks it). **Edit** changes only the fields you fill in. Choose **Sort: Location** to see items grouped by where they are.
 
 ## Equipment
 
@@ -202,7 +202,7 @@ On **Items**, tap **Select**, tick the items you want (or **Select all**), then 
 **An equipment page** answers "what does it need?" at a glance:
 - **Status**: the next job, what's overdue or due soon (with **Done**), the last completed service, where it is, and where its maintenance plan comes from: *the manufacturer's manual*, *a manual you confirmed fits*, or *generic* (a typical schedule, not this model's).
 - **Maintenance checklist**: every task grouped as the manual groups them (before each use, after each use, by hours, periodic, seasonal, annual, storage, one-time), each with its interval, when it was last done and is next due, its parts, and **where it comes from**: the manual's file, section and page, "generic", or "added by hand". **Done** records the work; **Disable** takes a task out of this machine's schedule without deleting it (**Enable** brings it back). Tap a task to edit it.
-- **Parts and consumables**: everything its tasks use (one service each), with what you have, **where it's kept**, what to buy (**Add to shopping list**), and which are needed soon. A part shared with other machines (the same oil or plug) is one stock record, never counted separately per machine.
+- **Parts and consumables**: everything its tasks use (one service each). Tap **Edit** (or a task's name under a part) to change what a task uses straight from here: search your parts, part numbers or standards ("10W-30"), set the quantity, remove a line. On the checklist, a task's **Needs: …** line opens the same editor, and a task with no parts has **+ Add parts**. When you add or edit a task, **Parts and consumables it uses** is on the same form. The list shows what you have, **where it's kept**, what to buy (**Add to shopping list**), and which are needed soon. A part shared with other machines (the same oil or plug) is one stock record, never counted separately per machine.
 - **Details**: purchase, warranty, engine, fuel, specifications, what its maintenance has cost so far, and its Home Assistant sensors.
 - Below: the hour meter and readings chart, sensors, **Log service**, **Add task**, **Read the manual**, the service history, and **Edit** for its details (type, engine, fuel, meter, status and where it came from).
 
