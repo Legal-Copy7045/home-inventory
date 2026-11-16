@@ -18,8 +18,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import (
-    Attachment,
-    AttachmentKind,
     EquipmentProfile,
     Item,
     MaintenanceTask,
@@ -62,8 +60,9 @@ def _tasks(db: Session, item_id: int) -> list[MaintenanceTask]:
 
 def manual_status(db: Session, item: Item, tasks: list[MaintenanceTask]) -> dict[str, Any]:
     """Whether the maintenance plan comes from this model's own manual."""
-    manuals = db.scalars(select(Attachment).where(Attachment.item_id == item.id, Attachment.kind == AttachmentKind.manual)
-                         .order_by(Attachment.id)).all()
+    from .manuals import item_manuals, manual_out
+
+    manuals = item_manuals(db, item.id)
     applied = db.scalars(select(ManualReading).where(ManualReading.item_id == item.id, ManualReading.status == "applied")
                          .order_by(ManualReading.applied_at.desc())).first()
     sources = {t.source for t in tasks if not t.not_applicable}
@@ -78,8 +77,7 @@ def manual_status(db: Session, item: Item, tasks: list[MaintenanceTask]) -> dict
         state = "manual_not_read"
     else:
         state = "no_manual"
-    return {"state": state, "manuals": [{"id": a.id, "name": a.original_name, "url": f"api/v1/attachments/{a.id}/file"}
-                                        for a in manuals],
+    return {"state": state, "manuals": [manual_out(a, n) for n, a in enumerate(manuals, start=1)],
             "applied_reading_id": applied.id if applied else None,
             "needs_review": sum(1 for t in tasks if t.review_status == "needs_review" and not t.not_applicable)}
 

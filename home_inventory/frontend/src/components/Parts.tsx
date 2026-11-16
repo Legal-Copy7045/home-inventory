@@ -331,7 +331,9 @@ function ManualReview({ reading, onClose, onDone, onDiscard }: { reading: Manual
     const r = await run(() => api.post<{ summary: Record<string, number> }>(`manual-readings/${reading.id}/apply`, body));
     if (r) {
       const x = r.summary;
-      window.alert(`Saved: ${x.tasks_created} new tasks, ${x.tasks_updated} updated, ${x.parts_linked} parts and consumables, ${x.specs_added} specifications.`);
+      const kept = (r.summary as unknown as { kept_from_higher_manual?: string[] }).kept_from_higher_manual || [];
+      window.alert(`Saved: ${x.tasks_created} new tasks, ${x.tasks_updated} updated, ${x.parts_linked} parts and consumables, ${x.specs_added} specifications.`
+        + (kept.length ? `\n\nNot changed, because a higher-priority manual set them: ${kept.join(", ")}.` : ""));
       onDone();
     }
   };
@@ -363,7 +365,10 @@ function ManualReview({ reading, onClose, onDone, onDiscard }: { reading: Manual
             </label>
             {s.include && (
               <>
-                <div className="s">{interval(s)}{s.page ? ` · page ${s.page}` : ""}</div>
+                <div className="s">{interval(s)}{s.page ? ` · page ${s.page}` : ""}{s.manual ? ` · ${s.manual}` : ""}</div>
+                {(s.other_manuals || []).map((o) => (
+                  <div key={o.manual} className="s" style={{ color: "var(--warn)" }}>{o.manual} says {interval({ ...s, ...o, first_at_hours: null })}: {s.manual || "the higher-priority manual"} wins (change the order on the equipment page)</div>
+                ))}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 }}>
                   <label className="field">Every … h<input type="number" inputMode="decimal" min={0} value={s.interval_hours ?? ""} onChange={(e) => setS(i, { interval_hours: e.target.value ? Number(e.target.value) : null })} /></label>
                   <label className="field">or … days<input type="number" inputMode="numeric" min={0} value={s.interval_days ?? ""} onChange={(e) => setS(i, { interval_days: e.target.value ? Number(e.target.value) : null })} /></label>
