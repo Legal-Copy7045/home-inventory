@@ -422,3 +422,21 @@ def test_long_scanned_manuals_read_the_first_pages_or_the_chosen_ones(tmp_path):
     assert r2["status"] == "ready" and len(fake.calls) == 2 and "notes" not in r2["result"]
     bad = u.post(f"/api/v1/items/{mower['id']}/manual-readings", json={"attachment_ids": [scan["id"]], "pages": "abc"})
     assert bad.status_code == 422 and "isn't a page" in bad.json()["detail"]
+
+
+def test_a_manual_part_counts_a_standard_you_keep_once_linked(env):
+    """The manual names a specific plug; you keep a "Spark plug" standard.
+    Not counted until you say the plug meets it, then it is."""
+    u = env.admin
+    blower = _equipment(u, "Ariens snow blower")
+    std = u.ok("post", "/api/v1/parts/standards", json={"name": "Spark plug", "specs": {}})
+    u.item("Spark plug", product_id=std["id"], quantity=3)
+    named = u.ok("post", "/api/v1/parts/products", json={"name": "Champion spark plug", "part_number": "RN9YC"})
+    task = _task(u, blower, "Replace spark plug", interval_days=365)
+    _set(u, task, [{"product_id": named["id"], "quantity": 1}])
+    def row():
+        return u.ok("get", f"/api/v1/items/{blower['id']}/parts")["tasks"][str(task["id"])][0]
+
+    assert row()["status"] == "missing"
+    u.ok("post", f"/api/v1/products/{named['id']}/links", json={"target_id": std["id"], "kind": "meets", "status": "confirmed"})
+    assert row()["status"] == "in_stock" and row()["have"] == 3

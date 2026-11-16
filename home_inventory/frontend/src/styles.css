@@ -440,3 +440,5 @@ button.linkish { background: none; border: 0; padding: 0; color: var(--primary);
 /* A button that is one of several explained choices: label, then why. */
 .btn.choice { white-space: normal; flex-direction: column; align-items: flex-start; text-align: left; height: auto; padding: 10px 14px; gap: 2px; }
 .btn.choice small { font-weight: 400; opacity: .85; color: inherit; }
+/* Identifier chips on a shopping list entry: tap to copy. */
+button.badge.copy { border: 0; cursor: copy; font: inherit; font-size: .78rem; }

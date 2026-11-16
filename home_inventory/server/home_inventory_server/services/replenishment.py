@@ -247,6 +247,31 @@ def open_list(db: Session) -> list[ShoppingListItem]:
     return list(db.scalars(select(ShoppingListItem).where(ShoppingListItem.status.in_(OPEN)).order_by(ShoppingListItem.id)))
 
 
+def new_product(db: Session, actor: Actor, fields: dict[str, Any]) -> Product:
+    """Something typed onto the shopping list that isn't in the inventory yet.
+
+    The same barcode is the same product (never matched by name), so a
+    barcode already known reuses that product.  Otherwise a product is
+    created with no holdings; buying it later puts it somewhere."""
+    from . import gtin as gtin_mod
+    from .inventory import find_product_by_barcode
+
+    if fields.get("barcode"):
+        existing = find_product_by_barcode(db, fields["barcode"], None)
+        if existing is not None:
+            return existing
+    product = Product(name=fields["name"].strip(), manufacturer=fields.get("manufacturer"),
+                      model_number=fields.get("model_number"), sku=fields.get("sku"), barcode=fields.get("barcode"),
+                      url=fields.get("url"))
+    if product.barcode:
+        product.gtin = gtin_mod.normalise(product.barcode, None)
+    db.add(product)
+    db.flush()
+    audit.record(db, actor, "shopping_new_product", "product", product.id,
+                 f"{product.name}: added to the shopping list (not in the inventory yet)")
+    return product
+
+
 def add_to_list(db: Session, actor: Actor, product_id: int, quantity: int | None, source_id: int | None, note: str | None) -> ShoppingListItem:
     product = _product(db, product_id)
     existing = db.scalar(select(ShoppingListItem).where(ShoppingListItem.product_id == product_id,
@@ -331,13 +356,28 @@ def handoff(db: Session, actor: Actor, entries: list[ShoppingListItem]) -> dict[
 
 
 def mark_purchased(db: Session, actor: Actor, entry: ShoppingListItem, quantity: int | None, unit_price: Decimal | None,
-                   add_to_stock: bool, item_id: int | None) -> ShoppingListItem:
+                   add_to_stock: bool, item_id: int | None, container_id: int | None = None,
+                   location_id: int | None = None, new_holding: bool = False) -> ShoppingListItem:
+    """Record a purchase and (``add_to_stock``) put it in the inventory: added
+    to an existing holding, or as a new holding in a chosen place."""
+    from ..schemas import ItemCreate
+    from .inventory import create_items
+    from .placement import validate_item_target
+
     if entry.status in ("purchased", "cancelled"):
         raise ReplenishmentError("This entry is already closed")
     product = db.get(Product, entry.product_id)
     qty = quantity or entry.quantity
     # Validate everything before changing anything.
-    target = _purchase_target(db, product, item_id) if add_to_stock else None
+    new_place = add_to_stock and (new_holding or container_id is not None or location_id is not None)
+    target = None
+    if new_place:
+        try:
+            validate_item_target(db, container_id, location_id)
+        except ValueError as err:
+            raise ReplenishmentError(str(err)) from err
+    elif add_to_stock:
+        target = _purchase_target(db, product, item_id)
     entry.status = "purchased"
     entry.purchased_at = datetime.now(UTC)
     entry.purchased_quantity = qty
@@ -351,6 +391,11 @@ def mark_purchased(db: Session, actor: Actor, entry: ShoppingListItem, quantity:
         prof.last_price = unit_price
     if target is not None:
         adjust_quantity(db, actor, target, qty, "Bought (shopping list)")
+    elif new_place:
+        src = db.get(ProductSource, entry.source_id) if entry.source_id else None
+        create_items(db, actor, ItemCreate(product_id=product.id, quantity=qty, container_id=container_id,
+                                           location_id=location_id, purchase_price=unit_price, purchase_date=date.today(),
+                                           retailer=(src.retailer_name or retailers.provider(src.retailer).name) if src else None))
     audit.record(db, actor, "shopping_purchased", "item", _first_item_id(db, product.id) or 0,
                  f"Bought {qty} × {product.name}" + (" and added to stock" if add_to_stock else ""))
     _event(db, actor, "purchased")
@@ -374,8 +419,41 @@ def _purchase_target(db: Session, product: Product, item_id: int | None) -> Item
     target = db.scalar(select(Item).where(Item.product_id == product.id, Item.deleted_at.is_(None),
                                           Item.status != ItemStatus.missing, household_only()).order_by(Item.id))
     if target is None:
-        raise ReplenishmentError("Choose which holding to add the purchase to")
+        raise ReplenishmentError("You don't have any of this yet: choose where to put it")
     return target
+
+
+def purchase_options(db: Session, entry: ShoppingListItem) -> dict[str, Any]:
+    """Where a purchase can go: the household holdings of this product (add
+    to one), or a new place."""
+    from .placement import Resolver
+
+    r = Resolver.load(db)
+    holdings = db.scalars(select(Item).where(Item.product_id == entry.product_id, Item.deleted_at.is_(None),
+                                             Item.status != ItemStatus.missing, household_only()).order_by(Item.id)).all()
+    return {"holdings": [{"item_id": it.id, "quantity": it.quantity, "label": it.label,
+                          "place": r.describe_item(it)["path"] or "No place yet"} for it in holdings]}
+
+
+def identifiers(product: Product, src: ProductSource | None) -> dict[str, Any]:
+    """What identifies the thing at the shop: maker, part number, codes and
+    the product page.  Only the ones that are known."""
+    ids: list[dict[str, str]] = []
+    if product.manufacturer:
+        ids.append({"label": "Maker", "value": product.manufacturer})
+    if product.model_number:
+        ids.append({"label": "Part / model no.", "value": product.model_number})
+    if src is not None and src.retailer_product_id:
+        ids.append({"label": retailers.provider(src.retailer).id_label, "value": src.retailer_product_id})
+    if product.sku:
+        ids.append({"label": "SKU", "value": product.sku})
+    code = product.barcode or product.gtin or (src.gtin if src else None)
+    if code:
+        ids.append({"label": "Barcode", "value": code})
+    if src is not None and src.brand_model and src.brand_model != product.model_number:
+        ids.append({"label": "Shop's model", "value": src.brand_model})
+    page = (src.url if src is not None and src.url else None) or product.url
+    return {"identifiers": ids, "product_url": page}
 
 
 def entry_out(db: Session, e: ShoppingListItem, settings: dict[str, str]) -> dict[str, Any]:
@@ -389,13 +467,15 @@ def entry_out(db: Session, e: ShoppingListItem, settings: dict[str, str]) -> dic
         "quantity": e.quantity,
         "status": e.status,
         "deferred_until": e.deferred_until.isoformat() if e.deferred_until else None,
-        "note": e.note,
         "stock": product_total(db, e.product_id),
         "source": source_out(src, settings, product.name) if src else None,
         "estimated_cost": float(src.estimated_price * e.quantity) if src and src.estimated_price is not None else None,
         "handed_off_at": e.handed_off_at.isoformat() if e.handed_off_at else None,
         "purchased_at": e.purchased_at.isoformat() if e.purchased_at else None,
         "purchased_quantity": e.purchased_quantity,
+        "note": e.note,
+        "in_inventory": _first_item_id(db, e.product_id) is not None,
+        **identifiers(product, src),
     }
 
 
