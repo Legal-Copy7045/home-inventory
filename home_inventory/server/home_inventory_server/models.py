@@ -332,6 +332,11 @@ class Attachment(Base):
     width: Mapped[int | None] = mapped_column(Integer)
     height: Mapped[int | None] = mapped_column(Integer)
     caption: Mapped[str | None] = mapped_column(String(300))
+    # Manuals only: what the manual covers (operator, engine, parts, service,
+    # other) and its rank among the item's manuals (1 = wins when two
+    # manuals disagree; empty = after the ranked ones, oldest first).
+    manual_role: Mapped[str | None] = mapped_column(String(12))
+    manual_priority: Mapped[int | None] = mapped_column(Integer)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

@@ -31,7 +31,16 @@ from .. import audit
 from ..ai import AIFailed, AIUnavailable
 from ..ai.manual import merge
 from ..auth import Actor
-from ..models import Attachment, EquipmentProfile, Item, MaintenanceTask, ManualReading, Product, TaskPart
+from ..models import (
+    Attachment,
+    AttachmentKind,
+    EquipmentProfile,
+    Item,
+    MaintenanceTask,
+    ManualReading,
+    Product,
+    TaskPart,
+)
 from . import jobs
 from . import parts as parts_svc
 
@@ -152,6 +161,61 @@ def select_text(pages: list[tuple[int, str]], limit: int = MAX_TEXT) -> str:
     return "\n".join(f"[page {n}]\n{t}" for n, t in chosen)
 
 
+# ---------------------------------------------------------------------------
+# Several manuals: what each covers, and which wins
+# ---------------------------------------------------------------------------
+
+MANUAL_ROLES = {"operator": "Operator's manual", "engine": "Engine manual", "service": "Service / shop manual",
+                "parts": "Parts list", "other": "Other"}
+_UNRANKED = 10**6
+
+
+def manual_rank(att: Attachment | None) -> tuple[int, int]:
+    """Sort key: ranked manuals first (1 = highest), then the rest oldest
+    first.  A deleted manual ranks last."""
+    if att is None:
+        return (_UNRANKED + 1, 0)
+    return (att.manual_priority if att.manual_priority is not None else _UNRANKED, att.id)
+
+
+def item_manuals(db: Session, item_id: int) -> list[Attachment]:
+    """The item's manuals in priority order."""
+    rows = db.scalars(select(Attachment).where(Attachment.item_id == item_id, Attachment.kind == AttachmentKind.manual))
+    return sorted(rows, key=manual_rank)
+
+
+def manual_out(att: Attachment, position: int) -> dict[str, Any]:
+    return {"id": att.id, "name": att.original_name, "url": f"api/v1/attachments/{att.id}/file",
+            "role": att.manual_role, "role_label": MANUAL_ROLES.get(att.manual_role or "", None),
+            "priority": att.manual_priority, "position": position}
+
+
+def set_manual_order(db: Session, actor: Actor, item: Item, order: list[dict[str, Any]]) -> list[Attachment]:
+    """Rank the item's manuals (first = wins when two disagree) and say what
+    each covers.  ``order`` must list every manual of the item exactly once."""
+    manuals = {a.id: a for a in item_manuals(db, item.id)}
+    ids = [int(o["attachment_id"]) for o in order]
+    if sorted(ids) != sorted(manuals) or len(set(ids)) != len(ids):
+        raise ManualError("List each of this item's manuals once, in the order they should count")
+    for n, o in enumerate(order, start=1):
+        role = o.get("role") or None
+        if role is not None and role not in MANUAL_ROLES:
+            raise ManualError("Unknown kind of manual")
+        att = manuals[int(o["attachment_id"])]
+        att.manual_priority, att.manual_role = n, role
+    db.flush()
+    names = ", ".join(f"{n}. {manuals[i].original_name or 'manual'}" for n, i in enumerate(ids, start=1))
+    audit.record(db, actor, "manual_order", "item", item.id, f"{item.product.name}: manuals ranked {names}"[:500])
+    return item_manuals(db, item.id)
+
+
+def reading_rank(db: Session, reading: ManualReading | None) -> tuple[int, int]:
+    """A reading counts with the rank of its best manual."""
+    if reading is None or not reading.attachment_ids:
+        return manual_rank(None)
+    return min(manual_rank(db.get(Attachment, a)) for a in reading.attachment_ids)
+
+
 def equipment_item(db: Session, item: Item) -> EquipmentProfile:
     profile = db.scalar(select(EquipmentProfile).where(EquipmentProfile.item_id == item.id))
     if profile is None:
@@ -219,7 +283,9 @@ def analyse(db: Session, reading: ManualReading, ai, media, item: Item) -> Manua
     results = []
     try:
         atts = [db.get(Attachment, a) for a in reading.attachment_ids]
-        pdfs = [a for a in atts if a is not None and a.mime_type == "application/pdf"]
+        # Highest-priority manual first: when two say different things about
+        # the same job, the first one's answer is kept (see ``merge``).
+        pdfs = sorted((a for a in atts if a is not None and a.mime_type == "application/pdf"), key=manual_rank)
         photos = [a for a in atts if a is not None and (a.mime_type or "").startswith("image/")]
         if not pdfs and not photos:
             raise ManualError("Choose the manual (a PDF) or photos of its pages.")
@@ -230,9 +296,11 @@ def analyse(db: Session, reading: ManualReading, ai, media, item: Item) -> Manua
             pages = pdf_pages(data)
             if chosen:
                 pages = [p for p in pages if p[0] in chosen]
+            tag = {"manual": att.original_name or "Manual", "manual_id": att.id,
+                   "role": MANUAL_ROLES.get(att.manual_role or "", None)} if len(pdfs) > 1 else None
             if pages:
                 res = ai.read_manual(text=select_text(pages), equipment=hint)
-                results.append(res.data)
+                results.append({**res.data, "_manual": tag} if tag else res.data)
                 continue
             # No text: a scanned manual.  Read its pages as pictures.
             total = page_count(data)
@@ -242,7 +310,7 @@ def analyse(db: Session, reading: ManualReading, ai, media, item: Item) -> Manua
                 raise ManualError(f"{att.original_name or 'This PDF'} has no pages to read.")
             for _n, img in images:
                 res = ai.read_manual(image=img, equipment=hint)
-                results.append(res.data)
+                results.append({**res.data, "_manual": tag} if tag else res.data)
             if not chosen and total > MAX_SCANNED_PAGES:
                 notes.append(f"{att.original_name or 'The manual'} is scanned: pages 1-{MAX_SCANNED_PAGES} of {total} "
                              "were read. If the maintenance schedule is further in, read again and choose its pages.")
@@ -439,6 +507,11 @@ def apply(db: Session, actor: Actor, item: Item, reading: ManualReading, choice:
             task = next((t for t in db.scalars(select(MaintenanceTask).where(
                 MaintenanceTask.item_id == item.id, MaintenanceTask.deleted_at.is_(None),
                 MaintenanceTask.source == "manual")) if t.title.strip().lower() == title.lower()), None)
+        if (task is not None and task.source == "manual" and task.reading_id and task.reading_id != reading.id
+                and reading_rank(db, db.get(ManualReading, task.reading_id)) < reading_rank(db, reading)):
+            # A higher-priority manual set this job: it wins.  Nothing changes.
+            made.setdefault("kept_from_higher_manual", []).append(task.title)
+            continue
         if task is None:
             task = mnt.create_task(db, actor, item, {"title": title, **{k: v for k, v in fields.items() if v is not None},
                                                      "schedule_group": s.get("when"), "task_kind": s.get("kind"),

@@ -235,7 +235,12 @@ def merge(results: list[dict[str, Any]]) -> dict[str, Any]:
                            "parts": [], "services": [], "specs": []}
     keys: set[str] = set()
     jobs: set[tuple] = set()
+    # Several manuals (tagged ``_manual``, highest priority first): the same
+    # job from a lower-priority manual is not added again; if it says
+    # something different, that's noted on the job that was kept.
+    first_by_title: dict[str, dict[str, Any]] = {}
     for r in results:
+        src = r.get("_manual")
         for k, v in (r.get("equipment") or {}).items():
             if k == "models_covered":
                 out["equipment"][k] = list(dict.fromkeys([*out["equipment"][k], *(v or [])]))
@@ -248,9 +253,21 @@ def merge(results: list[dict[str, Any]]) -> dict[str, Any]:
                 keys.add(p["key"])
                 out["parts"].append(p)
         for s in r.get("services") or []:
-            sig = ((s["title"] or "").lower(), s["interval_hours"], s["interval_days"], s["interval_cycles"])
+            title = (s["title"] or "").strip().lower()
+            if src:
+                s = {**s, "manual": src["manual"]}
+                kept = first_by_title.get(title)
+                if kept is not None and kept.get("manual") != src["manual"]:
+                    said = (s["interval_hours"], s["interval_days"], s["interval_cycles"])
+                    if said != (kept["interval_hours"], kept["interval_days"], kept["interval_cycles"]):
+                        kept.setdefault("other_manuals", []).append(
+                            {"manual": src["manual"], "interval_hours": s["interval_hours"],
+                             "interval_days": s["interval_days"], "interval_cycles": s["interval_cycles"]})
+                    continue
+            sig = (title, s["interval_hours"], s["interval_days"], s["interval_cycles"])
             if sig not in jobs:
                 jobs.add(sig)
                 out["services"].append(s)
+                first_by_title.setdefault(title, s)
         out["specs"].extend(r.get("specs") or [])
     return out
