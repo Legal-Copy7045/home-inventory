@@ -100,3 +100,44 @@ def test_products_whose_photos_look_the_same(env):
     # A second look uses the stored fingerprints
     assert (env.settings.data_dir / "photo_hashes.json").exists()
     assert u.ok("get", "/api/v1/products/duplicates") == pairs
+
+
+def _two(u, place, qa, qb, names=("AA batteries", "AA battery")):
+    a = u.item(names[0], location_id=place["id"], quantity=qa)
+    b = u.item(names[1], location_id=place["id"], quantity=qb)
+    pa, pb = (u.ok("get", f"/api/v1/items/{i['id']}")["product"]["id"] for i in (a, b))
+    return a, b, pa, pb
+
+
+def test_merge_can_add_quantities_or_treat_them_as_one_record(env):
+    u = env.admin
+    drawer, shed = u.location("Drawer"), u.location("Shed")
+    a, b, pa, pb = _two(u, drawer, 2, 3)
+    res = u.ok("post", f"/api/v1/products/{pa}/merge", json={"other_id": pb, "quantities": "sum"})
+    assert res["combined"] == [{"item_id": a["id"], "records": 2, "quantity_before": 2, "quantity": 5}]
+    assert u.ok("get", f"/api/v1/items/{a['id']}")["quantity"] == 5
+    assert b["id"] in [i["id"] for i in u.ok("get", "/api/v1/deleted-items")["items"]]
+
+    c, d, pc, pd = _two(u, drawer, 4, 3, names=("Fuse 13A", "13A fuse"))
+    res = u.ok("post", f"/api/v1/products/{pc}/merge", json={"other_id": pd, "quantities": "same"})
+    assert res["combined"][0]["quantity"] == 4
+
+    # Different places, or the default, stay separate records.
+    e = u.item("Cable ties", location_id=drawer["id"], quantity=1)
+    f = u.item("Cable tie", location_id=shed["id"], quantity=1)
+    pe, pf = (u.ok("get", f"/api/v1/items/{i['id']}")["product"]["id"] for i in (e, f))
+    res = u.ok("post", f"/api/v1/products/{pe}/merge", json={"other_id": pf, "quantities": "sum"})
+    assert res["combined"] == [] and u.ok("get", f"/api/v1/items/{f['id']}")["quantity"] == 1
+    g, h, pg, ph = _two(u, drawer, 1, 1, names=("Wood glue", "Wood glues"))
+    assert u.ok("post", f"/api/v1/products/{pg}/merge", json={"other_id": ph})["combined"] == []
+    assert u.post(f"/api/v1/products/{pg}/merge", json={"other_id": ph, "quantities": "maybe"}).status_code == 422
+
+
+def test_merge_never_folds_a_record_something_else_refers_to(env):
+    u = env.admin
+    drawer = u.location("Drawer")
+    a, b, pa, pb = _two(u, drawer, 1, 1, names=("Torch", "Torches"))
+    u.ok("post", "/api/v1/items/bulk-lend", json={"item_ids": [b["id"]], "borrower": "Neighbour"})
+    res = u.ok("post", f"/api/v1/products/{pa}/merge", json={"other_id": pb, "quantities": "sum"})
+    assert res["combined"] == [] and res["kept_apart"][0]["item_id"] == b["id"]
+    assert u.ok("get", f"/api/v1/items/{b['id']}")["quantity"] == 1

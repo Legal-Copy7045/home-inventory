@@ -2,6 +2,8 @@ import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { ArrowRightLeft, Boxes, CheckSquare, Handshake, Pencil, Square, Trash2, Undo2, X } from "lucide-react";
 import { api, type Item } from "../api";
 import { PlacementPicker } from "./PlacementPicker";
+import { Lightbox } from "./PhotoViewer";
+import type { Attachment } from "../api";
 import { ErrorBox, ItemRow, Sheet, Spinner, Thumb, useAction, useApi, useMe, useToast } from "./ui";
 import { CategorySelect } from "./CategorySelect";
 
@@ -84,6 +86,13 @@ export function SelectableItems({
     } else setChosen(new Set(items.map((i) => i.id)));
   }
 
+  const [big, setBig] = useState<Attachment | null>(null);
+  const photo = (i: Item) => i.photo ? (
+    <button type="button" className="thumb-btn" aria-label={`Show the photo of ${i.display_name}`}
+      onClick={(e) => { e.stopPropagation(); setBig(i.photo); }} onKeyDown={(e) => e.stopPropagation()}>
+      <Thumb src={i.photo.thumb_url} />
+    </button>
+  ) : <Thumb />;
   let lastPlace = "";
   const rows = items.map((i) => {
     const place = i.placement.path;
@@ -97,7 +106,7 @@ export function SelectableItems({
           <li className={`selectable ${on ? "on" : ""}`} onClick={() => toggle(i.id)} role="checkbox" aria-checked={on} aria-label={i.display_name} tabIndex={0}
             onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggle(i.id); } }}>
             {on ? <CheckSquare size={22} className="tick" /> : <Square size={22} className="muted" />}
-            <Thumb src={i.photo?.thumb_url} />
+            {photo(i)}
             <div className="grow">
               <div className="t">{i.display_name}{i.quantity !== 1 ? ` × ${i.quantity}` : ""}</div>
               <div className="s">{place}</div>
@@ -112,6 +121,7 @@ export function SelectableItems({
 
   return (
     <>
+      {big && <Lightbox photos={[big]} index={0} onIndex={() => {}} onClose={() => setBig(null)} />}
       {me.can_edit && items.length > 0 && (
         <div className="row between" style={bare ? { padding: "8px 16px 0" } : { marginBottom: 8 }}>
           {selecting ? (
@@ -187,7 +197,7 @@ export function SelectableItems({
         <Sheet title={`Delete ${plural(ids.length)}?`} onClose={() => setSheet(null)}>
           <p>They leave the inventory but stay in the history. You can undo straight away, or restore them later from <b>Recently deleted</b>.</p>
           <ul className="muted" style={{ maxHeight: 180, overflow: "auto" }}>
-            {items.filter((i) => chosen.has(i.id)).slice(0, 50).map((i) => <li key={i.id}>{i.display_name}</li>)}
+            {items.filter((i) => chosen.has(i.id)).slice(0, 50).map((i) => <li key={i.id} className="row" style={{ gap: 8, listStyle: "none" }}>{photo(i)}{i.display_name}</li>)}
             {ids.length > Math.min(50, items.filter((i) => chosen.has(i.id)).length) && <li>…and others</li>}
           </ul>
           <button className="btn danger block" disabled={busy} onClick={async () => {

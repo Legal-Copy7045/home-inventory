@@ -177,7 +177,73 @@ def _brief(p: Product, qty: int) -> dict[str, Any]:
             "needs_details": p.identification_status.value == "pending"}
 
 
-def merge(db: Session, actor: Actor, keep: Product, other: Product) -> dict[str, Any]:
+QUANTITY_MODES = ("separate", "sum", "same")
+
+
+def _busy(db: Session, item: Item) -> str | None:
+    """Why this holding can't be folded into another record (something else
+    refers to it), or None."""
+    from ..models import EquipmentProfile, ItemOwner, ItemRelation, KitMember, Loan, Tag
+
+    if item.status.value in ("on_loan", "in_use", "temporarily_relocated", "missing"):
+        return f"it's {item.status.value.replace('_', ' ')}"
+    checks = (
+        (EquipmentProfile, EquipmentProfile.item_id == item.id, "it's managed equipment"),
+        (ItemOwner, ItemOwner.item_id == item.id, "it belongs to a customer"),
+        (Loan, (Loan.item_id == item.id) & Loan.returned_at.is_(None), "it's lent out"),
+        (Tag, (Tag.target_type == "item") & (Tag.target_id == item.id), "it has an NFC tag"),
+        (KitMember, KitMember.item_id == item.id, "it's in a kit"),
+        (ItemRelation, (ItemRelation.from_item_id == item.id) | (ItemRelation.to_item_id == item.id),
+         "it's linked to other items"),
+    )
+    for model, cond, why in checks:
+        if db.scalar(select(model).where(cond).limit(1)) is not None:
+            return why
+    return None
+
+
+def _combine(db: Session, actor: Actor, product: Product, mode: str, ids: set[int]) -> dict[str, Any]:
+    """Fold holdings of ``product`` kept in the same place into one record:
+    ``sum`` adds the quantities (two boxes of screws), ``same`` keeps the
+    larger one (the same thing recorded twice).  Only holdings involved in
+    this merge (``ids``) are folded, and never one something else refers to."""
+    combined, kept_apart = [], []
+    places: dict[tuple, list[Item]] = {}
+    for it in db.scalars(select(Item).where(Item.product_id == product.id, Item.deleted_at.is_(None)).order_by(Item.id)):
+        places.setdefault((it.container_id, it.location_id, it.label or ""), []).append(it)
+    for group in places.values():
+        if len(group) < 2 or not any(i.id in ids for i in group):
+            continue
+        free = []
+        for it in group:
+            why = _busy(db, it)
+            if why:
+                kept_apart.append({"item_id": it.id, "why": why})
+            else:
+                free.append(it)
+        if len(free) < 2:
+            continue
+        survivor, rest = free[0], free[1:]
+        before = survivor.quantity
+        total = sum(i.quantity for i in free) if mode == "sum" else max(i.quantity for i in free)
+        for it in rest:
+            db.execute(update(Attachment).where(Attachment.item_id == it.id).values(item_id=survivor.id))
+            if survivor.primary_photo_id is None and it.primary_photo_id is not None:
+                survivor.primary_photo_id = it.primary_photo_id
+            for f in ("serial_number", "notes", "purchase_price", "purchase_date", "retailer", "warranty_expires", "expires_on"):
+                if getattr(survivor, f) in (None, "") and getattr(it, f) not in (None, ""):
+                    setattr(survivor, f, getattr(it, f))
+            it.primary_photo_id = None
+            it.deleted_at = datetime.now(UTC)
+        survivor.quantity = total
+        combined.append({"item_id": survivor.id, "records": len(free), "quantity_before": before, "quantity": total})
+        audit.record(db, actor, "items_combined", "item", survivor.id,
+                     f"{product.name}: {len(free)} records in one place combined "
+                     f"({'quantities added' if mode == 'sum' else 'the same thing recorded twice'}), now {total}")
+    return {"combined": combined, "kept_apart": kept_apart}
+
+
+def merge(db: Session, actor: Actor, keep: Product, other: Product, quantities: str = "separate") -> dict[str, Any]:
     if keep.id == other.id:
         raise MergeError("Choose two different products")
     if keep.deleted_at is not None or other.deleted_at is not None:
@@ -205,8 +271,13 @@ def merge(db: Session, actor: Actor, keep: Product, other: Product) -> dict[str,
             keep.name = other.name
     other.deleted_at = datetime.now(UTC)
     db.flush()
+    folded = {"combined": [], "kept_apart": []}
+    if quantities in ("sum", "same"):
+        involved = set(moved_items)
+        folded = _combine(db, actor, keep, quantities, involved)
+        db.flush()
     db.expire_all()
     audit.record(db, actor, "products_merged", "product", keep.id,
                  f"Merged “{other.name}” into “{keep.name}” ({len(moved_items)} holding{'s' if len(moved_items) != 1 else ''} moved)",
                  after={"merged_product_id": other.id, "items": moved_items, "filled": filled})
-    return {"kept": keep.id, "merged": other.id, "items_moved": moved_items, "filled": filled}
+    return {"kept": keep.id, "merged": other.id, "items_moved": moved_items, "filled": filled, **folded}
