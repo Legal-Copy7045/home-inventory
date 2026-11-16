@@ -16,7 +16,7 @@ import {
   type MeterUsage,
   type ReadinessLine,
 } from "../api";
-import { ManualSheet, ModelParts, ReadinessPanel, TaskPartsLine, TaskPartsSheet, partsForService } from "../components/Parts";
+import { ManualSheet, ModelParts, ReadinessPanel, TaskPartsEditor, TaskPartsLine, TaskPartsSheet, partRows, partsBody, partsForService, type PartRow } from "../components/Parts";
 import { ErrorBox, Section, Sheet, Spinner, fmtDate, money, useAction, useApi, useMe } from "../components/ui";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -199,7 +199,7 @@ export function EquipmentSection({ itemId, edit, onChanged, initial, startTracki
       {sheet?.kind === "service" && <ServiceSheet itemId={itemId} task={sheet.task} summary={d} needs={sheet.task ? taskParts(sheet.task) : undefined} onClose={close} onDone={done} />}
       {sheet?.kind === "parts" && sheet.task && <TaskPartsSheet taskId={sheet.task.id} title={sheet.task.title} rows={taskParts(sheet.task)} onClose={close} onDone={() => done()} />}
       {sheet?.kind === "manual" && <ManualSheet itemId={itemId} onClose={close} onDone={() => done()} />}
-      {sheet?.kind === "task" && <TaskSheet itemId={itemId} task={sheet.task} onClose={close} onDone={done} />}
+      {sheet?.kind === "task" && <TaskSheet itemId={itemId} task={sheet.task} parts={sheet.task ? taskParts(sheet.task) : undefined} onClose={close} onDone={done} />}
     </Section>
   );
 }
@@ -617,7 +617,14 @@ export const GROUPS: [string, string][] = [["before_use", "Before each use"], ["
 export const KINDS: [string, string][] = [["inspect", "Inspect"], ["replace", "Replace"], ["service", "Service"], ["clean", "Clean"],
   ["lubricate", "Lubricate"], ["adjust", "Adjust"]];
 
-export function TaskSheet({ itemId, task, onClose, onDone }: { itemId: number; task?: MaintTask; onClose: () => void; onDone: (d?: MaintenanceSummary) => void }) {
+export function TaskSheet({ itemId, task, parts, onClose, onDone }: {
+  itemId: number; task?: MaintTask;
+  /** The task's current parts (with readiness), to edit them in the same form. */
+  parts?: ReadinessLine[];
+  onClose: () => void; onDone: (d?: MaintenanceSummary) => void;
+}) {
+  const [partList, setPartList] = useState<PartRow[]>(partRows(parts || task?.parts || []));
+  const partsChanged = JSON.stringify(partsBody(partList)) !== JSON.stringify(partsBody(partRows(parts || task?.parts || [])));
   const [f, setF] = useState({
     title: task?.title || "",
     instructions: task?.instructions || "",
@@ -645,13 +652,21 @@ export function TaskSheet({ itemId, task, onClose, onDone }: { itemId: number; t
     };
     if (task) {
       if (f.next_due_on !== (task.next_due_on || "")) body.next_due_on = f.next_due_on || null;
-      const r = await run(() => api.patch(`maintenance-tasks/${task.id}`, body), "Task saved");
+      const r = await run(async () => {
+        await api.patch(`maintenance-tasks/${task.id}`, body);
+        if (partsChanged) await api.put(`maintenance-tasks/${task.id}/parts`, partsBody(partList));
+        return true;
+      }, "Task saved");
       if (r) onDone();
     } else {
       if (f.next_due_on) body.first_due_on = f.next_due_on;
       if (f.last_done_on) body.last_done_on = f.last_done_on;
       if (f.last_done_hours) body.last_done_hours = Number(f.last_done_hours);
-      const r = await run(() => api.post(`items/${itemId}/maintenance-tasks`, body), "Task added");
+      const r = await run(async () => {
+        const t = await api.post<MaintTask>(`items/${itemId}/maintenance-tasks`, body);
+        if (partList.length) await api.put(`maintenance-tasks/${t.id}/parts`, partsBody(partList));
+        return t;
+      }, "Task added");
       if (r) onDone();
     }
   };
@@ -679,6 +694,8 @@ export function TaskSheet({ itemId, task, onClose, onDone }: { itemId: number; t
         </div>
         <label className="field">Instructions<textarea rows={3} value={f.instructions} onChange={set("instructions")} placeholder="Oil type, torque, steps…" /></label>
         {task?.source === "manual" && <p className="muted" style={{ margin: 0 }}>From {task.source_ref}. Your changes are kept if the manual is read again.</p>}
+        <b>Parts and consumables it uses</b>
+        <TaskPartsEditor list={partList} setList={setPartList} />
         <button className="btn primary block" disabled={busy}>Save</button>
         {task && <button type="button" className="btn block" disabled={busy} onClick={remove}>Remove task</button>}
       </form>

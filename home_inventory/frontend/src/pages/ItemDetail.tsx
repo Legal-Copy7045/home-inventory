@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowRightLeft, Camera, ChevronLeft, ChevronRight, Hand, FileText, Handshake, Home, Map as MapIcon, Minus, Pencil, Plus, Sparkles, Star, Trash2, Undo2 } from "lucide-react";
+import { ArrowRightLeft, Camera, Check, ChevronLeft, ChevronRight, Hand, FileText, Handshake, Home, Map as MapIcon, Minus, Pencil, Plus, Sparkles, Star, Trash2, Undo2 } from "lucide-react";
 import { api, uploadPhoto, url, type HistoryEvent, type Item, type ItemStatus, STATUS_LABELS } from "../api";
 import { neighbours } from "../browse";
-import { PutAwayButtons, takeItem } from "../components/TakeAway";
+import { takeItem } from "../components/TakeAway";
 import { ItemFields, applyLinkDetails, toPayload, type ItemFormValue } from "../components/ItemFields";
 import { LinkImport } from "../components/LinkImport";
 import { PlacementPicker, type PlacementValue } from "../components/PlacementPicker";
@@ -106,7 +106,6 @@ export default function ItemDetail() {
   const { busy, run } = useAction();
   const toast = useToast();
   const [putPick, setPutPick] = useState(false);
-  const [putPlace, setPutPlace] = useState<PlacementValue | null>(null);
 
   if (item.error && !item.data) return <ErrorBox error={item.error} retry={item.reload} />;
   if (item.loading && !item.data) return <Spinner />;
@@ -140,12 +139,32 @@ export default function ItemDetail() {
   return (
     <div className="page">
       <ItemSteps id={it.id} />
-      {putPick && <PlacementPicker title={`Put ${it.display_name} away in…`} onClose={() => setPutPick(false)} onPick={(p) => { setPutPick(false); setPutPlace(p); }} />}
-      {putPlace && (
-        <Sheet title={`Put away in ${putPlace.label}`} onClose={() => setPutPlace(null)}>
-          <PutAwayButtons item={it} place={putPlace} onDone={(m) => { toast(m); setPutPlace(null); refresh(); }} />
-        </Sheet>
-      )}
+      {putPick && (() => {
+        // Put away returns it to where it came from: its usual place if it was
+        // moved just for now, otherwise its own place.  Anywhere else is a Move.
+        const home = it.home_placement || it.placement;
+        const cid = home?.container?.id ?? null;
+        const lid = cid ? null : home?.location?.id ?? null;
+        return (
+          <Sheet title={`Put ${it.display_name} away`} onClose={() => setPutPick(false)}>
+            {cid || lid ? (
+              <div className="stack">
+                <p style={{ marginTop: 0 }}>It lives in <b>{home.path}</b>.</p>
+                <button className="btn primary big block" onClick={async () => {
+                  setPutPick(false);
+                  await act(() => api.post(`items/${it.id}/put-away`, { container_id: cid, location_id: lid, mode: "auto" }), `Put back in ${home.path}`);
+                }}><Check size={20} /> Put it back there</button>
+                <button className="btn block" onClick={() => { setPutPick(false); setSheet("move"); }}><ArrowRightLeft size={18} /> It's going somewhere else: Move</button>
+              </div>
+            ) : (
+              <div className="stack">
+                <p style={{ marginTop: 0 }}>No place is recorded for it yet. Use <b>Move</b> to give it one.</p>
+                <button className="btn primary block" onClick={() => { setPutPick(false); setSheet("move"); }}><ArrowRightLeft size={18} /> Move</button>
+              </div>
+            )}
+          </Sheet>
+        );
+      })()}
       {it.needs_details && !it.deleted_at && (
         <div className="notice row between">
           <span>Added with Quick photos — details still to add{it.capture?.suggestion ? `. AI thinks it's: ${it.capture.suggestion.name}` : ""}.</span>
