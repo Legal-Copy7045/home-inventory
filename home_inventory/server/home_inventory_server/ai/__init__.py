@@ -517,6 +517,55 @@ class AIService:
                     "confidence": conf}
         return res
 
+    def read_checklist(self, image: bytes, expected: list[dict[str, Any]]) -> AIResult:
+        """The ticks and handwriting on a photographed page of a printed box
+        contents checklist (a suggestion: a person reviews it)."""
+        listing = "\n".join(f"row {r['row']}: record {r['item_id']}, {r['name'][:80]} (qty {r['quantity']})"
+                             for r in expected[:300])
+        prompt = (
+            "The photo is one page of a printed contents checklist for a storage box, filled in by hand. Each row is "
+            "numbered and shows an item's record number. For every row on THIS page, read which box is ticked or "
+            "crossed: \"Back here\" -> back, \"Move to\" -> move (copy the handwritten place into move_to), "
+            "\"Dispose\" -> dispose, \"Missing\" -> missing; nothing ticked -> none. If a number is written in "
+            "\"Qty now\", give it as quantity, else null. Copy any other handwriting on the row into note. Read the "
+            "row number and record number printed on the page; never guess a row you can't see. Under \"Also found in "
+            "this box\", copy each handwritten line into extras. confidence 0..1 per row (lower if a mark is unclear). "
+            "Return JSON only.\nRows printed on the checklist:\n" + listing
+        )
+        schema = {"type": "object", "properties": {
+            "rows": {"type": "array", "items": {"type": "object", "properties": {
+                "row": {"type": ["integer", "null"]}, "item_id": {"type": ["integer", "null"]},
+                "action": {"type": "string", "enum": ["back", "move", "dispose", "missing", "none"]},
+                "move_to": {"type": ["string", "null"]}, "quantity": {"type": ["integer", "null"]},
+                "note": {"type": ["string", "null"]}, "confidence": {"type": "number"}},
+                "required": ["row", "item_id", "action", "move_to", "quantity", "note", "confidence"],
+                "additionalProperties": False}},
+            "extras": {"type": "array", "items": {"type": "string"}}},
+            "required": ["rows", "extras"], "additionalProperties": False}
+        res = self._call(prompt, schema, image, timeout=max(self.settings.ai_timeout, 120))
+        d = res.data if isinstance(res.data, dict) else {}
+        clean = []
+        for r in (d.get("rows") or [])[:300]:
+            if not isinstance(r, dict):
+                continue
+
+            def num(v: Any) -> int | None:
+                try:
+                    return int(v) if v is not None and str(v).strip() != "" else None
+                except (TypeError, ValueError):
+                    return None
+            try:
+                conf = max(0.0, min(float(r.get("confidence")), 1.0))
+            except (TypeError, ValueError):
+                conf = None
+            clean.append({"row": num(r.get("row")), "item_id": num(r.get("item_id")),
+                          "action": r.get("action") if r.get("action") in ("back", "move", "dispose", "missing") else "none",
+                          "move_to": (str(r.get("move_to") or "").strip()[:200] or None),
+                          "quantity": num(r.get("quantity")), "note": (str(r.get("note") or "").strip()[:300] or None),
+                          "confidence": conf})
+        res.data = {"rows": clean, "extras": [str(e).strip()[:200] for e in (d.get("extras") or []) if str(e).strip()][:30]}
+        return res
+
     def interpret_query(self, query: str) -> AIResult:
         res = self._call(SEARCH_PROMPT.format(query=query[:500]), SEARCH_SCHEMA, None)
         d = res.data
