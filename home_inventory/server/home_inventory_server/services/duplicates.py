@@ -24,7 +24,16 @@ from sqlalchemy.orm import Session
 
 from .. import audit
 from ..auth import Actor
-from ..models import Attachment, Item, Product, ProductSource, ReplenishmentProfile, Setting, ShoppingListItem
+from ..models import (
+    Attachment,
+    AttachmentKind,
+    Item,
+    Product,
+    ProductSource,
+    ReplenishmentProfile,
+    Setting,
+    ShoppingListItem,
+)
 from .scans import _norm, similarity
 
 DISMISSED_KEY = "duplicates_dismissed"
@@ -168,13 +177,34 @@ def find(db: Session, threshold: float = 0.8, limit: int = 100, media=None, data
                 dist = bin(ha ^ hb).count("1")
                 if dist <= 6:
                     add(by_id[pa], by_id[pb], round(0.95 - dist * 0.02, 2), "Photos look the same")
-    return sorted(found.values(), key=lambda d: -d["score"])[:limit]
+    out = sorted(found.values(), key=lambda d: -d["score"])[:limit]
+    for pair in out:  # photos only for the pairs shown
+        for brief in pair["products"]:
+            brief["photos"] = _photos(db, db.get(Product, brief["id"]))
+    return out
+
+
+def _photos(db: Session, p: Product, limit: int = 6) -> list[dict[str, Any]]:
+    """Photos to compare a pair by: each holding's main photo, then the
+    product's own photos."""
+    from .inventory import attachment_out
+
+    ids: list[int] = []
+    for pid in db.scalars(select(Item.primary_photo_id).where(Item.product_id == p.id, Item.deleted_at.is_(None),
+                                                              Item.primary_photo_id.is_not(None)).order_by(Item.id)):
+        if pid not in ids:
+            ids.append(pid)
+    for aid in db.scalars(select(Attachment.id).where(Attachment.product_id == p.id, Attachment.kind == AttachmentKind.photo)
+                          .order_by(Attachment.id)):
+        if aid not in ids:
+            ids.append(aid)
+    return [attachment_out(db.get(Attachment, i)) for i in ids[:limit] if db.get(Attachment, i) is not None]
 
 
 def _brief(p: Product, qty: int) -> dict[str, Any]:
     return {"id": p.id, "name": p.name, "manufacturer": p.manufacturer, "model_number": p.model_number,
             "category": p.category.name if p.category else None, "barcode": p.barcode, "quantity": qty,
-            "needs_details": p.identification_status.value == "pending"}
+            "needs_details": p.identification_status.value == "pending", "photos": []}
 
 
 QUANTITY_MODES = ("separate", "sum", "same")
