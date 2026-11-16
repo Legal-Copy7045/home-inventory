@@ -692,10 +692,33 @@ class SourcePatch(SourceIn):
 
 
 class ShoppingAddIn(_In):
-    product_id: int
+    # Either something already in the inventory (product_id) or something new
+    # typed in by hand (name, plus whatever identifies it).
+    product_id: int | None = None
     quantity: int | None = Field(default=None, ge=1, le=100000)
     source_id: int | None = None
     note: str | None = Field(default=None, max_length=500)
+    name: str | None = Field(default=None, min_length=1, max_length=300)
+    manufacturer: str | None = Field(default=None, max_length=200)
+    model_number: str | None = Field(default=None, max_length=120)
+    sku: str | None = Field(default=None, max_length=120)
+    barcode: str | None = Field(default=None, max_length=64)
+    url: str | None = Field(default=None, max_length=2000)
+
+    _blank = field_validator("name", "manufacturer", "model_number", "sku", "barcode", "url", mode="before")(_blank_to_none)
+
+    @field_validator("url")
+    @classmethod
+    def _http_url(cls, v: str | None) -> str | None:
+        if v is not None and not v.lower().startswith(("http://", "https://")):
+            raise ValueError("The product link must start with http:// or https://")
+        return v
+
+    @model_validator(mode="after")
+    def _check(self):
+        if self.product_id is None and not self.name:
+            raise ValueError("Choose something from your inventory or type what to buy")
+        return self
 
 
 class ShoppingPatch(_In):
@@ -714,4 +737,16 @@ class PurchasedIn(_In):
     quantity: int | None = Field(default=None, ge=1, le=100000)
     unit_price: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     add_to_stock: bool = True
+    # Where the purchase goes: an existing holding (item_id), or a new holding
+    # in a place (container_id or location_id).  Neither: the first holding.
     item_id: int | None = None
+    container_id: int | None = None
+    location_id: int | None = None
+    # A new holding with no place yet (it waits in "To sort").
+    new_holding: bool = False
+
+    @model_validator(mode="after")
+    def _one_target(self):
+        if sum(x is not None for x in (self.item_id, self.container_id, self.location_id)) > 1:
+            raise ValueError("Choose one: a holding to add to, or a place for a new one")
+        return self

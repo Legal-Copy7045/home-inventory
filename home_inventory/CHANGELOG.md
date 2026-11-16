@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.37.0
+
+A shopping list you can shop from, and spark plugs that count. No database changes.
+
+- **What identifies each entry**: maker, part or model number, the shop's product number (ASIN, item number, SKU) and barcode (tap to copy), and a **Product page** link (the shop's page if set, otherwise the item's own link).
+- **Add to the list by hand**: search your inventory, or type something you don't have yet with its maker, part number, shop code, barcode and product page. A barcode you already know adds that item.
+- **Bought puts it away**: confirm the quantity and price, then add it to one of the places you keep it (showing the new total), put it somewhere new (or leave it to sort later), or just record the purchase. Something that wasn't in your inventory becomes an item where you put it.
+- **Use a standard I have…** on an equipment page's parts: when the manual names a specific part (a particular spark plug) that isn't in stock, link it to a standard you keep ("Spark plug") and your stock of it counts.
+- **Possible duplicates**: the button is now **Merge into this one**, so it's clear that's how to merge.
+
 ## 0.36.0
 
 Parts edited where you see them, put-away that defaults to home, merging duplicates with their quantities, and fixes to the menu and the camera. No database changes.

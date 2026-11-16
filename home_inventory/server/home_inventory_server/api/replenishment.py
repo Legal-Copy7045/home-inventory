@@ -116,7 +116,11 @@ def shopping_list(include_closed: bool = Query(False), actor: Actor = Depends(cu
 
 @router.post("/shopping-list", status_code=201)
 def add_to_list(data: ShoppingAddIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
-    _run(repl.add_to_list, db, actor, data.product_id, data.quantity, data.source_id, data.note)
+    product_id = data.product_id
+    if product_id is None:
+        product_id = _run(repl.new_product, db, actor, data.model_dump(include={"name", "manufacturer", "model_number",
+                                                                                "sku", "barcode", "url"})).id
+    _run(repl.add_to_list, db, actor, product_id, data.quantity, data.source_id, data.note)
     db.commit()
     return repl.list_out(db)
 
@@ -148,9 +152,16 @@ def open_at_shop(data: HandoffIn, actor: Actor = Depends(require_member), db: Se
     return out
 
 
+@router.get("/shopping-list/{entry_id}/purchase-options")
+def purchase_options(entry_id: int, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Where a purchase can go: an existing holding, or a new place."""
+    return repl.purchase_options(db, _entry(db, entry_id))
+
+
 @router.post("/shopping-list/{entry_id}/purchased")
 def purchased(entry_id: int, data: PurchasedIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
-    _run(repl.mark_purchased, db, actor, _entry(db, entry_id), data.quantity, data.unit_price, data.add_to_stock, data.item_id)
+    _run(repl.mark_purchased, db, actor, _entry(db, entry_id), data.quantity, data.unit_price, data.add_to_stock, data.item_id,
+         data.container_id, data.location_id, data.new_holding)
     db.commit()
     return repl.list_out(db)
 
