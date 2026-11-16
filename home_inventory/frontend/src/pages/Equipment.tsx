@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { AlertTriangle, BookOpen, Check, ClipboardList, FileText, Gauge, Package, Printer, ShieldCheck, ShoppingCart, Tractor } from "lucide-react";
-import { api, url, type EquipmentProfile, type Item, type MaintenanceSummary, type MaintTask, type ReadinessLine, type ServiceEntry } from "../api";
+import { api, url, type EquipmentProfile, type Item, type MaintenanceSummary, type MaintTask, type PartBrief, type ReadinessLine, type ServiceEntry } from "../api";
 import { EquipmentSection, ServiceSheet, TaskBadge, TaskSheet, dueText } from "./Maintenance";
 import { ManualSheet, ReadyBadge, TaskPartsSheet } from "../components/Parts";
 import { Empty, ErrorBox, Section, Sheet, Spinner, Thumb, fmtDate, money, useAction, useApi, useMe } from "../components/ui";
@@ -132,7 +132,7 @@ export function EquipmentPage() {
   const ov = useApi(() => api.get<Overview>(`equipment/${itemId}`), [itemId, key]);
   const cl = useApi(() => api.get<Checklist>(`equipment/${itemId}/checklist`), [itemId, key]);
   const summary = useApi(() => api.get<MaintenanceSummary>(`items/${itemId}/maintenance`), [itemId, key]);
-  const [sheet, setSheet] = useState<null | { kind: "done" | "edit" | "add" | "parts" | "manual" | "entity" | "pick"; task?: MaintTask & { parts?: ReadinessLine[] } }>(null);
+  const [sheet, setSheet] = useState<null | { kind: "done" | "edit" | "add" | "parts" | "manual" | "entity" | "pick" | "standard"; task?: MaintTask & { parts?: ReadinessLine[] }; part?: PartBrief }>(null);
   const allTasks = (cl.data?.groups || []).flatMap((g) => g.tasks);
   const taskById = (id: number) => allTasks.find((t) => t.id === id);
   const [params, setParams] = useSearchParams();
@@ -296,6 +296,10 @@ export function EquipmentPage() {
                     ))}</div>
                     {where.length > 0 && <div className="s">Kept in: {where.slice(0, 3).join("; ")}</div>}
                     {l.buy && <div className="s" style={{ color: "var(--warn)" }}>Buy: {l.buy.quantity} × {l.buy.name}</div>}
+                    {edit && l.status !== "in_stock" && !l.product.is_generic && (
+                      <div className="s">Only this exact part, or a standard it's linked to, counts as stock.{" "}
+                        <a href="#" onClick={(e) => { e.preventDefault(); setSheet({ kind: "standard", part: l.product }); }}>Use a standard I have…</a></div>
+                    )}
                   </div>
                 </li>
               );
@@ -360,8 +364,39 @@ export function EquipmentPage() {
         </Sheet>
       )}
       {sheet?.kind === "parts" && sheet.task && <TaskPartsSheet taskId={sheet.task.id} title={sheet.task.title} rows={sheet.task.parts || []} onClose={close} onDone={done} />}
+      {sheet?.kind === "standard" && sheet.part && <StandardSheet part={sheet.part} onClose={close} onDone={done} />}
       {sheet?.kind === "manual" && <ManualSheet itemId={itemId} onClose={close} onDone={done} />}
     </div>
+  );
+}
+
+/** Say that a specific part (from the manual, say) meets one of your
+ * standards, so your stock of the standard counts for it. */
+function StandardSheet({ part, onClose, onDone }: { part: PartBrief; onClose: () => void; onDone: () => void }) {
+  const list = useApi(() => api.get<PartBrief[]>("parts/standards"), []);
+  const [q, setQ] = useState("");
+  const { busy, run } = useAction();
+  const pick = async (std: PartBrief) => {
+    if (await run(() => api.post(`products/${part.id}/links`, { target_id: std.id, kind: "meets", status: "confirmed" }),
+      `${part.name} now counts your ${std.name}`)) onDone();
+  };
+  const shown = (list.data || []).filter((s) => !q.trim() || s.name.toLowerCase().includes(q.trim().toLowerCase()));
+  return (
+    <Sheet title="Use a standard I have" onClose={onClose}>
+      <p className="muted" style={{ marginTop: 0 }}>Choose the standard that <b>{part.name}</b> meets. Everything you have of that standard (and any brand linked to it) then counts as stock for this part. Only choose one that really fits: a spark plug's thread, reach and heat range, an oil's grade.</p>
+      <input placeholder="Search your standards" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search your standards" />
+      <ErrorBox error={list.error} />
+      {!list.data ? <Spinner /> : shown.length ? (
+        <ul className="list" style={{ marginTop: 8 }}>
+          {shown.map((s) => (
+            <li key={s.id}><button type="button" className="linkish grow" style={{ textAlign: "left", textDecoration: "none" }} disabled={busy} onClick={() => pick(s)}>
+              <div className="t">{s.name}</div>
+              <div className="s">{Object.entries(s.specs || {}).map(([k, v]) => `${k}: ${v}`).join(" · ") || "No specifications"}</div>
+            </button></li>
+          ))}
+        </ul>
+      ) : <Empty>No standards yet. Mark an item as a standard in its <b>Part details</b> (e.g. "Spark plug, 14 mm, RN9YC").</Empty>}
+    </Sheet>
   );
 }
 
