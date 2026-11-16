@@ -265,3 +265,26 @@ def unlink_equipment_entity(item_id: int, entity_id: str, request: Request, acto
     _ents(ents.unlink, db, actor, item, entity_id)
     db.commit()
     return {"entities": _entities(request, db, item)}
+
+
+class ManualRank(BaseModel):
+    attachment_id: int
+    role: Literal["operator", "engine", "service", "parts", "other"] | None = None
+
+
+class ManualOrderIn(BaseModel):
+    order: list[ManualRank] = Field(min_length=1, max_length=50)
+
+
+@router.put("/equipment/{item_id}/manuals")
+def order_manuals(item_id: int, data: ManualOrderIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Rank the item's manuals (first wins when two disagree) and say what each covers."""
+    from ..services import manuals as man
+
+    item = _get_or_404(db, Item, item_id)
+    try:
+        rows = man.set_manual_order(db, actor, item, [o.model_dump() for o in data.order])
+    except man.ManualError as err:
+        raise HTTPException(422, str(err)) from err
+    db.commit()
+    return {"manuals": [man.manual_out(a, n) for n, a in enumerate(rows, start=1)]}
