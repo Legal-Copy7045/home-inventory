@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.40.0
+
+Engine oil that counts, and photos to compare duplicates. No database changes.
+
+- **"It's something I have…"** on an equipment page's parts: when a job needs a standard (e.g. "Engine oil") and you keep a particular brand (a 5 L bottle of Castrol), choose it and say how much one holds. It then counts as stock for every machine that needs that standard. A part saved from the manual as a specific product can be turned into a standard first. The parts line now says why stock isn't counted.
+- **Possible duplicates shows photos**: each side shows its photos (each holding's main photo and the product's photos). Tap one to see it full size, with arrows or a swipe for the rest.
+
 ## 0.39.0
 
 A printed contents checklist for a box, read back from photos. No database changes.

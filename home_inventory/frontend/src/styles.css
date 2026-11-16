@@ -442,3 +442,5 @@ button.linkish { background: none; border: 0; padding: 0; color: var(--primary);
 .btn.choice small { font-weight: 400; opacity: .85; color: inherit; }
 /* Identifier chips on a shopping list entry: tap to copy. */
 button.badge.copy { border: 0; cursor: copy; font: inherit; font-size: .78rem; }
+/* A bigger thumbnail to compare by eye (possible duplicates). */
+.thumb.md { width: 120px; height: 90px; }
