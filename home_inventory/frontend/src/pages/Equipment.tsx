@@ -132,7 +132,9 @@ export function EquipmentPage() {
   const ov = useApi(() => api.get<Overview>(`equipment/${itemId}`), [itemId, key]);
   const cl = useApi(() => api.get<Checklist>(`equipment/${itemId}/checklist`), [itemId, key]);
   const summary = useApi(() => api.get<MaintenanceSummary>(`items/${itemId}/maintenance`), [itemId, key]);
-  const [sheet, setSheet] = useState<null | { kind: "done" | "edit" | "add" | "parts" | "manual" | "entity"; task?: MaintTask & { parts?: ReadinessLine[] } }>(null);
+  const [sheet, setSheet] = useState<null | { kind: "done" | "edit" | "add" | "parts" | "manual" | "entity" | "pick"; task?: MaintTask & { parts?: ReadinessLine[] } }>(null);
+  const allTasks = (cl.data?.groups || []).flatMap((g) => g.tasks);
+  const taskById = (id: number) => allTasks.find((t) => t.id === id);
   const [params, setParams] = useSearchParams();
   const doAction = params.get("do");
   const quick = (what: "meter" | "service") => setParams({ do: what }, { replace: true });
@@ -247,8 +249,11 @@ export function EquipmentPage() {
                         : "Added by hand"}
                       {t.user_edited && t.source === "manual" ? " · changed by you" : ""}
                     </div>
-                    {t.parts.length > 0 && <div className="s" onClick={(e) => { e.stopPropagation(); if (edit) setSheet({ kind: "parts", task: t }); }}>
-                      Needs: {t.parts.map((l) => `${l.product.name} ×${l.quantity}${l.unit ? ` ${l.unit}` : ""}`).join(", ")}</div>}
+                    {t.parts.length > 0 ? <div className="s" onClick={(e) => { e.stopPropagation(); if (edit) setSheet({ kind: "parts", task: t }); }} style={{ cursor: edit ? "pointer" : undefined }}>
+                      Needs: {t.parts.map((l) => `${l.product.name} ×${l.quantity}${l.unit ? ` ${l.unit}` : ""}`).join(", ")}{edit && <span className="linkish"> · edit</span>}</div>
+                      : edit && !t.not_applicable && t.task_kind !== "inspect" && (
+                        <button className="btn small ghost" style={{ marginTop: 4 }} onClick={(e) => { e.stopPropagation(); setSheet({ kind: "parts", task: t }); }}>+ Add parts</button>
+                      )}
                     {t.review_status === "needs_review" && t.manual_values && (
                       <div className="notice" style={{ marginTop: 6 }} onClick={(e) => e.stopPropagation()}>
                         The manual now says {[t.manual_values.interval_hours && `every ${t.manual_values.interval_hours} h`, t.manual_values.interval_days && `every ${t.manual_values.interval_days} days`].filter(Boolean).join(" or ") || "something different"}; you have {[t.interval_hours && `every ${t.interval_hours} h`, t.interval_days && `every ${t.interval_days} days`].filter(Boolean).join(" or ") || "no interval"}.
@@ -272,7 +277,12 @@ export function EquipmentPage() {
       </Section>
 
       {/* Parts and consumables */}
-      <Section title="Parts and consumables" action={edit && toBuy.some((l) => l.buy) && <button className="btn small" onClick={addToList}><ShoppingCart size={16} /> Add {toBuy.length} to shopping list</button>}>
+      <Section title="Parts and consumables" action={edit && (
+        <div className="row" style={{ gap: 6 }}>
+          {toBuy.some((l) => l.buy) && <button className="btn small" onClick={addToList}><ShoppingCart size={16} /> Add {toBuy.length} to list</button>}
+          <button className="btn small" onClick={() => setSheet({ kind: "pick" })}>Edit</button>
+        </div>
+      )}>
         {!o.parts.length ? <Empty>No parts linked to its tasks yet. Reading the manual links them, or tap a task's parts.</Empty> : (
           <ul className="list">
             {o.parts.map((l) => {
@@ -281,7 +291,9 @@ export function EquipmentPage() {
                 <li key={l.key}>
                   <div className="grow">
                     <div className="t">{l.product.name} <ReadyBadge status={l.status} />{l.needed_soon && <span className="badge">needed soon</span>}</div>
-                    <div className="s">{l.quantity}{l.unit ? ` ${l.unit}` : ""} per service · for {l.tasks.map((t) => t.title).join(", ")}</div>
+                    <div className="s">{l.quantity}{l.unit ? ` ${l.unit}` : ""} per service · for {l.tasks.map((t, n) => (
+                      <span key={t.id}>{n ? ", " : ""}{edit ? <a href="#" onClick={(e) => { e.preventDefault(); const task = taskById(t.id); if (task) setSheet({ kind: "parts", task }); }}>{t.title}</a> : t.title}</span>
+                    ))}</div>
                     {where.length > 0 && <div className="s">Kept in: {where.slice(0, 3).join("; ")}</div>}
                     {l.buy && <div className="s" style={{ color: "var(--warn)" }}>Buy: {l.buy.quantity} × {l.buy.name}</div>}
                   </div>
@@ -332,7 +344,21 @@ export function EquipmentPage() {
       {sheet?.kind === "done" && sheet.task && summary.data && (
         <ServiceSheet itemId={itemId} task={sheet.task} summary={summary.data} needs={sheet.task.parts} onClose={close} onDone={done} />
       )}
-      {(sheet?.kind === "edit" || sheet?.kind === "add") && <TaskSheet itemId={itemId} task={sheet.kind === "edit" ? sheet.task : undefined} onClose={close} onDone={done} />}
+      {(sheet?.kind === "edit" || sheet?.kind === "add") && <TaskSheet itemId={itemId} task={sheet.kind === "edit" ? sheet.task : undefined} parts={sheet.kind === "edit" ? sheet.task?.parts : undefined} onClose={close} onDone={done} />}
+      {sheet?.kind === "pick" && (
+        <Sheet title="Which task's parts?" onClose={close}>
+          <p className="muted" style={{ marginTop: 0 }}>Parts belong to the job that uses them. Choose a task to add, change or remove its parts and consumables.</p>
+          <ul className="list">
+            {allTasks.filter((t) => !t.not_applicable).map((t) => (
+              <li key={t.id} onClick={() => setSheet({ kind: "parts", task: t })} style={{ cursor: "pointer" }}>
+                <div className="grow"><div className="t">{t.title}</div>
+                  <div className="s">{t.parts.length ? t.parts.map((l) => l.product.name).join(", ") : "No parts yet"}</div></div>
+              </li>
+            ))}
+          </ul>
+          <button className="btn block" onClick={() => setSheet({ kind: "add" })}>Add a task with its parts</button>
+        </Sheet>
+      )}
       {sheet?.kind === "parts" && sheet.task && <TaskPartsSheet taskId={sheet.task.id} title={sheet.task.title} rows={sheet.task.parts || []} onClose={close} onDone={done} />}
       {sheet?.kind === "manual" && <ManualSheet itemId={itemId} onClose={close} onDone={done} />}
     </div>

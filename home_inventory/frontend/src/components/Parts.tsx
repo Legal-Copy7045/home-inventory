@@ -83,7 +83,7 @@ function PartPicker({ onPick }: { onPick: (p: PartBrief) => void }) {
   };
   return (
     <div className="stack" style={{ gap: 6 }}>
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search parts, part numbers or standards (e.g. 10W-30)" />
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Add a part or consumable: search your parts, part numbers or standards (e.g. 10W-30)" aria-label="Add a part or consumable" />
       {found.length > 0 && (
         <ul className="list">
           {found.map((p) => (
@@ -121,39 +121,52 @@ function PartPicker({ onPick }: { onPick: (p: PartBrief) => void }) {
 
 // ---------------------------------------------------------------- a task's parts
 
-interface PartRow { product: PartBrief; quantity: string; unit: string; allow_equivalent: boolean; note: string }
+export interface PartRow { product: PartBrief; quantity: string; unit: string; allow_equivalent: boolean; note: string }
+
+export function partRows(rows: ReadinessLine[]): PartRow[] {
+  return rows.map((r) => ({ product: r.product, quantity: String(r.quantity), unit: r.unit || "", allow_equivalent: r.allow_equivalent ?? true, note: r.note || "" }));
+}
+
+export function partsBody(list: PartRow[]) {
+  return { parts: list.map((r) => ({ product_id: r.product.id, quantity: Number(r.quantity) || 1, unit: r.unit || null, allow_equivalent: r.allow_equivalent, note: r.note || null, role: r.note || null })) };
+}
+
+/** The parts and consumables one task uses, edited in place (inside a task form or its own sheet). */
+export function TaskPartsEditor({ list, setList }: { list: PartRow[]; setList: (l: PartRow[]) => void }) {
+  const set = (i: number, patch: Partial<PartRow>) => setList(list.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  return (
+    <div className="stack" style={{ gap: 8 }}>
+      {list.map((r, i) => (
+        <div key={r.product.id} className="notice stack" style={{ gap: 6 }}>
+          <div className="row between"><b>{partName(r.product)} {r.product.is_generic && <span className="badge blue">Standard</span>}</b>
+            <button type="button" className="iconbtn" aria-label={`Remove ${r.product.name}`} onClick={() => setList(list.filter((_, j) => j !== i))}><Trash2 size={18} /></button></div>
+          <div className="grid two">
+            <label className="field">Amount<input type="number" inputMode="decimal" step="0.01" min={0.01} value={r.quantity} onChange={(e) => set(i, { quantity: e.target.value })} /></label>
+            <label className="field">Unit<input value={r.unit} onChange={(e) => set(i, { unit: e.target.value })} placeholder="L, ml, g… or empty" /></label>
+          </div>
+          <label className="field">What it's for<input value={r.note} onChange={(e) => set(i, { note: e.target.value })} placeholder="Engine oil, spark plug…" /></label>
+          {!r.product.is_generic && (
+            <label className="row"><input type="checkbox" checked={r.allow_equivalent} onChange={(e) => set(i, { allow_equivalent: e.target.checked })} />
+              Or an equivalent (anything meeting the same standard, or its replacement part)</label>
+          )}
+        </div>
+      ))}
+      <PartPicker onPick={(p) => !list.some((x) => x.product.id === p.id) && setList([...list, { product: p, quantity: "1", unit: p.content_unit || "", allow_equivalent: true, note: "" }])} />
+    </div>
+  );
+}
 
 export function TaskPartsSheet({ taskId, title, rows, onClose, onDone }: { taskId: number; title: string; rows: ReadinessLine[]; onClose: () => void; onDone: () => void }) {
-  const [list, setList] = useState<PartRow[]>(rows.map((r) => ({
-    product: r.product, quantity: String(r.quantity), unit: r.unit || "", allow_equivalent: r.allow_equivalent ?? true, note: r.note || "",
-  })));
+  const [list, setList] = useState<PartRow[]>(partRows(rows));
   const { busy, run } = useAction();
-  const set = (i: number, patch: Partial<PartRow>) => setList(list.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const save = async () => {
-    const body = { parts: list.map((r) => ({ product_id: r.product.id, quantity: Number(r.quantity) || 1, unit: r.unit || null, allow_equivalent: r.allow_equivalent, note: r.note || null, role: r.note || null })) };
-    if (await run(() => api.put(`maintenance-tasks/${taskId}/parts`, body), "Parts saved")) onDone();
+    if (await run(() => api.put(`maintenance-tasks/${taskId}/parts`, partsBody(list)), "Parts saved")) onDone();
   };
   return (
     <Sheet title={`Parts for ${title}`} onClose={onClose}>
       <div className="stack">
         <p className="muted" style={{ margin: 0 }}>What this service uses each time. A <b>standard</b> (e.g. 10W-30 oil) accepts any brand that meets it. Leave the unit empty to count pieces.</p>
-        {list.map((r, i) => (
-          <div key={r.product.id} className="notice stack" style={{ gap: 6 }}>
-            <div className="row between"><b>{partName(r.product)} {r.product.is_generic && <span className="badge blue">Standard</span>}</b>
-              <button className="iconbtn" aria-label="Remove" onClick={() => setList(list.filter((_, j) => j !== i))}><Trash2 size={18} /></button></div>
-            <div className="grid two">
-              <label className="field">Amount<input type="number" inputMode="decimal" step="0.01" min={0.01} value={r.quantity} onChange={(e) => set(i, { quantity: e.target.value })} /></label>
-              <label className="field">Unit<input value={r.unit} onChange={(e) => set(i, { unit: e.target.value })} placeholder="L, ml, g… or empty" /></label>
-            </div>
-            <label className="field">What it's for<input value={r.note} onChange={(e) => set(i, { note: e.target.value })} placeholder="Engine oil, spark plug…" /></label>
-            {!r.product.is_generic && (
-              <label className="row"><input type="checkbox" checked={r.allow_equivalent} onChange={(e) => set(i, { allow_equivalent: e.target.checked })} />
-                Or an equivalent (anything meeting the same standard, or its replacement part)</label>
-            )}
-          </div>
-        ))}
-        <b>Add a part</b>
-        <PartPicker onPick={(p) => !list.some((x) => x.product.id === p.id) && setList([...list, { product: p, quantity: "1", unit: p.content_unit || "", allow_equivalent: true, note: "" }])} />
+        <TaskPartsEditor list={list} setList={setList} />
         <button className="btn primary block" disabled={busy} onClick={save}>Save</button>
       </div>
     </Sheet>

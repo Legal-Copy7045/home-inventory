@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import date, timedelta
+from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response
@@ -886,6 +887,10 @@ def product_duplicates(request: Request, actor: Actor = Depends(require_member),
 
 class MergeIn(BaseModel):
     other_id: int
+    # What to do with records of both kept in the same place: keep them
+    # separate, add the quantities together, or treat them as the same thing
+    # recorded twice (keep the larger quantity).
+    quantities: Literal["separate", "sum", "same"] = "separate"
 
 
 @router.post("/products/{product_id}/merge")
@@ -896,7 +901,7 @@ def merge_products(product_id: int, data: MergeIn, actor: Actor = Depends(requir
     if keep is None or other is None:
         raise HTTPException(404, "Product not found")
     try:
-        res = dup_svc.merge(db, actor, keep, other)
+        res = dup_svc.merge(db, actor, keep, other, data.quantities)
     except dup_svc.MergeError as err:
         raise HTTPException(409, str(err)) from err
     db.commit()

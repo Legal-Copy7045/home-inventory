@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.36.0
+
+Parts edited where you see them, put-away that defaults to home, merging duplicates with their quantities, and fixes to the menu and the camera. No database changes.
+
+- **Parts and consumables, edited in place.** On an equipment page, **Parts and consumables → Edit** (or a task's name under a part) changes what a task uses without leaving the page. On the checklist, a task's **Needs: …** line opens the editor, and tasks with no parts have **+ Add parts**. Adding or editing a task now includes **Parts and consumables it uses** on the same form: search your parts, part numbers or standards (e.g. 10W-30).
+- **Put away goes back home.** **Put away** on an item shows where it lives and **Put it back there** returns it. Somewhere else is a **Move**.
+- **Merging duplicates asks about quantities.** Where both were kept in the same place, choose **Add them together** (2 + 3 = one record of 5), **It's the same thing recorded twice** (one record, the larger count) or **Keep the records separate**. Records in different places, or that something else depends on (lent, in use, equipment, tagged, in a kit, linked, a customer's), are never combined.
+- **Photos when selecting items**: tap a photo in select mode to see it full size (the delete confirmation shows them too).
+- Fixed: menu sections didn't always open or close, because the section with the current page couldn't be closed. Every section now folds and unfolds, and going to a page opens its section.
+- Fixed: on **Quick photos** the shutter button was partly hidden behind the bottom bar on phones. It now sits below the camera view, always visible.
+
 ## 0.35.1
 
 - **Alexa skill: the interaction model now builds.** The Alexa console refused it ("Slot "item" … cannot reference more than one slot type"): a slot name must have one type across the whole skill, and `item` and `equipment` had two. Now `item`, `equipment` and `task` are free-text search slots (any name you've added is understood, not just the examples), and the thing you moved is a separate `thing` slot (Alexa doesn't allow a search slot alongside another slot in one phrase); the forwarder passes it to Home Assistant as before. "When did I last change the oil in the mower?" is one free-text phrase that the App splits into the job and the machine. **Update the Alexa skill**: paste the new interaction model and the new forwarder code. Nothing else changes.
