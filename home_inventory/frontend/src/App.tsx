@@ -25,6 +25,7 @@ loaders.push(() => import("./components/Scanner").then((m) => m.loadZxing()).the
 const AddItem = page(() => import("./pages/AddItem"), "default");
 const ContainersPage = page(() => import("./pages/Containers"), "ContainersPage");
 const ContainerDetail = page(() => import("./pages/Containers"), "ContainerDetail");
+const ContainerChecklist = page(() => import("./pages/ContainerChecklist"), "ContainerChecklist");
 const ItemDetail = page(() => import("./pages/ItemDetail"), "default");
 const MapsPage = page(() => import("./pages/Maps"), "MapsPage");
 const MapView = page(() => import("./pages/Maps"), "MapView");
@@ -108,7 +109,7 @@ const NAV_GROUPS: { title: string | null; items: NavEntry[] }[] = [
 
 const TITLES: [RegExp, string][] = [
   [/^\/$/, "Home Inventory"], [/^\/search/, "Search"], [/^\/add/, "Add item"], [/^\/scan/, "Scan"], [/^\/items\/\d+/, "Item"], [/^\/items/, "Items"],
-  [/^\/containers\/\d+/, "Container"], [/^\/containers/, "Containers"], [/^\/locations/, "Locations"], [/^\/maps/, "Visual maps"], [/^\/labels/, "Labels"],
+  [/^\/containers\/\d+\/checklist/, "Printed checklist"], [/^\/containers\/\d+/, "Container"], [/^\/containers/, "Containers"], [/^\/locations/, "Locations"], [/^\/maps/, "Visual maps"], [/^\/labels/, "Labels"],
   [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/sort/, "To sort"], [/^\/deleted/, "Recently deleted"], [/^\/report(?!s)/, "Inventory report"], [/^\/duplicates/, "Possible duplicates"], [/^\/maintenance\/reports/, "Maintenance reports"], [/^\/maintenance/, "Maintenance"], [/^\/kits\/\d+/, "Kit"], [/^\/tags/, "NFC tags"], [/^\/shopping/, "Restock & shopping"], [/^\/tag\//, "Tag"], [/^\/kits/, "Kits"], [/^\/customers\/\d+/, "Customer"], [/^\/customers/, "Customers"], [/^\/repairs\/\d+\/print/, "Work order"], [/^\/repairs\/\d+/, "Repair job"], [/^\/repairs/, "Repairs"], [/^\/activity/, "Activity"], [/^\/loans/, "Loans & temporary"], [/^\/settings/, "Settings"], [/^\/todo/, "To sort & finish"], [/^\/categories/, "Categories"], [/^\/voice-history/, "Voice history"], [/^\/care/, "Maintenance & repairs"], [/^\/reports\/maintenance-plan/, "Maintenance plan"], [/^\/reports\/season/, "Season mode"], [/^\/put-away/, "Put-away route"], [/^\/verify/, "Check inventory"], [/^\/attention/, "Needs attention"], [/^\/equipment\/\d+/, "Equipment"], [/^\/equipment/, "Equipment"], [/^\/reports/, "Reports"],
 ];
 
@@ -340,6 +341,7 @@ function Shell({ me }: { me: Me }) {
           <Route path="/items/:id" element={<ItemDetail />} />
           <Route path="/containers" element={<ContainersPage />} />
           <Route path="/containers/:id" element={<ContainerDetail />} />
+          <Route path="/containers/:id/checklist" element={<ContainerChecklist />} />
           <Route path="/locations" element={<LocationsPage />} />
           <Route path="/locations/:id" element={<LocationDetailPage />} />
           <Route path="/maps" element={<MapsPage />} />
