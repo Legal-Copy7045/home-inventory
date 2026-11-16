@@ -2,7 +2,7 @@
 // same item records as the rest of the inventory, with their own pages.
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { AlertTriangle, BookOpen, Check, ClipboardList, FileText, Gauge, Package, Printer, ShieldCheck, ShoppingCart, Tractor } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, BookOpen, Check, ClipboardList, FileText, Gauge, Package, Printer, ShieldCheck, ShoppingCart, Tractor } from "lucide-react";
 import { api, url, type EquipmentProfile, type Item, type MaintenanceSummary, type MaintTask, type PartBrief, type ReadinessLine, type ServiceEntry } from "../api";
 import { EquipmentSection, ServiceSheet, TaskBadge, TaskSheet, dueText } from "./Maintenance";
 import { ManualSheet, ReadyBadge, TaskPartsSheet } from "../components/Parts";
@@ -28,7 +28,7 @@ interface Overview {
   meters: { hours: number | null; cycles: number | null };
   summary: { overdue: number; due_soon: number; tasks: number; attention: Attention; next: EquipmentRow["next"] };
   upcoming: MaintTask[]; last_completed: ServiceEntry | null; recent: ServiceEntry[];
-  plan: { state: PlanState; manuals: { id: number; name: string | null; url: string }[]; applied_reading_id: number | null; needs_review: number };
+  plan: { state: PlanState; manuals: ManualFile[]; applied_reading_id: number | null; needs_review: number };
   parts: PartLine[]; costs: { services: number; labor: number; parts: number; total: number };
   warranty: { expires: string; active: boolean; days_left: number } | null; entities: LinkedEntity[];
 }
@@ -201,7 +201,6 @@ export function EquipmentPage() {
       <div className="row wrap" style={{ gap: 6, margin: "12px 0" }}>
         <a className="btn small" href={url(`api/v1/equipment/${itemId}/checklist.pdf`)} target="_blank" rel="noreferrer"><Printer size={16} /> Print checklist</a>
         <a className="btn small ghost" href={url(`api/v1/items/${itemId}/service-history.pdf`)} download>Service history PDF</a>
-        {o.plan.manuals.map((m) => <a key={m.id} className="btn small ghost" href={url(m.url)} target="_blank" rel="noreferrer"><BookOpen size={16} /> {m.name || "Manual"}</a>)}
         <Link className="btn small ghost" to={`/items/${itemId}`}><Package size={16} /> Item record</Link>
       </div>
 
@@ -308,6 +307,8 @@ export function EquipmentPage() {
         )}
       </Section>
 
+      {o.plan.manuals.length > 0 && <ManualsSection itemId={itemId} manuals={o.plan.manuals} edit={edit} onChanged={refresh} />}
+
       {/* Lifecycle, purchase, warranty, costs */}
       <Section title="Details">
         <div className="grid two">
@@ -397,6 +398,55 @@ function StandardSheet({ part, onClose, onDone }: { part: PartBrief; onClose: ()
         </ul>
       ) : <Empty>No standards yet. Mark an item as a standard in its <b>Part details</b> (e.g. "Spark plug, 14 mm, RN9YC").</Empty>}
     </Sheet>
+  );
+}
+
+interface ManualFile { id: number; name: string | null; url: string; role: string | null; role_label: string | null; priority: number | null; position: number }
+
+const MANUAL_ROLES: [string, string][] = [["", "What is it?"], ["operator", "Operator's manual"], ["engine", "Engine manual"],
+  ["service", "Service / shop manual"], ["parts", "Parts list"], ["other", "Other"]];
+
+/** The item's manuals in priority order: when two say different things
+ * about the same job (the operator's manual and the engine manual), the one
+ * higher up wins. */
+function ManualsSection({ itemId, manuals, edit, onChanged }: { itemId: number; manuals: ManualFile[]; edit: boolean; onChanged: () => void }) {
+  const { busy, run } = useAction();
+  const save = async (list: { id: number; role: string | null }[], msg: string) => {
+    if (await run(() => api.put(`equipment/${itemId}/manuals`, { order: list.map((m) => ({ attachment_id: m.id, role: m.role || null })) }), msg)) onChanged();
+  };
+  const rows = manuals.map((m) => ({ id: m.id, role: m.role }));
+  const move = (i: number, d: number) => {
+    const next = [...rows];
+    [next[i], next[i + d]] = [next[i + d], next[i]];
+    save(next, "Order saved");
+  };
+  return (
+    <Section title={manuals.length > 1 ? "Manuals (first one wins)" : "Manual"}>
+      {manuals.length > 1 && <p className="muted" style={{ marginTop: 0 }}>When manuals disagree about a job (say the operator's manual and the engine manual give different oil intervals), the one higher in this list wins. Reading a lower one never overrides it.</p>}
+      <ul className="list">
+        {manuals.map((m, i) => (
+          <li key={m.id} style={{ flexWrap: "wrap" }}>
+            {manuals.length > 1 && <span className="badge">{i + 1}</span>}
+            <div className="grow">
+              <a href={url(m.url)} target="_blank" rel="noreferrer"><BookOpen size={14} style={{ verticalAlign: "-2px" }} /> {m.name || "Manual"}</a>
+              {!edit && m.role_label && <div className="s">{m.role_label}</div>}
+            </div>
+            {edit && (
+              <span className="row" style={{ gap: 6 }}>
+                <select aria-label={`What ${m.name || "this manual"} covers`} value={m.role || ""} disabled={busy}
+                  onChange={(e) => save(rows.map((r) => (r.id === m.id ? { ...r, role: e.target.value || null } : r)), "Saved")}>
+                  {MANUAL_ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+                {manuals.length > 1 && <>
+                  <button className="iconbtn" aria-label={`Move ${m.name || "manual"} up`} disabled={busy || i === 0} onClick={() => move(i, -1)}><ArrowUp size={18} /></button>
+                  <button className="iconbtn" aria-label={`Move ${m.name || "manual"} down`} disabled={busy || i === manuals.length - 1} onClick={() => move(i, 1)}><ArrowDown size={18} /></button>
+                </>}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </Section>
   );
 }
 

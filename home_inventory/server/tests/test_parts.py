@@ -440,3 +440,55 @@ def test_a_manual_part_counts_a_standard_you_keep_once_linked(env):
     assert row()["status"] == "missing"
     u.ok("post", f"/api/v1/products/{named['id']}/links", json={"target_id": std["id"], "kind": "meets", "status": "confirmed"})
     assert row()["status"] == "in_stock" and row()["have"] == 3
+
+
+def _oil_manual(hours):
+    return {"equipment": {"manufacturer": "Honda", "model": "HRX217"}, "parts": [], "specs": [],
+            "services": [{"title": "Change engine oil", "interval_hours": hours, "interval_days": None,
+                          "interval_cycles": None, "first_at_hours": None, "instructions": None, "needs": [], "page": 4}]}
+
+
+def test_several_manuals_rank_and_the_higher_one_wins(tmp_path):
+    fake = FakeProvider()
+    env = Env(tmp_path, ai_provider=fake)
+    u = env.admin
+    mower = u.item("Lawn mower", manufacturer="Honda", model_number="HRX217")
+    u.ok("put", f"/api/v1/items/{mower['id']}/equipment", json={"meter": "hours", "current_hours": 2})
+    op = u.upload(_pdf(["Operator: change oil every 50 hours"]), kind="manual", filename="operator.pdf",
+                  item_id=mower["id"], recognise=False)
+    eng = u.upload(_pdf(["Engine: change oil every 100 hours"]), kind="manual", filename="engine.pdf",
+                   item_id=mower["id"], recognise=False)
+    # Rank: the engine manual wins.  Every manual listed once, roles checked.
+    url = f"/api/v1/equipment/{mower['id']}/manuals"
+    assert u.put(url, json={"order": [{"attachment_id": eng["id"]}]}).status_code == 422
+    assert u.put(url, json={"order": [{"attachment_id": eng["id"], "role": "nope"},
+                                      {"attachment_id": op["id"]}]}).status_code == 422
+    out = u.ok("put", url, json={"order": [{"attachment_id": eng["id"], "role": "engine"},
+                                           {"attachment_id": op["id"], "role": "operator"}]})
+    assert [(m["name"], m["position"], m["role_label"]) for m in out["manuals"]] == [
+        ("engine.pdf", 1, "Engine manual"), ("operator.pdf", 2, "Operator's manual")]
+    plan = u.ok("get", f"/api/v1/equipment/{mower['id']}")["plan"]["manuals"]
+    assert [m["name"] for m in plan] == ["engine.pdf", "operator.pdf"]
+
+    # Read together: the engine manual is read first and its answer is kept;
+    # the operator manual's different interval is noted.
+    fake.responses.extend([_oil_manual(100), _oil_manual(50)])
+    reading = _read(u, mower["id"], [op["id"], eng["id"]])
+    assert "Engine: change oil" in fake.calls[0]["prompt"]
+    [svc] = reading["result"]["services"]
+    assert svc["interval_hours"] == 100 and svc["manual"] == "engine.pdf"
+    assert svc["other_manuals"] == [{"manual": "operator.pdf", "interval_hours": 50, "interval_days": None,
+                                     "interval_cycles": None}]
+
+    # Read separately: a lower-priority manual never overrides the higher one.
+    fake.responses.append(_oil_manual(100))
+    r_eng = _read(u, mower["id"], [eng["id"]])
+    u.ok("post", f"/api/v1/manual-readings/{r_eng['id']}/apply",
+         json={"services": [{"title": "Change engine oil", "interval_hours": 100}]})
+    fake.responses.append(_oil_manual(50))
+    r_op = _read(u, mower["id"], [op["id"]])
+    res = u.ok("post", f"/api/v1/manual-readings/{r_op['id']}/apply",
+               json={"services": [{"title": "Change engine oil", "interval_hours": 50}]})
+    assert res["summary"]["kept_from_higher_manual"] == ["Change engine oil"]
+    tasks = u.ok("get", f"/api/v1/items/{mower['id']}/maintenance")["tasks"]
+    assert [t["interval_hours"] for t in tasks if t["title"] == "Change engine oil"] == [100]
