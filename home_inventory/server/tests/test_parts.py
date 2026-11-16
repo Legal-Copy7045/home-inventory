@@ -492,3 +492,29 @@ def test_several_manuals_rank_and_the_higher_one_wins(tmp_path):
     assert res["summary"]["kept_from_higher_manual"] == ["Change engine oil"]
     tasks = u.ok("get", f"/api/v1/items/{mower['id']}/maintenance")["tasks"]
     assert [t["interval_hours"] for t in tasks if t["title"] == "Change engine oil"] == [100]
+
+
+def test_a_standard_counts_the_oil_you_keep_once_linked_with_its_size(env):
+    """The job needs 1.2 L of the "Engine oil" standard; you keep a 5 L
+    bottle of Castrol.  Linked without a size it's uncertain; with the
+    bottle's size it's in stock."""
+    u = env.admin
+    mower = _equipment(u, "Ride-on mower")
+    std = u.ok("post", "/api/v1/parts/standards", json={"name": "Engine oil", "specs": {}, "unit": "L"})
+    task = _task(u, mower, "Change engine oil", interval_hours=50)
+    _set(u, task, [{"product_id": std["id"], "quantity": 1.2, "unit": "L"}])
+    castrol = u.item("Castrol GTX 10W-30", quantity=1)
+
+    def row():
+        return u.ok("get", f"/api/v1/items/{mower['id']}/parts")["tasks"][str(task["id"])][0]
+
+    assert row()["status"] == "missing"
+    u.ok("post", f"/api/v1/products/{castrol['product_id']}/links",
+         json={"target_id": std["id"], "kind": "meets", "status": "confirmed"})
+    assert row()["status"] == "uncertain"  # a bottle, but how much is in it?
+    _parts(u, castrol["product_id"], content_quantity=5, content_unit="L")
+    assert row()["status"] == "in_stock" and row()["have"] == 5
+
+    # A part saved as specific can be turned into a standard first.
+    named = u.ok("post", "/api/v1/parts/products", json={"name": "Engine oil (manual)"})
+    assert _parts(u, named["id"], is_generic=True)["is_generic"] is True

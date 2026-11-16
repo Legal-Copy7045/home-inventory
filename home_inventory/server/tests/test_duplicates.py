@@ -141,3 +141,16 @@ def test_merge_never_folds_a_record_something_else_refers_to(env):
     res = u.ok("post", f"/api/v1/products/{pa}/merge", json={"other_id": pb, "quantities": "sum"})
     assert res["combined"] == [] and res["kept_apart"][0]["item_id"] == b["id"]
     assert u.ok("get", f"/api/v1/items/{b['id']}")["quantity"] == 1
+
+
+def test_pairs_carry_photos_to_compare(env):
+    u = env.admin
+    shed = u.location("Shed")
+    a = u.item("Garden hose", location_id=shed["id"])
+    u.item("Garden hoses", location_id=shed["id"])
+    att = u.upload(jpeg_bytes(), item_id=a["id"])
+    [pair] = u.ok("get", "/api/v1/products/duplicates")
+    photos = {p["name"]: p["photos"] for p in pair["products"]}
+    assert photos["Garden hoses"] == []
+    assert photos["Garden hose"] and photos["Garden hose"][0]["url"].startswith("api/v1/attachments/")
+    assert [x["id"] for x in photos["Garden hose"]] == [att["id"]]

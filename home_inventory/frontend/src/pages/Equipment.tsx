@@ -1,6 +1,6 @@
 // The Equipment section: things you *manage* (a mower, a generator), on the
 // same item records as the rest of the inventory, with their own pages.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { AlertTriangle, ArrowDown, ArrowUp, BookOpen, Check, ClipboardList, FileText, Gauge, Package, Printer, ShieldCheck, ShoppingCart, Tractor } from "lucide-react";
 import { api, url, type EquipmentProfile, type Item, type MaintenanceSummary, type MaintTask, type PartBrief, type ReadinessLine, type ServiceEntry } from "../api";
@@ -132,7 +132,7 @@ export function EquipmentPage() {
   const ov = useApi(() => api.get<Overview>(`equipment/${itemId}`), [itemId, key]);
   const cl = useApi(() => api.get<Checklist>(`equipment/${itemId}/checklist`), [itemId, key]);
   const summary = useApi(() => api.get<MaintenanceSummary>(`items/${itemId}/maintenance`), [itemId, key]);
-  const [sheet, setSheet] = useState<null | { kind: "done" | "edit" | "add" | "parts" | "manual" | "entity" | "pick" | "standard"; task?: MaintTask & { parts?: ReadinessLine[] }; part?: PartBrief }>(null);
+  const [sheet, setSheet] = useState<null | { kind: "done" | "edit" | "add" | "parts" | "manual" | "entity" | "pick" | "standard" | "meets"; task?: MaintTask & { parts?: ReadinessLine[] }; part?: PartBrief; unit?: string | null }>(null);
   const allTasks = (cl.data?.groups || []).flatMap((g) => g.tasks);
   const taskById = (id: number) => allTasks.find((t) => t.id === id);
   const [params, setParams] = useSearchParams();
@@ -299,6 +299,10 @@ export function EquipmentPage() {
                       <div className="s">Only this exact part, or a standard it's linked to, counts as stock.{" "}
                         <a href="#" onClick={(e) => { e.preventDefault(); setSheet({ kind: "standard", part: l.product }); }}>Use a standard I have…</a></div>
                     )}
+                    {edit && l.status !== "in_stock" && l.product.is_generic && (
+                      <div className="s">{l.status === "uncertain" ? "Some of what you have can't be compared in " + (l.unit || "this unit") + " yet." : "Only things linked to this standard count as stock."}{" "}
+                        <a href="#" onClick={(e) => { e.preventDefault(); setSheet({ kind: "meets", part: l.product, unit: l.unit }); }}>It's something I have…</a></div>
+                    )}
                   </div>
                 </li>
               );
@@ -365,7 +369,9 @@ export function EquipmentPage() {
         </Sheet>
       )}
       {sheet?.kind === "parts" && sheet.task && <TaskPartsSheet taskId={sheet.task.id} title={sheet.task.title} rows={sheet.task.parts || []} onClose={close} onDone={done} />}
-      {sheet?.kind === "standard" && sheet.part && <StandardSheet part={sheet.part} onClose={close} onDone={done} />}
+      {sheet?.kind === "standard" && sheet.part && <StandardSheet part={sheet.part} onClose={close} onDone={done}
+        onGeneric={(p) => { refresh(); setSheet({ kind: "meets", part: p, unit: o?.parts.find((x) => x.product.id === p.id)?.unit ?? null }); }} />}
+      {sheet?.kind === "meets" && sheet.part && <MeetsSheet standard={sheet.part} unit={sheet.unit ?? null} onClose={close} onDone={done} />}
       {sheet?.kind === "manual" && <ManualSheet itemId={itemId} onClose={close} onDone={done} />}
     </div>
   );
@@ -373,7 +379,7 @@ export function EquipmentPage() {
 
 /** Say that a specific part (from the manual, say) meets one of your
  * standards, so your stock of the standard counts for it. */
-function StandardSheet({ part, onClose, onDone }: { part: PartBrief; onClose: () => void; onDone: () => void }) {
+function StandardSheet({ part, onClose, onDone, onGeneric }: { part: PartBrief; onClose: () => void; onDone: () => void; onGeneric: (p: PartBrief) => void }) {
   const list = useApi(() => api.get<PartBrief[]>("parts/standards"), []);
   const [q, setQ] = useState("");
   const { busy, run } = useAction();
@@ -397,6 +403,12 @@ function StandardSheet({ part, onClose, onDone }: { part: PartBrief; onClose: ()
           ))}
         </ul>
       ) : <Empty>No standards yet. Mark an item as a standard in its <b>Part details</b> (e.g. "Spark plug, 14 mm, RN9YC").</Empty>}
+      <div className="notice" style={{ marginTop: 10 }}>
+        Not a particular brand at all (“{part.name}” just means any of the right grade)?{" "}
+        <button type="button" className="linkish" disabled={busy} onClick={async () => {
+          if (await run(() => api.put(`products/${part.id}/parts`, { is_generic: true }), `${part.name} is now a standard`)) onGeneric({ ...part, is_generic: true });
+        }}>Make it a standard and choose what I have</button>
+      </div>
     </Sheet>
   );
 }
@@ -447,6 +459,75 @@ function ManualsSection({ itemId, manuals, edit, onChanged }: { itemId: number; 
         ))}
       </ul>
     </Section>
+  );
+}
+
+const VOLUME_OR_WEIGHT = /^(l|ml|cl|dl|gal|qt|pt|fl ?oz|oz|kg|g|lb)$/i;
+
+/** A standard the job needs (e.g. "Engine oil SAE 10W-30") and something
+ * you actually keep (a bottle of Castrol): say the bottle meets it, and how
+ * much one holds when the job is measured in litres, so your stock counts. */
+function MeetsSheet({ standard, unit, onClose, onDone }: { standard: PartBrief; unit: string | null; onClose: () => void; onDone: () => void }) {
+  const [q, setQ] = useState("");
+  const [found, setFound] = useState<PartBrief[]>([]);
+  const [picked, setPicked] = useState<PartBrief | null>(null);
+  const [size, setSize] = useState("");
+  const [sizeUnit, setSizeUnit] = useState(unit || "");
+  const { busy, run } = useAction();
+  const measured = !!unit && VOLUME_OR_WEIGHT.test(unit);
+  useEffect(() => {
+    if (picked || q.trim().length < 2) { setFound([]); return; }
+    const t = setTimeout(() => api.get<PartBrief[]>("parts/search", { q }).then((r) => setFound(r.filter((p) => !p.is_generic))).catch(() => setFound([])), 250);
+    return () => clearTimeout(t);
+  }, [q, picked]);
+  const pick = (p: PartBrief) => {
+    setPicked(p);
+    setSize(p.content_quantity ? String(p.content_quantity) : "");
+    setSizeUnit(p.content_unit || unit || "");
+  };
+  const save = async () => {
+    if (!picked) return;
+    const ok = await run(async () => {
+      if (measured && size) await api.put(`products/${picked.id}/parts`, { content_quantity: Number(size), content_unit: sizeUnit || unit });
+      return api.post(`products/${picked.id}/links`, { target_id: standard.id, kind: "meets", status: "confirmed" });
+    }, `${picked.name} now counts as ${standard.name}`);
+    if (ok) onDone();
+  };
+  return (
+    <Sheet title="It's something I have" onClose={onClose}>
+      <p className="muted" style={{ marginTop: 0 }}>The job needs <b>{standard.name}</b>, a standard: any brand that meets it will do. Choose what you keep (the bottle or box in your inventory) so it counts as stock for this and every other machine that needs the same standard.</p>
+      {!picked ? (
+        <>
+          <input autoFocus placeholder="Search your inventory, e.g. Castrol or 10W-30" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search your inventory" />
+          {found.length > 0 && (
+            <ul className="list" style={{ marginTop: 8 }}>
+              {found.map((p) => (
+                <li key={p.id}><button type="button" className="linkish grow" style={{ textAlign: "left", textDecoration: "none" }} onClick={() => pick(p)}>
+                  <div className="t">{p.name}</div>
+                  <div className="s">{[p.manufacturer, p.model_number, p.content_quantity ? `${p.content_quantity} ${p.content_unit || ""} each` : null].filter(Boolean).join(" · ") || "In your inventory"}</div>
+                </button></li>
+              ))}
+            </ul>
+          )}
+        </>
+      ) : (
+        <div className="stack">
+          <div className="row between card" style={{ margin: 0 }}>
+            <b>{picked.name}</b>
+            <button type="button" className="btn small ghost" onClick={() => setPicked(null)}>Change</button>
+          </div>
+          {measured && (
+            <div className="grid two">
+              <label className="field">One holds<input type="number" inputMode="decimal" min={0} step="0.001" value={size} onChange={(e) => setSize(e.target.value)} placeholder="5" /></label>
+              <label className="field">Unit<input value={sizeUnit} onChange={(e) => setSizeUnit(e.target.value)} placeholder={unit || "L"} /></label>
+            </div>
+          )}
+          {measured && !size && <p className="muted" style={{ margin: 0 }}>Without how much one holds, the App can't tell whether you have the {unit} the job needs, so it shows "uncertain".</p>}
+          <p className="muted" style={{ margin: 0 }}>Only link it if it really meets the standard (the right grade, the right spec).</p>
+          <button className="btn primary block" disabled={busy} onClick={save}>Count it as {standard.name}</button>
+        </div>
+      )}
+    </Sheet>
   );
 }
 
