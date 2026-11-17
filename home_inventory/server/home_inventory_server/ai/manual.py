@@ -228,19 +228,50 @@ def clean_manual(d: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# Jobs and parts that belong to the engine: for these, an engine manual wins
+# over the equipment's own manual whatever the order (the engine maker knows
+# its oil and plugs); everything else follows the order the manuals are in.
+_ENGINE = re.compile(r"\b(engine|motor)\b|\boil\b|spark|air\s*(filter|cleaner)|fuel\s*filter|valve|carburet|"
+                     r"crankcase|breather|muffler|cooling\s*fins", re.I)
+_NOT_ENGINE = re.compile(r"hydraulic|transmission|transaxle|hydrostatic|gear\s*(box|oil)|\bdeck\b|\bblade|\bbelt|"
+                         r"\btyre|\btire|battery|grease|bar\s*(and|&)\s*chain|chain\s*oil", re.I)
+
+
+def is_engine_job(text: str | None) -> bool:
+    return bool(text) and bool(_ENGINE.search(text)) and not _NOT_ENGINE.search(text)
+
+
+def role_key(role: str | None) -> str:
+    """The same role however a manual words it ("Motor oil" = "Engine oil")."""
+    k = re.sub(r"[^a-z0-9]", "", (role or "").lower())
+    return {"motoroil": "engineoil", "oil": "engineoil", "sparkplugs": "sparkplug", "aircleaner": "airfilter",
+            "aircleanerelement": "airfilter", "airfilterelement": "airfilter"}.get(k, k)
+
+
+def _wins(new_src: dict[str, Any] | None, kept_role: str | None, text: str | None) -> bool:
+    """Does a later (lower-ranked) manual's answer replace the kept one?  Only
+    an engine manual, for an engine job, over a manual that isn't one."""
+    return bool(new_src) and new_src.get("role_key") == "engine" and kept_role != "engine" and is_engine_job(text)
+
+
 def merge(results: list[dict[str, Any]]) -> dict[str, Any]:
-    """Several readings (one per photographed page) as one."""
+    """Several readings (pages, or several manuals) as one.
+
+    Several manuals are tagged ``_manual`` and come highest priority first.
+    The same job (by title) or the same part (by role: "Engine oil", "Oil
+    filter") from a lower-priority manual isn't added again; if it says
+    something different, that's noted on the one kept.  For engine jobs and
+    parts an engine manual wins whatever the order."""
     out: dict[str, Any] = {"equipment": {"manufacturer": None, "model": None, "engine": None, "models_covered": [],
                                          "schedule_varies_by_model": False},
                            "parts": [], "services": [], "specs": []}
     keys: set[str] = set()
     jobs: set[tuple] = set()
-    # Several manuals (tagged ``_manual``, highest priority first): the same
-    # job from a lower-priority manual is not added again; if it says
-    # something different, that's noted on the job that was kept.
     first_by_title: dict[str, dict[str, Any]] = {}
+    part_by_role: dict[str, dict[str, Any]] = {}
     for r in results:
         src = r.get("_manual")
+        alias: dict[str, str] = {}  # this manual's part key -> the key of the part kept for the same role
         for k, v in (r.get("equipment") or {}).items():
             if k == "models_covered":
                 out["equipment"][k] = list(dict.fromkeys([*out["equipment"][k], *(v or [])]))
@@ -249,15 +280,41 @@ def merge(results: list[dict[str, Any]]) -> dict[str, Any]:
             else:
                 out["equipment"][k] = out["equipment"].get(k) or v
         for p in r.get("parts") or []:
+            if src:
+                p = {**p, "manual": src["manual"], "manual_role": src.get("role_key")}
+                rk = role_key(p.get("role") or p.get("name"))
+                kept = part_by_role.get(rk) if rk else None
+                if kept is not None and kept.get("manual") != src["manual"]:
+                    if _wins(src, kept.get("manual_role"), f"{p.get('role') or ''} {p.get('name') or ''}"):
+                        out["parts"][out["parts"].index(kept)] = p
+                        part_by_role[rk] = p
+                        keys.add(p["key"])
+                        for svc in out["services"]:  # earlier jobs now use the engine manual's part
+                            for n in svc.get("needs") or []:
+                                if n.get("key") == kept["key"]:
+                                    n["key"] = p["key"]
+                    else:
+                        alias[p["key"]] = kept["key"]
+                    continue
+                if rk:
+                    part_by_role.setdefault(rk, p)
             if p["key"] not in keys:
                 keys.add(p["key"])
                 out["parts"].append(p)
         for s in r.get("services") or []:
             title = (s["title"] or "").strip().lower()
             if src:
-                s = {**s, "manual": src["manual"]}
+                s = {**s, "manual": src["manual"], "manual_role": src.get("role_key"),
+                     "needs": [{**n, "key": alias.get(n.get("key"), n.get("key"))} for n in s.get("needs") or []]}
                 kept = first_by_title.get(title)
                 if kept is not None and kept.get("manual") != src["manual"]:
+                    if _wins(src, kept.get("manual_role"), s["title"]):
+                        loser = {"manual": kept["manual"], "interval_hours": kept["interval_hours"],
+                                 "interval_days": kept["interval_days"], "interval_cycles": kept["interval_cycles"]}
+                        s = {**s, "other_manuals": [*(kept.get("other_manuals") or []), loser]}
+                        out["services"][out["services"].index(kept)] = s
+                        first_by_title[title] = s
+                        continue
                     said = (s["interval_hours"], s["interval_days"], s["interval_cycles"])
                     if said != (kept["interval_hours"], kept["interval_days"], kept["interval_cycles"]):
                         kept.setdefault("other_manuals", []).append(

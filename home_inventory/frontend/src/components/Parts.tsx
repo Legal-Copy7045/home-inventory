@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, Check, Plus, ShoppingCart, Trash2, X } from "lucide-react";
+import { BookOpen, Check, Pencil, Plus, ShoppingCart, Trash2, X } from "lucide-react";
 import {
   api,
   uploadPhoto,
@@ -9,6 +9,7 @@ import {
   type ManualPart,
   type ManualReading,
   type ManualService,
+  type Fitment,
   type PartBrief,
   type PartDetails,
   type ReadinessLine,
@@ -205,6 +206,18 @@ export function ManualSheet({ itemId, onClose, onDone }: { itemId: number; onClo
   usePoll(!!checking, recognised.reload);
   const [chosen, setChosen] = useState<number[]>([]);
   const [pages, setPages] = useState("");
+  // The equipment's manuals in the order set on its page (first wins; an
+  // engine manual wins engine jobs).
+  const ranked = useApi(() => api.get<{ plan: { manuals: { id: number; position: number; role_label: string | null }[] } }>(`equipment/${itemId}`)
+    .then((e) => e.plan.manuals).catch(() => []), [itemId]);
+  const rank = (id: number) => ranked.data?.find((m) => m.id === id);
+  const [preselected, setPreselected] = useState(false);
+  useEffect(() => {
+    // Every manual, in order, unless something was chosen already.
+    if (preselected || !ranked.data) return;
+    setPreselected(true);
+    if (!chosen.length && ranked.data.length) setChosen(ranked.data.map((m) => m.id));
+  }, [ranked.data]); // eslint-disable-line react-hooks/exhaustive-deps
   const [reading, setReading] = useState<ManualReading | null>(null);
   const { busy, run } = useAction();
   useEffect(() => {
@@ -216,7 +229,9 @@ export function ManualSheet({ itemId, onClose, onDone }: { itemId: number; onClo
   usePoll(reading?.status === "pending", () => {
     if (reading) api.get<ManualReading>(`manual-readings/${reading.id}`).then((r) => r.status !== "pending" && setReading(r)).catch(() => undefined);
   });
-  const files = (item.data?.attachments || []).filter((a) => a.mime_type === "application/pdf" || a.mime_type.startsWith("image/"));
+  const files = (item.data?.attachments || []).filter((a) => a.mime_type === "application/pdf" || a.mime_type.startsWith("image/"))
+    .sort((a, b) => (rank(a.id)?.position ?? 1e6) - (rank(b.id)?.position ?? 1e6) || a.id - b.id);
+  const allManuals = (ranked.data || []).map((m) => m.id);
   const upload = async (list: FileList | null) => {
     for (const file of Array.from(list || [])) {
       const a = await run(() => uploadPhoto(file, { kind: "manual", item_id: itemId }));
@@ -252,7 +267,8 @@ export function ManualSheet({ itemId, onClose, onDone }: { itemId: number; onClo
               <li key={a.id}>
                 <label className="row grow" style={{ gap: 8 }}>
                   <input type="checkbox" checked={chosen.includes(a.id)} onChange={(e) => setChosen(e.target.checked ? [...chosen, a.id] : chosen.filter((x) => x !== a.id))} />
-                  <span className="grow">{a.original_name || a.caption || (a.mime_type === "application/pdf" ? "PDF" : "Photo")} <span className="muted">· {a.kind}</span>
+                  <span className="grow">{rank(a.id) && allManuals.length > 1 && <span className="badge" style={{ marginRight: 6 }}>{rank(a.id)!.position}</span>}
+                    {a.original_name || a.caption || (a.mime_type === "application/pdf" ? "PDF" : "Photo")} <span className="muted">· {rank(a.id)?.role_label || a.kind}</span>
                     {(() => {
                       const r = docType(a.id);
                       if (r?.status === "pending") return <span className="muted"> · AI is checking what it is…</span>;
@@ -267,6 +283,12 @@ export function ManualSheet({ itemId, onClose, onDone }: { itemId: number; onClo
             ))}
             {!files.length && <li className="muted">No manual attached yet.</li>}
           </ul>
+        )}
+        {allManuals.length > 1 && (
+          <div className="row between wrap" style={{ gap: 6 }}>
+            <span className="muted" style={{ fontSize: ".85rem" }}>Read together, in this order: when they disagree, the higher one wins, and an engine manual wins engine jobs (oil, filters, plugs). Change the order on the equipment page.</span>
+            <button type="button" className="btn small" onClick={() => setChosen(allManuals)}>Select all manuals</button>
+          </div>
         )}
         <label className="btn">Add the manual (PDF) or photos of its pages<input type="file" accept="application/pdf,image/*" multiple hidden onChange={(e) => upload(e.target.files)} /></label>
         {reading?.status !== "pending" && (
@@ -452,23 +474,80 @@ function ManualReview({ reading, onClose, onDone, onDiscard }: { reading: Manual
 
 // ---------------------------------------------------------------- what the model takes
 
-export function ModelParts({ data }: { data: ItemParts }) {
+/** What this model takes (shared by every machine of the model). From the
+ * manual or added by hand; edit the role, the part or how much, or remove a
+ * line (a removed one isn't added back by reading the manual again). */
+export function ModelParts({ data, edit, onChanged }: { data: ItemParts; edit?: boolean; onChanged?: () => void }) {
   const rows = data.fitments.filter((f) => f.status !== "rejected");
-  if (!rows.length) return null;
+  const [editing, setEditing] = useState<Fitment | "new" | null>(null);
+  const { busy, run } = useAction();
+  if (!rows.length && !edit) return null;
+  const remove = async (f: Fitment) => {
+    if (await run(() => api.patch(`part-fitments/${f.id}`, { status: "rejected" }), `Removed ${f.role || partName(f.part)}`)) onChanged?.();
+  };
+  // Several lines for the same role (three engine oils from three manuals) stand out.
+  const roleCount = rows.reduce<Record<string, number>>((acc, f) => { const k = (f.role || "").toLowerCase(); acc[k] = (acc[k] || 0) + 1; return acc; }, {});
   return (
     <>
-      <h3 style={{ margin: "16px 0 6px" }}>Parts this model takes</h3>
+      <div className="row between" style={{ margin: "16px 0 6px" }}>
+        <h3 style={{ margin: 0 }}>Parts this model takes</h3>
+        {edit && <button className="btn small" onClick={() => setEditing("new")}><Plus size={16} /> Add</button>}
+      </div>
+      {!rows.length && <p className="muted">Nothing yet. Reading the manual fills this in, or add parts by hand.</p>}
       <ul className="list">
         {rows.map((f) => (
           <li key={f.id}>
-            <div className="grow">
-              <div className="t">{f.role ? <>{f.role}: </> : null}{partName(f.part)} {f.part.is_generic && <span className="badge blue">Any brand</span>}</div>
-              <div className="s">{[amount(f.quantity, f.unit), f.source_ref].filter(Boolean).join(" · ")}</div>
+            <div className="grow" style={{ minWidth: 0 }}>
+              <div className="t" style={{ whiteSpace: "normal" }}>{f.role ? <>{f.role}: </> : null}{partName(f.part)} {f.part.is_generic && <span className="badge blue">Any brand</span>}
+                {f.role && roleCount[f.role.toLowerCase()] > 1 && <span className="badge warn" style={{ marginLeft: 4 }}>{roleCount[f.role.toLowerCase()]} for this role</span>}</div>
+              <div className="s">{[amount(f.quantity, f.unit), f.source === "user" ? "added by you" : f.source_ref].filter(Boolean).join(" · ")}</div>
             </div>
+            {edit && (
+              <span className="row" style={{ gap: 4 }}>
+                <button className="iconbtn" disabled={busy} aria-label={`Edit ${f.role || partName(f.part)}`} onClick={() => setEditing(f)}><Pencil size={18} /></button>
+                <button className="iconbtn" disabled={busy} aria-label={`Remove ${f.role || partName(f.part)}`} onClick={() => remove(f)}><Trash2 size={18} /></button>
+              </span>
+            )}
           </li>
         ))}
       </ul>
+      {editing && <FitmentSheet modelId={data.model.id} f={editing === "new" ? null : editing} onClose={() => setEditing(null)}
+        onDone={() => { setEditing(null); onChanged?.(); }} />}
     </>
+  );
+}
+
+function FitmentSheet({ modelId, f, onClose, onDone }: { modelId: number; f: Fitment | null; onClose: () => void; onDone: () => void }) {
+  const [part, setPart] = useState<PartBrief | null>(f?.part ?? null);
+  const [role, setRole] = useState(f?.role ?? "");
+  const [qty, setQty] = useState(f?.quantity != null ? String(f.quantity) : "");
+  const [unit, setUnit] = useState(f?.unit ?? "");
+  const [swap, setSwap] = useState(!f);
+  const { busy, run } = useAction();
+  const save = async () => {
+    if (!part) return;
+    const body = { part_product_id: part.id, role: role.trim(), quantity: qty === "" ? null : Number(qty), unit: unit.trim() || null };
+    const ok = await run(() => (f ? api.patch(`part-fitments/${f.id}`, body) : api.post(`products/${modelId}/fitments`, body)), "Saved");
+    if (ok) onDone();
+  };
+  return (
+    <Sheet title={f ? `Edit ${f.role || "part"}` : "A part this model takes"} onClose={onClose}>
+      <div className="stack">
+        <label className="field">What it's for<input value={role} onChange={(e) => setRole(e.target.value)} placeholder="Engine oil, Oil filter, Spark plug…" /></label>
+        {part && !swap ? (
+          <div className="row between card" style={{ margin: 0 }}>
+            <span><b>{partName(part)}</b> {part.is_generic && <span className="badge blue">Any brand</span>}</span>
+            <button type="button" className="btn small ghost" onClick={() => setSwap(true)}>Change</button>
+          </div>
+        ) : <PartPicker onPick={(p) => { setPart(p); setSwap(false); if (!role) setRole(p.name); }} />}
+        <div className="grid two">
+          <label className="field">How much<input type="number" inputMode="decimal" min={0} step="0.001" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="2.1" /></label>
+          <label className="field">Unit<input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="L (empty: pieces)" /></label>
+        </div>
+        <p className="muted" style={{ margin: 0 }}>Every machine of this model shares this list. Maintenance tasks keep their own parts (edit those on the task).</p>
+        <button className="btn primary block" disabled={busy || !part} onClick={save}><Check size={18} /> Save</button>
+      </div>
+    </Sheet>
   );
 }
 
@@ -523,17 +602,25 @@ export function PartDetailsSection({ productId, edit, open, setOpen }: { product
   const p = d.data;
   const links = p.links.filter((l) => l.status !== "rejected");
   const meeting = p.linked_from.filter((l) => l.kind === "meets" && l.status !== "rejected");
-  const has = p.is_generic || Object.keys(p.specs).length || p.content_quantity || links.length || meeting.length || p.fits.length;
+  const recognised = Object.entries(p.designation || {}).filter(([k]) => !Object.keys(p.specs).some((s) => s.toLowerCase() === k.toLowerCase()));
+  const has = p.is_generic || Object.keys(p.specs).length || recognised.length || p.content_quantity || links.length || meeting.length || p.fits.length;
   if (!has && !open) return null;
   const rows: [string, ReactNode][] = [];
   if (p.content_quantity) rows.push(["Pack size", amount(p.content_quantity, p.content_unit)]);
   for (const [k, v] of Object.entries(p.specs)) rows.push([k, v]);
+  for (const [k, v] of recognised) rows.push([k, <>{v} <span className="muted" style={{ fontSize: ".8rem" }}>(from the name)</span></>]);
   return (
     <Section title={p.is_generic ? "Standard" : "Part / consumable"} action={edit && <button className="btn small" onClick={() => setOpen(true)}>Edit</button>}>
       {!has && <p className="muted" style={{ margin: 0 }}>Record the pack size and specifications so equipment that needs this can use this stock.</p>}
-      {p.is_generic && <p className="muted" style={{ marginTop: 0 }}>A standard, not a brand: anything confirmed as meeting it counts as stock for it.</p>}
+      {p.is_generic && <p className="muted" style={{ marginTop: 0 }}>A standard, not a brand: anything of the same designation (its Type and grade below) counts as stock for it, whatever the maker, and so does anything confirmed as meeting it.</p>}
       {rows.length > 0 && <dl className="kv">{rows.map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{v}</dd></Fragment>)}</dl>}
       {links.map((l) => <LinkRow key={l.id} l={l} edit={edit} onChanged={d.reload} text={l.kind === "meets" ? <>Meets <b>{l.target.name}</b></> : <>Replaced by <b>{partName(l.target)}</b></>} />)}
+      {p.is_generic && p.designation_matches.length > 0 && (
+        <>
+          <h3 style={{ margin: "12px 0 4px" }}>Counts by designation</h3>
+          {p.designation_matches.map((m) => <DesignationRow key={m.id} standardId={p.id} m={m} edit={edit} onChanged={d.reload} />)}
+        </>
+      )}
       {meeting.length > 0 && <h3 style={{ margin: "12px 0 4px" }}>Brands that meet it</h3>}
       {meeting.map((l) => <LinkRow key={l.id} l={l} edit={edit} onChanged={d.reload} text={<b>{partName(l.product)}</b>} />)}
       {p.fits.length > 0 && (
@@ -541,6 +628,21 @@ export function PartDetailsSection({ productId, edit, open, setOpen }: { product
       )}
       {open && <PartDetailsSheet p={p} onClose={() => setOpen(false)} onDone={() => { setOpen(false); d.reload(); }} />}
     </Section>
+  );
+}
+
+/** A product that counts for a standard by its designation; a person can
+ * say it doesn't meet it after all. */
+function DesignationRow({ standardId, m, edit, onChanged }: { standardId: number; m: PartBrief & { why: string }; edit: boolean; onChanged: () => void }) {
+  const { busy, run } = useAction();
+  const reject = async () => {
+    if (await run(() => api.post(`products/${m.id}/links`, { target_id: standardId, kind: "meets", status: "rejected" }), `${m.name} won't count for this`)) onChanged();
+  };
+  return (
+    <div className="row between wrap" style={{ padding: "6px 0", gap: 6 }}>
+      <span><b>{partName(m)}</b> <span className="badge ok">{m.why}</span></span>
+      {edit && <button className="btn small ghost" disabled={busy} onClick={reject}>Doesn't meet it</button>}
+    </div>
   );
 }
 
@@ -587,7 +689,7 @@ function PartDetailsSheet({ p, onClose, onDone }: { p: PartDetails; onClose: () 
           </div>
         )}
         <b>Specifications</b>
-        <span className="hint" style={{ marginTop: -8 }}>Matching specifications suggest which standards a product meets, for example Viscosity: 10W-30.</span>
+        <span className="hint" style={{ marginTop: -8 }}>What it is: <b>Type</b> (Engine oil, Spark plug, 2-stroke oil, Bar and chain oil, Hydraulic/transmission oil, Grease, Fuel stabiliser) and grade, e.g. <b>Viscosity</b>: 10W-30. Brand doesn't matter: a standard counts anything with the same Type and grade.{Object.keys(p.designation || {}).length ? ` Recognised from the name: ${Object.entries(p.designation).map(([k, v]) => `${k} ${v}`).join(", ")} (set them here to correct it).` : ""}</span>
         {specs.map(([k, v], i) => (
           <div key={i} className="row" style={{ gap: 6 }}>
             <input value={k} onChange={(e) => setSpecs(specs.map((x, j) => (j === i ? [e.target.value, x[1]] : x)))} placeholder="Viscosity" style={{ flex: 1 }} />

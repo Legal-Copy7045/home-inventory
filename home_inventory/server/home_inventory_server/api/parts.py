@@ -78,7 +78,18 @@ class TaskPartsIn(_In):
 
 
 class FitmentPatch(_In):
-    status: Literal["suggested", "confirmed", "rejected"]
+    status: Literal["suggested", "confirmed", "rejected"] | None = None
+    role: str | None = Field(default=None, max_length=80)
+    quantity: Decimal | None = Field(default=None, ge=0, le=100000)
+    unit: str | None = Field(default=None, max_length=10)
+    part_product_id: int | None = None
+
+
+class FitmentIn(_In):
+    part_product_id: int
+    role: str | None = Field(default=None, max_length=80)
+    quantity: Decimal | None = Field(default=None, ge=0, le=100000)
+    unit: str | None = Field(default=None, max_length=10)
 
 
 class ManualReadIn(_In):
@@ -268,7 +279,16 @@ def change_fitment(fitment_id: int, data: FitmentPatch, actor: Actor = Depends(r
     f = db.get(PartFitment, fitment_id)
     if f is None:
         raise HTTPException(404, "Not found")
-    f.status = data.status
+    _run(parts_svc.edit_fitment, db, actor, f, data.model_dump(exclude_unset=True))
+    db.commit()
+    return parts_svc.fitment_out(db, f)
+
+
+@router.post("/products/{product_id}/fitments", status_code=201)
+def add_fitment(product_id: int, data: FitmentIn, actor: Actor = Depends(require_member), db: Session = Depends(get_db)):
+    """Add a part or consumable this model takes, by hand."""
+    f = _run(parts_svc.save_fitment, db, actor, _product(db, product_id), _product(db, data.part_product_id), data.role,
+             data.quantity, data.unit, status="confirmed", source="user")
     db.commit()
     return parts_svc.fitment_out(db, f)
 

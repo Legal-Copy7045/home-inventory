@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.41.0
+
+Consumables by designation, all the manuals read in order, and an editable list of what a model takes. No database changes.
+
+- **Designation, not brand**: the App recognises a consumable's type (engine oil, 2-stroke, bar and chain, hydraulic/transmission, spark plug, grease, stabiliser) and grade (10W-30, SAE 30) from its name; Type and Viscosity specifications set by hand win. A standard counts every product with the same designation as stock, any brand: 10W-30 counts any 10W-30 but never 10W-40, and "Spark plug" counts any spark plug. A named oil from the manual counts other brands of the same type and grade unless the task allows only that product. Filters, blades and belts still fit by part number. **Doesn't meet it** excludes a brand from a standard, and Part details shows what was recognised.
+- **Read all the manuals in order**: **Read the manual** pre-selects every manual of the machine in its set order (**Select all manuals**). An **Engine manual** wins engine jobs and parts (oil, filters, plugs) whatever the order. A part from a manual replaces the same role's part from a lower-ranked manual instead of adding another (no more three engine oils); parts you chose are never replaced.
+- **Parts this model takes** can be edited: change the role, swap the part, change the amount, remove a line (it stays removed when the manual is read again), or add one. Roles listed more than once are flagged.
+
 ## 0.40.0
 
 Engine oil that counts, and photos to compare duplicates. No database changes.
