@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.41.2
+
+Less personal data from the integration. **Update the App and the integration.**
+
+- Voice and automation requests now send the App only the Home Assistant user **id**. The integration no longer looks people up in Home Assistant, so their name and administrator flag aren't sent. The App asks Home Assistant itself (through the Supervisor) who the person is and whether they're an administrator, as it already does for its own pages. Roles and names in the App's history are unchanged.
+- On Home Assistant Container/Core, the App can't ask Home Assistant. There, a person's name and role come from the sidebar page (which still passes them) or the App's configured roles.
+
 ## 0.41.1
 
 Security hardening of the integration. **Update the integration** (the App only changes its version number).
