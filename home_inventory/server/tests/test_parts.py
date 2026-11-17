@@ -64,10 +64,12 @@ def test_mower_and_generator_share_oil_and_plugs(env):
     _set(u, gen_oil, [{"product_id": std["id"], "quantity": 0.6, "unit": "L", "role": "Engine oil"},
                       {"product_id": plug["product_id"], "quantity": 1, "role": "Spark plug"}])
 
-    # Unconfirmed links: Castrol is only "uncertain" stock
+    # Brand doesn't matter for 10W-30: the Castrol counts by its designation
+    # before any link is confirmed.
     r = u.ok("get", "/api/v1/parts/readiness")
     oil_lines = [x for x in r["lines"] if "oil" in x["product"]["name"].lower()]
-    assert all(x["status"] == "uncertain" for x in oil_lines)
+    assert oil_lines and all(x["status"] == "in_stock" for x in oil_lines)
+    assert any("same designation (10W-30)" == s["why"] for x in oil_lines for s in x["sources"])
 
     # Confirm both: the Honda oil and the Castrol meet the standard -> one pooled line
     u.ok("patch", f"/api/v1/product-links/{link['id']}", json={"status": "confirmed"})
@@ -508,13 +510,137 @@ def test_a_standard_counts_the_oil_you_keep_once_linked_with_its_size(env):
     def row():
         return u.ok("get", f"/api/v1/items/{mower['id']}/parts")["tasks"][str(task["id"])][0]
 
-    assert row()["status"] == "missing"
+    # Recognised as engine oil by its name (no link needed), but how much is in it?
+    assert row()["status"] == "uncertain"
     u.ok("post", f"/api/v1/products/{castrol['product_id']}/links",
          json={"target_id": std["id"], "kind": "meets", "status": "confirmed"})
-    assert row()["status"] == "uncertain"  # a bottle, but how much is in it?
+    assert row()["status"] == "uncertain"
     _parts(u, castrol["product_id"], content_quantity=5, content_unit="L")
     assert row()["status"] == "in_stock" and row()["have"] == 5
 
     # A part saved as specific can be turned into a standard first.
     named = u.ok("post", "/api/v1/parts/products", json={"name": "Engine oil (manual)"})
     assert _parts(u, named["id"], is_generic=True)["is_generic"] is True
+
+
+
+def test_consumables_count_by_designation_not_brand(env):
+    """10W-30 is 10W-30 from any maker but never 10W-40; a plain "Spark
+    plug" standard takes any spark plug; filters only by part number."""
+    u = env.admin
+    mower = _equipment(u, "Zero-turn mower")
+    oil30 = u.ok("post", "/api/v1/parts/standards", json={"name": "10W-30 Motor Oil", "specs": {}, "unit": "L"})
+    plug_std = u.ok("post", "/api/v1/parts/standards", json={"name": "Spark plug", "specs": {}})
+    filt_std = u.ok("post", "/api/v1/parts/standards", json={"name": "Oil filter", "specs": {}})
+    kawa = u.ok("post", "/api/v1/parts/products", json={"name": "Kawasaki SAE 10W-40 Engine Oil", "part_number": "99969-6296"})
+    t = _task(u, mower, "Service", interval_hours=100)
+    _set(u, t, [{"product_id": oil30["id"], "quantity": 2, "unit": "L"}, {"product_id": plug_std["id"], "quantity": 2},
+                {"product_id": filt_std["id"], "quantity": 1}, {"product_id": kawa["id"], "quantity": 1, "unit": "L"}])
+    castrol = u.item("Castrol GTX 10W-30 5L", quantity=1)
+    _parts(u, castrol["product_id"], content_quantity=5, content_unit="L")
+    valvoline = u.item("Valvoline 10W-40 engine oil 1L", quantity=2)
+    _parts(u, valvoline["product_id"], content_quantity=1, content_unit="L")
+    u.item("NGK BPR6ES spark plug", quantity=2)
+    u.item("Fram oil filter PH8170", quantity=1)
+
+    rows = {x["product"]["name"]: x for x in u.ok("get", f"/api/v1/items/{mower['id']}/parts")["tasks"][str(t["id"])]}
+    assert rows["10W-30 Motor Oil"]["status"] == "in_stock"
+    assert [s["product"]["name"] for s in rows["10W-30 Motor Oil"]["sources"]] == ["Castrol GTX 10W-30 5L"]  # not the 10W-40
+    assert rows["Spark plug"]["status"] == "in_stock"
+    assert rows["Oil filter"]["status"] == "missing"  # filters fit by part number, never by kind
+    kw = rows["Kawasaki SAE 10W-40 Engine Oil"]
+    assert kw["status"] == "in_stock" and kw["sources"][0]["product"]["name"] == "Valvoline 10W-40 engine oil 1L"
+
+    # A person can say a brand doesn't meet a standard after all.
+    u.ok("post", f"/api/v1/products/{castrol['product_id']}/links",
+         json={"target_id": oil30["id"], "kind": "meets", "status": "rejected"})
+    rows = {x["product"]["name"]: x for x in u.ok("get", f"/api/v1/items/{mower['id']}/parts")["tasks"][str(t["id"])]}
+    assert rows["10W-30 Motor Oil"]["status"] == "missing"
+    # Only the named product counts when another brand isn't allowed.
+    _set(u, t, [{"product_id": kawa["id"], "quantity": 1, "unit": "L", "allow_equivalent": False}])
+    rows = u.ok("get", f"/api/v1/items/{mower['id']}/parts")["tasks"][str(t["id"])]
+    assert rows[0]["status"] == "missing"
+
+
+def _plan(hours, oil_part, blade=False):
+    parts = [{"key": "oil", "role": "Engine oil", "kind": "consumable", "name": oil_part, "manufacturer": None,
+              "part_number": None, "alternatives": [], "specification": None, "quantity": 2, "unit": "L", "page": 3}]
+    services = [{"title": "Change engine oil", "interval_hours": hours, "interval_days": None, "interval_cycles": None,
+                 "first_at_hours": None, "instructions": None, "needs": [{"key": "oil", "quantity": 2, "unit": "L"}],
+                 "page": 3}]
+    if blade:
+        services.append({"title": "Sharpen blades", "interval_hours": 25, "interval_days": None, "interval_cycles": None,
+                         "first_at_hours": None, "instructions": None, "needs": [], "page": 9})
+    return {"equipment": {"manufacturer": "Toro", "model": "Z"}, "parts": parts, "services": services, "specs": []}
+
+
+def _two_manuals(tmp_path):
+    fake = FakeProvider()
+    env = Env(tmp_path, ai_provider=fake)
+    u = env.admin
+    mower = u.item("Zero-turn mower", manufacturer="Toro", model_number="Z")
+    u.ok("put", f"/api/v1/items/{mower['id']}/equipment", json={"meter": "hours", "current_hours": 2})
+    op = u.upload(_pdf(["Operator manual"]), kind="manual", filename="operator.pdf", item_id=mower["id"], recognise=False)
+    eng = u.upload(_pdf(["Engine manual"]), kind="manual", filename="engine.pdf", item_id=mower["id"], recognise=False)
+    # The operator's manual first; the engine manual is marked as one.
+    u.ok("put", f"/api/v1/equipment/{mower['id']}/manuals", json={"order": [
+        {"attachment_id": op["id"], "role": "operator"}, {"attachment_id": eng["id"], "role": "engine"}]})
+    return fake, u, mower, op, eng
+
+
+def test_read_together_the_engine_manual_wins_engine_jobs(tmp_path):
+    fake, u, mower, op, eng = _two_manuals(tmp_path)
+    fake.responses.extend([_plan(50, "10W-30 Motor Oil", blade=True), _plan(100, "Kawasaki SAE 10W-40 Engine Oil")])
+    r = _read(u, mower["id"], [op["id"], eng["id"]])
+    services = {s["title"]: s for s in r["result"]["services"]}
+    oil = services["Change engine oil"]
+    assert oil["interval_hours"] == 100 and oil["manual"] == "engine.pdf"  # engine job: the engine manual, though ranked second
+    assert oil["other_manuals"][0]["manual"] == "operator.pdf" and oil["other_manuals"][0]["interval_hours"] == 50
+    assert services["Sharpen blades"]["manual"] == "operator.pdf"  # not an engine job
+    assert [p["name"] for p in r["result"]["parts"]] == ["Kawasaki SAE 10W-40 Engine Oil"]  # one engine oil, not two
+
+
+def test_read_separately_parts_for_a_role_replace_not_pile_up(tmp_path):
+    fake, u, mower, op, eng = _two_manuals(tmp_path)
+
+    def apply(att, plan, hours):
+        fake.responses.append(plan)
+        r = _read(u, mower["id"], [att["id"]])
+        got = r["result"]["parts"][0]
+        oil = {k: got[k] for k in ("key", "name", "role", "quantity", "unit", "page")}
+        return u.ok("post", f"/api/v1/manual-readings/{r['id']}/apply", json={
+            "parts": [oil], "services": [{"title": "Change engine oil", "interval_hours": hours,
+                                          "needs": [{"key": "oil", "quantity": 2, "unit": "L"}]}]})
+
+    apply(op, _plan(50, "10W-30 Motor Oil"), 50)
+    out = apply(eng, _plan(100, "Kawasaki SAE 10W-40 Engine Oil"), 100)
+    assert out["summary"].get("parts_replaced") == 1
+    takes = u.ok("get", f"/api/v1/products/{mower['product_id']}/parts")["takes"]
+    assert [(f["role"], f["part"]["name"]) for f in takes] == [("Engine oil", "Kawasaki SAE 10W-40 Engine Oil")]
+    tasks = {t["title"]: t for t in u.ok("get", f"/api/v1/items/{mower['id']}/maintenance")["tasks"]}
+    assert tasks["Change engine oil"]["interval_hours"] == 100
+    rows = u.ok("get", f"/api/v1/items/{mower['id']}/parts")["tasks"][str(tasks["Change engine oil"]["id"])]
+    assert [x["product"]["name"] for x in rows] == ["Kawasaki SAE 10W-40 Engine Oil"]
+    # The operator's manual again: the engine manual's oil and interval stay.
+    out = apply(op, _plan(50, "10W-30 Motor Oil"), 50)
+    assert out["summary"]["kept_from_higher_manual"] == ["Change engine oil"]
+    takes = u.ok("get", f"/api/v1/products/{mower['product_id']}/parts")["takes"]
+    assert [f["part"]["name"] for f in takes] == ["Kawasaki SAE 10W-40 Engine Oil"]
+
+
+def test_edit_what_the_model_takes(env):
+    u = env.admin
+    mower = _equipment(u, "Zero-turn mower")
+    filt = u.ok("post", "/api/v1/parts/products", json={"name": "Oil filter", "part_number": "49065-0736"})
+    other = u.ok("post", "/api/v1/parts/products", json={"name": "Oil filter (Toro)", "part_number": "063-8018-00"})
+    f = u.ok("post", f"/api/v1/products/{mower['product_id']}/fitments",
+             json={"part_product_id": filt["id"], "role": "Oil filter", "quantity": 1})
+    g = u.ok("post", f"/api/v1/products/{mower['product_id']}/fitments", json={"part_product_id": other["id"], "role": "Oil filter"})
+    u.ok("patch", f"/api/v1/part-fitments/{g['id']}", json={"status": "rejected"})  # remove the duplicate
+    changed = u.ok("patch", f"/api/v1/part-fitments/{f['id']}", json={"role": "Engine oil filter", "quantity": 2})
+    assert changed["role"] == "Engine oil filter" and changed["quantity"] == 2 and changed["source"] == "user"
+    takes = u.ok("get", f"/api/v1/products/{mower['product_id']}/parts")["takes"]
+    assert [(t["role"], t["part"]["name"]) for t in takes] == [("Engine oil filter", "Oil filter")]
+    swapped = u.ok("patch", f"/api/v1/part-fitments/{f['id']}", json={"part_product_id": other["id"]})
+    assert swapped["part"]["name"] == "Oil filter (Toro)"
+    assert u.patch(f"/api/v1/part-fitments/{f['id']}", json={"part_product_id": mower["product_id"]}).status_code == 422
