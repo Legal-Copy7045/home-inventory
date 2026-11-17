@@ -128,6 +128,7 @@ class HaAdminDirectory:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._cache: dict[str, bool] = {}
+        self._names: dict[str, str] = {}
         self._fetched = 0.0
         self.available: bool | None = None
 
@@ -139,6 +140,13 @@ class HaAdminDirectory:
         if not self.available:
             return None
         return self._cache.get(ha_user_id)
+
+    def name(self, ha_user_id: str) -> str | None:
+        """The person's name in Home Assistant (for requests from the
+        integration, which send only the user id)."""
+        if self.is_admin(ha_user_id) is None and not self.available:
+            return None
+        return self._names.get(ha_user_id)
 
     def _refresh(self) -> None:
         self._fetched = time.monotonic()
@@ -152,6 +160,7 @@ class HaAdminDirectory:
         self._cache = {
             u["id"]: bool(u.get("is_owner")) or "system-admin" in (u.get("group_ids") or []) for u in users
         }
+        self._names = {u["id"]: str(u.get("name") or "")[:120] for u in users if u.get("name")}
         self.available = True
 
 
@@ -185,6 +194,12 @@ def effective_role(user: User, settings: Settings) -> Role:
     if _listed(user, settings.read_only_users):
         return Role.read_only
     return Role(settings.default_role)
+
+
+def unnamed(ha_user_id: str) -> str:
+    """A person the App knows only by their Home Assistant user id (it
+    couldn't ask Home Assistant their name): readable, still distinct."""
+    return f"Home Assistant user {ha_user_id[:6]}"
 
 
 def upsert_user(
@@ -367,13 +382,17 @@ def resolve_actor(request: Request, db: Session) -> Actor:
             raise HTTPException(status_code=401, detail="Invalid Home Assistant user identity")
         if ha_id:
             admin_hdr = _header(request, "X-Remote-User-Is-Admin")
-            user = upsert_user(
-                db,
-                ha_id,
-                _header(request, "X-Remote-User-Name"),
-                _header(request, "X-Remote-User-Display-Name"),
-                None if admin_hdr is None else admin_hdr.lower() in ("1", "true", "yes"),
-            )
+            name = _header(request, "X-Remote-User-Name")
+            if admin_hdr is None:
+                # The integration sends only the user id: ask Home Assistant
+                # (through the Supervisor) who that is and whether they're an
+                # administrator.  Unknown: the stored values stay as they are.
+                directory = state.admin_directory
+                is_admin = directory.is_admin(ha_id)
+                name = name or directory.name(ha_id)
+            else:
+                is_admin = admin_hdr.lower() in ("1", "true", "yes")
+            user = upsert_user(db, ha_id, name, _header(request, "X-Remote-User-Display-Name") or name, is_admin)
         else:
             user = system_user(db, INTEGRATION_USER_ID, "Home Assistant")
 
@@ -392,7 +411,7 @@ def resolve_actor(request: Request, db: Session) -> Actor:
     return Actor(
         user_id=user.id,
         ha_user_id=user.ha_user_id,
-        name=user.display_name or user.username or user.ha_user_id,
+        name=user.display_name or user.username or unnamed(user.ha_user_id),
         role=role,
         channel=channel,
         contextless=contextless,

@@ -325,7 +325,7 @@ async def _search(intent_obj: intent.Intent, query: str) -> list[dict[str, Any]]
     if not entries:
         return None
     client = next(iter(entries.values())).client
-    user = await hass.auth.async_get_user(intent_obj.context.user_id) if intent_obj.context.user_id else None
+    user = intent_obj.context.user_id or None
     r = await client.request("GET", "search", params={"q": query, "limit": 10, "ai": "false"}, user=user)
     return r.get("results") or []
 
@@ -433,7 +433,7 @@ async def _client_user(intent_obj: intent.Intent):
     if not entries:
         return None, None
     client = next(iter(entries.values())).client
-    user = await hass.auth.async_get_user(intent_obj.context.user_id) if intent_obj.context.user_id else None
+    user = intent_obj.context.user_id or None
     return client, user
 
 
@@ -720,7 +720,7 @@ async def _get(intent_obj: intent.Intent, path: str, params: dict[str, Any] | No
     if not entries:
         return None
     client = next(iter(entries.values())).client
-    user = await hass.auth.async_get_user(intent_obj.context.user_id) if intent_obj.context.user_id else None
+    user = intent_obj.context.user_id or None
     return await client.request("GET", path, params=params, user=user)
 
 

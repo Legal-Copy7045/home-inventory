@@ -99,7 +99,9 @@ async def test_services(hass: HomeAssistant, inventory_app, hass_admin_user):
         await hass.services.async_call(DOMAIN, "get_container_contents", {"container": "does-not-exist"}, blocking=True, return_response=True)
     # The HA user who called the action is recorded in the App's history
     hist = inventory_app.ui("GET", f"history?entity_type=item&entity_id={cord_id}")
-    assert hist["events"][0]["user"] == hass_admin_user.name
+    # Only the user id is sent; without Home Assistant access (as here) the App
+    # shows a short label, never the person's details.
+    assert hist["events"][0]["user"] == f"Home Assistant user {hass_admin_user.id[:6]}"
     await hass.services.async_call(DOMAIN, "move_container", {"container": "15", "location": "Shed"}, blocking=True)
     await hass.config_entries.async_unload(entry.entry_id)
     assert not hass.services.has_service(DOMAIN, "search")
