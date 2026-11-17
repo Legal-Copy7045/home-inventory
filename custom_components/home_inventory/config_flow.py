@@ -13,7 +13,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig, SelectSelectorMode
 from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 
-from .api import InventoryAuthError, InventoryClient, InventoryError
+from .api import InventoryAuthError, InventoryClient, InventoryError, InventoryNotLocalError
 from .const import (
     CONF_CUSTOMER_NOTIFY_SERVICE,
     CONF_CUSTOMER_NOTIFY_STATUSES,
@@ -49,6 +49,8 @@ class HomeInventoryConfigFlow(ConfigFlow, domain=DOMAIN):
             await client.stats()
         except InventoryAuthError:
             return "invalid_auth"
+        except InventoryNotLocalError:
+            return "not_local"
         except InventoryError as err:
             _LOGGER.debug("Validation failed: %s", err)
             return "cannot_connect"

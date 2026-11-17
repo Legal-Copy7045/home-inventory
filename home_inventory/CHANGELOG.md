@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.41.1
+
+Security hardening of the integration. **Update the integration** (the App only changes its version number).
+
+- **The integration only talks to the App on your own network.** Its requests carry the App's API token and the person's Home Assistant user, so the App address must be on this machine or your local network: the App's internal hostname, a container name, localhost, a .local/.lan/.home.arpa address, a private IP, or a name that resolves only to private addresses. Anything else is refused at setup ("must be on this machine or your own network") and again before every request, so nothing is ever sent elsewhere. Existing setups (http://homeinventory:8100 under Home Assistant OS, a LAN address for Container/Core) are unaffected.
+- **SECURITY.md**: how to report a security problem privately. The security docs now explain the sidebar proxy's own login (why it is registered without Home Assistant's token check).
+
 ## 0.41.0
 
 Consumables by designation, all the manuals read in order, and an editable list of what a model takes. No database changes.
