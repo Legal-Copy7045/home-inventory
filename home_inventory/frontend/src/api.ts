@@ -773,6 +773,11 @@ export interface PartDetails extends PartBrief {
   linked_from: ProductLinkRow[];
   fits: Fitment[];
   takes: Fitment[];
+  /** What it is, recognised from its name (Type, Viscosity). */
+  designation: Record<string, string>;
+  effective_specs: Record<string, string>;
+  /** A standard: what counts for it by designation, any brand. */
+  designation_matches: (PartBrief & { why: string })[];
 }
 
 export type Readiness = "in_stock" | "partial" | "missing" | "uncertain";
