@@ -23,7 +23,8 @@
     },
     "error": {
       "cannot_connect": "Cannot reach the Home Inventory App. Check that it is running.",
-      "invalid_auth": "The API token was rejected."
+      "invalid_auth": "The API token was rejected.",
+      "not_local": "The App address must be on this machine or your own network (for example http://homeinventory:8100 or http://192.168.1.20:8100). Home Inventory never sends your data anywhere else."
     },
     "abort": {
       "already_configured": "Home Inventory is already set up.",
