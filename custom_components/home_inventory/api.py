@@ -42,9 +42,19 @@ class InventoryApiError(InventoryError):
         self.status = status
 
 
-def user_headers(user: User | None) -> dict[str, str]:
+def user_headers(user: User | str | None) -> dict[str, str]:
+    """Who is asking, for the App to apply their role.
+
+    Voice and automation requests pass only the Home Assistant user *id*
+    (an opaque identifier); the App looks the person's name and
+    administrator rights up in Home Assistant itself, so no personal details
+    leave the integration.  The sidebar proxy (Home Assistant Container/Core,
+    where the App can't ask Home Assistant) passes the signed-in ``User``.
+    """
     if user is None:
         return {}
+    if isinstance(user, str):
+        return {"X-Remote-User-Id": user[:128]}
     return {
         "X-Remote-User-Id": user.id,
         "X-Remote-User-Name": (user.name or user.id)[:120],
@@ -144,7 +154,7 @@ class InventoryClient:
             await ensure_local_url(self.base_url)
             self._checked = True
 
-    def _headers(self, user: User | None = None) -> dict[str, str]:
+    def _headers(self, user: User | str | None = None) -> dict[str, str]:
         return {"Authorization": f"Bearer {self._token}", **user_headers(user)}
 
     async def request(
@@ -154,7 +164,7 @@ class InventoryClient:
         *,
         json_body: Any = None,
         params: dict[str, Any] | None = None,
-        user: User | None = None,
+        user: User | str | None = None,
         timeout: float = 30,
         purpose: str | None = None,
     ) -> Any:
@@ -187,7 +197,7 @@ class InventoryClient:
         except (aiohttp.ClientError, asyncio.TimeoutError) as err:
             raise InventoryConnectionError(f"Cannot reach the Home Inventory App at {self.base_url}: {err}") from err
 
-    async def fetch_bytes(self, path: str, user: User | None = None, timeout: float = 20) -> tuple[bytes, str]:
+    async def fetch_bytes(self, path: str, user: User | str | None = None, timeout: float = 20) -> tuple[bytes, str]:
         """A file from the App (a photo), with its content type."""
         await self._ensure_local()
         url = f"{self.base_url}/api/v1/{path.lstrip('/')}"
