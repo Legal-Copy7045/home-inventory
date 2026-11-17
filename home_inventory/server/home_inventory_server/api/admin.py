@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session, selectinload
 from starlette.background import BackgroundTask
 
 from .. import audit
-from ..auth import Actor, current_actor, effective_role, get_db, require_admin
+from ..auth import Actor, current_actor, effective_role, get_db, require_admin, unnamed
 from ..models import (
     Attachment,
     Container,
@@ -139,7 +139,7 @@ def users(request: Request, actor: Actor = Depends(require_admin), db: Session =
         out.append(
             {
                 "id": u.id,
-                "name": u.display_name or u.username or u.ha_user_id,
+                "name": u.display_name or u.username or unnamed(u.ha_user_id),
                 "username": u.username,
                 "ha_is_admin": u.ha_is_admin,
                 "role": effective_role(u, st.settings).value,

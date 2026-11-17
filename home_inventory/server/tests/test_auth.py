@@ -292,3 +292,17 @@ def test_claim_works_when_everyone_defaults_to_read_only(tmp_path):
     assert first.ok("get", "/api/v1/me")["role"] == "read_only"
     first.ok("post", "/api/v1/setup/claim-admin", json={"code": _code(e)})
     assert first.ok("get", "/api/v1/me")["role"] == "admin"
+
+
+def test_integration_sends_only_the_user_id_and_the_app_asks_home_assistant(env, monkeypatch):
+    """Voice and automation requests carry only the Home Assistant user id;
+    the App looks up the name and administrator rights itself."""
+    d = env.state.admin_directory
+    monkeypatch.setattr(d, "is_admin", lambda ha_id: ha_id == "u-owner")
+    monkeypatch.setattr(d, "name", lambda ha_id: {"u-owner": "Steve", "u-kid": "Sam"}.get(ha_id))
+    owner = env.integration(**{"X-Remote-User-Id": "u-owner"})
+    me = owner.ok("get", "/api/v1/me")
+    assert me["role"] == "admin" and me["name"] == "Steve"
+    kid = env.integration(**{"X-Remote-User-Id": "u-kid"})
+    me = kid.ok("get", "/api/v1/me")
+    assert me["role"] != "admin" and me["name"] == "Sam"

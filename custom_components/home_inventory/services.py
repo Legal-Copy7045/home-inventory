@@ -20,10 +20,9 @@ def _client(hass: HomeAssistant) -> InventoryClient:
     raise HomeAssistantError("Home Inventory is not set up")
 
 
-async def _user(hass: HomeAssistant, call: ServiceCall):
-    if call.context.user_id:
-        return await hass.auth.async_get_user(call.context.user_id)
-    return None
+async def _user(hass: HomeAssistant, call: ServiceCall) -> str | None:
+    """The calling user's id only: the App looks up who that is itself."""
+    return call.context.user_id or None
 
 
 def _brief(item: dict[str, Any]) -> dict[str, Any]:
