@@ -216,6 +216,33 @@ def reading_rank(db: Session, reading: ManualReading | None) -> tuple[int, int]:
     return min(manual_rank(db.get(Attachment, a)) for a in reading.attachment_ids)
 
 
+def _reading_roles(db: Session, reading: ManualReading | None) -> set[str]:
+    if reading is None:
+        return set()
+    return {a.manual_role for a in (db.get(Attachment, i) for i in reading.attachment_ids or []) if a and a.manual_role}
+
+
+def outranks(rank_a: tuple[int, int], roles_a: set[str], rank_b: tuple[int, int], roles_b: set[str], topic: str) -> bool:
+    """Does source A's answer beat source B's on ``topic`` (a job or part)?
+    For engine jobs an engine manual wins whatever the order; otherwise the
+    higher-ranked manual does."""
+    from ..ai.manual import is_engine_job
+
+    a_engine, b_engine = "engine" in roles_a, "engine" in roles_b
+    if is_engine_job(topic) and a_engine != b_engine:
+        return a_engine
+    return rank_a < rank_b
+
+
+def _fitment_source(manuals: list[Attachment], ref: str | None) -> Attachment | None:
+    """Which of the item's manuals a fitment came from (its reference starts
+    with the file name)."""
+    for a in manuals:
+        if ref and a.original_name and ref.startswith(a.original_name[:150]):
+            return a
+    return None
+
+
 def equipment_item(db: Session, item: Item) -> EquipmentProfile:
     profile = db.scalar(select(EquipmentProfile).where(EquipmentProfile.item_id == item.id))
     if profile is None:
@@ -296,7 +323,7 @@ def analyse(db: Session, reading: ManualReading, ai, media, item: Item) -> Manua
             pages = pdf_pages(data)
             if chosen:
                 pages = [p for p in pages if p[0] in chosen]
-            tag = {"manual": att.original_name or "Manual", "manual_id": att.id,
+            tag = {"manual": att.original_name or "Manual", "manual_id": att.id, "role_key": att.manual_role,
                    "role": MANUAL_ROLES.get(att.manual_role or "", None)} if len(pdfs) > 1 else None
             if pages:
                 res = ai.read_manual(text=select_text(pages), equipment=hint)
@@ -452,6 +479,34 @@ def apply(db: Session, actor: Actor, item: Item, reading: ManualReading, choice:
     ref = ref[:150]
     products: dict[str, tuple[Product, dict[str, Any]]] = {}
     made = {"parts_created": 0, "standards_created": 0, "parts_linked": 0, "tasks_created": 0, "tasks_updated": 0}
+    from ..ai.manual import role_key
+    from ..models import PartFitment
+
+    my_rank, my_roles = reading_rank(db, reading), _reading_roles(db, reading)
+    manuals = item_manuals(db, item.id)
+
+    def existing_winner(role: str, product: Product) -> PartFitment | None:
+        """The model already takes something else for this role, from a
+        person or a manual that outranks this one: that stays.  One from a
+        manual this one outranks is replaced (removed)."""
+        rk = role_key(role)
+        if not rk:
+            return None
+        for f in db.scalars(select(PartFitment).where(PartFitment.equipment_product_id == item.product_id,
+                                                      PartFitment.status == "confirmed",
+                                                      PartFitment.part_product_id != product.id)):
+            if role_key(f.role) != rk:
+                continue
+            if f.source != "manual":
+                return f  # a person chose it
+            src = _fitment_source(manuals, f.source_ref)
+            if src is not None and outranks(manual_rank(src), {src.manual_role} if src.manual_role else set(),
+                                            my_rank, my_roles, role):
+                return f
+            f.status = "rejected"
+            f.note = f"Replaced by {ref}"[:300]
+            made["parts_replaced"] = made.get("parts_replaced", 0) + 1
+        return None
     for p in choice.get("parts") or []:
         if not p.get("include", True):
             continue
@@ -475,7 +530,15 @@ def apply(db: Session, actor: Actor, item: Item, reading: ManualReading, choice:
             made["standards_created" if generic else "parts_created"] += 1
         page = p.get("page")
         source_ref = f"{ref}, page {page}" if page else ref
-        parts_svc.save_fitment(db, actor, item.product, product, p.get("role") or product.name, _dec(p.get("quantity")),
+        role = p.get("role") or product.name
+        keep = existing_winner(role, product)
+        if keep is not None:
+            # A higher-ranked manual (or a person) already chose this role's
+            # part: its jobs use that one, and this one isn't added.
+            products[key] = (db.get(Product, keep.part_product_id), p)
+            made.setdefault("parts_kept", []).append(role)
+            continue
+        parts_svc.save_fitment(db, actor, item.product, product, role, _dec(p.get("quantity")),
                                p.get("unit"), status="confirmed", source="manual", source_ref=source_ref)
         made["parts_linked"] += 1
         products[key] = (product, p)
@@ -507,8 +570,9 @@ def apply(db: Session, actor: Actor, item: Item, reading: ManualReading, choice:
             task = next((t for t in db.scalars(select(MaintenanceTask).where(
                 MaintenanceTask.item_id == item.id, MaintenanceTask.deleted_at.is_(None),
                 MaintenanceTask.source == "manual")) if t.title.strip().lower() == title.lower()), None)
-        if (task is not None and task.source == "manual" and task.reading_id and task.reading_id != reading.id
-                and reading_rank(db, db.get(ManualReading, task.reading_id)) < reading_rank(db, reading)):
+        prior = db.get(ManualReading, task.reading_id) if task is not None and task.reading_id else None
+        if (task is not None and task.source == "manual" and prior is not None and prior.id != reading.id
+                and outranks(reading_rank(db, prior), _reading_roles(db, prior), my_rank, my_roles, title)):
             # A higher-priority manual set this job: it wins.  Nothing changes.
             made.setdefault("kept_from_higher_manual", []).append(task.title)
             continue
@@ -546,6 +610,10 @@ def apply(db: Session, actor: Actor, item: Item, reading: ManualReading, choice:
             if hit is None:
                 continue
             product, part = hit
+            rk = role_key(part.get("role"))
+            if rk:  # the same role from an earlier manual: this one replaces it
+                for pid in [pid for pid, row in rows.items() if pid != product.id and role_key(row.get("note")) == rk]:
+                    del rows[pid]
             qty = need.get("quantity") or part.get("quantity") or 1
             unit = need.get("unit") if need.get("quantity") else part.get("unit") if part.get("quantity") else None
             rows[product.id] = {"product_id": product.id, "quantity": qty, "unit": unit,
