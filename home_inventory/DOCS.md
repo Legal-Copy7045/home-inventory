@@ -282,6 +282,8 @@ Nothing is saved until you tap **Save the plan**. Part numbers are only copied f
 
 **Your changes are kept.** Edit a task from the manual (its interval, say) and it's marked as changed by you. When the manual is read again (a better scan, a newer manual), tasks you haven't changed are updated in place (never duplicated); a task you changed keeps your version, and if the manual now says something different it's flagged for review with both values: **Keep mine** or **Use the manual's**. Disabled tasks stay disabled.
 
+**Reading several manuals at once.** **Read the manual** lists the machine's manuals in the order set on its page, all selected, with **Select all manuals**. They're read together in that order: when two say different things about the same job, or name different parts for the same role (two engine oils, two oil filters), the higher one wins, and the review shows what the other said. For **engine jobs and parts** (engine oil, oil filter, spark plug, air and fuel filters), a manual marked as the **Engine manual** wins whatever the order, so the engine maker's oil and intervals are used for the engine and the mower maker's for the deck, blades and transmission. Read later, a manual's part replaces the same role's part from a lower-ranked manual instead of adding a third oil; a part you chose yourself is never replaced.
+
 **Several manuals.** Equipment often comes with more than one: the operator's manual and the engine maker's manual, a parts list, a shop manual. The equipment page lists them under **Manuals (first one wins)**: say what each one is, and use the arrows to put them in order. When two manuals say different things about the same job (the operator's manual says change the oil every 50 hours, the engine manual every 100), the one higher in the list wins: read together, its answer is kept and the review shows what the other one says; read separately, reading a lower-ranked manual never changes a job a higher-ranked one set (the App tells you which jobs it left alone). Your own changes still win over every manual. Manuals you haven't ranked count after the ranked ones, oldest first.
 
 ### Parts, consumables and standards
@@ -303,6 +305,14 @@ Each task can list the parts it uses: tap **+ Parts** under the task. Each part 
 **When you complete a service**, its parts are filled in from your stock:
 - Pieces such as plugs and filters are taken out of stock.
 - For oil and other liquids, tick *used up* when a bottle is empty.
+
+### Consumables: designation, not brand
+
+For consumables, the designation matters and the brand doesn't: 10W-30 engine oil is 10W-30 from any maker, but it isn't 10W-40. The App recognises what a consumable is from its name: its **Type** (engine oil, 2-stroke oil, bar and chain oil, hydraulic/transmission oil, spark plug, grease, fuel stabiliser) and its grade (**Viscosity** such as 10W-30 or SAE 30). "Castrol GTX 10W-30 5L" is engine oil, 10W-30. A part's **Part details** shows what was recognised ("from the name"), and you can set Type and Viscosity yourself to correct it.
+
+A **standard** (a part that's "any brand") counts everything with the same designation as stock, without linking each brand: "10W-30 Motor Oil" counts any 10W-30 engine oil, and a plain "Spark plug" standard counts any spark plug. A named part from the manual (Kawasaki 10W-40) also counts other brands of the same type and grade, unless the task says only that product will do. Filters, blades and belts never match like this: they fit by part number. If a brand shouldn't count for a standard, tap **Doesn't meet it** on the standard's page.
+
+**Parts this model takes** (under the machine's maintenance) can be edited: change what a line is for, swap the part, change how much, remove a line (it won't come back when the manual is read again), or **Add** one. A role listed more than once is flagged so duplicates stand out.
 
 ## Restocking
 

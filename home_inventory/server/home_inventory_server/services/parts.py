@@ -24,6 +24,7 @@ never as stock.  Demand for the same standard is added up across tasks
 
 from __future__ import annotations
 
+import functools
 import math
 import re
 from dataclasses import dataclass, field
@@ -122,6 +123,110 @@ def specs_satisfy(product_specs: dict[str, Any] | None, standard_specs: dict[str
         return False
     have = {_spec_key(k): _spec_key(v) for k, v in product_specs.items()}
     return all(have.get(_spec_key(k)) == _spec_key(v) for k, v in standard_specs.items())
+
+
+# ---------------------------------------------------------------------------
+# Designations: what a consumable *is*, whatever the brand
+# ---------------------------------------------------------------------------
+#
+# Brand rarely matters for consumables; the designation does.  10W-30 engine
+# oil is 10W-30 engine oil from any maker, but it is not 10W-40.  A spark plug
+# standard with no further specification takes any spark plug.  The kind and
+# the oil grade are recognised from the name (or set by hand as Type and
+# Viscosity specifications, which win), and a standard counts every product
+# whose designation fits it, without linking each brand by hand.  Filters,
+# blades and belts are never matched this way: they fit by part number.
+
+_VISC = re.compile(r"\b(\d{1,2})\s*w\s*-?\s*(\d{2})\b", re.I)
+_SAE_STRAIGHT = re.compile(r"\bsae\s*-?\s*(\d{2})\b(?!\s*w)", re.I)
+_GRADED = ("%oil%", "%sae%", "%w-%", "%w2%", "%w3%", "%w4%", "%w5%", "%w6%")  # "Castrol GTX 10W-30 5L"
+KINDS: list[tuple[str, re.Pattern[str], tuple[str, ...]]] = [
+    ("2-stroke oil", re.compile(r"\b(2|two)[- ]?(stroke|cycle)\b", re.I), ("%stroke%", "%cycle%")),
+    ("Bar and chain oil", re.compile(r"\bbar\b.*\boil\b|\bchain\s*(saw\s*)?oil\b", re.I), ("%oil%",)),
+    ("Hydraulic/transmission oil", re.compile(r"hydraulic|transmission|transaxle|hydrostatic|gear\s*oil|\batf\b", re.I),
+     ("%oil%", "%hydr%", "%trans%", "%atf%") + _GRADED),
+    ("Engine oil", re.compile(r"\b(engine|motor|4[- ]?(stroke|cycle))\s*oil\b|\boil\b.*\b\d{1,2}\s*w\s*-?\s*\d{2}\b|"
+                              r"\b\d{1,2}\s*w\s*-?\s*\d{2}\b.*\boil\b|\bsae\s*30\b.*\boil\b", re.I), _GRADED),
+    ("Spark plug", re.compile(r"\bspark\s*-?\s*plugs?\b", re.I), ("%plug%",)),
+    ("Grease", re.compile(r"\bgrease\b", re.I), ("%grease%",)),
+    ("Fuel stabiliser", re.compile(r"\bstabili[sz]er\b", re.I), ("%stabili%",)),
+]
+DESIGNATION_KEYS = ("type", "viscosity")
+
+
+def derived_specs(product: Product) -> dict[str, str]:
+    """Type and grade recognised from the name and description."""
+    return dict(_derive(product.name or "", product.description or ""))
+
+
+@functools.lru_cache(maxsize=8192)
+def _derive(name: str, description: str) -> tuple[tuple[str, str], ...]:
+    text = f"{name} {description}"
+    out: dict[str, str] = {}
+    for label, rx, _like in KINDS:
+        if rx.search(text):
+            out["Type"] = label
+            break
+    if out.get("Type") in ("Engine oil", "2-stroke oil", "Hydraulic/transmission oil", None):
+        m = _VISC.search(text)
+        if m:
+            out["Viscosity"] = f"{int(m.group(1))}W-{m.group(2)}"
+            out.setdefault("Type", "Engine oil")  # "Castrol GTX 10W-30 5L": a W grade with no other kind is engine oil
+        elif out.get("Type") == "Engine oil" and (m2 := _SAE_STRAIGHT.search(text)):
+            out["Viscosity"] = f"SAE {m2.group(1)}"
+    return tuple(out.items())
+
+
+def effective_specs(product: Product) -> dict[str, str]:
+    """Specifications set by hand, plus the recognised Type and grade where
+    no one set them."""
+    out = {k: v for k, v in derived_specs(product).items()}
+    for k, v in (product.specs or {}).items():
+        for d in list(out):
+            if _spec_key(d) == _spec_key(k):
+                del out[d]
+        out[k] = v
+    return out
+
+
+def _designation_target(product: Product, allow_equivalent: bool) -> dict[str, str] | None:
+    """What a requirement asks for, as a designation, or None (fits by part
+    number only).  A standard asks for all its specifications; a named
+    product (when another brand is allowed) for its Type and grade, and only
+    when it has a grade (10W-30), never Type alone."""
+    eff = effective_specs(product)
+    if product.is_generic:
+        return eff or None
+    if not allow_equivalent:
+        return None
+    keyed = {_spec_key(k): (k, v) for k, v in eff.items()}
+    if "type" in keyed and "viscosity" in keyed:
+        return dict([keyed["type"], keyed["viscosity"]])
+    return None
+
+
+def designation_matches(db: Session, product: Product, allow_equivalent: bool = True) -> list[tuple[Product, str]]:
+    """Products whose designation fits ``product`` (a standard, or a named
+    part when equivalents are allowed), with a short reason.  A brand a person
+    said doesn't meet the standard (a rejected link) is left out."""
+    target = _designation_target(product, allow_equivalent)
+    if not target:
+        return []
+    keyed = {_spec_key(k): v for k, v in target.items()}
+    like = next((lk for label, _rx, lk in KINDS if _spec_key(label) == _spec_key(keyed.get("type", ""))), None)
+    stmt = select(Product).where(Product.deleted_at.is_(None), Product.is_generic.is_(False), Product.id != product.id)
+    if like:
+        stmt = stmt.where(or_(*[Product.name.ilike(x) for x in like], *[Product.description.ilike(x) for x in like],
+                              Product.specs.is_not(None)))
+    rejected = set(db.scalars(select(ProductLink.product_id).where(ProductLink.target_id == product.id,
+                                                                   ProductLink.kind == "meets",
+                                                                   ProductLink.status == "rejected")))
+    why = " ".join(str(v) for k, v in target.items() if _spec_key(k) != "type") or str(keyed.get("type", ""))
+    out = []
+    for p in db.scalars(stmt.limit(2000)):
+        if p.id not in rejected and specs_satisfy(effective_specs(p), target):
+            out.append((p, f"same designation ({why})"))
+    return out
 
 
 def part_number_key(s: str | None) -> str:
@@ -270,6 +375,12 @@ def details_out(db: Session, product: Product) -> dict[str, Any]:
         "linked_from": [link_out(x, db) for x in in_links],
         "fits": [fitment_out(db, f) for f in fits],
         "takes": [fitment_out(db, f) for f in takes],
+        # What it is, recognised from the name (specifications set by hand win)
+        "designation": derived_specs(product),
+        "effective_specs": effective_specs(product),
+        # A standard: the products that count for it by designation, any brand
+        "designation_matches": [_brief(p) | {"why": why} for p, why in designation_matches(db, product)][:20]
+        if product.is_generic else [],
     }
 
 
@@ -303,6 +414,40 @@ def save_fitment(db: Session, actor: Actor | None, equipment: Product, part: Pro
     if source_ref:
         f.source_ref = source_ref[:200]
     db.flush()
+    return f
+
+
+def edit_fitment(db: Session, actor: Actor, f: PartFitment, data: dict[str, Any]) -> PartFitment:
+    """Change what the model takes: the part, its role, how much, or remove it
+    (status "rejected": hidden, and never re-added by reading the manual)."""
+    equipment = _get_product(db, f.equipment_product_id)
+    part_id = f.part_product_id
+    if data.get("part_product_id") is not None:
+        part_id = _get_product(db, data["part_product_id"]).id
+        if part_id == equipment.id:
+            raise PartsError("A model can't take itself as a part")
+    role = data["role"].strip()[:80] if data.get("role") is not None else f.role
+    if (part_id, role) != (f.part_product_id, f.role):
+        clash = db.scalar(select(PartFitment).where(PartFitment.equipment_product_id == equipment.id,
+                                                    PartFitment.part_product_id == part_id, PartFitment.role == role,
+                                                    PartFitment.id != f.id))
+        if clash is not None:
+            db.delete(clash)  # the same part and role listed twice: keep this one
+            db.flush()
+        f.part_product_id, f.role = part_id, role
+    if "quantity" in data:
+        f.quantity = data["quantity"]
+    if "unit" in data:
+        f.unit = norm_unit(data["unit"])
+    if data.get("status"):
+        f.status = data["status"]
+    elif set(data) - {"status"}:
+        f.status = "confirmed"  # a person edited it
+    f.source = "user" if set(data) - {"status"} else f.source
+    db.flush()
+    part = db.get(Product, f.part_product_id)
+    audit.record(db, actor, "fitment_changed", "product", equipment.id,
+                 f"{equipment.name}: {'removed' if f.status == 'rejected' else 'takes'} {f.role or 'part'}: {part.name}")
     return f
 
 
@@ -389,6 +534,8 @@ def candidates(db: Session, product: Product, allow_equivalent: bool) -> list[_C
                                                          ProductLink.status.in_(("confirmed", "suggested")))):
             add(db.get(Product, link.product_id), sure_std and link.status == "confirmed", f"meets {std.name}")
 
+    for p, why in designation_matches(db, product, allow_equivalent):
+        add(p, True, why)
     if product.is_generic:
         meeting(product, True)
     elif allow_equivalent:

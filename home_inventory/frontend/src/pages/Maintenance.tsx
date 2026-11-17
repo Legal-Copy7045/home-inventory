@@ -184,7 +184,7 @@ export function EquipmentSection({ itemId, edit, onChanged, initial, startTracki
       )}
 
       {d.profile && <ProfileView p={d.profile} />}
-      {parts.data && <ModelParts data={parts.data} />}
+      {parts.data && <ModelParts data={parts.data} edit={edit} onChanged={parts.reload} />}
 
       <h3 style={{ margin: "16px 0 6px" }}>Service history</h3>
       {d.history.length ? (
