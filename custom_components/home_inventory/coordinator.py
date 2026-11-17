@@ -13,7 +13,7 @@ from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import InventoryAuthError, InventoryClient, InventoryError
+from .api import InventoryAuthError, InventoryClient, InventoryError, InventoryNotLocalError
 from .const import (
     CONF_CUSTOMER_NOTIFY_SERVICE,
     CONF_CUSTOMER_NOTIFY_STATUSES,
@@ -54,6 +54,11 @@ class InventoryCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             from homeassistant.exceptions import ConfigEntryAuthFailed
 
             raise ConfigEntryAuthFailed(str(err)) from err
+        except InventoryNotLocalError as err:
+            # Never retried: nothing is sent until the address is corrected.
+            from homeassistant.exceptions import ConfigEntryError
+
+            raise ConfigEntryError(str(err)) from err
         except InventoryError as err:
             raise UpdateFailed(str(err)) from err
 
