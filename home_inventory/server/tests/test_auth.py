@@ -306,3 +306,29 @@ def test_integration_sends_only_the_user_id_and_the_app_asks_home_assistant(env,
     kid = env.integration(**{"X-Remote-User-Id": "u-kid"})
     me = kid.ok("get", "/api/v1/me")
     assert me["role"] != "admin" and me["name"] == "Sam"
+
+
+def test_container_install_looks_people_up_with_its_home_assistant_token(tmp_path, monkeypatch):
+    """Without the Supervisor, HINV_HA_URL + HINV_HA_TOKEN let the App ask
+    Home Assistant who a user id is (names and administrators)."""
+    from home_inventory_server import auth as auth_mod
+    from home_inventory_server.config import Settings
+
+    s = Settings(data_dir=tmp_path)
+    s.supervisor_token, s.ha_url, s.ha_token = "", "http://homeassistant.local:8123", "llat"
+    assert auth_mod._ws_target(s) == ("ws://homeassistant.local:8123/api/websocket", "llat")
+    s.supervisor_token = "sup"
+    assert auth_mod._ws_target(s)[0].endswith("/core/websocket")
+    s.supervisor_token = ""
+    seen = []
+
+    def fake(settings, message):
+        seen.append(message["type"])
+        return [{"id": "u1", "name": "Steve", "is_owner": True}, {"id": "u2", "name": "Sam", "group_ids": ["system-users"]}]
+
+    monkeypatch.setattr(auth_mod, "_ws_call", fake)
+    d = auth_mod.HaAdminDirectory(s)
+    assert d.is_admin("u1") is True and d.is_admin("u2") is False and d.name("u2") == "Sam"
+    assert seen == ["config/auth/list"]
+    s.ha_url = s.ha_token = ""
+    assert auth_mod.HaAdminDirectory(s).is_admin("u1") is None  # no Home Assistant access: unknown

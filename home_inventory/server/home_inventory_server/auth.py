@@ -129,13 +129,13 @@ class HaAdminDirectory:
         self.settings = settings
         self._cache: dict[str, bool] = {}
         self._names: dict[str, str] = {}
-        self._fetched = 0.0
+        self._fetched: float | None = None  # never fetched yet
         self.available: bool | None = None
 
     def is_admin(self, ha_user_id: str) -> bool | None:
-        if not self.settings.supervisor_token:
+        if not (self.settings.supervisor_token or (self.settings.ha_url and self.settings.ha_token)):
             return None
-        if time.monotonic() - self._fetched > self.TTL:
+        if self._fetched is None or time.monotonic() - self._fetched > self.TTL:
             self._refresh()
         if not self.available:
             return None
@@ -164,16 +164,27 @@ class HaAdminDirectory:
         self.available = True
 
 
+def _ws_target(settings: Settings) -> tuple[str, str]:
+    """Where to reach Home Assistant's WebSocket API: through the Supervisor
+    (App install), or at ``HINV_HA_URL`` with ``HINV_HA_TOKEN`` (Container/Core
+    install with Home Assistant access configured)."""
+    if settings.supervisor_token:
+        return settings.supervisor_url.replace("http", "ws", 1) + "/core/websocket", settings.supervisor_token
+    if settings.ha_url and settings.ha_token:
+        return settings.ha_url.rstrip("/").replace("http", "ws", 1) + "/api/websocket", settings.ha_token
+    raise RuntimeError("Home Assistant API access is not available to the App")
+
+
 def _ws_call(settings: Settings, message: dict[str, Any]) -> Any:
-    """Minimal synchronous Home Assistant WebSocket call via the Supervisor."""
+    """Minimal synchronous Home Assistant WebSocket call."""
     import json
 
     from websockets.sync.client import connect  # type: ignore[import-not-found]
 
-    url = settings.supervisor_url.replace("http", "ws", 1) + "/core/websocket"
+    url, token = _ws_target(settings)
     with connect(url, open_timeout=5, close_timeout=2) as ws:
         json.loads(ws.recv(timeout=5))  # auth_required
-        ws.send(json.dumps({"type": "auth", "access_token": settings.supervisor_token}))
+        ws.send(json.dumps({"type": "auth", "access_token": token}))
         auth = json.loads(ws.recv(timeout=5))
         if auth.get("type") != "auth_ok":
             raise RuntimeError("authentication with Home Assistant failed")

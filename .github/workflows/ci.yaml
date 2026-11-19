@@ -124,6 +124,32 @@ jobs:
       - name: Versions agree everywhere and have a changelog entry
         run: python3 .github/scripts/check_versions.py
 
+  standalone-build:
+    # Home Assistant Container/Core installs: the companion container is built
+    # from deploy/standalone/docker-compose.yaml on plain python:alpine, with
+    # no Supervisor. Build it exactly as the install guide says and check the
+    # API answers on 8100 and the integration token is written.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start the companion container
+        working-directory: deploy/standalone
+        run: docker compose up -d --build
+      - name: Health and integration token
+        working-directory: deploy/standalone
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf localhost:8100/api/health; then ok=1; break; fi
+            sleep 1
+          done
+          docker compose logs --tail 20
+          test "${ok:-}" = 1
+          docker compose exec -T home-inventory test -s /data/integration_token
+      - name: Stop
+        if: always()
+        working-directory: deploy/standalone
+        run: docker compose down
+
   app-build:
     runs-on: ubuntu-latest
     steps:
