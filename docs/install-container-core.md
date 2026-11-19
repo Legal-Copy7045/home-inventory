@@ -27,12 +27,26 @@ Settings → Devices & services → Add integration → **Home Inventory**:
 - API token: the value from step 1
 - **Add Inventory to the sidebar**: on
 
-## 3. Optional AI through Home Assistant
+## 3. Give the App access to Home Assistant (recommended)
+
+Under Home Assistant OS the App reaches Home Assistant through the Supervisor. Without it, give the App Home Assistant's address and a token instead:
+
+- Create a **long-lived access token** in your Home Assistant profile (Profile → Security), signed in as an **administrator**. Reading who is an administrator needs one.
+- In `docker-compose.yaml`, set `HINV_HA_URL` (e.g. `http://homeassistant.local:8123`) and `HINV_HA_TOKEN: ${HA_LONG_LIVED_TOKEN}`. Put the token in an `.env` file next to the compose file and keep it out of Git.
+
+This turns on:
+
+- **Who's asking**: voice and automation requests carry only a Home Assistant user id. The App looks up the person's name and whether they're an administrator. Without access, those people show as "Home Assistant user 1a2b3c", and their role comes from `HINV_ADMIN_USERS` or from what the sidebar page last told the App.
+- **Equipment sensors**: linking Home Assistant entities to equipment (hour meters, battery, power), and reading hour-meter sensors every 15 minutes.
+- **AI through Home Assistant's AI Task** (next step).
+
+Everything else works without it: the inventory, labels, scanning, voice answers, maintenance, shopping and the sidebar page.
+
+## 4. Optional AI through Home Assistant
 
 To reuse Home Assistant's AI Task (e.g. Gemini):
 
-- Create a long-lived access token in your Home Assistant profile.
-- In `docker-compose.yaml`, set `HINV_AI_PROVIDER: home_assistant`, `HINV_HA_URL` and `HINV_HA_TOKEN` (use an `.env` file and keep it out of Git).
+- Set up Home Assistant access as in step 3, then set `HINV_AI_PROVIDER: home_assistant`.
 - Mount Home Assistant's `media` folder at `/media`, so photos can be handed to AI Task.
 
 Or use `HINV_AI_PROVIDER: gemini` with `HINV_AI_API_KEY`.
@@ -55,3 +69,5 @@ Every App option is available as an environment variable prefixed `HINV_` (upper
 | Integration setup | Discovered automatically | URL + token |
 | Home Assistant backups include inventory | Yes | No (back up `data/`) |
 | Watchdog | Supervisor | Docker `restart: unless-stopped` |
+| Reaching Home Assistant (names and admins for voice, entity links, AI Task) | Automatic | `HINV_HA_URL` + `HINV_HA_TOKEN` (step 3) |
+| Who can reach the App | Only through Home Assistant | Token-protected port 8100 on your LAN: the integration only talks to it on your own network |
