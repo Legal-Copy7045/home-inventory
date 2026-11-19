@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.41.3
+
+Home Assistant Container/Core installs. **Update the companion container** (the integration only changes its version number).
+
+- **Who's asking, without the Supervisor**: with `HINV_HA_URL` and `HINV_HA_TOKEN` set (an administrator's long-lived token), the companion container looks up a person's name and whether they're an administrator from Home Assistant, as the App does under Home Assistant OS. Voice and automation requests then show real names and roles.
+- Fixed: on a machine up for less than five minutes, the first lookup of Home Assistant administrators was skipped.
+- The Container/Core install guide has a new "Give the App access to Home Assistant" step: what it turns on, and what works without it.
+
 ## 0.41.2
 
 Less personal data from the integration. **Update the App and the integration.**

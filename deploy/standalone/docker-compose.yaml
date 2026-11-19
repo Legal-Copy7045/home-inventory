@@ -18,10 +18,14 @@ services:
     restart: unless-stopped
     environment:
       HINV_MODE: standalone
-      # Optional AI via Home Assistant's AI Task (e.g. Google Gemini):
-      # HINV_AI_PROVIDER: home_assistant
+      # Recommended: Home Assistant access (an administrator's long-lived
+      # token, kept in .env, never in Git). Lets the App look up who is asking
+      # (names and administrators for voice and automations), link Home
+      # Assistant entities to equipment, and use AI Task.
       # HINV_HA_URL: http://homeassistant.local:8123
       # HINV_HA_TOKEN: ${HA_LONG_LIVED_TOKEN}
+      # Optional AI via Home Assistant's AI Task (e.g. Google Gemini), with the above:
+      # HINV_AI_PROVIDER: home_assistant
       # Or call a provider directly:
       # HINV_AI_PROVIDER: gemini
       # HINV_AI_API_KEY: ${GEMINI_API_KEY}
