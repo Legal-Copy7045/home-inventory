@@ -225,5 +225,5 @@ def test_job_ticket_number_lookup_stock_part_cost_and_status_message_data(env):
 
 
 def test_business_details_for_invoices_are_settings(env):
-    s = env.admin.ok("patch", "/api/v1/settings", json={"business_name": "Steve's Small Engines", "business_details": "1 High St\nVAT 123"})
-    assert s["business_name"] == "Steve's Small Engines" and s["business_details"].startswith("1 High St")
+    s = env.admin.ok("patch", "/api/v1/settings", json={"business_name": "Alex's Small Engines", "business_details": "1 High St\nVAT 123"})
+    assert s["business_name"] == "Alex's Small Engines" and s["business_details"].startswith("1 High St")

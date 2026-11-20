@@ -299,10 +299,10 @@ def test_integration_sends_only_the_user_id_and_the_app_asks_home_assistant(env,
     the App looks up the name and administrator rights itself."""
     d = env.state.admin_directory
     monkeypatch.setattr(d, "is_admin", lambda ha_id: ha_id == "u-owner")
-    monkeypatch.setattr(d, "name", lambda ha_id: {"u-owner": "Steve", "u-kid": "Sam"}.get(ha_id))
+    monkeypatch.setattr(d, "name", lambda ha_id: {"u-owner": "Alex", "u-kid": "Sam"}.get(ha_id))
     owner = env.integration(**{"X-Remote-User-Id": "u-owner"})
     me = owner.ok("get", "/api/v1/me")
-    assert me["role"] == "admin" and me["name"] == "Steve"
+    assert me["role"] == "admin" and me["name"] == "Alex"
     kid = env.integration(**{"X-Remote-User-Id": "u-kid"})
     me = kid.ok("get", "/api/v1/me")
     assert me["role"] != "admin" and me["name"] == "Sam"
@@ -324,7 +324,7 @@ def test_container_install_looks_people_up_with_its_home_assistant_token(tmp_pat
 
     def fake(settings, message):
         seen.append(message["type"])
-        return [{"id": "u1", "name": "Steve", "is_owner": True}, {"id": "u2", "name": "Sam", "group_ids": ["system-users"]}]
+        return [{"id": "u1", "name": "Alex", "is_owner": True}, {"id": "u2", "name": "Sam", "group_ids": ["system-users"]}]
 
     monkeypatch.setattr(auth_mod, "_ws_call", fake)
     d = auth_mod.HaAdminDirectory(s)
