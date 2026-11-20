@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.41.4
+
+- Fixed: questions with a contraction such as "Where's the drill?" or "What's in box 7?" could miss the thing you asked for. The "'s" was read as a search word, so "Drill bit set" came back but not "Cordless drill". This also affected voice questions through Assist and Alexa.
+- `tools/demo/` makes a narrated video walkthrough of the App from fictional demo data, with the voiceover generated offline (see its README).
+
 ## 0.41.3
 
 Home Assistant Container/Core installs. **Update the companion container** (the integration only changes its version number).

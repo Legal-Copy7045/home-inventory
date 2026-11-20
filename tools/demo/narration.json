@@ -1,0 +1,14 @@
+[
+ ["intro", "This is Home Inventory: a household inventory that runs inside Home Assistant. It keeps track of everything you own, where it is, and what needs looking after. The dashboard shows your totals at a glance: what's running low, what's on loan, and anything that needs your attention."],
+ ["search", "Finding things is the whole point. Just ask, in plain words, where's the drill? And it tells you exactly where it lives: in the garage, on the metal racking, inside blue tote number seven."],
+ ["item", "Every item has its photos, a quantity, purchase and warranty details for your insurance, and a complete history. Take it out, put it back, lend it to a neighbour, or move it, and the inventory follows along."],
+ ["box", "Boxes and shelves work the same way. Open a box to see everything inside it. Print a QR label for the lid, and scan that label later to see the contents without opening it."],
+ ["checklist", "For a bigger tidy up, print a contents checklist with photos and tick boxes. Mark what happened to each thing at the box: back here, moved, thrown away, or missing. Then photograph the pages, and the AI reads your ticks and handwriting. You check every row, and apply all the changes in one go."],
+ ["equipment", "Equipment gets a page of its own. This zero turn mower shows what's overdue, its hour meter, and a maintenance checklist, grouped the way the manufacturer's manual groups it."],
+ ["parts", "Every job knows the parts and consumables it needs, and whether you have them. Consumables match by designation, not brand. The oil change needs ten W thirty engine oil, so the five litre bottle of Castrol in the garage counts. Anything missing goes straight onto the shopping list."],
+ ["manuals", "A machine can have more than one manual. Put them in order and mark the engine manual. The engine maker's oil and intervals then win for the engine, while the mower maker's cover the deck and the blades."],
+ ["attention", "Needs attention gathers everything in one place: overdue maintenance, things lent out and not returned, supplies running low, and warranties about to end. Each one links straight to where you fix it."],
+ ["shopping", "Restock and shopping turns that into a list you can actually shop from, with the maker, the part number, and a link to the product page. When you've bought something, it asks where it's going, and adds it to your inventory."],
+ ["duplicates", "And when something's been recorded twice, possible duplicates shows the pair side by side, with their photos. Merge them, and choose whether the quantities are added together."],
+ ["outro", "It all works with Home Assistant. Ask Assist or Alexa where something is, get maintenance reminders on your phone, and use the inventory in your automations. Install it as a Home Assistant app, or run it alongside Home Assistant in Docker. Home Inventory. Know what you have, and where it is."]
+]
