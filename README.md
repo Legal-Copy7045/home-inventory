@@ -4,6 +4,12 @@ A household inventory that lives inside Home Assistant. Photograph things and le
 
 ![Home Inventory logo](home_inventory/logo.png)
 
+## Walkthrough video
+
+[![Home Inventory: a 3-minute narrated walkthrough](docs/media/home-inventory-walkthrough.jpg)](docs/media/home-inventory-walkthrough.mp4)
+
+A 3-minute narrated tour of the App, made with fictional demo data: searching, boxes and labels, the printed checklist, equipment and maintenance, parts and consumables, the shopping list and duplicates. [Watch or download the video](docs/media/home-inventory-walkthrough.mp4) (MP4, 7.8 MB).
+
 It is built as a **Home Assistant App** (formerly "add-on"), opened from the Home Assistant sidebar through Ingress. A **companion integration** adds Home Assistant sensors, actions and automation events.
 
 ## Features
