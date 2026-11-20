@@ -13,3 +13,10 @@ tools/demo/make_video.sh home-inventory-demo.mp4
 ```
 
 Edit `narration.json` to change what's said; each scene lasts as long as its line. Set `DEMO_VOICE` to another Piper v0.0.2 voice (for example `voice-en-gb-alan-low`). Nothing leaves your machine except downloading the voice model once from GitHub.
+
+The published copy is `docs/media/home-inventory-walkthrough.mp4`, linked from the main README with a still from it (`docs/media/home-inventory-walkthrough.jpg`). To refresh both after the screens change:
+
+```bash
+tools/demo/make_video.sh docs/media/home-inventory-walkthrough.mp4
+ffmpeg -y -ss 8 -i docs/media/home-inventory-walkthrough.mp4 -frames:v 1 -vf scale=960:-1 -q:v 4 docs/media/home-inventory-walkthrough.jpg
+```
