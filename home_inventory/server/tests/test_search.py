@@ -92,3 +92,14 @@ def test_results_include_maps_and_status(env):
     r = q(u, "impact wrench")
     assert r["results"][0]["status"] == "on_loan"
     assert r["results"][0]["maps"][0]["id"] == m["id"]
+
+
+def test_contractions_in_questions(env):
+    """"Where's the drill?" finds the drill: the "'s" is not a search term."""
+    u = env.admin
+    garage = u.location("Garage")
+    u.item("Cordless drill DCD777", location_id=garage["id"])
+    u.item("Drill bit set", location_id=garage["id"])
+    for q in ("where's the drill", "Where’s my drill?", "what's the drill", "where's the drill's"):
+        names = [r["name"] for r in u.ok("get", "/api/v1/search", params={"q": q})["results"]]
+        assert "Cordless drill DCD777" in names, (q, names)
