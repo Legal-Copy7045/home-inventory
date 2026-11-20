@@ -33,6 +33,9 @@ STOPWORDS = {
     "please", "put", "show", "so", "some", "someone", "somebody", "stored", "that", "the", "their", "them", "there",
     "these", "this", "those", "to", "us", "we", "what", "whats", "where", "wheres", "which", "who", "whom", "with",
     "you", "your", "list", "everything", "items", "stuff", "things", "owned", "borrow",
+    # contractions, joined ("where's" -> "wheres")
+    "id", "im", "ive", "ill", "dont", "doesnt", "didnt", "cant", "youre", "theyre", "thats", "theres", "heres", "whos",
+    "its", "weve", "lets",
 }
 
 # Built-in synonym groups; administrators can add more in Settings.
@@ -65,8 +68,19 @@ def singular(word: str) -> str:
     return f"{head} {stem(last)}" if head else stem(last)
 
 
+_CONTRACTION = re.compile(r"\b(\w+)'(s|re|ll|d|ve|m|t)\b")
+
+
+def _contraction(m: re.Match[str]) -> str:
+    """"where's" -> "wheres" (a question word, dropped later); "Sam's
+    drill" -> "sam drill" (a possessive's "s" is not a search term)."""
+    joined = m.group(1) + m.group(2)
+    return joined if joined in STOPWORDS or m.group(2) != "s" else m.group(1)
+
+
 def normalise_text(text: str | None) -> str:
     t = (text or "").lower().replace("’", "'")
+    t = _CONTRACTION.sub(_contraction, t)
     t = re.sub(r"[^\w\s\-\.]", " ", t)
     return re.sub(r"\s+", " ", t).strip()
 
