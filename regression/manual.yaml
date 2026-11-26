@@ -1,0 +1,43 @@
+# Checks only a person can do: real phones, real Home Assistant, printed paper, voice.
+# Keys are stable (their IDs live in ids/manual.yaml). Record a result with:
+#   python3 regression/run.py manual <key> pass|fail --note "what you saw"
+# A result counts only for the App version it was recorded on.
+checks:
+  - key: ha-sidebar-panel
+    check: Open Home Inventory from the Home Assistant sidebar on a computer and in the Companion app; it loads signed in as you.
+  - key: phone-camera-photo
+    check: On a phone, Quick photos takes a picture with the camera and the item appears (or is queued) without errors.
+  - key: phone-offline-queue
+    check: With the phone offline, take two quick photos; they show as waiting and upload by themselves once back online.
+  - key: barcode-camera-scan
+    check: Scan a real product barcode with the phone camera; it finds the item (or offers to add it).
+  - key: nfc-tag-write-and-tap
+    check: Write an NFC tag to a container from the phone, then tap it; the container opens.
+  - key: printed-label-qr
+    check: Print a container label, scan its QR code with a phone camera; it opens that container in Home Assistant.
+  - key: printed-checklist-roundtrip
+    check: Print a container checklist, tick and cross a few rows by hand, photograph it; the read-back matches what you marked.
+  - key: ai-photo-identify
+    check: With your AI provider configured, a photo of a known tool is named sensibly and filed in the right category.
+  - key: ai-manual-read
+    check: Read a real equipment manual (PDF); the maintenance tasks and parts it proposes match the manual.
+  - key: voice-where-is
+    check: Ask Assist (and Alexa, if set up) "where is the drill"; the answer names the right place and no customer details.
+  - key: push-notification
+    check: A voice answer or "show me" request arrives as a Home Assistant push notification on the phone.
+  - key: hour-meter-sensor
+    check: An equipment item linked to a real Home Assistant hours sensor shows the sensor's current reading.
+  - key: integration-entities
+    check: The companion integration's sensors and to-do list show in Home Assistant and update after a change in the App.
+  - key: integration-local-only
+    check: In the integration's setup, a public (internet) App URL is refused with the "must be on your local network" message.
+  - key: ha-backup-restore
+    check: A Home Assistant backup includes Home Inventory; restoring it on a test system brings back items and photos.
+  - key: app-update-keeps-data
+    check: Updating the App from the previous version keeps all items, photos and settings.
+  - key: standalone-container
+    check: The standalone container (docs/install-container-core.md) starts and the integration connects to it from Home Assistant Core.
+  - key: dark-theme
+    check: With Home Assistant in dark mode, the App follows it and every page stays readable.
+  - key: phone-layout-feel
+    check: Use the App one-handed on a phone for five minutes (find, add, move an item); nothing is hard to tap or hidden.

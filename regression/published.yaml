@@ -1,0 +1,4 @@
+# Private artifact links the reports are republished to on every run (same URL each time).
+# Filled in after the first publish; only the owner can open them.
+regression: null
+walkthrough: null

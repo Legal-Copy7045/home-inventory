@@ -1,0 +1,12 @@
+area: Reports
+features:
+  - name: Dashboard and needs attention
+    match: ['page:\w+:/$', 'page:\w+:/attention', '/api/v1/(dashboard|stats|attention|expiring|low-stock)']
+  - name: Inventory and insurance report
+    match: ['test_report', 'page:\w+:/reports?$', 'page:\w+:/report$', '/api/v1/(report|export)']
+  - name: Valuation
+    match: ['test_valuation', 'value-estimates']
+  - name: Restock and shopping
+    match: ['test_replenishment', 'page:\w+:/shopping', '/api/v1/(replenishment|shopping-list|retailers)']
+  - name: Activity history and voice history
+    match: ['page:\w+:/(activity|voice-history)', '/api/v1/(history|voice)']

@@ -1,0 +1,6 @@
+area: Customers and repairs
+features:
+  - name: Customers
+    match: ['test_customers', 'page:\w+:/customers', '/api/v1/customers']
+  - name: Repair jobs, work orders and invoices
+    match: ['test_customers', 'page:\w+:/repairs', '/api/v1/repair-jobs', 'reservations']

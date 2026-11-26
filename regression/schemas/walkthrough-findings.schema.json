@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Walkthrough reviewer result: <run>/findings/walkthrough-<reviewer>.json",
+  "type": "object",
+  "required": ["reviewer", "status", "findings"],
+  "properties": {
+    "reviewer": {"enum": ["desktop", "phone"]},
+    "status": {"enum": ["completed", "partial", "failed"]},
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["group", "title", "now", "proposal", "affects", "effort", "risk", "evidence"],
+        "properties": {
+          "group": {"enum": ["merge", "rename", "move", "remove", "flow", "mobile", "keep-separate"]},
+          "title": {"type": "string", "description": "Short and stable across runs"},
+          "now": {"type": "string", "description": "What the app does today"},
+          "proposal": {"type": "string"},
+          "why": {"type": "string", "description": "For keep-separate: why the two must stay apart"},
+          "affects": {"type": "array", "items": {"enum": ["admin", "member", "read_only"]}},
+          "effort": {"enum": ["S", "M", "L"]},
+          "risk": {"enum": ["low", "medium", "high"]},
+          "evidence": {"type": "array", "items": {"type": "string"}, "description": "Screenshot file names from <run>/walkthrough/screens"}
+        }
+      }
+    },
+    "proposed_menus": {
+      "type": "object",
+      "description": "Role -> proposed menu, e.g. {\"member\": [{\"group\": \"Inventory\", \"items\": [\"Items\", \"Containers\"]}]}",
+      "additionalProperties": {"type": "array", "items": {"type": "object", "properties": {
+        "group": {"type": ["string", "null"]}, "items": {"type": "array", "items": {"type": "string"}}}}}
+    }
+  }
+}

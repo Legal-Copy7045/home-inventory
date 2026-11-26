@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Security reviewer result: <run>/findings/security-<reviewer>.json",
+  "type": "object",
+  "required": ["reviewer", "status", "findings"],
+  "properties": {
+    "reviewer": {"enum": ["changes", "claims", "outsider"]},
+    "scope": {"type": "string", "description": "What was reviewed, e.g. 'git diff 71a60e7..HEAD plus auth, uploads, backup'"},
+    "status": {"enum": ["completed", "partial", "failed"], "description": "partial/failed: say why in scope"},
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "severity", "verified", "file", "description"],
+        "properties": {
+          "title": {"type": "string", "description": "Short and stable: the same problem gets the same title next run"},
+          "severity": {"enum": ["critical", "high", "medium", "low", "info"]},
+          "verified": {"type": "boolean", "description": "true only if confirmed by running code or a test, or by an unambiguous code path quoted in evidence"},
+          "file": {"type": "string", "description": "Repository-relative path"},
+          "line": {"type": "integer"},
+          "description": {"type": "string", "description": "What is wrong and who could exploit it, in plain words"},
+          "evidence": {"type": "string", "description": "Code excerpt, request/response, or the claim being contradicted"},
+          "recommendation": {"type": "string"}
+        }
+      }
+    }
+  }
+}
