@@ -129,10 +129,11 @@ def log_run(run: Path) -> list[str]:
         checks = [c for s in load_run(reg) for c in s.checks]
         t = {k: sum(c.status == k for c in checks) for k in ("pass", "fail", "skip", "pending")}
         f = json.loads((run / "regression/findings.json").read_text()) if (run / "regression/findings.json").exists() else []
-        fids = [f"{x['id']} ({x.get('severity', '?')})" for x in sorted(f, key=render.sev_rank)]
+        # Counts only: this file is public, and finding details stay in the private report.
+        by_sev = [f"{n} {s}" for s in render.SEVERITIES if (n := sum((x.get("severity") or "").lower() == s for x in f))]
         link = f"[report]({pub['regression']})" if pub.get("regression") else "not published"
         line = (f"| {date} | `{commit}` | {meta.get('version', '?')} | {t['pass']} | {t['fail']} | {t['skip']} | {t['pending']} | "
-                f"{_clip([c.id for c in checks if c.status == 'fail'])} | {_clip(fids, 15)} | {link} |")
+                f"{_clip([c.id for c in checks if c.status == 'fail'])} | {', '.join(by_sev) or 'none'} | {link} |")
         _append(QC_DIR / "RUNS.md", line)
         done.append("RUNS.md")
     wres = run / "walkthrough/results/walkthrough.json"

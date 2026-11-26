@@ -145,8 +145,12 @@ def load_findings(fdir: Path, prefix: str) -> tuple[list[dict], list[dict]]:
 
 
 def finding_key(f: dict, kind: str) -> str:
+    """Registry key for a finding.  Security keys are hashed: the registry is committed to a
+    public repository and must not describe unfixed problems."""
     if kind == "security":
-        return f"{f.get('file') or '-'}:{slug(f.get('title', ''))}"
+        import hashlib
+        raw = f"{f.get('file') or '-'}:{slug(f.get('title', ''))}"
+        return "sha256:" + hashlib.sha256(raw.encode()).hexdigest()[:24]
     return f"{f.get('group', 'flow')}:{slug(f.get('title', ''))}"
 
 

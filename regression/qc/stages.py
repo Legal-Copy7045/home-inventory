@@ -30,6 +30,10 @@ SERVER = ROOT / "home_inventory/server"
 FRONTEND = ROOT / "home_inventory/frontend"
 TOOLS = Path(os.environ.get("HINV_QC_TOOLS", Path.home() / ".cache/hinv-qc"))
 GITLEAKS_VERSION = "8.24.3"  # same as CI
+# SHA-256 of the release tarball (from gitleaks_8.24.3_checksums.txt) and of the binary inside it.
+GITLEAKS_TGZ_SHA256 = "9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c"
+GITLEAKS_BIN_SHA256 = "e18325d568268b6efb6cd0cc721f8bea5667f4cd1c8d03618ab61987f41269ad"
+BANDIT = "bandit[toml]==1.9.4"
 REGRESSION_STAGES = ("quality", "tests", "browser", "live", "manual")
 ALL_STAGES = REGRESSION_STAGES + ("walkthrough",)
 
@@ -76,7 +80,7 @@ def _tool_venv() -> Path | None:
         rc, _ = sh([sys.executable, "-m", "venv", str(venv)], timeout=300)
         if rc:
             return None
-    rc, _ = sh([str(py), "-m", "pip", "install", "-q", "bandit[toml]"], timeout=600)
+    rc, _ = sh([str(py), "-m", "pip", "install", "-q", BANDIT], timeout=600)
     return venv if rc == 0 else None
 
 
@@ -86,21 +90,34 @@ def _gitleaks() -> Path | None:
         return Path(exe)
     exe = TOOLS / "bin/gitleaks"
     if exe.exists():
-        return exe
+        if _sha256(exe.read_bytes()) == GITLEAKS_BIN_SHA256:
+            return exe
+        exe.unlink()  # changed since it was checked: fetch it again
     url = (f"https://github.com/gitleaks/gitleaks/releases/download/v{GITLEAKS_VERSION}/"
            f"gitleaks_{GITLEAKS_VERSION}_linux_x64.tar.gz")
     try:
         exe.parent.mkdir(parents=True, exist_ok=True)
         tgz = exe.parent / "gitleaks.tgz"
         with urllib.request.urlopen(url, timeout=120) as r:
-            tgz.write_bytes(r.read())
+            data = r.read()
+        if _sha256(data) != GITLEAKS_TGZ_SHA256:
+            return None
+        tgz.write_bytes(data)
         with tarfile.open(tgz) as t:
             t.extract("gitleaks", exe.parent, filter="data")
         tgz.unlink()
+        if _sha256(exe.read_bytes()) != GITLEAKS_BIN_SHA256:
+            exe.unlink()
+            return None
         exe.chmod(0o755)
         return exe
     except Exception:  # noqa: BLE001 - offline: the check is skipped and says why
         return None
+
+
+def _sha256(data: bytes) -> str:
+    import hashlib
+    return hashlib.sha256(data).hexdigest()
 
 
 def run_quality(ctx: Ctx) -> StageResult:
@@ -167,7 +184,7 @@ def run_quality(ctx: Ctx) -> StageResult:
         rc, out = sh([str(gl), "git", str(ROOT), "--redact", "--no-banner", "-c", str(ROOT / ".gitleaks.toml")], timeout=900)
         add(Check("quality", "secrets:gitleaks-history", "pass" if rc == 0 else "fail", tail(out)))
     else:
-        add(Check("quality", "secrets:gitleaks-history", "skip", "gitleaks not available and could not be downloaded"))
+        add(Check("quality", "secrets:gitleaks-history", "skip", "gitleaks not available, or the download failed its checksum"))
     res.finished = now()
     return res
 
@@ -202,7 +219,8 @@ def _py_file(cls: str) -> str:
 
 
 def ha_python() -> str | None:
-    for cand in (os.environ.get("HINV_HA_PYTHON"), "/tmp/claude-0/havenv/bin/python", str(ROOT / ".havenv/bin/python")):
+    # Only places the person running this controls: never a fixed path in a shared /tmp.
+    for cand in (os.environ.get("HINV_HA_PYTHON"), str(ROOT / ".havenv/bin/python"), str(TOOLS / "havenv/bin/python")):
         if cand and Path(cand).exists():
             rc, _ = sh([cand, "-c", "import pytest_homeassistant_custom_component, home_inventory_server"], timeout=60)
             if rc == 0:

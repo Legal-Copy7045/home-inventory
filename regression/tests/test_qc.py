@@ -197,6 +197,12 @@ def test_walkthrough_report_html(tmp_path):
     assert "Proposed menus" in html and "Menus today" in html
 
 
+def test_security_finding_keys_are_hashed(tmp_path):
+    render.assign_finding_ids([{"title": "Token leaks in log", "file": "a.py"}], tmp_path, "security")
+    text = (tmp_path / "findings.yaml").read_text()
+    assert "sha256:" in text and "token" not in text.lower() and "a.py" not in text
+
+
 def test_finding_ids_are_stable(tmp_path):
     f1 = [{"title": "SQL injection in search", "file": "x.py"}]
     render.assign_finding_ids(f1, tmp_path, "security")
@@ -224,7 +230,7 @@ def test_log_and_summary(tmp_path, monkeypatch):
     (run / "walkthrough/inventory.json").write_text(json.dumps({"roles": {"admin": {"phone": {"pages": {"/": {}}}}}}))
     assert runner.log_run(run) == ["RUNS.md", "WALKTHROUGHS.md"]
     line = (qc_dir / "RUNS.md").read_text().splitlines()[-1]
-    assert "`abc1234`" in line and "Q0002" in line and "F0001 (high)" in line and "https://example.invalid/r" in line
+    assert "`abc1234`" in line and "Q0002" in line and "1 high" in line and "F0001" not in line and "https://example.invalid/r" in line
     wline = (qc_dir / "WALKTHROUGHS.md").read_text().splitlines()[-1]
     assert "U0003" in wline and "not published" in wline
     text = runner.summary(run)
