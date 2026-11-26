@@ -1,0 +1,35 @@
+# Stable IDs for the quality checks. Written by regression/run.py.
+# Never renumber or reuse an ID; a check that goes away is marked retired.
+prefix: Q
+next: 11
+ids:
+  Q0001:
+    key: ruff:server
+    added: '2026-11-26'
+  Q0002:
+    key: ruff:integration+tools
+    added: '2026-11-26'
+  Q0003:
+    key: typecheck:frontend
+    added: '2026-11-26'
+  Q0004:
+    key: versions:consistent
+    added: '2026-11-26'
+  Q0005:
+    key: bandit:server
+    added: '2026-11-26'
+  Q0006:
+    key: bandit:integration
+    added: '2026-11-26'
+  Q0007:
+    key: audit:python
+    added: '2026-11-26'
+  Q0008:
+    key: audit:javascript
+    added: '2026-11-26'
+  Q0009:
+    key: secrets:privacy-guard
+    added: '2026-11-26'
+  Q0010:
+    key: secrets:gitleaks-history
+    added: '2026-11-26'

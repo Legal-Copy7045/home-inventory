@@ -1,0 +1,1319 @@
+# Stable IDs for the walkthrough checks. Written by regression/run.py.
+# Never renumber or reuse an ID; a check that goes away is marked retired.
+prefix: U
+next: 439
+ids:
+  U0001:
+    key: console:desktop:/
+    added: '2026-11-26'
+  U0002:
+    key: console:desktop:/activity
+    added: '2026-11-26'
+  U0003:
+    key: console:desktop:/add
+    added: '2026-11-26'
+  U0004:
+    key: console:desktop:/attention
+    added: '2026-11-26'
+  U0005:
+    key: console:desktop:/capture
+    added: '2026-11-26'
+  U0006:
+    key: console:desktop:/care
+    added: '2026-11-26'
+  U0007:
+    key: console:desktop:/categories
+    added: '2026-11-26'
+  U0008:
+    key: console:desktop:/containers
+    added: '2026-11-26'
+  U0009:
+    key: console:desktop:/containers/:id
+    added: '2026-11-26'
+  U0010:
+    key: console:desktop:/containers/:id/checklist
+    added: '2026-11-26'
+  U0011:
+    key: console:desktop:/customers/:id
+    added: '2026-11-26'
+  U0012:
+    key: console:desktop:/deleted
+    added: '2026-11-26'
+  U0013:
+    key: console:desktop:/duplicates
+    added: '2026-11-26'
+  U0014:
+    key: console:desktop:/equipment
+    added: '2026-11-26'
+  U0015:
+    key: console:desktop:/equipment/:id
+    added: '2026-11-26'
+  U0016:
+    key: console:desktop:/items
+    added: '2026-11-26'
+  U0017:
+    key: console:desktop:/items/:id
+    added: '2026-11-26'
+  U0018:
+    key: console:desktop:/kits
+    added: '2026-11-26'
+  U0019:
+    key: console:desktop:/kits/:id
+    added: '2026-11-26'
+  U0020:
+    key: console:desktop:/labels
+    added: '2026-11-26'
+  U0021:
+    key: console:desktop:/loans
+    added: '2026-11-26'
+  U0022:
+    key: console:desktop:/locations
+    added: '2026-11-26'
+  U0023:
+    key: console:desktop:/locations/:id
+    added: '2026-11-26'
+  U0024:
+    key: console:desktop:/maps
+    added: '2026-11-26'
+  U0025:
+    key: console:desktop:/maps/:id
+    added: '2026-11-26'
+  U0026:
+    key: console:desktop:/put-away
+    added: '2026-11-26'
+  U0027:
+    key: console:desktop:/repairs/:id
+    added: '2026-11-26'
+  U0028:
+    key: console:desktop:/repairs/:id/print
+    added: '2026-11-26'
+  U0029:
+    key: console:desktop:/report
+    added: '2026-11-26'
+  U0030:
+    key: console:desktop:/reports
+    added: '2026-11-26'
+  U0031:
+    key: console:desktop:/scan
+    added: '2026-11-26'
+  U0032:
+    key: console:desktop:/search
+    added: '2026-11-26'
+  U0033:
+    key: console:desktop:/settings
+    added: '2026-11-26'
+  U0034:
+    key: console:desktop:/shopping
+    added: '2026-11-26'
+  U0035:
+    key: console:desktop:/tag/:ref
+    added: '2026-11-26'
+  U0036:
+    key: console:desktop:/tags
+    added: '2026-11-26'
+  U0037:
+    key: console:desktop:/todo
+    added: '2026-11-26'
+  U0038:
+    key: console:desktop:/verify
+    added: '2026-11-26'
+  U0039:
+    key: console:desktop:/verify/:id
+    added: '2026-11-26'
+  U0040:
+    key: console:desktop:/voice-history
+    added: '2026-11-26'
+  U0041:
+    key: console:phone:/
+    added: '2026-11-26'
+  U0042:
+    key: console:phone:/activity
+    added: '2026-11-26'
+  U0043:
+    key: console:phone:/add
+    added: '2026-11-26'
+  U0044:
+    key: console:phone:/attention
+    added: '2026-11-26'
+  U0045:
+    key: console:phone:/capture
+    added: '2026-11-26'
+  U0046:
+    key: console:phone:/care
+    added: '2026-11-26'
+  U0047:
+    key: console:phone:/categories
+    added: '2026-11-26'
+  U0048:
+    key: console:phone:/containers
+    added: '2026-11-26'
+  U0049:
+    key: console:phone:/containers/:id
+    added: '2026-11-26'
+  U0050:
+    key: console:phone:/containers/:id/checklist
+    added: '2026-11-26'
+  U0051:
+    key: console:phone:/customers/:id
+    added: '2026-11-26'
+  U0052:
+    key: console:phone:/deleted
+    added: '2026-11-26'
+  U0053:
+    key: console:phone:/duplicates
+    added: '2026-11-26'
+  U0054:
+    key: console:phone:/equipment
+    added: '2026-11-26'
+  U0055:
+    key: console:phone:/equipment/:id
+    added: '2026-11-26'
+  U0056:
+    key: console:phone:/items
+    added: '2026-11-26'
+  U0057:
+    key: console:phone:/items/:id
+    added: '2026-11-26'
+  U0058:
+    key: console:phone:/kits
+    added: '2026-11-26'
+  U0059:
+    key: console:phone:/kits/:id
+    added: '2026-11-26'
+  U0060:
+    key: console:phone:/labels
+    added: '2026-11-26'
+  U0061:
+    key: console:phone:/loans
+    added: '2026-11-26'
+  U0062:
+    key: console:phone:/locations
+    added: '2026-11-26'
+  U0063:
+    key: console:phone:/locations/:id
+    added: '2026-11-26'
+  U0064:
+    key: console:phone:/maps
+    added: '2026-11-26'
+  U0065:
+    key: console:phone:/maps/:id
+    added: '2026-11-26'
+  U0066:
+    key: console:phone:/put-away
+    added: '2026-11-26'
+  U0067:
+    key: console:phone:/repairs/:id
+    added: '2026-11-26'
+  U0068:
+    key: console:phone:/repairs/:id/print
+    added: '2026-11-26'
+  U0069:
+    key: console:phone:/report
+    added: '2026-11-26'
+  U0070:
+    key: console:phone:/reports
+    added: '2026-11-26'
+  U0071:
+    key: console:phone:/scan
+    added: '2026-11-26'
+  U0072:
+    key: console:phone:/search
+    added: '2026-11-26'
+  U0073:
+    key: console:phone:/settings
+    added: '2026-11-26'
+  U0074:
+    key: console:phone:/shopping
+    added: '2026-11-26'
+  U0075:
+    key: console:phone:/tag/:ref
+    added: '2026-11-26'
+  U0076:
+    key: console:phone:/tags
+    added: '2026-11-26'
+  U0077:
+    key: console:phone:/todo
+    added: '2026-11-26'
+  U0078:
+    key: console:phone:/verify
+    added: '2026-11-26'
+  U0079:
+    key: console:phone:/verify/:id
+    added: '2026-11-26'
+  U0080:
+    key: console:phone:/voice-history
+    added: '2026-11-26'
+  U0081:
+    key: hscroll:phone:/
+    added: '2026-11-26'
+  U0082:
+    key: hscroll:phone:/activity
+    added: '2026-11-26'
+  U0083:
+    key: hscroll:phone:/add
+    added: '2026-11-26'
+  U0084:
+    key: hscroll:phone:/attention
+    added: '2026-11-26'
+  U0085:
+    key: hscroll:phone:/capture
+    added: '2026-11-26'
+  U0086:
+    key: hscroll:phone:/care
+    added: '2026-11-26'
+  U0087:
+    key: hscroll:phone:/categories
+    added: '2026-11-26'
+  U0088:
+    key: hscroll:phone:/containers
+    added: '2026-11-26'
+  U0089:
+    key: hscroll:phone:/containers/:id
+    added: '2026-11-26'
+  U0090:
+    key: hscroll:phone:/containers/:id/checklist
+    added: '2026-11-26'
+  U0091:
+    key: hscroll:phone:/customers/:id
+    added: '2026-11-26'
+  U0092:
+    key: hscroll:phone:/deleted
+    added: '2026-11-26'
+  U0093:
+    key: hscroll:phone:/duplicates
+    added: '2026-11-26'
+  U0094:
+    key: hscroll:phone:/equipment
+    added: '2026-11-26'
+  U0095:
+    key: hscroll:phone:/equipment/:id
+    added: '2026-11-26'
+  U0096:
+    key: hscroll:phone:/items
+    added: '2026-11-26'
+  U0097:
+    key: hscroll:phone:/items/:id
+    added: '2026-11-26'
+  U0098:
+    key: hscroll:phone:/kits
+    added: '2026-11-26'
+  U0099:
+    key: hscroll:phone:/kits/:id
+    added: '2026-11-26'
+  U0100:
+    key: hscroll:phone:/labels
+    added: '2026-11-26'
+  U0101:
+    key: hscroll:phone:/loans
+    added: '2026-11-26'
+  U0102:
+    key: hscroll:phone:/locations
+    added: '2026-11-26'
+  U0103:
+    key: hscroll:phone:/locations/:id
+    added: '2026-11-26'
+  U0104:
+    key: hscroll:phone:/maps
+    added: '2026-11-26'
+  U0105:
+    key: hscroll:phone:/maps/:id
+    added: '2026-11-26'
+  U0106:
+    key: hscroll:phone:/put-away
+    added: '2026-11-26'
+  U0107:
+    key: hscroll:phone:/repairs/:id
+    added: '2026-11-26'
+  U0108:
+    key: hscroll:phone:/repairs/:id/print
+    added: '2026-11-26'
+  U0109:
+    key: hscroll:phone:/report
+    added: '2026-11-26'
+  U0110:
+    key: hscroll:phone:/reports
+    added: '2026-11-26'
+  U0111:
+    key: hscroll:phone:/scan
+    added: '2026-11-26'
+  U0112:
+    key: hscroll:phone:/search
+    added: '2026-11-26'
+  U0113:
+    key: hscroll:phone:/settings
+    added: '2026-11-26'
+  U0114:
+    key: hscroll:phone:/shopping
+    added: '2026-11-26'
+  U0115:
+    key: hscroll:phone:/tag/:ref
+    added: '2026-11-26'
+  U0116:
+    key: hscroll:phone:/tags
+    added: '2026-11-26'
+  U0117:
+    key: hscroll:phone:/todo
+    added: '2026-11-26'
+  U0118:
+    key: hscroll:phone:/verify
+    added: '2026-11-26'
+  U0119:
+    key: hscroll:phone:/verify/:id
+    added: '2026-11-26'
+  U0120:
+    key: hscroll:phone:/voice-history
+    added: '2026-11-26'
+  U0121:
+    key: menu-duplicates:desktop:admin
+    added: '2026-11-26'
+  U0122:
+    key: menu-duplicates:desktop:member
+    added: '2026-11-26'
+  U0123:
+    key: menu-duplicates:desktop:read_only
+    added: '2026-11-26'
+  U0124:
+    key: menu-duplicates:phone:admin
+    added: '2026-11-26'
+  U0125:
+    key: menu-duplicates:phone:member
+    added: '2026-11-26'
+  U0126:
+    key: menu-duplicates:phone:read_only
+    added: '2026-11-26'
+  U0127:
+    key: menu-heading:desktop:/
+    added: '2026-11-26'
+  U0128:
+    key: menu-heading:desktop:/activity
+    added: '2026-11-26'
+  U0129:
+    key: menu-heading:desktop:/add
+    added: '2026-11-26'
+  U0130:
+    key: menu-heading:desktop:/attention
+    added: '2026-11-26'
+  U0131:
+    key: menu-heading:desktop:/capture
+    added: '2026-11-26'
+  U0132:
+    key: menu-heading:desktop:/care
+    added: '2026-11-26'
+  U0133:
+    key: menu-heading:desktop:/categories
+    added: '2026-11-26'
+  U0134:
+    key: menu-heading:desktop:/containers
+    added: '2026-11-26'
+  U0135:
+    key: menu-heading:desktop:/deleted
+    added: '2026-11-26'
+  U0136:
+    key: menu-heading:desktop:/duplicates
+    added: '2026-11-26'
+  U0137:
+    key: menu-heading:desktop:/equipment
+    added: '2026-11-26'
+  U0138:
+    key: menu-heading:desktop:/items
+    added: '2026-11-26'
+  U0139:
+    key: menu-heading:desktop:/kits
+    added: '2026-11-26'
+  U0140:
+    key: menu-heading:desktop:/labels
+    added: '2026-11-26'
+  U0141:
+    key: menu-heading:desktop:/loans
+    added: '2026-11-26'
+  U0142:
+    key: menu-heading:desktop:/locations
+    added: '2026-11-26'
+  U0143:
+    key: menu-heading:desktop:/maps
+    added: '2026-11-26'
+  U0144:
+    key: menu-heading:desktop:/put-away
+    added: '2026-11-26'
+  U0145:
+    key: menu-heading:desktop:/report
+    added: '2026-11-26'
+  U0146:
+    key: menu-heading:desktop:/reports
+    added: '2026-11-26'
+  U0147:
+    key: menu-heading:desktop:/scan
+    added: '2026-11-26'
+  U0148:
+    key: menu-heading:desktop:/search
+    added: '2026-11-26'
+  U0149:
+    key: menu-heading:desktop:/settings
+    added: '2026-11-26'
+  U0150:
+    key: menu-heading:desktop:/shopping
+    added: '2026-11-26'
+  U0151:
+    key: menu-heading:desktop:/tags
+    added: '2026-11-26'
+  U0152:
+    key: menu-heading:desktop:/todo
+    added: '2026-11-26'
+  U0153:
+    key: menu-heading:desktop:/verify
+    added: '2026-11-26'
+  U0154:
+    key: menu-heading:desktop:/voice-history
+    added: '2026-11-26'
+  U0155:
+    key: menu-heading:phone:/
+    added: '2026-11-26'
+  U0156:
+    key: menu-heading:phone:/activity
+    added: '2026-11-26'
+  U0157:
+    key: menu-heading:phone:/add
+    added: '2026-11-26'
+  U0158:
+    key: menu-heading:phone:/attention
+    added: '2026-11-26'
+  U0159:
+    key: menu-heading:phone:/capture
+    added: '2026-11-26'
+  U0160:
+    key: menu-heading:phone:/care
+    added: '2026-11-26'
+  U0161:
+    key: menu-heading:phone:/categories
+    added: '2026-11-26'
+  U0162:
+    key: menu-heading:phone:/containers
+    added: '2026-11-26'
+  U0163:
+    key: menu-heading:phone:/deleted
+    added: '2026-11-26'
+  U0164:
+    key: menu-heading:phone:/duplicates
+    added: '2026-11-26'
+  U0165:
+    key: menu-heading:phone:/equipment
+    added: '2026-11-26'
+  U0166:
+    key: menu-heading:phone:/items
+    added: '2026-11-26'
+  U0167:
+    key: menu-heading:phone:/kits
+    added: '2026-11-26'
+  U0168:
+    key: menu-heading:phone:/labels
+    added: '2026-11-26'
+  U0169:
+    key: menu-heading:phone:/loans
+    added: '2026-11-26'
+  U0170:
+    key: menu-heading:phone:/locations
+    added: '2026-11-26'
+  U0171:
+    key: menu-heading:phone:/maps
+    added: '2026-11-26'
+  U0172:
+    key: menu-heading:phone:/put-away
+    added: '2026-11-26'
+  U0173:
+    key: menu-heading:phone:/report
+    added: '2026-11-26'
+  U0174:
+    key: menu-heading:phone:/reports
+    added: '2026-11-26'
+  U0175:
+    key: menu-heading:phone:/scan
+    added: '2026-11-26'
+  U0176:
+    key: menu-heading:phone:/search
+    added: '2026-11-26'
+  U0177:
+    key: menu-heading:phone:/settings
+    added: '2026-11-26'
+  U0178:
+    key: menu-heading:phone:/shopping
+    added: '2026-11-26'
+  U0179:
+    key: menu-heading:phone:/tags
+    added: '2026-11-26'
+  U0180:
+    key: menu-heading:phone:/todo
+    added: '2026-11-26'
+  U0181:
+    key: menu-heading:phone:/verify
+    added: '2026-11-26'
+  U0182:
+    key: menu-heading:phone:/voice-history
+    added: '2026-11-26'
+  U0183:
+    key: menu-redirect:desktop:/
+    added: '2026-11-26'
+  U0184:
+    key: menu-redirect:desktop:/activity
+    added: '2026-11-26'
+  U0185:
+    key: menu-redirect:desktop:/add
+    added: '2026-11-26'
+  U0186:
+    key: menu-redirect:desktop:/attention
+    added: '2026-11-26'
+  U0187:
+    key: menu-redirect:desktop:/capture
+    added: '2026-11-26'
+  U0188:
+    key: menu-redirect:desktop:/care
+    added: '2026-11-26'
+  U0189:
+    key: menu-redirect:desktop:/categories
+    added: '2026-11-26'
+  U0190:
+    key: menu-redirect:desktop:/containers
+    added: '2026-11-26'
+  U0191:
+    key: menu-redirect:desktop:/deleted
+    added: '2026-11-26'
+  U0192:
+    key: menu-redirect:desktop:/duplicates
+    added: '2026-11-26'
+  U0193:
+    key: menu-redirect:desktop:/equipment
+    added: '2026-11-26'
+  U0194:
+    key: menu-redirect:desktop:/items
+    added: '2026-11-26'
+  U0195:
+    key: menu-redirect:desktop:/kits
+    added: '2026-11-26'
+  U0196:
+    key: menu-redirect:desktop:/labels
+    added: '2026-11-26'
+  U0197:
+    key: menu-redirect:desktop:/loans
+    added: '2026-11-26'
+  U0198:
+    key: menu-redirect:desktop:/locations
+    added: '2026-11-26'
+  U0199:
+    key: menu-redirect:desktop:/maps
+    added: '2026-11-26'
+  U0200:
+    key: menu-redirect:desktop:/put-away
+    added: '2026-11-26'
+  U0201:
+    key: menu-redirect:desktop:/report
+    added: '2026-11-26'
+  U0202:
+    key: menu-redirect:desktop:/reports
+    added: '2026-11-26'
+  U0203:
+    key: menu-redirect:desktop:/scan
+    added: '2026-11-26'
+  U0204:
+    key: menu-redirect:desktop:/search
+    added: '2026-11-26'
+  U0205:
+    key: menu-redirect:desktop:/settings
+    added: '2026-11-26'
+  U0206:
+    key: menu-redirect:desktop:/shopping
+    added: '2026-11-26'
+  U0207:
+    key: menu-redirect:desktop:/tags
+    added: '2026-11-26'
+  U0208:
+    key: menu-redirect:desktop:/todo
+    added: '2026-11-26'
+  U0209:
+    key: menu-redirect:desktop:/verify
+    added: '2026-11-26'
+  U0210:
+    key: menu-redirect:desktop:/voice-history
+    added: '2026-11-26'
+  U0211:
+    key: menu-redirect:phone:/
+    added: '2026-11-26'
+  U0212:
+    key: menu-redirect:phone:/activity
+    added: '2026-11-26'
+  U0213:
+    key: menu-redirect:phone:/add
+    added: '2026-11-26'
+  U0214:
+    key: menu-redirect:phone:/attention
+    added: '2026-11-26'
+  U0215:
+    key: menu-redirect:phone:/capture
+    added: '2026-11-26'
+  U0216:
+    key: menu-redirect:phone:/care
+    added: '2026-11-26'
+  U0217:
+    key: menu-redirect:phone:/categories
+    added: '2026-11-26'
+  U0218:
+    key: menu-redirect:phone:/containers
+    added: '2026-11-26'
+  U0219:
+    key: menu-redirect:phone:/deleted
+    added: '2026-11-26'
+  U0220:
+    key: menu-redirect:phone:/duplicates
+    added: '2026-11-26'
+  U0221:
+    key: menu-redirect:phone:/equipment
+    added: '2026-11-26'
+  U0222:
+    key: menu-redirect:phone:/items
+    added: '2026-11-26'
+  U0223:
+    key: menu-redirect:phone:/kits
+    added: '2026-11-26'
+  U0224:
+    key: menu-redirect:phone:/labels
+    added: '2026-11-26'
+  U0225:
+    key: menu-redirect:phone:/loans
+    added: '2026-11-26'
+  U0226:
+    key: menu-redirect:phone:/locations
+    added: '2026-11-26'
+  U0227:
+    key: menu-redirect:phone:/maps
+    added: '2026-11-26'
+  U0228:
+    key: menu-redirect:phone:/put-away
+    added: '2026-11-26'
+  U0229:
+    key: menu-redirect:phone:/report
+    added: '2026-11-26'
+  U0230:
+    key: menu-redirect:phone:/reports
+    added: '2026-11-26'
+  U0231:
+    key: menu-redirect:phone:/scan
+    added: '2026-11-26'
+  U0232:
+    key: menu-redirect:phone:/search
+    added: '2026-11-26'
+  U0233:
+    key: menu-redirect:phone:/settings
+    added: '2026-11-26'
+  U0234:
+    key: menu-redirect:phone:/shopping
+    added: '2026-11-26'
+  U0235:
+    key: menu-redirect:phone:/tags
+    added: '2026-11-26'
+  U0236:
+    key: menu-redirect:phone:/todo
+    added: '2026-11-26'
+  U0237:
+    key: menu-redirect:phone:/verify
+    added: '2026-11-26'
+  U0238:
+    key: menu-redirect:phone:/voice-history
+    added: '2026-11-26'
+  U0239:
+    key: overflow:desktop:/
+    added: '2026-11-26'
+  U0240:
+    key: overflow:desktop:/activity
+    added: '2026-11-26'
+  U0241:
+    key: overflow:desktop:/add
+    added: '2026-11-26'
+  U0242:
+    key: overflow:desktop:/attention
+    added: '2026-11-26'
+  U0243:
+    key: overflow:desktop:/capture
+    added: '2026-11-26'
+  U0244:
+    key: overflow:desktop:/care
+    added: '2026-11-26'
+  U0245:
+    key: overflow:desktop:/categories
+    added: '2026-11-26'
+  U0246:
+    key: overflow:desktop:/containers
+    added: '2026-11-26'
+  U0247:
+    key: overflow:desktop:/containers/:id
+    added: '2026-11-26'
+  U0248:
+    key: overflow:desktop:/containers/:id/checklist
+    added: '2026-11-26'
+  U0249:
+    key: overflow:desktop:/customers/:id
+    added: '2026-11-26'
+  U0250:
+    key: overflow:desktop:/deleted
+    added: '2026-11-26'
+  U0251:
+    key: overflow:desktop:/duplicates
+    added: '2026-11-26'
+  U0252:
+    key: overflow:desktop:/equipment
+    added: '2026-11-26'
+  U0253:
+    key: overflow:desktop:/equipment/:id
+    added: '2026-11-26'
+  U0254:
+    key: overflow:desktop:/items
+    added: '2026-11-26'
+  U0255:
+    key: overflow:desktop:/items/:id
+    added: '2026-11-26'
+  U0256:
+    key: overflow:desktop:/kits
+    added: '2026-11-26'
+  U0257:
+    key: overflow:desktop:/kits/:id
+    added: '2026-11-26'
+  U0258:
+    key: overflow:desktop:/labels
+    added: '2026-11-26'
+  U0259:
+    key: overflow:desktop:/loans
+    added: '2026-11-26'
+  U0260:
+    key: overflow:desktop:/locations
+    added: '2026-11-26'
+  U0261:
+    key: overflow:desktop:/locations/:id
+    added: '2026-11-26'
+  U0262:
+    key: overflow:desktop:/maps
+    added: '2026-11-26'
+  U0263:
+    key: overflow:desktop:/maps/:id
+    added: '2026-11-26'
+  U0264:
+    key: overflow:desktop:/put-away
+    added: '2026-11-26'
+  U0265:
+    key: overflow:desktop:/repairs/:id
+    added: '2026-11-26'
+  U0266:
+    key: overflow:desktop:/repairs/:id/print
+    added: '2026-11-26'
+  U0267:
+    key: overflow:desktop:/report
+    added: '2026-11-26'
+  U0268:
+    key: overflow:desktop:/reports
+    added: '2026-11-26'
+  U0269:
+    key: overflow:desktop:/scan
+    added: '2026-11-26'
+  U0270:
+    key: overflow:desktop:/search
+    added: '2026-11-26'
+  U0271:
+    key: overflow:desktop:/settings
+    added: '2026-11-26'
+  U0272:
+    key: overflow:desktop:/shopping
+    added: '2026-11-26'
+  U0273:
+    key: overflow:desktop:/tag/:ref
+    added: '2026-11-26'
+  U0274:
+    key: overflow:desktop:/tags
+    added: '2026-11-26'
+  U0275:
+    key: overflow:desktop:/todo
+    added: '2026-11-26'
+  U0276:
+    key: overflow:desktop:/verify
+    added: '2026-11-26'
+  U0277:
+    key: overflow:desktop:/verify/:id
+    added: '2026-11-26'
+  U0278:
+    key: overflow:desktop:/voice-history
+    added: '2026-11-26'
+  U0279:
+    key: overflow:phone:/
+    added: '2026-11-26'
+  U0280:
+    key: overflow:phone:/activity
+    added: '2026-11-26'
+  U0281:
+    key: overflow:phone:/add
+    added: '2026-11-26'
+  U0282:
+    key: overflow:phone:/attention
+    added: '2026-11-26'
+  U0283:
+    key: overflow:phone:/capture
+    added: '2026-11-26'
+  U0284:
+    key: overflow:phone:/care
+    added: '2026-11-26'
+  U0285:
+    key: overflow:phone:/categories
+    added: '2026-11-26'
+  U0286:
+    key: overflow:phone:/containers
+    added: '2026-11-26'
+  U0287:
+    key: overflow:phone:/containers/:id
+    added: '2026-11-26'
+  U0288:
+    key: overflow:phone:/containers/:id/checklist
+    added: '2026-11-26'
+  U0289:
+    key: overflow:phone:/customers/:id
+    added: '2026-11-26'
+  U0290:
+    key: overflow:phone:/deleted
+    added: '2026-11-26'
+  U0291:
+    key: overflow:phone:/duplicates
+    added: '2026-11-26'
+  U0292:
+    key: overflow:phone:/equipment
+    added: '2026-11-26'
+  U0293:
+    key: overflow:phone:/equipment/:id
+    added: '2026-11-26'
+  U0294:
+    key: overflow:phone:/items
+    added: '2026-11-26'
+  U0295:
+    key: overflow:phone:/items/:id
+    added: '2026-11-26'
+  U0296:
+    key: overflow:phone:/kits
+    added: '2026-11-26'
+  U0297:
+    key: overflow:phone:/kits/:id
+    added: '2026-11-26'
+  U0298:
+    key: overflow:phone:/labels
+    added: '2026-11-26'
+  U0299:
+    key: overflow:phone:/loans
+    added: '2026-11-26'
+  U0300:
+    key: overflow:phone:/locations
+    added: '2026-11-26'
+  U0301:
+    key: overflow:phone:/locations/:id
+    added: '2026-11-26'
+  U0302:
+    key: overflow:phone:/maps
+    added: '2026-11-26'
+  U0303:
+    key: overflow:phone:/maps/:id
+    added: '2026-11-26'
+  U0304:
+    key: overflow:phone:/put-away
+    added: '2026-11-26'
+  U0305:
+    key: overflow:phone:/repairs/:id
+    added: '2026-11-26'
+  U0306:
+    key: overflow:phone:/repairs/:id/print
+    added: '2026-11-26'
+  U0307:
+    key: overflow:phone:/report
+    added: '2026-11-26'
+  U0308:
+    key: overflow:phone:/reports
+    added: '2026-11-26'
+  U0309:
+    key: overflow:phone:/scan
+    added: '2026-11-26'
+  U0310:
+    key: overflow:phone:/search
+    added: '2026-11-26'
+  U0311:
+    key: overflow:phone:/settings
+    added: '2026-11-26'
+  U0312:
+    key: overflow:phone:/shopping
+    added: '2026-11-26'
+  U0313:
+    key: overflow:phone:/tag/:ref
+    added: '2026-11-26'
+  U0314:
+    key: overflow:phone:/tags
+    added: '2026-11-26'
+  U0315:
+    key: overflow:phone:/todo
+    added: '2026-11-26'
+  U0316:
+    key: overflow:phone:/verify
+    added: '2026-11-26'
+  U0317:
+    key: overflow:phone:/verify/:id
+    added: '2026-11-26'
+  U0318:
+    key: overflow:phone:/voice-history
+    added: '2026-11-26'
+  U0319:
+    key: refused:desktop:/
+    added: '2026-11-26'
+  U0320:
+    key: refused:desktop:/activity
+    added: '2026-11-26'
+  U0321:
+    key: refused:desktop:/add
+    added: '2026-11-26'
+  U0322:
+    key: refused:desktop:/attention
+    added: '2026-11-26'
+  U0323:
+    key: refused:desktop:/capture
+    added: '2026-11-26'
+  U0324:
+    key: refused:desktop:/care
+    added: '2026-11-26'
+  U0325:
+    key: refused:desktop:/categories
+    added: '2026-11-26'
+  U0326:
+    key: refused:desktop:/containers
+    added: '2026-11-26'
+  U0327:
+    key: refused:desktop:/containers/:id
+    added: '2026-11-26'
+  U0328:
+    key: refused:desktop:/containers/:id/checklist
+    added: '2026-11-26'
+  U0329:
+    key: refused:desktop:/customers/:id
+    added: '2026-11-26'
+  U0330:
+    key: refused:desktop:/deleted
+    added: '2026-11-26'
+  U0331:
+    key: refused:desktop:/duplicates
+    added: '2026-11-26'
+  U0332:
+    key: refused:desktop:/equipment
+    added: '2026-11-26'
+  U0333:
+    key: refused:desktop:/equipment/:id
+    added: '2026-11-26'
+  U0334:
+    key: refused:desktop:/items
+    added: '2026-11-26'
+  U0335:
+    key: refused:desktop:/items/:id
+    added: '2026-11-26'
+  U0336:
+    key: refused:desktop:/kits
+    added: '2026-11-26'
+  U0337:
+    key: refused:desktop:/kits/:id
+    added: '2026-11-26'
+  U0338:
+    key: refused:desktop:/labels
+    added: '2026-11-26'
+  U0339:
+    key: refused:desktop:/loans
+    added: '2026-11-26'
+  U0340:
+    key: refused:desktop:/locations
+    added: '2026-11-26'
+  U0341:
+    key: refused:desktop:/locations/:id
+    added: '2026-11-26'
+  U0342:
+    key: refused:desktop:/maps
+    added: '2026-11-26'
+  U0343:
+    key: refused:desktop:/maps/:id
+    added: '2026-11-26'
+  U0344:
+    key: refused:desktop:/put-away
+    added: '2026-11-26'
+  U0345:
+    key: refused:desktop:/repairs/:id
+    added: '2026-11-26'
+  U0346:
+    key: refused:desktop:/repairs/:id/print
+    added: '2026-11-26'
+  U0347:
+    key: refused:desktop:/report
+    added: '2026-11-26'
+  U0348:
+    key: refused:desktop:/reports
+    added: '2026-11-26'
+  U0349:
+    key: refused:desktop:/scan
+    added: '2026-11-26'
+  U0350:
+    key: refused:desktop:/search
+    added: '2026-11-26'
+  U0351:
+    key: refused:desktop:/settings
+    added: '2026-11-26'
+  U0352:
+    key: refused:desktop:/shopping
+    added: '2026-11-26'
+  U0353:
+    key: refused:desktop:/tag/:ref
+    added: '2026-11-26'
+  U0354:
+    key: refused:desktop:/tags
+    added: '2026-11-26'
+  U0355:
+    key: refused:desktop:/todo
+    added: '2026-11-26'
+  U0356:
+    key: refused:desktop:/verify
+    added: '2026-11-26'
+  U0357:
+    key: refused:desktop:/verify/:id
+    added: '2026-11-26'
+  U0358:
+    key: refused:desktop:/voice-history
+    added: '2026-11-26'
+  U0359:
+    key: refused:phone:/
+    added: '2026-11-26'
+  U0360:
+    key: refused:phone:/activity
+    added: '2026-11-26'
+  U0361:
+    key: refused:phone:/add
+    added: '2026-11-26'
+  U0362:
+    key: refused:phone:/attention
+    added: '2026-11-26'
+  U0363:
+    key: refused:phone:/capture
+    added: '2026-11-26'
+  U0364:
+    key: refused:phone:/care
+    added: '2026-11-26'
+  U0365:
+    key: refused:phone:/categories
+    added: '2026-11-26'
+  U0366:
+    key: refused:phone:/containers
+    added: '2026-11-26'
+  U0367:
+    key: refused:phone:/containers/:id
+    added: '2026-11-26'
+  U0368:
+    key: refused:phone:/containers/:id/checklist
+    added: '2026-11-26'
+  U0369:
+    key: refused:phone:/customers/:id
+    added: '2026-11-26'
+  U0370:
+    key: refused:phone:/deleted
+    added: '2026-11-26'
+  U0371:
+    key: refused:phone:/duplicates
+    added: '2026-11-26'
+  U0372:
+    key: refused:phone:/equipment
+    added: '2026-11-26'
+  U0373:
+    key: refused:phone:/equipment/:id
+    added: '2026-11-26'
+  U0374:
+    key: refused:phone:/items
+    added: '2026-11-26'
+  U0375:
+    key: refused:phone:/items/:id
+    added: '2026-11-26'
+  U0376:
+    key: refused:phone:/kits
+    added: '2026-11-26'
+  U0377:
+    key: refused:phone:/kits/:id
+    added: '2026-11-26'
+  U0378:
+    key: refused:phone:/labels
+    added: '2026-11-26'
+  U0379:
+    key: refused:phone:/loans
+    added: '2026-11-26'
+  U0380:
+    key: refused:phone:/locations
+    added: '2026-11-26'
+  U0381:
+    key: refused:phone:/locations/:id
+    added: '2026-11-26'
+  U0382:
+    key: refused:phone:/maps
+    added: '2026-11-26'
+  U0383:
+    key: refused:phone:/maps/:id
+    added: '2026-11-26'
+  U0384:
+    key: refused:phone:/put-away
+    added: '2026-11-26'
+  U0385:
+    key: refused:phone:/repairs/:id
+    added: '2026-11-26'
+  U0386:
+    key: refused:phone:/repairs/:id/print
+    added: '2026-11-26'
+  U0387:
+    key: refused:phone:/report
+    added: '2026-11-26'
+  U0388:
+    key: refused:phone:/reports
+    added: '2026-11-26'
+  U0389:
+    key: refused:phone:/scan
+    added: '2026-11-26'
+  U0390:
+    key: refused:phone:/search
+    added: '2026-11-26'
+  U0391:
+    key: refused:phone:/settings
+    added: '2026-11-26'
+  U0392:
+    key: refused:phone:/shopping
+    added: '2026-11-26'
+  U0393:
+    key: refused:phone:/tag/:ref
+    added: '2026-11-26'
+  U0394:
+    key: refused:phone:/tags
+    added: '2026-11-26'
+  U0395:
+    key: refused:phone:/todo
+    added: '2026-11-26'
+  U0396:
+    key: refused:phone:/verify
+    added: '2026-11-26'
+  U0397:
+    key: refused:phone:/verify/:id
+    added: '2026-11-26'
+  U0398:
+    key: refused:phone:/voice-history
+    added: '2026-11-26'
+  U0399:
+    key: tap-targets:phone:/
+    added: '2026-11-26'
+  U0400:
+    key: tap-targets:phone:/activity
+    added: '2026-11-26'
+  U0401:
+    key: tap-targets:phone:/add
+    added: '2026-11-26'
+  U0402:
+    key: tap-targets:phone:/attention
+    added: '2026-11-26'
+  U0403:
+    key: tap-targets:phone:/capture
+    added: '2026-11-26'
+  U0404:
+    key: tap-targets:phone:/care
+    added: '2026-11-26'
+  U0405:
+    key: tap-targets:phone:/categories
+    added: '2026-11-26'
+  U0406:
+    key: tap-targets:phone:/containers
+    added: '2026-11-26'
+  U0407:
+    key: tap-targets:phone:/containers/:id
+    added: '2026-11-26'
+  U0408:
+    key: tap-targets:phone:/containers/:id/checklist
+    added: '2026-11-26'
+  U0409:
+    key: tap-targets:phone:/customers/:id
+    added: '2026-11-26'
+  U0410:
+    key: tap-targets:phone:/deleted
+    added: '2026-11-26'
+  U0411:
+    key: tap-targets:phone:/duplicates
+    added: '2026-11-26'
+  U0412:
+    key: tap-targets:phone:/equipment
+    added: '2026-11-26'
+  U0413:
+    key: tap-targets:phone:/equipment/:id
+    added: '2026-11-26'
+  U0414:
+    key: tap-targets:phone:/items
+    added: '2026-11-26'
+  U0415:
+    key: tap-targets:phone:/items/:id
+    added: '2026-11-26'
+  U0416:
+    key: tap-targets:phone:/kits
+    added: '2026-11-26'
+  U0417:
+    key: tap-targets:phone:/kits/:id
+    added: '2026-11-26'
+  U0418:
+    key: tap-targets:phone:/labels
+    added: '2026-11-26'
+  U0419:
+    key: tap-targets:phone:/loans
+    added: '2026-11-26'
+  U0420:
+    key: tap-targets:phone:/locations
+    added: '2026-11-26'
+  U0421:
+    key: tap-targets:phone:/locations/:id
+    added: '2026-11-26'
+  U0422:
+    key: tap-targets:phone:/maps
+    added: '2026-11-26'
+  U0423:
+    key: tap-targets:phone:/maps/:id
+    added: '2026-11-26'
+  U0424:
+    key: tap-targets:phone:/put-away
+    added: '2026-11-26'
+  U0425:
+    key: tap-targets:phone:/repairs/:id
+    added: '2026-11-26'
+  U0426:
+    key: tap-targets:phone:/repairs/:id/print
+    added: '2026-11-26'
+  U0427:
+    key: tap-targets:phone:/report
+    added: '2026-11-26'
+  U0428:
+    key: tap-targets:phone:/reports
+    added: '2026-11-26'
+  U0429:
+    key: tap-targets:phone:/scan
+    added: '2026-11-26'
+  U0430:
+    key: tap-targets:phone:/search
+    added: '2026-11-26'
+  U0431:
+    key: tap-targets:phone:/settings
+    added: '2026-11-26'
+  U0432:
+    key: tap-targets:phone:/shopping
+    added: '2026-11-26'
+  U0433:
+    key: tap-targets:phone:/tag/:ref
+    added: '2026-11-26'
+  U0434:
+    key: tap-targets:phone:/tags
+    added: '2026-11-26'
+  U0435:
+    key: tap-targets:phone:/todo
+    added: '2026-11-26'
+  U0436:
+    key: tap-targets:phone:/verify
+    added: '2026-11-26'
+  U0437:
+    key: tap-targets:phone:/verify/:id
+    added: '2026-11-26'
+  U0438:
+    key: tap-targets:phone:/voice-history
+    added: '2026-11-26'
