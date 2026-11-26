@@ -30,6 +30,10 @@ python3 regression/run.py manual phone-camera-photo pass --note "Pixel, Companio
 The reviewers and publishing are done by Claude Code through the skills; the
 runner alone produces the reports without reviewer findings.
 
+Security findings are counted by severity in `RUNS.md` and keyed by a hash in
+`ids/findings.yaml`; their details are only in the private report, because this
+repository is public.
+
 Each run gets a folder in `regression/out/` (not committed): stage results as
 JSON, reports, screenshots, and the throwaway Apps' data and logs.
 
@@ -46,6 +50,8 @@ JSON, reports, screenshots, and the throwaway Apps' data and logs.
 | `ids/<stage>.yaml` | Stable check IDs: never renumbered or reused; checks that go away are marked `retired`. `findings.yaml` and `ux-findings.yaml` do the same for reviewer findings. |
 | `catalogue/*.yaml` | Features and the regular expressions (over `stage:ID key`) that say which checks cover them. |
 | `manual.yaml`, `manual-log.yaml` | Checks only a person can do, and their recorded results. |
+| `access.yaml` | Which roles must be refused which API routes; the API sweep fails if one gets in. |
+| `accepted.yaml` | Scanner findings accepted on purpose, each with its reason. |
 | `schemas/` | The JSON the reviewers return. |
 | `tests/` | Tests for the runner (`pytest -c regression/tests/pytest.ini regression/tests`). |
 

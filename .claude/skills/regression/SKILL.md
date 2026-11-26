@@ -124,4 +124,8 @@ Everything lives in `regression/` (see `regression/README.md`). The runner is
 - New pages or tests get new IDs automatically; add them to a feature in
   `regression/catalogue/*.yaml` if the report lists them as unclaimed.
 - Never renumber or delete entries in `regression/ids/*.yaml`.
+- A scanner finding that is right but deliberate goes in `regression/accepted.yaml`
+  with its reason, only with the owner's agreement. Who must be refused which API
+  routes is in `regression/access.yaml`; keep it in step with `docs/security.md`.
+- The repository is public: never put finding titles or details in committed files.
 - CodeRabbit is not part of this run.

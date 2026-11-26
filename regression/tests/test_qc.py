@@ -263,3 +263,14 @@ def test_stage_result_roundtrip(tmp_path):
     back = load_stage(p)
     assert back.checks[0].data == {"n": 1} and back.scopes == ["server:"]
     assert re.fullmatch(r"tests:T0001 k", back.checks[0].full)
+
+
+def test_json_in_ignores_trailing_text():
+    assert stages._json_in('noise {"a": {"b": 1}} No known vulnerabilities found') == {"a": {"b": 1}}
+
+
+def test_repository_access_rules():
+    rules = stages.access_rules()
+    assert any(r.search("/api/v1/customers/{customer_id}") for r in rules["read_only"])
+    assert not any(r.search("/api/v1/customers") for r in rules["member"])
+    assert any(r.search("/api/v1/voice/history") for r in rules["member"])

@@ -1,0 +1,10 @@
+# Scanner findings accepted on purpose, each with its reason. The quality stage
+# lists them as accepted instead of failing. Review this list on every release.
+bandit:
+  - test: B104
+    file: home_inventory/server/home_inventory_server/main.py
+    reason: >-
+      The App listens on all interfaces inside its container. Home Assistant's
+      Ingress proxy (and, for the API port, the integration) connect over the
+      container network; the ingress port trusts identity headers only from the
+      configured proxy address and the API port needs the token.

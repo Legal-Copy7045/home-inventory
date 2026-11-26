@@ -1,4 +1,4 @@
 # Private artifact links the reports are republished to on every run (same URL each time).
-# Filled in after the first publish; only the owner can open them.
-regression: null
-walkthrough: null
+# Only the owner can open them.
+regression: https://claude.ai/artifact/LWhBRxRqqiFXYLgPumHH3r
+walkthrough: https://claude.ai/artifact/T4qeorpbaZxovm6mEGQCSt

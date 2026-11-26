@@ -1,0 +1,13 @@
+# Who must be refused what, checked by the browser stage's API sweep: a role listed
+# here that gets a 2xx answer fails the check. Paths are regular expressions over the
+# route as the App declares it (e.g. /api/v1/customers/{customer_id}).
+# Taken from docs/security.md and the routes' own role checks; keep it in step with them.
+refused:
+  member:
+    - ^/api/v1/(users|backup/|voice/(history|suggestions))
+  read_only:
+    - ^/api/v1/(users|backup/|voice/(history|suggestions))
+    - ^/api/v1/(customers|repair-jobs|reservations)
+    - ^/api/v1/items/\{item_id\}/repair-jobs
+    - ^/api/v1/products/duplicates
+    - ^/api/v1/value-estimates

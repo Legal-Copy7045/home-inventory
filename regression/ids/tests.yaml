@@ -1,0 +1,2012 @@
+# Stable IDs for the tests checks. Written by regression/run.py.
+# Never renumber or reuse an ID; a check that goes away is marked retired.
+prefix: T
+next: 670
+ids:
+  T0001:
+    key: server:tests/test_ai.py::test_identify_item_returns_suggestion_for_review
+    added: '2026-11-26'
+  T0002:
+    key: server:tests/test_ai.py::test_ai_failure_is_reported_without_data_loss
+    added: '2026-11-26'
+  T0003:
+    key: server:tests/test_ai.py::test_ai_invalid_json_retried
+    added: '2026-11-26'
+  T0004:
+    key: server:tests/test_ai.py::test_ai_unavailable
+    added: '2026-11-26'
+  T0005:
+    key: server:tests/test_ai.py::test_container_scan_review_confirm_and_rescan
+    added: '2026-11-26'
+  T0006:
+    key: server:tests/test_ai.py::test_container_scan_failure_keeps_photo
+    added: '2026-11-26'
+  T0007:
+    key: server:tests/test_ai.py::test_ai_image_downscaled
+    added: '2026-11-26'
+  T0008:
+    key: server:tests/test_ai.py::test_ha_ai_task_provider_uses_media_api_not_a_mount
+    added: '2026-11-26'
+  T0009:
+    key: server:tests/test_ai.py::test_ha_ai_task_older_home_assistant_falls_back_to_media_root
+    added: '2026-11-26'
+  T0010:
+    key: server:tests/test_ai.py::test_ha_ai_task_temp_photo_removed_even_when_ai_fails
+    added: '2026-11-26'
+  T0011:
+    key: server:tests/test_ai.py::test_app_manifest_does_not_mount_media
+    added: '2026-11-26'
+  T0012:
+    key: server:tests/test_ai.py::test_openai_compatible_errors
+    added: '2026-11-26'
+  T0013:
+    key: server:tests/test_ai.py::test_unknown_provider
+    added: '2026-11-26'
+  T0014:
+    key: server:tests/test_ai.py::test_ai_search_interpretation_uses_db_only
+    added: '2026-11-26'
+  T0015:
+    key: server:tests/test_ai.py::test_ai_search_failure_falls_back
+    added: '2026-11-26'
+  T0016:
+    key: server:tests/test_ai.py::test_shelf_photo_inventory_identifies_several_items
+    added: '2026-11-26'
+  T0017:
+    key: server:tests/test_ai.py::test_shelf_rescan_only_touches_that_shelf
+    added: '2026-11-26'
+  T0018:
+    key: server:tests/test_ai.py::test_shelf_scan_roles_and_missing_ai
+    added: '2026-11-26'
+  T0019:
+    key: server:tests/test_ai.py::test_scan_matches_do_not_name_customer_equipment_to_read_only
+    added: '2026-11-26'
+  T0020:
+    key: server:tests/test_ai.py::test_scan_items_get_cropped_photos_and_unseen_can_be_marked_missing
+    added: '2026-11-26'
+  T0021:
+    key: server:tests/test_ai.py::test_area_photo_finds_layout_items_and_labelled_boxes
+    added: '2026-11-26'
+  T0022:
+    key: server:tests/test_ai.py::test_area_rescan_matches_whole_area_and_keeps_places_inside_it
+    added: '2026-11-26'
+  T0023:
+    key: server:tests/test_ai.py::test_container_photo_can_add_a_box_inside_the_box
+    added: '2026-11-26'
+  T0024:
+    key: server:tests/test_ai.py::test_area_photo_works_for_any_layout
+    added: '2026-11-26'
+  T0025:
+    key: server:tests/test_ai.py::test_boxes_in_the_detection_format_are_converted
+    added: '2026-11-26'
+  T0026:
+    key: server:tests/test_ai.py::test_redo_cutouts_of_a_confirmed_photo_inventory
+    added: '2026-11-26'
+  T0027:
+    key: server:tests/test_ai.py::test_unidentified_things_go_to_the_to_finish_list
+    added: '2026-11-26'
+  T0028:
+    key: server:tests/test_ai.py::test_the_last_photo_can_be_looked_at_again
+    added: '2026-11-26'
+  T0029:
+    key: server:tests/test_ai.py::test_boxes_redo_cutouts_and_rescans_reuse_recorded_names
+    added: '2026-11-26'
+  T0030:
+    key: server:tests/test_ai.py::test_look_closer_adds_what_the_first_pass_missed
+    added: '2026-11-26'
+  T0031:
+    key: server:tests/test_ai_ratelimit.py::test_requests_per_minute_queue_instead_of_going_over
+    added: '2026-11-26'
+  T0032:
+    key: server:tests/test_ai_ratelimit.py::test_tokens_per_minute
+    added: '2026-11-26'
+  T0033:
+    key: server:tests/test_ai_ratelimit.py::test_daily_limit_survives_a_restart_and_waiting_callers_give_up
+    added: '2026-11-26'
+  T0034:
+    key: server:tests/test_ai_ratelimit.py::test_rate_limited_provider_pauses_then_retries
+    added: '2026-11-26'
+  T0035:
+    key: server:tests/test_ai_ratelimit.py::test_interactive_call_gives_up_on_a_long_cooldown
+    added: '2026-11-26'
+  T0036:
+    key: server:tests/test_ai_ratelimit.py::test_home_assistant_passes_on_gemini_quota_errors
+    added: '2026-11-26'
+  T0037:
+    key: server:tests/test_ai_ratelimit.py::test_default_gemini_model_follows_google
+    added: '2026-11-26'
+  T0038:
+    key: server:tests/test_auth.py::test_ingress_requires_trusted_peer
+    added: '2026-11-26'
+  T0039:
+    key: server:tests/test_auth.py::test_ingress_requires_identity_header
+    added: '2026-11-26'
+  T0040:
+    key: server:tests/test_auth.py::test_health_is_public_and_minimal
+    added: '2026-11-26'
+  T0041:
+    key: server:tests/test_auth.py::test_configured_admin_then_members
+    added: '2026-11-26'
+  T0042:
+    key: server:tests/test_auth.py::test_read_only_role
+    added: '2026-11-26'
+  T0043:
+    key: server:tests/test_auth.py::test_admin_cannot_demote_self
+    added: '2026-11-26'
+  T0044:
+    key: server:tests/test_auth.py::test_configured_admin_users
+    added: '2026-11-26'
+  T0045:
+    key: server:tests/test_auth.py::test_ha_admin_directory_used
+    added: '2026-11-26'
+  T0046:
+    key: server:tests/test_auth.py::test_audit_identifies_user
+    added: '2026-11-26'
+  T0047:
+    key: server:tests/test_auth.py::test_api_channel_requires_token
+    added: '2026-11-26'
+  T0048:
+    key: server:tests/test_auth.py::test_api_channel_acts_for_ha_user
+    added: '2026-11-26'
+  T0049:
+    key: server:tests/test_auth.py::test_api_docs_only_while_debugging_and_never_on_ingress
+    added: '2026-11-26'
+  T0050:
+    key: server:tests/test_auth.py::test_data_is_never_cached_and_not_embeddable
+    added: '2026-11-26'
+  T0051:
+    key: server:tests/test_auth.py::test_qr_link_address_must_be_a_web_address
+    added: '2026-11-26'
+  T0052:
+    key: server:tests/test_auth.py::test_security_headers
+    added: '2026-11-26'
+  T0053:
+    key: server:tests/test_auth.py::test_role_enum_values
+    added: '2026-11-26'
+  T0054:
+    key: server:tests/test_auth.py::test_ui_static_files_are_confined
+    added: '2026-11-26'
+  T0055:
+    key: server:tests/test_auth.py::test_ha_lookup_unavailable_never_promotes_first_user
+    added: '2026-11-26'
+  T0056:
+    key: server:tests/test_auth.py::test_configured_admin_arriving_first
+    added: '2026-11-26'
+  T0057:
+    key: server:tests/test_auth.py::test_configured_read_only_user_arriving_first
+    added: '2026-11-26'
+  T0058:
+    key: server:tests/test_auth.py::test_member_first_then_setup_code_claim
+    added: '2026-11-26'
+  T0059:
+    key: server:tests/test_auth.py::test_setup_code_rotates_after_failed_attempts
+    added: '2026-11-26'
+  T0060:
+    key: server:tests/test_auth.py::test_setup_code_not_offered_through_integration_api
+    added: '2026-11-26'
+  T0061:
+    key: server:tests/test_auth.py::test_existing_admin_kept_when_home_assistant_unavailable
+    added: '2026-11-26'
+  T0062:
+    key: server:tests/test_auth.py::test_home_assistant_admin_flag_can_be_revoked
+    added: '2026-11-26'
+  T0063:
+    key: server:tests/test_auth.py::test_concurrent_first_requests
+    added: '2026-11-26'
+  T0064:
+    key: server:tests/test_auth.py::test_claim_works_when_everyone_defaults_to_read_only
+    added: '2026-11-26'
+  T0065:
+    key: server:tests/test_auth.py::test_integration_sends_only_the_user_id_and_the_app_asks_home_assistant
+    added: '2026-11-26'
+  T0066:
+    key: server:tests/test_auth.py::test_container_install_looks_people_up_with_its_home_assistant_token
+    added: '2026-11-26'
+  T0067:
+    key: server:tests/test_authz_routes.py::test_every_mutating_route_refuses_read_only_users
+    added: '2026-11-26'
+  T0068:
+    key: server:tests/test_authz_routes.py::test_every_route_on_the_api_port_requires_the_token
+    added: '2026-11-26'
+  T0069:
+    key: server:tests/test_authz_routes.py::test_ingress_refuses_untrusted_peers_on_every_route
+    added: '2026-11-26'
+  T0070:
+    key: server:tests/test_authz_routes.py::test_admin_only_routes_refuse_members[get-/api/v1/users]
+    added: '2026-11-26'
+  T0071:
+    key: server:tests/test_authz_routes.py::test_admin_only_routes_refuse_members[patch-/api/v1/users/1]
+    added: '2026-11-26'
+  T0072:
+    key: server:tests/test_authz_routes.py::test_admin_only_routes_refuse_members[patch-/api/v1/settings]
+    added: '2026-11-26'
+  T0073:
+    key: server:tests/test_authz_routes.py::test_admin_only_routes_refuse_members[get-/api/v1/backup/export]
+    added: '2026-11-26'
+  T0074:
+    key: server:tests/test_authz_routes.py::test_admin_only_routes_refuse_members[post-/api/v1/backup/restore]
+    added: '2026-11-26'
+  T0075:
+    key: server:tests/test_backup_security.py::test_valid_restore_still_works
+    added: '2026-11-26'
+  T0076:
+    key: server:tests/test_backup_security.py::test_restore_is_admin_only
+    added: '2026-11-26'
+  T0077:
+    key: server:tests/test_backup_security.py::test_oversized_upload_rejected_before_parsing
+    added: '2026-11-26'
+  T0078:
+    key: server:tests/test_backup_security.py::test_ordinary_uploads_limited_too
+    added: '2026-11-26'
+  T0079:
+    key: server:tests/test_backup_security.py::test_unsafe_or_unexpected_paths_rejected[../escape.txt]
+    added: '2026-11-26'
+  T0080:
+    key: server:tests/test_backup_security.py::test_unsafe_or_unexpected_paths_rejected[/etc/passwd]
+    added: '2026-11-26'
+  T0081:
+    key: server:tests/test_backup_security.py::test_unsafe_or_unexpected_paths_rejected[media/../../x]
+    added: '2026-11-26'
+  T0082:
+    key: server:tests/test_backup_security.py::test_unsafe_or_unexpected_paths_rejected[media\\..\\x]
+    added: '2026-11-26'
+  T0083:
+    key: server:tests/test_backup_security.py::test_unsafe_or_unexpected_paths_rejected[C:/x]
+    added: '2026-11-26'
+  T0084:
+    key: server:tests/test_backup_security.py::test_unsafe_or_unexpected_paths_rejected[notes.txt]
+    added: '2026-11-26'
+  T0085:
+    key: server:tests/test_backup_security.py::test_unsafe_or_unexpected_paths_rejected[media/.hidden/../../a]
+    added: '2026-11-26'
+  T0086:
+    key: server:tests/test_backup_security.py::test_symlink_rejected
+    added: '2026-11-26'
+  T0087:
+    key: server:tests/test_backup_security.py::test_zip_bomb_rejected
+    added: '2026-11-26'
+  T0088:
+    key: server:tests/test_backup_security.py::test_too_many_entries_and_total_size
+    added: '2026-11-26'
+  T0089:
+    key: server:tests/test_backup_security.py::test_lying_header_sizes_caught_while_extracting
+    added: '2026-11-26'
+  T0090:
+    key: server:tests/test_backup_security.py::test_missing_files_and_bad_manifest
+    added: '2026-11-26'
+  T0091:
+    key: server:tests/test_backup_security.py::test_malformed_and_incomplete_databases
+    added: '2026-11-26'
+  T0092:
+    key: server:tests/test_backup_security.py::test_failed_swap_rolls_back_and_cleans_up
+    added: '2026-11-26'
+  T0093:
+    key: server:tests/test_backup_security.py::test_temporary_files_removed_after_rejection
+    added: '2026-11-26'
+  T0094:
+    key: server:tests/test_barcode_labels.py::test_gtin_parse[012345678905-upc_a-00012345678905]
+    added: '2026-11-26'
+  T0095:
+    key: server:tests/test_barcode_labels.py::test_gtin_parse[4006381333931-ean_13-04006381333931]
+    added: '2026-11-26'
+  T0096:
+    key: server:tests/test_barcode_labels.py::test_gtin_parse[96385074-ean_8-00000096385074]
+    added: '2026-11-26'
+  T0097:
+    key: server:tests/test_barcode_labels.py::test_gtin_parse[10012345678902-gtin_14-10012345678902]
+    added: '2026-11-26'
+  T0098:
+    key: server:tests/test_barcode_labels.py::test_gtin_parse[01234565-None-None]
+    added: '2026-11-26'
+  T0099:
+    key: server:tests/test_barcode_labels.py::test_gtin_parse[01234567890-upc_a-00012345678905]
+    added: '2026-11-26'
+  T0100:
+    key: server:tests/test_barcode_labels.py::test_upce_expansion
+    added: '2026-11-26'
+  T0101:
+    key: server:tests/test_barcode_labels.py::test_invalid_and_non_numeric
+    added: '2026-11-26'
+  T0102:
+    key: server:tests/test_barcode_labels.py::test_barcode_lookup_inventory_first
+    added: '2026-11-26'
+  T0103:
+    key: server:tests/test_barcode_labels.py::test_barcode_catalog_lookup_and_cache
+    added: '2026-11-26'
+  T0104:
+    key: server:tests/test_barcode_labels.py::test_qr_payload_round_trip
+    added: '2026-11-26'
+  T0105:
+    key: server:tests/test_barcode_labels.py::test_qr_stable_when_container_changes
+    added: '2026-11-26'
+  T0106:
+    key: server:tests/test_barcode_labels.py::test_label_templates_render[avery_l7160]
+    added: '2026-11-26'
+  T0107:
+    key: server:tests/test_barcode_labels.py::test_label_templates_render[avery_l7163]
+    added: '2026-11-26'
+  T0108:
+    key: server:tests/test_barcode_labels.py::test_label_templates_render[avery_l7165]
+    added: '2026-11-26'
+  T0109:
+    key: server:tests/test_barcode_labels.py::test_label_templates_render[avery_5160]
+    added: '2026-11-26'
+  T0110:
+    key: server:tests/test_barcode_labels.py::test_label_templates_render[avery_5163]
+    added: '2026-11-26'
+  T0111:
+    key: server:tests/test_barcode_labels.py::test_label_templates_render[avery_5164]
+    added: '2026-11-26'
+  T0112:
+    key: server:tests/test_barcode_labels.py::test_label_templates_render[avery_22806]
+    added: '2026-11-26'
+  T0113:
+    key: server:tests/test_barcode_labels.py::test_label_templates_render[avery_l7651]
+    added: '2026-11-26'
+  T0114:
+    key: server:tests/test_barcode_labels.py::test_label_templates_render[single_62x29]
+    added: '2026-11-26'
+  T0115:
+    key: server:tests/test_barcode_labels.py::test_label_templates_render[single_62x100]
+    added: '2026-11-26'
+  T0116:
+    key: server:tests/test_barcode_labels.py::test_label_templates_render[single_4x6]
+    added: '2026-11-26'
+  T0117:
+    key: server:tests/test_barcode_labels.py::test_labels_endpoint_bulk
+    added: '2026-11-26'
+  T0118:
+    key: server:tests/test_barcode_labels.py::test_label_links_open_the_app
+    added: '2026-11-26'
+  T0119:
+    key: server:tests/test_barcode_labels.py::test_location_labels_and_resolve
+    added: '2026-11-26'
+  T0120:
+    key: server:tests/test_barcode_labels.py::test_settings_address_overrides_browser
+    added: '2026-11-26'
+  T0121:
+    key: server:tests/test_barcode_labels.py::test_weatherproof_avery_names_and_geometry
+    added: '2026-11-26'
+  T0122:
+    key: server:tests/test_barcode_labels.py::test_location_labels_list_whats_there_and_can_carry_arrows
+    added: '2026-11-26'
+  T0123:
+    key: server:tests/test_barcode_labels.py::test_label_themes_and_room_bands_render[avery_l7651-standard]
+    added: '2026-11-26'
+  T0124:
+    key: server:tests/test_barcode_labels.py::test_label_themes_and_room_bands_render[avery_l7651-large]
+    added: '2026-11-26'
+  T0125:
+    key: server:tests/test_barcode_labels.py::test_label_themes_and_room_bands_render[avery_l7651-drawer]
+    added: '2026-11-26'
+  T0126:
+    key: server:tests/test_barcode_labels.py::test_label_themes_and_room_bands_render[avery_l7160-standard]
+    added: '2026-11-26'
+  T0127:
+    key: server:tests/test_barcode_labels.py::test_label_themes_and_room_bands_render[avery_l7160-large]
+    added: '2026-11-26'
+  T0128:
+    key: server:tests/test_barcode_labels.py::test_label_themes_and_room_bands_render[avery_l7160-drawer]
+    added: '2026-11-26'
+  T0129:
+    key: server:tests/test_barcode_labels.py::test_label_themes_and_room_bands_render[single_62x100-standard]
+    added: '2026-11-26'
+  T0130:
+    key: server:tests/test_barcode_labels.py::test_label_themes_and_room_bands_render[single_62x100-large]
+    added: '2026-11-26'
+  T0131:
+    key: server:tests/test_barcode_labels.py::test_label_themes_and_room_bands_render[single_62x100-drawer]
+    added: '2026-11-26'
+  T0132:
+    key: server:tests/test_barcode_labels.py::test_label_room_colours_follow_the_room
+    added: '2026-11-26'
+  T0133:
+    key: server:tests/test_bulk.py::test_sort_by_location_groups_items_by_place
+    added: '2026-11-26'
+  T0134:
+    key: server:tests/test_bulk.py::test_bulk_move_edit_delete
+    added: '2026-11-26'
+  T0135:
+    key: server:tests/test_bulk.py::test_bulk_actions_are_all_or_nothing_and_validated
+    added: '2026-11-26'
+  T0136:
+    key: server:tests/test_bulk.py::test_bulk_actions_need_member
+    added: '2026-11-26'
+  T0137:
+    key: server:tests/test_bulk_more.py::test_items_paging_is_done_in_sql_and_ids_cover_all_matches
+    added: '2026-11-26'
+  T0138:
+    key: server:tests/test_bulk_more.py::test_bulk_delete_can_be_undone
+    added: '2026-11-26'
+  T0139:
+    key: server:tests/test_bulk_more.py::test_bulk_lend_and_status_guard
+    added: '2026-11-26'
+  T0140:
+    key: server:tests/test_bulk_more.py::test_bulk_add_to_kit
+    added: '2026-11-26'
+  T0141:
+    key: server:tests/test_bulk_more.py::test_new_bulk_actions_need_member
+    added: '2026-11-26'
+  T0142:
+    key: server:tests/test_capture.py::test_quick_photos_land_in_box_and_need_details
+    added: '2026-11-26'
+  T0143:
+    key: server:tests/test_capture.py::test_quick_photos_to_a_location_and_validation
+    added: '2026-11-26'
+  T0144:
+    key: server:tests/test_capture.py::test_background_ai_suggestion_is_only_a_suggestion
+    added: '2026-11-26'
+  T0145:
+    key: server:tests/test_capture.py::test_worker_resumes_queued_captures_after_restart
+    added: '2026-11-26'
+  T0146:
+    key: server:tests/test_capture.py::test_quick_photos_without_a_place_then_sort_by_shelf
+    added: '2026-11-26'
+  T0147:
+    key: server:tests/test_capture.py::test_placing_quick_photos_validation_and_roles
+    added: '2026-11-26'
+  T0148:
+    key: server:tests/test_categories.py::test_items_only_take_existing_categories
+    added: '2026-11-26'
+  T0149:
+    key: server:tests/test_categories.py::test_admins_add_rename_merge_and_delete
+    added: '2026-11-26'
+  T0150:
+    key: server:tests/test_categories.py::test_only_admins_manage_categories
+    added: '2026-11-26'
+  T0151:
+    key: server:tests/test_checkups.py::test_never_checked_places_with_most_things_come_first_then_the_oldest
+    added: '2026-11-26'
+  T0152:
+    key: server:tests/test_checkups.py::test_monthly_notice_is_published_once_a_month
+    added: '2026-11-26'
+  T0153:
+    key: server:tests/test_container_checklist.py::test_print_lists_the_box_and_boxes_inside_it
+    added: '2026-11-26'
+  T0154:
+    key: server:tests/test_container_checklist.py::test_read_a_completed_page_then_apply_what_was_confirmed
+    added: '2026-11-26'
+  T0155:
+    key: server:tests/test_container_checklist.py::test_reading_needs_ai_and_a_photo_or_pdf
+    added: '2026-11-26'
+  T0156:
+    key: server:tests/test_customers.py::test_customer_equipment_is_not_household_property
+    added: '2026-11-26'
+  T0157:
+    key: server:tests/test_customers.py::test_ordinary_edits_never_change_ownership
+    added: '2026-11-26'
+  T0158:
+    key: server:tests/test_customers.py::test_splitting_a_customer_holding_keeps_the_owner
+    added: '2026-11-26'
+  T0159:
+    key: server:tests/test_customers.py::test_repair_job_lifecycle_parts_and_costs
+    added: '2026-11-26'
+  T0160:
+    key: server:tests/test_customers.py::test_multiple_visits_keep_persistent_history
+    added: '2026-11-26'
+  T0161:
+    key: server:tests/test_customers.py::test_jobs_only_for_that_customers_equipment
+    added: '2026-11-26'
+  T0162:
+    key: server:tests/test_customers.py::test_deleting_customer_keeps_equipment_customer_owned
+    added: '2026-11-26'
+  T0163:
+    key: server:tests/test_customers.py::test_read_only_users_cannot_see_customer_information
+    added: '2026-11-26'
+  T0164:
+    key: server:tests/test_customers.py::test_maintenance_dashboard_filters_household_and_customer
+    added: '2026-11-26'
+  T0165:
+    key: server:tests/test_customers.py::test_job_photos_and_contact_log
+    added: '2026-11-26'
+  T0166:
+    key: server:tests/test_customers.py::test_customer_search
+    added: '2026-11-26'
+  T0167:
+    key: server:tests/test_customers.py::test_job_ticket_number_lookup_stock_part_cost_and_status_message_data
+    added: '2026-11-26'
+  T0168:
+    key: server:tests/test_customers.py::test_business_details_for_invoices_are_settings
+    added: '2026-11-26'
+  T0169:
+    key: server:tests/test_documents.py::test_receipt_is_recognised_and_fills_empty_fields
+    added: '2026-11-26'
+  T0170:
+    key: server:tests/test_documents.py::test_other_products_photos_and_failures
+    added: '2026-11-26'
+  T0171:
+    key: server:tests/test_documents.py::test_without_ai_uploads_work_as_before
+    added: '2026-11-26'
+  T0172:
+    key: server:tests/test_documents.py::test_files_added_as_manuals_are_recognised_too
+    added: '2026-11-26'
+  T0173:
+    key: server:tests/test_duplicates.py::test_finds_similar_names_same_barcode_and_model
+    added: '2026-11-26'
+  T0174:
+    key: server:tests/test_duplicates.py::test_merge_moves_everything_and_fills_blanks
+    added: '2026-11-26'
+  T0175:
+    key: server:tests/test_duplicates.py::test_dismissed_pairs_are_not_suggested_again
+    added: '2026-11-26'
+  T0176:
+    key: server:tests/test_duplicates.py::test_products_whose_photos_look_the_same
+    added: '2026-11-26'
+  T0177:
+    key: server:tests/test_duplicates.py::test_merge_can_add_quantities_or_treat_them_as_one_record
+    added: '2026-11-26'
+  T0178:
+    key: server:tests/test_duplicates.py::test_merge_never_folds_a_record_something_else_refers_to
+    added: '2026-11-26'
+  T0179:
+    key: server:tests/test_duplicates.py::test_pairs_carry_photos_to_compare
+    added: '2026-11-26'
+  T0180:
+    key: server:tests/test_enhancements.py::test_due_task_is_announced_once_with_parts_and_missing_parts_are_listed
+    added: '2026-11-26'
+  T0181:
+    key: server:tests/test_enhancements.py::test_auto_shopping_can_be_turned_off
+    added: '2026-11-26'
+  T0182:
+    key: server:tests/test_enhancements.py::test_panorama_joins_photos_left_to_right
+    added: '2026-11-26'
+  T0183:
+    key: server:tests/test_enhancements.py::test_warranty_claim_pack
+    added: '2026-11-26'
+  T0184:
+    key: server:tests/test_enhancements.py::test_seasonal_checklist_suggests_and_adds_yearly_jobs
+    added: '2026-11-26'
+  T0185:
+    key: server:tests/test_enhancements.py::test_ai_value_estimate_is_kept_with_the_item
+    added: '2026-11-26'
+  T0186:
+    key: server:tests/test_enhancements.py::test_panorama_shrinks_big_photos_before_joining
+    added: '2026-11-26'
+  T0187:
+    key: server:tests/test_enhancements.py::test_places_inside_a_location_say_what_they_hold
+    added: '2026-11-26'
+  T0188:
+    key: server:tests/test_enhancements.py::test_photo_detail_high_keeps_more_pixels
+    added: '2026-11-26'
+  T0189:
+    key: server:tests/test_enhancements.py::test_search_matches_numbers_as_digits_or_words
+    added: '2026-11-26'
+  T0190:
+    key: server:tests/test_enhancements.py::test_one_word_or_two_finds_the_name_first
+    added: '2026-11-26'
+  T0191:
+    key: server:tests/test_enhancements.py::test_maintenance_plan_lists_equipment_jobs_and_parts
+    added: '2026-11-26'
+  T0192:
+    key: server:tests/test_entities_reservations.py::test_entities_are_checked_then_confirmed
+    added: '2026-11-26'
+  T0193:
+    key: server:tests/test_entities_reservations.py::test_entities_without_home_assistant
+    added: '2026-11-26'
+  T0194:
+    key: server:tests/test_entities_reservations.py::test_reserved_stock_stays_on_the_shelf_until_used
+    added: '2026-11-26'
+  T0195:
+    key: server:tests/test_entities_reservations.py::test_reserved_stock_isnt_available_for_maintenance_and_demand_adds_up
+    added: '2026-11-26'
+  T0196:
+    key: server:tests/test_equipment.py::test_which_season
+    added: '2026-11-26'
+  T0197:
+    key: server:tests/test_equipment.py::test_season_jobs_and_consumables
+    added: '2026-11-26'
+  T0198:
+    key: server:tests/test_equipment.py::test_meter_readings_due_and_monthly_reminder
+    added: '2026-11-26'
+  T0199:
+    key: server:tests/test_equipment.py::test_service_history_pdf
+    added: '2026-11-26'
+  T0200:
+    key: server:tests/test_equipment.py::test_worth_fixing
+    added: '2026-11-26'
+  T0201:
+    key: server:tests/test_equipment_hub.py::test_equipment_is_a_managed_item_not_a_separate_inventory
+    added: '2026-11-26'
+  T0202:
+    key: server:tests/test_equipment_hub.py::test_turning_equipment_back_into_an_item_keeps_everything
+    added: '2026-11-26'
+  T0203:
+    key: server:tests/test_equipment_hub.py::test_overview_shows_what_needs_attention_and_the_parts
+    added: '2026-11-26'
+  T0204:
+    key: server:tests/test_equipment_hub.py::test_checklist_groups_sources_and_pdf
+    added: '2026-11-26'
+  T0205:
+    key: server:tests/test_equipment_hub.py::test_reports_across_equipment
+    added: '2026-11-26'
+  T0206:
+    key: server:tests/test_equipment_hub.py::test_completing_maintenance_never_takes_stock_unless_asked
+    added: '2026-11-26'
+  T0207:
+    key: server:tests/test_equipment_hub.py::test_manual_checklist_is_traceable_and_keeps_user_edits
+    added: '2026-11-26'
+  T0208:
+    key: server:tests/test_equipment_hub.py::test_uncertain_manual_model_needs_confirmation
+    added: '2026-11-26'
+  T0209:
+    key: server:tests/test_equipment_hub.py::test_manual_covering_variants_with_different_schedules_is_not_chosen_silently
+    added: '2026-11-26'
+  T0210:
+    key: server:tests/test_error_exposure.py::test_ai_service_rejections_keep_the_body_out_of_the_message
+    added: '2026-11-26'
+  T0211:
+    key: server:tests/test_error_exposure.py::test_unreachable_service_message_has_no_exception_text
+    added: '2026-11-26'
+  T0212:
+    key: server:tests/test_error_exposure.py::test_bad_pdf_message_has_no_parser_detail
+    added: '2026-11-26'
+  T0213:
+    key: server:tests/test_fixes_0153.py::test_taken_on_reads_exif_date
+    added: '2026-11-26'
+  T0214:
+    key: server:tests/test_fixes_0153.py::test_upload_returns_photo_date_even_though_exif_is_stripped
+    added: '2026-11-26'
+  T0215:
+    key: server:tests/test_fixes_0153.py::test_jobs_run_at_most_max_workers_at_once
+    added: '2026-11-26'
+  T0216:
+    key: server:tests/test_fixes_0153.py::test_document_upload_when_ai_busy_is_recorded_not_skipped
+    added: '2026-11-26'
+  T0217:
+    key: server:tests/test_fixes_0153.py::test_one_plural_rule
+    added: '2026-11-26'
+  T0218:
+    key: server:tests/test_fixes_0153.py::test_part_number_lookup_ignores_spaces_dashes_and_case
+    added: '2026-11-26'
+  T0219:
+    key: server:tests/test_identity_and_taking.py::test_contextless_integration_requests_never_see_customer_data
+    added: '2026-11-26'
+  T0220:
+    key: server:tests/test_identity_and_taking.py::test_contextless_requests_are_never_administrators
+    added: '2026-11-26'
+  T0221:
+    key: server:tests/test_identity_and_taking.py::test_integration_requests_with_a_user_keep_attribution
+    added: '2026-11-26'
+  T0222:
+    key: server:tests/test_identity_and_taking.py::test_invalid_or_reserved_identity_headers_are_refused
+    added: '2026-11-26'
+  T0223:
+    key: server:tests/test_identity_and_taking.py::test_ingress_without_identity_is_refused
+    added: '2026-11-26'
+  T0224:
+    key: server:tests/test_identity_and_taking.py::test_someone_elses_taken_item_is_not_silently_taken_again
+    added: '2026-11-26'
+  T0225:
+    key: server:tests/test_identity_and_taking.py::test_ownership_follows_the_user_not_their_name
+    added: '2026-11-26'
+  T0226:
+    key: server:tests/test_identity_and_taking.py::test_migration_matches_old_taken_notes_to_users
+    added: '2026-11-26'
+  T0227:
+    key: server:tests/test_identity_and_taking.py::test_batch_put_away_reports_each_item
+    added: '2026-11-26'
+  T0228:
+    key: server:tests/test_items.py::test_create_item_manual_and_edit_history
+    added: '2026-11-26'
+  T0229:
+    key: server:tests/test_items.py::test_name_required_and_validation
+    added: '2026-11-26'
+  T0230:
+    key: server:tests/test_items.py::test_same_barcode_reuses_product_never_merges_by_name
+    added: '2026-11-26'
+  T0231:
+    key: server:tests/test_items.py::test_track_individually_creates_instances
+    added: '2026-11-26'
+  T0232:
+    key: server:tests/test_items.py::test_photos_and_documents
+    added: '2026-11-26'
+  T0233:
+    key: server:tests/test_items.py::test_photo_exif_stripped
+    added: '2026-11-26'
+  T0234:
+    key: server:tests/test_items.py::test_loans_and_overdue
+    added: '2026-11-26'
+  T0235:
+    key: server:tests/test_items.py::test_partial_loan_splits
+    added: '2026-11-26'
+  T0236:
+    key: server:tests/test_items.py::test_status_changes
+    added: '2026-11-26'
+  T0237:
+    key: server:tests/test_items.py::test_warranty_queries_and_value
+    added: '2026-11-26'
+  T0238:
+    key: server:tests/test_items.py::test_delete_restore_purge
+    added: '2026-11-26'
+  T0239:
+    key: server:tests/test_items.py::test_items_filtering
+    added: '2026-11-26'
+  T0240:
+    key: server:tests/test_items.py::test_container_numbers_suggest_the_next_and_list_used
+    added: '2026-11-26'
+  T0241:
+    key: server:tests/test_location_import.py::test_template_download_and_round_trip
+    added: '2026-11-26'
+  T0242:
+    key: server:tests/test_location_import.py::test_preview_then_apply_full_paths
+    added: '2026-11-26'
+  T0243:
+    key: server:tests/test_location_import.py::test_outline_style_and_errors
+    added: '2026-11-26'
+  T0244:
+    key: server:tests/test_location_import.py::test_csv_and_bad_files
+    added: '2026-11-26'
+  T0245:
+    key: server:tests/test_location_import.py::test_read_only_cannot_import
+    added: '2026-11-26'
+  T0246:
+    key: server:tests/test_maintenance.py::test_profile_is_optional_and_preset_creates_editable_tasks
+    added: '2026-11-26'
+  T0247:
+    key: server:tests/test_maintenance.py::test_used_equipment_schedules_start_from_current_hours
+    added: '2026-11-26'
+  T0248:
+    key: server:tests/test_maintenance.py::test_non_engine_equipment_and_custom_tasks
+    added: '2026-11-26'
+  T0249:
+    key: server:tests/test_maintenance.py::test_calendar_due_states
+    added: '2026-11-26'
+  T0250:
+    key: server:tests/test_maintenance.py::test_operating_hours_completion_moves_next_threshold
+    added: '2026-11-26'
+  T0251:
+    key: server:tests/test_maintenance.py::test_meter_cannot_go_backwards_without_correction
+    added: '2026-11-26'
+  T0252:
+    key: server:tests/test_maintenance.py::test_cycles_based_task
+    added: '2026-11-26'
+  T0253:
+    key: server:tests/test_maintenance.py::test_skip_defer_and_not_applicable
+    added: '2026-11-26'
+  T0254:
+    key: server:tests/test_maintenance.py::test_history_survives_task_and_profile_changes
+    added: '2026-11-26'
+  T0255:
+    key: server:tests/test_maintenance.py::test_future_service_date_rejected
+    added: '2026-11-26'
+  T0256:
+    key: server:tests/test_maintenance.py::test_parts_from_stock_and_photos
+    added: '2026-11-26'
+  T0257:
+    key: server:tests/test_maintenance.py::test_dashboard_lists_overdue_due_and_missing_records
+    added: '2026-11-26'
+  T0258:
+    key: server:tests/test_maintenance.py::test_read_only_users_can_view_but_not_record
+    added: '2026-11-26'
+  T0259:
+    key: server:tests/test_maintenance.py::test_history_shown_in_item_audit
+    added: '2026-11-26'
+  T0260:
+    key: server:tests/test_maintenance.py::test_upload_photo_for_service_then_attach
+    added: '2026-11-26'
+  T0261:
+    key: server:tests/test_meter_photos.py::test_photo_of_the_meter_is_read_and_saved_with_its_date
+    added: '2026-11-26'
+  T0262:
+    key: server:tests/test_meter_photos.py::test_backdated_readings_must_fit_between_their_neighbours
+    added: '2026-11-26'
+  T0263:
+    key: server:tests/test_meter_photos.py::test_use_over_time_estimates_when_hours_work_is_due
+    added: '2026-11-26'
+  T0264:
+    key: server:tests/test_meter_sensors.py::test_to_value_converts_units_and_rejects_bad_states
+    added: '2026-11-26'
+  T0265:
+    key: server:tests/test_meter_sensors.py::test_linked_sensors_record_readings_only_when_they_move_on
+    added: '2026-11-26'
+  T0266:
+    key: server:tests/test_meter_sensors.py::test_background_sync_and_due_tasks_follow_sensor
+    added: '2026-11-26'
+  T0267:
+    key: server:tests/test_meter_sensors.py::test_meter_sensor_validation_and_access
+    added: '2026-11-26'
+  T0268:
+    key: server:tests/test_meter_sensors.py::test_no_home_assistant_api
+    added: '2026-11-26'
+  T0269:
+    key: server:tests/test_meter_sensors.py::test_sync_failure_does_not_expose_error_details
+    added: '2026-11-26'
+  T0270:
+    key: server:tests/test_misc.py::test_expiry_dates
+    added: '2026-11-26'
+  T0271:
+    key: server:tests/test_misc.py::test_low_stock_and_quick_adjust
+    added: '2026-11-26'
+  T0272:
+    key: server:tests/test_misc.py::test_visual_maps
+    added: '2026-11-26'
+  T0273:
+    key: server:tests/test_misc.py::test_events_published_after_commit
+    added: '2026-11-26'
+  T0274:
+    key: server:tests/test_misc.py::test_warranty_event_once
+    added: '2026-11-26'
+  T0275:
+    key: server:tests/test_misc.py::test_event_bus_fanout
+    added: '2026-11-26'
+  T0276:
+    key: server:tests/test_misc.py::test_event_stream_api_only
+    added: '2026-11-26'
+  T0277:
+    key: server:tests/test_misc.py::test_dashboard
+    added: '2026-11-26'
+  T0278:
+    key: server:tests/test_misc.py::test_backup_export_restore
+    added: '2026-11-26'
+  T0279:
+    key: server:tests/test_misc.py::test_restart_and_upgrade_persistence
+    added: '2026-11-26'
+  T0280:
+    key: server:tests/test_misc.py::test_migrations_match_models
+    added: '2026-11-26'
+  T0281:
+    key: server:tests/test_misc.py::test_pre_migration_snapshot
+    added: '2026-11-26'
+  T0282:
+    key: server:tests/test_misc.py::test_database_constraints
+    added: '2026-11-26'
+  T0283:
+    key: server:tests/test_misc.py::test_settings_fall_back_to_s6_saved_environment
+    added: '2026-11-26'
+  T0284:
+    key: server:tests/test_misc.py::test_upgrade_gives_existing_locations_qr_codes
+    added: '2026-11-26'
+  T0285:
+    key: server:tests/test_parts.py::test_mower_and_generator_share_oil_and_plugs
+    added: '2026-11-26'
+  T0286:
+    key: server:tests/test_parts.py::test_brand_required_and_replacements
+    added: '2026-11-26'
+  T0287:
+    key: server:tests/test_parts.py::test_units_that_cannot_be_compared_are_uncertain
+    added: '2026-11-26'
+  T0288:
+    key: server:tests/test_parts.py::test_reading_a_manual_builds_the_plan
+    added: '2026-11-26'
+  T0289:
+    key: server:tests/test_parts.py::test_scanned_manuals_and_photos_of_pages
+    added: '2026-11-26'
+  T0290:
+    key: server:tests/test_parts.py::test_long_manuals_send_the_maintenance_pages
+    added: '2026-11-26'
+  T0291:
+    key: server:tests/test_parts.py::test_completing_a_service_takes_a_used_up_bottle_out_of_stock
+    added: '2026-11-26'
+  T0292:
+    key: server:tests/test_parts.py::test_adding_a_part_you_dont_have_yet
+    added: '2026-11-26'
+  T0293:
+    key: server:tests/test_parts.py::test_reading_runs_in_the_background_one_at_a_time
+    added: '2026-11-26'
+  T0294:
+    key: server:tests/test_parts.py::test_reading_a_manual_starts_tracking_maintenance
+    added: '2026-11-26'
+  T0295:
+    key: server:tests/test_parts.py::test_long_scanned_manuals_read_the_first_pages_or_the_chosen_ones
+    added: '2026-11-26'
+  T0296:
+    key: server:tests/test_parts.py::test_a_manual_part_counts_a_standard_you_keep_once_linked
+    added: '2026-11-26'
+  T0297:
+    key: server:tests/test_parts.py::test_several_manuals_rank_and_the_higher_one_wins
+    added: '2026-11-26'
+  T0298:
+    key: server:tests/test_parts.py::test_a_standard_counts_the_oil_you_keep_once_linked_with_its_size
+    added: '2026-11-26'
+  T0299:
+    key: server:tests/test_parts.py::test_consumables_count_by_designation_not_brand
+    added: '2026-11-26'
+  T0300:
+    key: server:tests/test_parts.py::test_read_together_the_engine_manual_wins_engine_jobs
+    added: '2026-11-26'
+  T0301:
+    key: server:tests/test_parts.py::test_read_separately_parts_for_a_role_replace_not_pile_up
+    added: '2026-11-26'
+  T0302:
+    key: server:tests/test_parts.py::test_edit_what_the_model_takes
+    added: '2026-11-26'
+  T0303:
+    key: server:tests/test_placement.py::test_hierarchical_paths
+    added: '2026-11-26'
+  T0304:
+    key: server:tests/test_placement.py::test_location_cycle_prevented
+    added: '2026-11-26'
+  T0305:
+    key: server:tests/test_placement.py::test_nested_containers_and_cycle_prevention
+    added: '2026-11-26'
+  T0306:
+    key: server:tests/test_placement.py::test_moving_container_moves_contents
+    added: '2026-11-26'
+  T0307:
+    key: server:tests/test_placement.py::test_item_move_split_and_loose
+    added: '2026-11-26'
+  T0308:
+    key: server:tests/test_placement.py::test_temporary_move_and_return
+    added: '2026-11-26'
+  T0309:
+    key: server:tests/test_placement.py::test_delete_container_moves_contents_out_and_restore
+    added: '2026-11-26'
+  T0310:
+    key: server:tests/test_placement.py::test_location_delete_requires_empty
+    added: '2026-11-26'
+  T0311:
+    key: server:tests/test_placement.py::test_container_lookup_by_number_and_qr
+    added: '2026-11-26'
+  T0312:
+    key: server:tests/test_privacy.py::test_read_only_can_fetch_household_attachments[file]
+    added: '2026-11-26'
+  T0313:
+    key: server:tests/test_privacy.py::test_read_only_can_fetch_household_attachments[thumb]
+    added: '2026-11-26'
+  T0314:
+    key: server:tests/test_privacy.py::test_read_only_cannot_fetch_customer_or_repair_attachments[file-customer_item]
+    added: '2026-11-26'
+  T0315:
+    key: server:tests/test_privacy.py::test_read_only_cannot_fetch_customer_or_repair_attachments[file-job_photo]
+    added: '2026-11-26'
+  T0316:
+    key: server:tests/test_privacy.py::test_read_only_cannot_fetch_customer_or_repair_attachments[file-job_document]
+    added: '2026-11-26'
+  T0317:
+    key: server:tests/test_privacy.py::test_read_only_cannot_fetch_customer_or_repair_attachments[thumb-customer_item]
+    added: '2026-11-26'
+  T0318:
+    key: server:tests/test_privacy.py::test_read_only_cannot_fetch_customer_or_repair_attachments[thumb-job_photo]
+    added: '2026-11-26'
+  T0319:
+    key: server:tests/test_privacy.py::test_read_only_cannot_fetch_customer_or_repair_attachments[thumb-job_document]
+    added: '2026-11-26'
+  T0320:
+    key: server:tests/test_privacy.py::test_members_and_admins_can_fetch_every_attachment[file-household]
+    added: '2026-11-26'
+  T0321:
+    key: server:tests/test_privacy.py::test_members_and_admins_can_fetch_every_attachment[file-customer_item]
+    added: '2026-11-26'
+  T0322:
+    key: server:tests/test_privacy.py::test_members_and_admins_can_fetch_every_attachment[file-job_photo]
+    added: '2026-11-26'
+  T0323:
+    key: server:tests/test_privacy.py::test_members_and_admins_can_fetch_every_attachment[file-job_document]
+    added: '2026-11-26'
+  T0324:
+    key: server:tests/test_privacy.py::test_members_and_admins_can_fetch_every_attachment[thumb-household]
+    added: '2026-11-26'
+  T0325:
+    key: server:tests/test_privacy.py::test_members_and_admins_can_fetch_every_attachment[thumb-customer_item]
+    added: '2026-11-26'
+  T0326:
+    key: server:tests/test_privacy.py::test_members_and_admins_can_fetch_every_attachment[thumb-job_photo]
+    added: '2026-11-26'
+  T0327:
+    key: server:tests/test_privacy.py::test_members_and_admins_can_fetch_every_attachment[thumb-job_document]
+    added: '2026-11-26'
+  T0328:
+    key: server:tests/test_privacy.py::test_household_attachment_responses_unchanged
+    added: '2026-11-26'
+  T0329:
+    key: server:tests/test_privacy.py::test_purchase_into_chosen_household_holding
+    added: '2026-11-26'
+  T0330:
+    key: server:tests/test_privacy.py::test_purchase_into_customer_holding_rejected_without_side_effects
+    added: '2026-11-26'
+  T0331:
+    key: server:tests/test_privacy.py::test_purchase_rejects_wrong_product_deleted_and_missing_ids
+    added: '2026-11-26'
+  T0332:
+    key: server:tests/test_privacy.py::test_automatic_holding_skips_customer_inventory
+    added: '2026-11-26'
+  T0333:
+    key: server:tests/test_privacy.py::test_parts_cannot_be_taken_from_customer_stock
+    added: '2026-11-26'
+  T0334:
+    key: server:tests/test_privacy.py::test_customer_equipment_invisible_to_read_only_everywhere
+    added: '2026-11-26'
+  T0335:
+    key: server:tests/test_privacy.py::test_members_still_see_customer_equipment
+    added: '2026-11-26'
+  T0336:
+    key: server:tests/test_privacy.py::test_household_viewing_unchanged_for_read_only
+    added: '2026-11-26'
+  T0337:
+    key: server:tests/test_privacy.py::test_history_on_household_records_does_not_name_customer_equipment
+    added: '2026-11-26'
+  T0338:
+    key: server:tests/test_privacy.py::test_home_assistant_events_do_not_name_customer_equipment
+    added: '2026-11-26'
+  T0339:
+    key: server:tests/test_privacy.py::test_database_read_only_user_cannot_claim
+    added: '2026-11-26'
+  T0340:
+    key: server:tests/test_privacy.py::test_configured_read_only_user_cannot_claim
+    added: '2026-11-26'
+  T0341:
+    key: server:tests/test_relations.py::test_relations_visible_from_both_sides
+    added: '2026-11-26'
+  T0342:
+    key: server:tests/test_relations.py::test_items_stay_independent
+    added: '2026-11-26'
+  T0343:
+    key: server:tests/test_relations.py::test_search_shows_related_equipment
+    added: '2026-11-26'
+  T0344:
+    key: server:tests/test_relations.py::test_relation_validation
+    added: '2026-11-26'
+  T0345:
+    key: server:tests/test_relations.py::test_trashed_items_hidden_from_relations
+    added: '2026-11-26'
+  T0346:
+    key: server:tests/test_relations.py::test_kit_members_in_different_locations
+    added: '2026-11-26'
+  T0347:
+    key: server:tests/test_relations.py::test_kit_missing_loaned_and_short
+    added: '2026-11-26'
+  T0348:
+    key: server:tests/test_relations.py::test_kit_duplicate_member_rejected
+    added: '2026-11-26'
+  T0349:
+    key: server:tests/test_replenishment.py::test_suggested_quantity[1-2-5-None-1-4]
+    added: '2026-11-26'
+  T0350:
+    key: server:tests/test_replenishment.py::test_suggested_quantity[5-2-5-None-1-0]
+    added: '2026-11-26'
+  T0351:
+    key: server:tests/test_replenishment.py::test_suggested_quantity[2-2-None-None-1-0]
+    added: '2026-11-26'
+  T0352:
+    key: server:tests/test_replenishment.py::test_suggested_quantity[1-2-None-None-1-1]
+    added: '2026-11-26'
+  T0353:
+    key: server:tests/test_replenishment.py::test_suggested_quantity[1-2-5-6-1-6]
+    added: '2026-11-26'
+  T0354:
+    key: server:tests/test_replenishment.py::test_suggested_quantity[1-2-5-None-3-6]
+    added: '2026-11-26'
+  T0355:
+    key: server:tests/test_replenishment.py::test_suggested_quantity[0-None-None-None-1-0]
+    added: '2026-11-26'
+  T0356:
+    key: server:tests/test_replenishment.py::test_thresholds_and_suggestions
+    added: '2026-11-26'
+  T0357:
+    key: server:tests/test_replenishment.py::test_restock_level_validation
+    added: '2026-11-26'
+  T0358:
+    key: server:tests/test_replenishment.py::test_sources_and_links
+    added: '2026-11-26'
+  T0359:
+    key: server:tests/test_replenishment.py::test_amazon_cart_form_link
+    added: '2026-11-26'
+  T0360:
+    key: server:tests/test_replenishment.py::test_shopping_list_grouped_by_retailer_and_never_claims_cart
+    added: '2026-11-26'
+  T0361:
+    key: server:tests/test_replenishment.py::test_purchase_updates_stock
+    added: '2026-11-26'
+  T0362:
+    key: server:tests/test_replenishment.py::test_defer_and_cancel
+    added: '2026-11-26'
+  T0363:
+    key: server:tests/test_replenishment.py::test_customer_stock_is_not_replenished
+    added: '2026-11-26'
+  T0364:
+    key: server:tests/test_replenishment.py::test_read_only_can_view_not_change
+    added: '2026-11-26'
+  T0365:
+    key: server:tests/test_replenishment.py::test_amazon_settings
+    added: '2026-11-26'
+  T0366:
+    key: server:tests/test_replenishment.py::test_entries_show_what_identifies_them
+    added: '2026-11-26'
+  T0367:
+    key: server:tests/test_replenishment.py::test_add_something_by_hand_and_buy_it_into_a_new_place
+    added: '2026-11-26'
+  T0368:
+    key: server:tests/test_replenishment.py::test_adding_by_hand_needs_a_name_and_reuses_a_known_barcode
+    added: '2026-11-26'
+  T0369:
+    key: server:tests/test_replenishment.py::test_a_purchase_can_wait_to_be_put_away
+    added: '2026-11-26'
+  T0370:
+    key: server:tests/test_report.py::test_report_groups_by_room_with_values_and_paperwork
+    added: '2026-11-26'
+  T0371:
+    key: server:tests/test_report.py::test_csv_and_excel_exports
+    added: '2026-11-26'
+  T0372:
+    key: server:tests/test_report.py::test_report_leaves_out_customer_equipment
+    added: '2026-11-26'
+  T0373:
+    key: server:tests/test_report.py::test_read_receipt_suggests_but_saves_nothing
+    added: '2026-11-26'
+  T0374:
+    key: server:tests/test_report.py::test_read_receipt_validation
+    added: '2026-11-26'
+  T0375:
+    key: server:tests/test_search.py::test_where_are_axle_stands
+    added: '2026-11-26'
+  T0376:
+    key: server:tests/test_search.py::test_christmas_synonyms
+    added: '2026-11-26'
+  T0377:
+    key: server:tests/test_search.py::test_how_many_usb_c_chargers
+    added: '2026-11-26'
+  T0378:
+    key: server:tests/test_search.py::test_dewalt_batteries
+    added: '2026-11-26'
+  T0379:
+    key: server:tests/test_search.py::test_did_i_lend_impact_wrench
+    added: '2026-11-26'
+  T0380:
+    key: server:tests/test_search.py::test_model_number_partial_and_typo
+    added: '2026-11-26'
+  T0381:
+    key: server:tests/test_search.py::test_barcode_search_and_no_invention
+    added: '2026-11-26'
+  T0382:
+    key: server:tests/test_search.py::test_results_include_maps_and_status
+    added: '2026-11-26'
+  T0383:
+    key: server:tests/test_search.py::test_contractions_in_questions
+    added: '2026-11-26'
+  T0384:
+    key: server:tests/test_tags.py::test_assign_and_resolve_with_opaque_link
+    added: '2026-11-26'
+  T0385:
+    key: server:tests/test_tags.py::test_link_survives_moves
+    added: '2026-11-26'
+  T0386:
+    key: server:tests/test_tags.py::test_duplicate_chip_detected
+    added: '2026-11-26'
+  T0387:
+    key: server:tests/test_tags.py::test_inactive_and_lost_tags_do_not_resolve
+    added: '2026-11-26'
+  T0388:
+    key: server:tests/test_tags.py::test_replace_lost_tag
+    added: '2026-11-26'
+  T0389:
+    key: server:tests/test_tags.py::test_reassign_tag
+    added: '2026-11-26'
+  T0390:
+    key: server:tests/test_tags.py::test_multiple_tags_and_kits
+    added: '2026-11-26'
+  T0391:
+    key: server:tests/test_tags.py::test_validation
+    added: '2026-11-26'
+  T0392:
+    key: server:tests/test_tags.py::test_scanning_requires_normal_authentication
+    added: '2026-11-26'
+  T0393:
+    key: server:tests/test_tags.py::test_qr_fallback_svg
+    added: '2026-11-26'
+  T0394:
+    key: server:tests/test_tags.py::test_tag_scanned_event_has_no_secrets
+    added: '2026-11-26'
+  T0395:
+    key: server:tests/test_tags.py::test_read_only_users_can_scan_labels
+    added: '2026-11-26'
+  T0396:
+    key: server:tests/test_takeaway.py::test_take_then_put_back_in_its_own_place
+    added: '2026-11-26'
+  T0397:
+    key: server:tests/test_takeaway.py::test_put_away_somewhere_new_asks_then_moves_or_borrows_the_place
+    added: '2026-11-26'
+  T0398:
+    key: server:tests/test_takeaway.py::test_take_and_put_away_rules
+    added: '2026-11-26'
+  T0399:
+    key: server:tests/test_takeaway.py::test_identify_from_photo_lists_matching_items
+    added: '2026-11-26'
+  T0400:
+    key: server:tests/test_takeaway.py::test_identify_from_photo_needs_ai
+    added: '2026-11-26'
+  T0401:
+    key: server:tests/test_takeaway.py::test_places_resolve_spoken_names_and_box_numbers
+    added: '2026-11-26'
+  T0402:
+    key: server:tests/test_takeaway.py::test_voice_history_is_kept_for_admins
+    added: '2026-11-26'
+  T0403:
+    key: server:tests/test_takeaway.py::test_voice_names_not_found_suggest_another_name
+    added: '2026-11-26'
+  T0404:
+    key: server:tests/test_takeaway.py::test_which_place_ranks_where_the_seen_things_are
+    added: '2026-11-26'
+  T0405:
+    key: server:tests/test_takeaway.py::test_put_away_route_groups_by_place_in_walking_order
+    added: '2026-11-26'
+  T0406:
+    key: server:tests/test_textmatch.py::test_words_in_any_order_across_the_hierarchy
+    added: '2026-11-26'
+  T0407:
+    key: server:tests/test_textmatch.py::test_no_false_matches
+    added: '2026-11-26'
+  T0408:
+    key: server:tests/test_textmatch.py::test_container_search_uses_words_and_place
+    added: '2026-11-26'
+  T0409:
+    key: server:tests/test_textmatch.py::test_same_cases_as_the_web_app
+    added: '2026-11-26'
+  T0410:
+    key: server:tests/test_upgrades.py::test_upgrade_from_0_1_1_with_nested_locations
+    added: '2026-11-26'
+  T0411:
+    key: server:tests/test_upgrades.py::test_recovers_from_half_applied_upgrade
+    added: '2026-11-26'
+  T0412:
+    key: server:tests/test_upgrades.py::test_failed_migration_rolls_back_completely
+    added: '2026-11-26'
+  T0413:
+    key: server:tests/test_use_one.py::test_use_one_picks_the_only_holding_and_flags_low_stock
+    added: '2026-11-26'
+  T0414:
+    key: server:tests/test_use_one.py::test_use_one_asks_when_ambiguous_and_prefers_scan_mode_container
+    added: '2026-11-26'
+  T0415:
+    key: server:tests/test_use_one.py::test_use_one_errors_and_roles
+    added: '2026-11-26'
+  T0416:
+    key: server:tests/test_valuation.py::test_scopes_preview_and_run
+    added: '2026-11-26'
+  T0417:
+    key: server:tests/test_valuation.py::test_same_product_in_two_places_is_one_request
+    added: '2026-11-26'
+  T0418:
+    key: server:tests/test_valuation.py::test_members_cant_start_a_run_and_one_at_a_time
+    added: '2026-11-26'
+  T0419:
+    key: server:tests/test_valuation.py::test_a_job_finishing_mid_poll_is_not_reported_as_interrupted
+    added: '2026-11-26'
+  T0420:
+    key: server:tests/test_verification.py::test_checking_a_place
+    added: '2026-11-26'
+  T0421:
+    key: server:tests/test_verification.py::test_unchecked_things_are_never_changed
+    added: '2026-11-26'
+  T0422:
+    key: server:tests/test_verification.py::test_scanning_in_a_check
+    added: '2026-11-26'
+  T0423:
+    key: server:tests/test_verification.py::test_category_check_and_permissions
+    added: '2026-11-26'
+  T0424:
+    key: server:tests/test_verification.py::test_customer_equipment_is_never_in_a_check
+    added: '2026-11-26'
+  T0425:
+    key: server:tests/test_verification.py::test_needs_attention
+    added: '2026-11-26'
+  T0426:
+    key: server:tests/test_verification.py::test_attention_count_for_home_assistant
+    added: '2026-11-26'
+  T0427:
+    key: server:tests/test_voice_maintenance.py::test_general_upcoming_is_ordered_by_urgency
+    added: '2026-11-26'
+  T0428:
+    key: server:tests/test_voice_maintenance.py::test_equipment_specific_with_stock
+    added: '2026-11-26'
+  T0429:
+    key: server:tests/test_voice_maintenance.py::test_ambiguous_equipment_asks_which
+    added: '2026-11-26'
+  T0430:
+    key: server:tests/test_voice_maintenance.py::test_last_done_parts_attention_recent
+    added: '2026-11-26'
+  T0431:
+    key: server:tests/test_voice_maintenance.py::test_voice_never_includes_customer_equipment
+    added: '2026-11-26'
+  T0432:
+    key: server:tests/test_weblink.py::test_parse_jsonld_product
+    added: '2026-11-26'
+  T0433:
+    key: server:tests/test_weblink.py::test_parse_meta_tags_only
+    added: '2026-11-26'
+  T0434:
+    key: server:tests/test_weblink.py::test_title_fallback_strips_site_name
+    added: '2026-11-26'
+  T0435:
+    key: server:tests/test_weblink.py::test_price_normalisation[1,299.99-1299.99]
+    added: '2026-11-26'
+  T0436:
+    key: server:tests/test_weblink.py::test_price_normalisation[1.299,99-1299.99]
+    added: '2026-11-26'
+  T0437:
+    key: server:tests/test_weblink.py::test_price_normalisation[$12-12]
+    added: '2026-11-26'
+  T0438:
+    key: server:tests/test_weblink.py::test_price_normalisation[12.5-12.5]
+    added: '2026-11-26'
+  T0439:
+    key: server:tests/test_weblink.py::test_price_normalisation[\xa31,200-1200]
+    added: '2026-11-26'
+  T0440:
+    key: server:tests/test_weblink.py::test_price_normalisation[19,99 \u20ac-19.99]
+    added: '2026-11-26'
+  T0441:
+    key: server:tests/test_weblink.py::test_price_normalisation[free-None]
+    added: '2026-11-26'
+  T0442:
+    key: server:tests/test_weblink.py::test_private_and_unsupported_links_blocked[http://127.0.0.1/]
+    added: '2026-11-26'
+  T0443:
+    key: server:tests/test_weblink.py::test_private_and_unsupported_links_blocked[http://localhost:8123/]
+    added: '2026-11-26'
+  T0444:
+    key: server:tests/test_weblink.py::test_private_and_unsupported_links_blocked[http://192.168.1.10/]
+    added: '2026-11-26'
+  T0445:
+    key: server:tests/test_weblink.py::test_private_and_unsupported_links_blocked[http://10.0.0.5/]
+    added: '2026-11-26'
+  T0446:
+    key: server:tests/test_weblink.py::test_private_and_unsupported_links_blocked[http://169.254.169.254/latest]
+    added: '2026-11-26'
+  T0447:
+    key: server:tests/test_weblink.py::test_private_and_unsupported_links_blocked[http://[::1]/]
+    added: '2026-11-26'
+  T0448:
+    key: server:tests/test_weblink.py::test_private_and_unsupported_links_blocked[ftp://example.com/]
+    added: '2026-11-26'
+  T0449:
+    key: server:tests/test_weblink.py::test_private_and_unsupported_links_blocked[http://user:pw@example.com/]
+    added: '2026-11-26'
+  T0450:
+    key: server:tests/test_weblink.py::test_private_and_unsupported_links_blocked[file:///etc/passwd]
+    added: '2026-11-26'
+  T0451:
+    key: server:tests/test_weblink.py::test_redirect_to_private_address_blocked
+    added: '2026-11-26'
+  T0452:
+    key: server:tests/test_weblink.py::test_blocked_by_site_message
+    added: '2026-11-26'
+  T0453:
+    key: server:tests/test_weblink.py::test_size_limit
+    added: '2026-11-26'
+  T0454:
+    key: server:tests/test_weblink.py::test_import_endpoint_prefills_without_saving
+    added: '2026-11-26'
+  T0455:
+    key: server:tests/test_weblink.py::test_import_endpoint_errors_and_existing_match
+    added: '2026-11-26'
+  T0456:
+    key: server:tests/test_weblink.py::test_product_url_validation
+    added: '2026-11-26'
+  T0457:
+    key: server:tests/test_weblink.py::test_ai_fallback_when_no_structured_data
+    added: '2026-11-26'
+  T0458:
+    key: server:tests/test_weblink.py::test_image_failure_returns_fixed_message
+    added: '2026-11-26'
+  T0459:
+    key: server:tests/test_weblink.py::test_connects_to_the_checked_ip_not_a_second_lookup
+    added: '2026-11-26'
+  T0460:
+    key: server:tests/test_weblink.py::test_rebinding_on_redirect_hop_blocked
+    added: '2026-11-26'
+  T0461:
+    key: server:tests/test_weblink.py::test_mixed_public_private_answers_rejected
+    added: '2026-11-26'
+  T0462:
+    key: server:tests/test_weblink.py::test_non_public_addresses_rejected[127.0.0.1]
+    added: '2026-11-26'
+  T0463:
+    key: server:tests/test_weblink.py::test_non_public_addresses_rejected[::1]
+    added: '2026-11-26'
+  T0464:
+    key: server:tests/test_weblink.py::test_non_public_addresses_rejected[169.254.169.254]
+    added: '2026-11-26'
+  T0465:
+    key: server:tests/test_weblink.py::test_non_public_addresses_rejected[fe80::1]
+    added: '2026-11-26'
+  T0466:
+    key: server:tests/test_weblink.py::test_non_public_addresses_rejected[224.0.0.1]
+    added: '2026-11-26'
+  T0467:
+    key: server:tests/test_weblink.py::test_non_public_addresses_rejected[100.64.0.1]
+    added: '2026-11-26'
+  T0468:
+    key: server:tests/test_weblink.py::test_non_public_addresses_rejected[::ffff:192.168.0.1]
+    added: '2026-11-26'
+  T0469:
+    key: server:tests/test_weblink.py::test_non_public_addresses_rejected[0.0.0.0]
+    added: '2026-11-26'
+  T0470:
+    key: server:tests/test_weblink.py::test_non_public_addresses_rejected[fc00::1]
+    added: '2026-11-26'
+  T0471:
+    key: server:tests/test_weblink.py::test_peer_address_mismatch_rejected
+    added: '2026-11-26'
+  T0472:
+    key: server:tests/test_weblink.py::test_image_download_uses_pinned_fetch
+    added: '2026-11-26'
+  T0473:
+    key: server:tests/test_weblink.py::test_rate_limited
+    added: '2026-11-26'
+  T0474:
+    key: frontend:src/api.test.ts::labelRef (QR label and NFC links) > reads container and location codes from a path or query
+    added: '2026-11-26'
+  T0475:
+    key: frontend:src/api.test.ts::labelRef (QR label and NFC links) > keeps NFC references exactly as written
+    added: '2026-11-26'
+  T0476:
+    key: frontend:src/api.test.ts::labelRef (QR label and NFC links) > ignores look-alike characters and other links
+    added: '2026-11-26'
+  T0477:
+    key: frontend:src/match.test.ts::matchesWords (same cases as the server's textmatch) > shed right front shelf finds Shed › Front Right Shelving › Right Bottom Shelf
+    added: '2026-11-26'
+  T0478:
+    key: frontend:src/match.test.ts::matchesWords (same cases as the server's textmatch) > shed right front shelf finds Shed › Front Right Shelving
+    added: '2026-11-26'
+  T0479:
+    key: frontend:src/match.test.ts::matchesWords (same cases as the server's textmatch) > front shelves shed finds Shed › Front Right Shelving › Right Bottom Shelf
+    added: '2026-11-26'
+  T0480:
+    key: frontend:src/match.test.ts::matchesWords (same cases as the server's textmatch) > rig sh finds Shed › Front Right Shelving › Right Bottom Shelf
+    added: '2026-11-26'
+  T0481:
+    key: frontend:src/match.test.ts::matchesWords (same cases as the server's textmatch) > shelving finds Basement › Server Shelf Left
+    added: '2026-11-26'
+  T0482:
+    key: frontend:src/match.test.ts::matchesWords (same cases as the server's textmatch) > batteries finds AA battery
+    added: '2026-11-26'
+  T0483:
+    key: frontend:src/match.test.ts::matchesWords (same cases as the server's textmatch) > boxes finds Storage box
+    added: '2026-11-26'
+  T0484:
+    key: 'frontend:src/match.test.ts::matchesWords (same cases as the server''s textmatch) > #7 finds Box #7'
+    added: '2026-11-26'
+  T0485:
+    key: frontend:src/match.test.ts::matchesWords (same cases as the server's textmatch) > cafe finds Café shelf
+    added: '2026-11-26'
+  T0486:
+    key: frontend:src/match.test.ts::matchesWords (same cases as the server's textmatch) >  finds anything
+    added: '2026-11-26'
+  T0487:
+    key: frontend:src/match.test.ts::matchesWords (same cases as the server's textmatch) > garage shelf does not find Shed › Front Right Shelving › Right Bottom Shelf
+    added: '2026-11-26'
+  T0488:
+    key: frontend:src/match.test.ts::matchesWords (same cases as the server's textmatch) > frog does not find Shed › Front Right Shelving › Right Bottom Shelf
+    added: '2026-11-26'
+  T0489:
+    key: frontend:src/match.test.ts::matchesWords (same cases as the server's textmatch) > basement does not find Shed
+    added: '2026-11-26'
+  T0490:
+    key: frontend:src/match.test.ts::matchesWords (same cases as the server's textmatch) > drill bits does not find Drill
+    added: '2026-11-26'
+  T0491:
+    key: qc:regression/tests/test_qc.py::test_ids_are_stable_and_sequential
+    added: '2026-11-26'
+  T0492:
+    key: qc:regression/tests/test_qc.py::test_missing_checks_are_retired_never_reused
+    added: '2026-11-26'
+  T0493:
+    key: qc:regression/tests/test_qc.py::test_partial_runs_retire_nothing_and_scopes_limit_retirement
+    added: '2026-11-26'
+  T0494:
+    key: qc:regression/tests/test_qc.py::test_hand_edited_registry_never_reuses
+    added: '2026-11-26'
+  T0495:
+    key: qc:regression/tests/test_qc.py::test_bad_status_rejected
+    added: '2026-11-26'
+  T0496:
+    key: qc:regression/tests/test_qc.py::test_select_stages[None-False-want0]
+    added: '2026-11-26'
+  T0497:
+    key: qc:regression/tests/test_qc.py::test_select_stages[stages_arg1-False-want1]
+    added: '2026-11-26'
+  T0498:
+    key: qc:regression/tests/test_qc.py::test_select_stages[None-True-want2]
+    added: '2026-11-26'
+  T0499:
+    key: qc:regression/tests/test_qc.py::test_select_stages[stages_arg3-True-want3]
+    added: '2026-11-26'
+  T0500:
+    key: qc:regression/tests/test_qc.py::test_select_stages[stages_arg4-False-want4]
+    added: '2026-11-26'
+  T0501:
+    key: qc:regression/tests/test_qc.py::test_unknown_stage_rejected
+    added: '2026-11-26'
+  T0502:
+    key: qc:regression/tests/test_qc.py::test_parse_junit
+    added: '2026-11-26'
+  T0503:
+    key: qc:regression/tests/test_qc.py::test_concrete_routes_fill_ids
+    added: '2026-11-26'
+  T0504:
+    key: qc:regression/tests/test_qc.py::test_ux_checks
+    added: '2026-11-26'
+  T0505:
+    key: qc:regression/tests/test_qc.py::test_label_normalising
+    added: '2026-11-26'
+  T0506:
+    key: qc:regression/tests/test_qc.py::test_catalogue_coverage
+    added: '2026-11-26'
+  T0507:
+    key: qc:regression/tests/test_qc.py::test_repository_catalogue_patterns_compile
+    added: '2026-11-26'
+  T0508:
+    key: qc:regression/tests/test_qc.py::test_regression_report_html
+    added: '2026-11-26'
+  T0509:
+    key: qc:regression/tests/test_qc.py::test_walkthrough_report_html
+    added: '2026-11-26'
+  T0510:
+    key: qc:regression/tests/test_qc.py::test_security_finding_keys_are_hashed
+    added: '2026-11-26'
+  T0511:
+    key: qc:regression/tests/test_qc.py::test_finding_ids_are_stable
+    added: '2026-11-26'
+  T0512:
+    key: qc:regression/tests/test_qc.py::test_log_and_summary
+    added: '2026-11-26'
+  T0513:
+    key: qc:regression/tests/test_qc.py::test_previous_commit_reads_last_line
+    added: '2026-11-26'
+  T0514:
+    key: qc:regression/tests/test_qc.py::test_manual_results
+    added: '2026-11-26'
+  T0515:
+    key: qc:regression/tests/test_qc.py::test_stage_result_roundtrip
+    added: '2026-11-26'
+  T0516:
+    key: integration:tests/integration/test_alexa_lambda.py::test_where_is_is_forwarded_with_the_token
+    added: '2026-11-26'
+  T0517:
+    key: integration:tests/integration/test_alexa_lambda.py::test_built_in_requests_are_answered_without_home_assistant
+    added: '2026-11-26'
+  T0518:
+    key: integration:tests/integration/test_alexa_lambda.py::test_other_skills_are_refused
+    added: '2026-11-26'
+  T0519:
+    key: integration:tests/integration/test_alexa_lambda.py::test_problems_are_spoken_plainly
+    added: '2026-11-26'
+  T0520:
+    key: integration:tests/integration/test_alexa_lambda.py::test_questions_without_a_slot_are_forwarded
+    added: '2026-11-26'
+  T0521:
+    key: integration:tests/integration/test_alexa_lambda.py::test_bare_answers_are_forwarded_as_the_reply
+    added: '2026-11-26'
+  T0522:
+    key: integration:tests/integration/test_alexa_lambda.py::test_fallback_closes_the_session_unless_a_question_is_open
+    added: '2026-11-26'
+  T0523:
+    key: integration:tests/integration/test_alexa_lambda.py::test_where_does_it_go_is_forwarded
+    added: '2026-11-26'
+  T0524:
+    key: integration:tests/integration/test_alexa_lambda.py::test_interaction_model_matches_the_forwarder
+    added: '2026-11-26'
+  T0525:
+    key: integration:tests/integration/test_alexa_lambda.py::test_move_and_yes_no_are_forwarded
+    added: '2026-11-26'
+  T0526:
+    key: integration:tests/integration/test_alexa_lambda.py::test_interaction_model_follows_alexas_slot_rules
+    added: '2026-11-26'
+  T0527:
+    key: integration:tests/integration/test_custom_sentences.py::test_every_intent_is_one_the_integration_handles
+    added: '2026-11-26'
+  T0528:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[where is the hedge trimmer-HomeInventoryWhereIs-slots0]
+    added: '2026-11-26'
+  T0529:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[where did I put my drill-HomeInventoryWhereIs-slots1]
+    added: '2026-11-26'
+  T0530:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[do I have any cable ties-HomeInventoryWhereIs-slots2]
+    added: '2026-11-26'
+  T0531:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[where do I keep the ladder-HomeInventoryWhereIs-slots3]
+    added: '2026-11-26'
+  T0532:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[where does the hammer go-HomeInventoryWhereDoesItGo-slots4]
+    added: '2026-11-26'
+  T0533:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[where do the axle stands go back-HomeInventoryWhereDoesItGo-slots5]
+    added: '2026-11-26'
+  T0534:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[tell me where to put the engine oil-HomeInventoryWhereDoesItGo-slots6]
+    added: '2026-11-26'
+  T0535:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[where should I put my drill back-HomeInventoryWhereDoesItGo-slots7]
+    added: '2026-11-26'
+  T0536:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[where do I put away the hedge trimmer-HomeInventoryWhereDoesItGo-slots8]
+    added: '2026-11-26'
+  T0537:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[where does the jigsaw belong-HomeInventoryWhereDoesItGo-slots9]
+    added: '2026-11-26'
+  T0538:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[I've moved the engine oil to small engine repair-HomeInventoryMove-slots10]
+    added: '2026-11-26'
+  T0539:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[that I have moved my engine oil to container number 5-HomeInventoryMove-slots11]
+    added: '2026-11-26'
+  T0540:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[I put the drill in the garage-HomeInventoryMove-slots12]
+    added: '2026-11-26'
+  T0541:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[the hedge trimmer is now in the shed-HomeInventoryChoose-slots13]
+    added: '2026-11-26'
+  T0542:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[what's in box 5-HomeInventoryWhatsIn-slots14]
+    added: '2026-11-26'
+  T0543:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[what's on the top shelf-HomeInventoryWhatsIn-slots15]
+    added: '2026-11-26'
+  T0544:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[yes-HomeInventoryChoose-slots16]
+    added: '2026-11-26'
+  T0545:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[none of them-HomeInventoryChoose-slots17]
+    added: '2026-11-26'
+  T0546:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[the second one-HomeInventoryChoose-slots18]
+    added: '2026-11-26'
+  T0547:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[what maintenance is due-HomeInventoryMaintenanceDue-slots19]
+    added: '2026-11-26'
+  T0548:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[is anything due for a service-HomeInventoryMaintenanceDue-slots20]
+    added: '2026-11-26'
+  T0549:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[tell me what upcoming maintenance I need to perform-HomeInventoryMaintenanceDue-slots21]
+    added: '2026-11-26'
+  T0550:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[tell me what upcoming maintenance I need to perform on the Toro lawn mower-HomeInventoryMaintenanceDue-slots22]
+    added: '2026-11-26'
+  T0551:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[what maintenance is due on my generator-HomeInventoryMaintenanceDue-slots23]
+    added: '2026-11-26'
+  T0552:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[what maintenance is overdue-HomeInventoryMaintenanceDue-slots24]
+    added: '2026-11-26'
+  T0553:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[what maintenance do I need to do this week-HomeInventoryMaintenanceDue-slots25]
+    added: '2026-11-26'
+  T0554:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[what parts do I need for the next mower service-HomeInventoryMaintenanceParts-slots26]
+    added: '2026-11-26'
+  T0555:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[do I have the parts I need to service the snowblower-HomeInventoryHaveParts-slots27]
+    added: '2026-11-26'
+  T0556:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[when did I last change the oil in the mower-HomeInventoryLastService-slots28]
+    added: '2026-11-26'
+  T0557:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[what equipment needs attention-HomeInventoryNeedsAttention-slots29]
+    added: '2026-11-26'
+  T0558:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[what maintenance have I completed recently-HomeInventoryRecentMaintenance-slots30]
+    added: '2026-11-26'
+  T0559:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[what's running low-HomeInventoryRunningLow-slots31]
+    added: '2026-11-26'
+  T0560:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[what do I need to buy-HomeInventoryRunningLow-slots32]
+    added: '2026-11-26'
+  T0561:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[what's lent out-HomeInventoryOnLoan-slots33]
+    added: '2026-11-26'
+  T0562:
+    key: integration:tests/integration/test_custom_sentences.py::test_phrases_are_recognised[who has borrowed my stuff-HomeInventoryOnLoan-slots34]
+    added: '2026-11-26'
+  T0563:
+    key: integration:tests/integration/test_ha_media_contract.py::test_upload_creates_folder_and_remove_deletes
+    added: '2026-11-26'
+  T0564:
+    key: integration:tests/integration/test_ha_media_contract.py::test_upload_requires_admin
+    added: '2026-11-26'
+  T0565:
+    key: integration:tests/integration/test_integration.py::test_user_flow_invalid_token
+    added: '2026-11-26'
+  T0566:
+    key: integration:tests/integration/test_integration.py::test_hassio_discovery
+    added: '2026-11-26'
+  T0567:
+    key: integration:tests/integration/test_integration.py::test_sensors
+    added: '2026-11-26'
+  T0568:
+    key: integration:tests/integration/test_integration.py::test_services
+    added: '2026-11-26'
+  T0569:
+    key: integration:tests/integration/test_integration.py::test_events_fired
+    added: '2026-11-26'
+  T0570:
+    key: integration:tests/integration/test_integration.py::test_sidebar_panel_proxy
+    added: '2026-11-26'
+  T0571:
+    key: integration:tests/integration/test_integration.py::test_diagnostics_redacts_token
+    added: '2026-11-26'
+  T0572:
+    key: integration:tests/integration/test_integration.py::test_remove_entry_keeps_inventory
+    added: '2026-11-26'
+  T0573:
+    key: integration:tests/integration/test_integration.py::test_app_unavailable_marks_entry_not_ready
+    added: '2026-11-26'
+  T0574:
+    key: integration:tests/integration/test_integration.py::test_voice_where_is_intent
+    added: '2026-11-26'
+  T0575:
+    key: integration:tests/integration/test_integration.py::test_is_or_are_follows_the_name
+    added: '2026-11-26'
+  T0576:
+    key: integration:tests/integration/test_integration.py::test_spoken_answer_wording
+    added: '2026-11-26'
+  T0577:
+    key: integration:tests/integration/test_integration.py::test_where_does_it_go_wording
+    added: '2026-11-26'
+  T0578:
+    key: integration:tests/integration/test_integration.py::test_voice_where_does_it_go
+    added: '2026-11-26'
+  T0579:
+    key: integration:tests/integration/test_integration.py::test_voice_move_clear_place_and_box_number
+    added: '2026-11-26'
+  T0580:
+    key: integration:tests/integration/test_integration.py::test_voice_answer_notification_shows_the_photo
+    added: '2026-11-26'
+  T0581:
+    key: integration:tests/integration/test_integration.py::test_voice_whats_in_a_box_or_on_a_shelf
+    added: '2026-11-26'
+  T0582:
+    key: integration:tests/integration/test_integration.py::test_voice_questions_are_kept_in_voice_history
+    added: '2026-11-26'
+  T0583:
+    key: integration:tests/integration/test_integration.py::test_voice_move_asks_when_unclear
+    added: '2026-11-26'
+  T0584:
+    key: integration:tests/integration/test_integration.py::test_voice_asks_which_one_and_understands_the_reply
+    added: '2026-11-26'
+  T0585:
+    key: integration:tests/integration/test_integration.py::test_zero_turn_said_as_digits_and_bare_answers
+    added: '2026-11-26'
+  T0586:
+    key: integration:tests/integration/test_integration.py::test_alexa_custom_skill_request_is_answered
+    added: '2026-11-26'
+  T0587:
+    key: integration:tests/integration/test_integration.py::test_voice_answers_sent_as_notification
+    added: '2026-11-26'
+  T0588:
+    key: integration:tests/integration/test_integration.py::test_voice_questions_without_slots
+    added: '2026-11-26'
+  T0589:
+    key: integration:tests/integration/test_integration.py::test_question_answers_read_naturally
+    added: '2026-11-26'
+  T0590:
+    key: integration:tests/integration/test_integration.py::test_voice_intents_are_registered_once
+    added: '2026-11-26'
+  T0591:
+    key: integration:tests/integration/test_integration.py::test_every_app_event_type_reaches_home_assistant
+    added: '2026-11-26'
+  T0592:
+    key: integration:tests/integration/test_integration.py::test_customer_message_when_a_repair_is_ready
+    added: '2026-11-26'
+  T0593:
+    key: integration:tests/integration/test_integration.py::test_voice_questions_without_a_device_never_cross
+    added: '2026-11-26'
+  T0594:
+    key: integration:tests/integration/test_integration.py::test_voice_maintenance_questions
+    added: '2026-11-26'
+  T0595:
+    key: integration:tests/integration/test_integration.py::test_move_said_as_is_now_in_reaches_the_move
+    added: '2026-11-26'
+  T0596:
+    key: integration:tests/integration/test_local_only.py::test_local_addresses_are_accepted[http://homeinventory:8100]
+    added: '2026-11-26'
+  T0597:
+    key: integration:tests/integration/test_local_only.py::test_local_addresses_are_accepted[http://a0d7b954-homeinventory:8100]
+    added: '2026-11-26'
+  T0598:
+    key: integration:tests/integration/test_local_only.py::test_local_addresses_are_accepted[http://localhost:8100]
+    added: '2026-11-26'
+  T0599:
+    key: integration:tests/integration/test_local_only.py::test_local_addresses_are_accepted[http://127.0.0.1:8100]
+    added: '2026-11-26'
+  T0600:
+    key: integration:tests/integration/test_local_only.py::test_local_addresses_are_accepted[http://192.168.1.20:8100]
+    added: '2026-11-26'
+  T0601:
+    key: integration:tests/integration/test_local_only.py::test_local_addresses_are_accepted[http://10.0.0.5]
+    added: '2026-11-26'
+  T0602:
+    key: integration:tests/integration/test_local_only.py::test_local_addresses_are_accepted[http://172.30.32.1:8100]
+    added: '2026-11-26'
+  T0603:
+    key: integration:tests/integration/test_local_only.py::test_local_addresses_are_accepted[http://[fe80::1]:8100]
+    added: '2026-11-26'
+  T0604:
+    key: integration:tests/integration/test_local_only.py::test_local_addresses_are_accepted[http://nas.local:8100]
+    added: '2026-11-26'
+  T0605:
+    key: integration:tests/integration/test_local_only.py::test_local_addresses_are_accepted[http://nas.lan]
+    added: '2026-11-26'
+  T0606:
+    key: integration:tests/integration/test_local_only.py::test_local_addresses_are_accepted[http://box.home.arpa:8100]
+    added: '2026-11-26'
+  T0607:
+    key: integration:tests/integration/test_local_only.py::test_public_or_odd_addresses_are_refused[http://8.8.8.8:8100]
+    added: '2026-11-26'
+  T0608:
+    key: integration:tests/integration/test_local_only.py::test_public_or_odd_addresses_are_refused[https://1.1.1.1]
+    added: '2026-11-26'
+  T0609:
+    key: integration:tests/integration/test_local_only.py::test_public_or_odd_addresses_are_refused[http://203.0.113.7:8100]
+    added: '2026-11-26'
+  T0610:
+    key: integration:tests/integration/test_local_only.py::test_public_or_odd_addresses_are_refused[ftp://homeinventory]
+    added: '2026-11-26'
+  T0611:
+    key: integration:tests/integration/test_local_only.py::test_public_or_odd_addresses_are_refused[http://user:pw@homeinventory:8100]
+    added: '2026-11-26'
+  T0612:
+    key: integration:tests/integration/test_local_only.py::test_public_or_odd_addresses_are_refused[not a url]
+    added: '2026-11-26'
+  T0613:
+    key: integration:tests/integration/test_local_only.py::test_a_name_is_accepted_only_if_it_resolves_privately
+    added: '2026-11-26'
+  T0614:
+    key: integration:tests/integration/test_local_only.py::test_nothing_is_sent_to_a_public_address
+    added: '2026-11-26'
+  T0615:
+    key: integration:tests/integration/test_local_only.py::test_setup_refuses_a_public_address
+    added: '2026-11-26'
+  T0616:
+    key: integration:tests/integration/test_names.py::test_singular_and_plural_are_the_same[Wood screws-wood screw]
+    added: '2026-11-26'
+  T0617:
+    key: integration:tests/integration/test_names.py::test_singular_and_plural_are_the_same[Hoses-hose]
+    added: '2026-11-26'
+  T0618:
+    key: integration:tests/integration/test_names.py::test_singular_and_plural_are_the_same[Batteries-battery]
+    added: '2026-11-26'
+  T0619:
+    key: integration:tests/integration/test_names.py::test_singular_and_plural_are_the_same[Boxes-box]
+    added: '2026-11-26'
+  T0620:
+    key: integration:tests/integration/test_names.py::test_singular_and_plural_are_the_same[Brushes-brush]
+    added: '2026-11-26'
+  T0621:
+    key: integration:tests/integration/test_names.py::test_singular_and_plural_are_the_same[Benches-bench]
+    added: '2026-11-26'
+  T0622:
+    key: integration:tests/integration/test_names.py::test_singular_and_plural_are_the_same[Knives-knife]
+    added: '2026-11-26'
+  T0623:
+    key: integration:tests/integration/test_names.py::test_singular_and_plural_are_the_same[Shelves-shelf]
+    added: '2026-11-26'
+  T0624:
+    key: integration:tests/integration/test_names.py::test_singular_and_plural_are_the_same[Axle stands-axle stand]
+    added: '2026-11-26'
+  T0625:
+    key: integration:tests/integration/test_names.py::test_singular_and_plural_are_the_same[Movies-movie]
+    added: '2026-11-26'
+  T0626:
+    key: integration:tests/integration/test_names.py::test_singular_and_plural_are_the_same[Sizes-size]
+    added: '2026-11-26'
+  T0627:
+    key: integration:tests/integration/test_names.py::test_singular_and_plural_are_the_same[Compasses-compass]
+    added: '2026-11-26'
+  T0628:
+    key: integration:tests/integration/test_names.py::test_singular_and_plural_are_the_same[Glasses-glasses]
+    added: '2026-11-26'
+  T0629:
+    key: integration:tests/integration/test_names.py::test_singular_and_plural_are_the_same[SD cards-SD card]
+    added: '2026-11-26'
+  T0630:
+    key: integration:tests/integration/test_names.py::test_singular_and_plural_are_the_same[Cherries-cherry]
+    added: '2026-11-26'
+  T0631:
+    key: integration:tests/integration/test_names.py::test_singular_words_ending_in_s_are_kept[glass]
+    added: '2026-11-26'
+  T0632:
+    key: integration:tests/integration/test_names.py::test_singular_words_ending_in_s_are_kept[compass]
+    added: '2026-11-26'
+  T0633:
+    key: integration:tests/integration/test_names.py::test_singular_words_ending_in_s_are_kept[class]
+    added: '2026-11-26'
+  T0634:
+    key: integration:tests/integration/test_names.py::test_singular_words_ending_in_s_are_kept[status]
+    added: '2026-11-26'
+  T0635:
+    key: integration:tests/integration/test_names.py::test_singular_words_ending_in_s_are_kept[cactus]
+    added: '2026-11-26'
+  T0636:
+    key: integration:tests/integration/test_names.py::test_singular_words_ending_in_s_are_kept[radius]
+    added: '2026-11-26'
+  T0637:
+    key: integration:tests/integration/test_names.py::test_singular_words_ending_in_s_are_kept[bus]
+    added: '2026-11-26'
+  T0638:
+    key: integration:tests/integration/test_names.py::test_singular_words_ending_in_s_are_kept[gas]
+    added: '2026-11-26'
+  T0639:
+    key: integration:tests/integration/test_names.py::test_singular_words_ending_in_s_are_kept[lens]
+    added: '2026-11-26'
+  T0640:
+    key: integration:tests/integration/test_names.py::test_singular_words_ending_in_s_are_kept[chassis]
+    added: '2026-11-26'
+  T0641:
+    key: integration:tests/integration/test_names.py::test_singular_words_ending_in_s_are_kept[analysis]
+    added: '2026-11-26'
+  T0642:
+    key: integration:tests/integration/test_names.py::test_singular_words_ending_in_s_are_kept[series]
+    added: '2026-11-26'
+  T0643:
+    key: integration:tests/integration/test_names.py::test_singular_words_ending_in_s_are_kept[physics]
+    added: '2026-11-26'
+  T0644:
+    key: integration:tests/integration/test_names.py::test_singular_words_ending_in_s_are_kept[grass]
+    added: '2026-11-26'
+  T0645:
+    key: integration:tests/integration/test_names.py::test_singular_words_ending_in_s_are_kept[brass]
+    added: '2026-11-26'
+  T0646:
+    key: integration:tests/integration/test_names.py::test_brand_names_are_left_alone[Makita]
+    added: '2026-11-26'
+  T0647:
+    key: integration:tests/integration/test_names.py::test_brand_names_are_left_alone[Stihl]
+    added: '2026-11-26'
+  T0648:
+    key: integration:tests/integration/test_names.py::test_brand_names_are_left_alone[Bosch]
+    added: '2026-11-26'
+  T0649:
+    key: integration:tests/integration/test_names.py::test_brand_names_are_left_alone[Ryobi]
+    added: '2026-11-26'
+  T0650:
+    key: integration:tests/integration/test_names.py::test_brand_names_are_left_alone[Dewalt]
+    added: '2026-11-26'
+  T0651:
+    key: integration:tests/integration/test_names.py::test_brand_names_are_left_alone[Hilti]
+    added: '2026-11-26'
+  T0652:
+    key: integration:tests/integration/test_names.py::test_brand_names_are_left_alone[Wiss]
+    added: '2026-11-26'
+  T0653:
+    key: integration:tests/integration/test_names.py::test_brand_names_are_left_alone[Brabus]
+    added: '2026-11-26'
+  T0654:
+    key: integration:tests/integration/test_names.py::test_brand_names_that_look_plural_still_match_themselves
+    added: '2026-11-26'
+  T0655:
+    key: integration:tests/integration/test_names.py::test_always_plural_words_stay_distinct_from_their_singular
+    added: '2026-11-26'
+  T0656:
+    key: integration:tests/integration/test_names.py::test_model_numbers
+    added: '2026-11-26'
+  T0657:
+    key: integration:tests/integration/test_names.py::test_measurements
+    added: '2026-11-26'
+  T0658:
+    key: integration:tests/integration/test_names.py::test_hyphens_apostrophes_and_punctuation
+    added: '2026-11-26'
+  T0659:
+    key: integration:tests/integration/test_names.py::test_similar_but_different_names_stay_different[Drill-Drill bits]
+    added: '2026-11-26'
+  T0660:
+    key: integration:tests/integration/test_names.py::test_similar_but_different_names_stay_different[Glass-Glasses]
+    added: '2026-11-26'
+  T0661:
+    key: integration:tests/integration/test_names.py::test_similar_but_different_names_stay_different[Class-Clas]
+    added: '2026-11-26'
+  T0662:
+    key: integration:tests/integration/test_names.py::test_similar_but_different_names_stay_different[Hose-House]
+    added: '2026-11-26'
+  T0663:
+    key: integration:tests/integration/test_names.py::test_similar_but_different_names_stay_different[Spark plug-Spark plug socket]
+    added: '2026-11-26'
+  T0664:
+    key: integration:tests/integration/test_names.py::test_similar_but_different_names_stay_different[Status light-Statu light]
+    added: '2026-11-26'
+  T0665:
+    key: integration:tests/integration/test_names.py::test_similar_but_different_names_stay_different[Saw-Saws all]
+    added: '2026-11-26'
+  T0666:
+    key: integration:tests/integration/test_names.py::test_grouping_uses_the_normalized_name
+    added: '2026-11-26'
+  T0667:
+    key: integration:tests/integration/test_names.py::test_glass_and_status_answer_directly
+    added: '2026-11-26'
+  T0668:
+    key: integration:tests/integration/test_names.py::test_several_candidates_stay_ambiguous
+    added: '2026-11-26'
+  T0669:
+    key: integration:tests/integration/test_names.py::test_ordinals_in_names_are_not_positions
+    added: '2026-11-26'

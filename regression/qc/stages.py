@@ -115,6 +115,27 @@ def _gitleaks() -> Path | None:
         return None
 
 
+def _json_in(out: str) -> dict:
+    """The JSON object in a tool's output, ignoring lines printed before or after it."""
+    return json.loads(out[out.index("{"):out.rindex("}") + 1])
+
+
+def accepted() -> dict:
+    p = QC_DIR / "accepted.yaml"
+    return (yaml.safe_load(p.read_text()) or {}) if p.exists() else {}
+
+
+def _bandit_accepted(r: dict) -> bool:
+    rel = str(Path(r["filename"]).relative_to(ROOT))
+    return any(a["test"] == r["test_id"] and a["file"] == rel for a in accepted().get("bandit", []))
+
+
+def access_rules() -> dict[str, list[re.Pattern]]:
+    p = QC_DIR / "access.yaml"
+    d = (yaml.safe_load(p.read_text()) or {}) if p.exists() else {}
+    return {role: [re.compile(x) for x in pats] for role, pats in (d.get("refused") or {}).items()}
+
+
 def _sha256(data: bytes) -> str:
     import hashlib
     return hashlib.sha256(data).hexdigest()
@@ -150,26 +171,28 @@ def run_quality(ctx: Ctx) -> StageResult:
         # medium or high severity, medium or high confidence
         rc, out = sh([str(venv / "bin/bandit"), "-r", str(target), "-f", "json", "-q", "-ll", "-ii"], timeout=600)
         try:
-            found = json.loads(out[out.index("{"):])["results"]
+            found = _json_in(out)["results"]
         except (ValueError, KeyError):
             add(Check("quality", key, "fail", "bandit output unreadable:\n" + tail(out)))
             continue
-        lines = [f"{r['issue_severity']}/{r['issue_confidence']} {r['test_id']} {Path(r['filename']).relative_to(ROOT)}:"
-                 f"{r['line_number']} {r['issue_text']}" for r in found]
-        add(Check("quality", key, "fail" if found else "pass", "\n".join(lines[:30]) or "no medium/high findings",
-                  data={"findings": len(found)}))
+        line = lambda r: (f"{r['issue_severity']}/{r['issue_confidence']} {r['test_id']} "  # noqa: E731
+                          f"{Path(r['filename']).relative_to(ROOT)}:{r['line_number']} {r['issue_text']}")
+        bad = [line(r) for r in found if not _bandit_accepted(r)]
+        ok = [line(r) + " (accepted: regression/accepted.yaml)" for r in found if _bandit_accepted(r)]
+        add(Check("quality", key, "fail" if bad else "pass", "\n".join((bad + ok)[:30]) or "no medium/high findings",
+                  data={"findings": len(bad), "accepted": len(ok)}))
 
     ctx.log("quality: dependency audit")
     rc, out = sh(["pip-audit", "--progress-spinner", "off", "-f", "json", str(SERVER)], timeout=900)
     try:
-        deps = json.loads(out[out.index("{"):])["dependencies"]
+        deps = _json_in(out)["dependencies"]
         vulns = [f"{d['name']} {d['version']}: " + ", ".join(v["id"] for v in d["vulns"]) for d in deps if d.get("vulns")]
         add(Check("quality", "audit:python", "fail" if vulns else "pass", "\n".join(vulns) or f"{len(deps)} packages, no known vulnerabilities"))
     except (ValueError, KeyError):
         add(Check("quality", "audit:python", "skip" if rc in (124, 127) else "fail", "pip-audit did not finish:\n" + tail(out)))
     rc, out = sh(["npm", "audit", "--omit=dev", "--audit-level=high", "--json"], FRONTEND, 600)
     try:
-        meta = json.loads(out[out.index("{"):])["metadata"]["vulnerabilities"]
+        meta = _json_in(out)["metadata"]["vulnerabilities"]
         bad = meta.get("high", 0) + meta.get("critical", 0)
         add(Check("quality", "audit:javascript", "fail" if bad else "pass", json.dumps(meta)))
     except (ValueError, KeyError):
@@ -359,6 +382,7 @@ def _sample_ids(base: str, ids: dict) -> dict:
 def api_sweep(server: AppServer, ids: dict) -> list[Check]:
     checks: list[Check] = []
     sample = _sample_ids(server.base, ids)
+    rules = access_rules()
 
     def fills(path):
         """[(label, concrete path)] for every sample combination, or (None, missing params)."""
@@ -388,13 +412,17 @@ def api_sweep(server: AppServer, ids: dict) -> list[Check]:
                     key = f"api:{channel}:{role}:GET {path}{label}"
                     st, hdrs, body = _get(base + url_path.lstrip("/"), ROLES.get(role))
                     status = "pass"
+                    must_refuse = any(r.search(path) for r in rules.get(role, []))
                     if role == "anon":
-                        if 200 <= st < 300 and path not in PUBLIC_PATHS:
+                        if st == 0 or (200 <= st < 300 and path not in PUBLIC_PATHS):
                             status = "fail"
                         detail = f"HTTP {st} without a signed-in person" + (" (must be refused)" if status == "fail" else "")
                     else:
                         detail = f"HTTP {st} {hdrs.get('content-type', '')}"
-                        if st == 503 and b"Home Assistant" in body:
+                        if must_refuse:
+                            status = "fail" if 200 <= st < 300 or st == 0 else "pass"
+                            detail += " (this role must be refused: regression/access.yaml)"
+                        elif st == 503 and b"Home Assistant" in body:
                             status, detail = "skip", "needs a real Home Assistant: " + body[:200].decode(errors="replace")
                         elif st >= 500 or st == 0:
                             status, detail = "fail", detail + f"\n{body[:300]!r}"
