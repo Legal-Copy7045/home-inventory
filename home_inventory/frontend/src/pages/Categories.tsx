@@ -32,7 +32,7 @@ export default function CategoriesPage() {
           if (await run(() => api.post("categories", { name: adding.trim() }), `Added ${adding.trim()}`)) { setAdding(""); reload(); }
         }}>
           <input className="grow" value={adding} onChange={(e) => setAdding(e.target.value)} placeholder="New category, e.g. Kitchen & Dining" maxLength={120} />
-          <button className="btn primary" disabled={busy || !adding.trim()}><Plus size={18} /> Add</button>
+          <button className="btn primary" disabled={busy || !adding.trim()}><Plus size={18} /> New category</button>
         </form>
       )}
       <div className="list card tight">

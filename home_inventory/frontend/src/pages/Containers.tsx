@@ -17,7 +17,7 @@ export function ContainersPage() {
   const nav = useNavigate();
   return (
     <div className="page">
-      <div className="row between"><h1>Containers</h1>{me.can_edit && <button className="btn primary" onClick={() => setCreating(true)}><Plus size={18} /> New</button>}</div>
+      <div className="row between"><h1>Containers</h1>{me.can_edit && <button className="btn primary" onClick={() => setCreating(true)}><Plus size={18} /> New container</button>}</div>
       <input placeholder="Filter by name or number" value={q} onChange={(e) => setQ(e.target.value)} style={{ marginBottom: 12 }} />
       <ErrorBox error={list.error} />
       <div className="card tight">

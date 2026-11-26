@@ -115,8 +115,14 @@ export function Spinner() {
 }
 
 /** A failed load: says so (never looks like an empty list) and offers Retry. */
+// A role that may not see something: trying again won't help, so no Retry.
+const REFUSED = /read-only access|Administrator access required|need a signed-in/i;
+
 export function ErrorBox({ error, retry }: { error: string | null; retry?: () => void }) {
   if (!error) return null;
+  if (REFUSED.test(error)) {
+    return <div className="notice" role="status">{/admin/i.test(error) ? "Only administrators can see this." : "This needs member access. Ask an administrator if you should have it."}</div>;
+  }
   return (
     <div className="error" role="alert">
       {retry ? <>Couldn't load this: {error} <button className="btn small" style={{ marginLeft: 8 }} onClick={retry}>Retry</button></> : error}

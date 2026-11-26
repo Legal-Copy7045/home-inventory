@@ -208,6 +208,14 @@ export default function AddItem() {
         )}
       </div>
 
+      <div className="card">
+        <h2>Where is it?</h2>
+        <button className="btn block" style={{ justifyContent: "flex-start" }} onClick={() => setPicking(true)}>
+          <MapPin size={18} /> {placement.label}
+        </button>
+        {placement.remembered && <span className="hint">Same place as the last thing you added. Tap to change.</span>}
+      </div>
+
       {similar.length > 0 && !productId && (
         <div className="card">
           <h2>Already own one of these?</h2>
@@ -246,14 +254,6 @@ export default function AddItem() {
       </div>
 
       <div className="card">
-        <h2>Where is it?</h2>
-        <button className="btn block" style={{ justifyContent: "flex-start" }} onClick={() => setPicking(true)}>
-          <MapPin size={18} /> {placement.label}
-        </button>
-        {placement.remembered && <span className="hint">Same place as the last thing you added. Tap to change.</span>}
-      </div>
-
-      <div className="card">
         <div className="card-title">
           <h2>Or fill it in from a web link</h2>
         </div>
@@ -274,7 +274,7 @@ export default function AddItem() {
       </div>
 
 
-      <div className="row" style={{ position: "sticky", bottom: "calc(var(--nav-h) + var(--safe-bottom) + 8px)" }}>
+      <div className="row savebar">
         <button className="btn" style={{ flex: 1 }} disabled={busy} onClick={() => save(true)}>
           Save &amp; add another
         </button>

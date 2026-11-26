@@ -1,6 +1,6 @@
 import { Fragment, Suspense, lazy, useEffect, useState, type ComponentType } from "react";
 import { HashRouter, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Activity, ArrowLeft, Box, Mic, Tags, ChevronDown, ChevronRight, Copy, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings, Trash2, Wrench, ClipboardList, Boxes, Nfc, ShoppingCart, Camera, FileText, Route as RouteIcon, Tractor, BellRing, ClipboardCheck } from "lucide-react";
+import { Activity, ArrowLeft, Box, Mic, Tags, ChevronDown, ChevronRight, Copy, Handshake, Home, ListChecks, Map as MapIcon, MapPin, Menu, Package, Plus, Printer, ScanLine, Search, Settings, Trash2,  Boxes, Nfc, ShoppingCart, Camera, FileText, Route as RouteIcon, Tractor, BellRing, ClipboardCheck } from "lucide-react";
 import { api, appBaseUrl, labelRef, type Me, type QrTarget } from "./api";
 import { MeContext, Sheet, Spinner, ToastHost, useToast } from "./components/ui";
 import { DashboardPage, ItemsPage, LocationDetailPage, LocationsPage, SearchBox, SearchPage } from "./pages/Browse";
@@ -33,6 +33,7 @@ const ActivityPage = page(() => import("./pages/Other"), "ActivityPage");
 const LabelsPage = page(() => import("./pages/Other"), "LabelsPage");
 const LoansPage = page(() => import("./pages/Other"), "LoansPage");
 const SettingsPage = page(() => import("./pages/Other"), "SettingsPage");
+const WarrantiesPage = page(() => import("./pages/Other"), "WarrantiesPage");
 const CustomersPage = page(() => import("./pages/Customers"), "CustomersPage");
 const CustomerDetailPage = page(() => import("./pages/Customers"), "CustomerDetailPage");
 const RepairsPage = page(() => import("./pages/Customers"), "RepairsPage");
@@ -58,7 +59,6 @@ const ReportsPage = page(() => import("./pages/Hubs"), "ReportsPage");
 const MaintenancePlanPage = page(() => import("./pages/Hubs"), "MaintenancePlanPage");
 const SeasonPage = page(() => import("./pages/Hubs"), "SeasonPage");
 const PutAwayRoutePage = page(() => import("./components/TakeAway"), "PutAwayRoutePage");
-const EquipmentListPage = page(() => import("./pages/Equipment"), "EquipmentListPage");
 const EquipmentPage = page(() => import("./pages/Equipment"), "EquipmentPage");
 const MaintenanceReportsPage = page(() => import("./pages/Equipment"), "MaintenanceReportsPage");
 const VerifyPage = page(() => import("./pages/Verify"), "VerifyPage");
@@ -69,48 +69,49 @@ type NavEntry = { to: string; label: string; icon: typeof Home; end?: boolean; e
 // The menu, grouped.  The first group has no heading.
 const NAV_GROUPS: { title: string | null; items: NavEntry[] }[] = [
   { title: null, items: [
-    { to: "/", label: "Dashboard", icon: Home, end: true },
-    { to: "/attention", label: "Needs Attention", icon: BellRing },
-    { to: "/search", label: "Search", icon: Search },
-    { to: "/add", label: "Add Item", icon: Plus, edit: true },
+    { to: "/", label: "Home", icon: Home, end: true },
+    { to: "/attention", label: "Needs attention", icon: BellRing },
+    { to: "/add", label: "Add item", icon: Plus, edit: true },
     { to: "/scan", label: "Scan", icon: ScanLine },
     { to: "/capture", label: "Quick photos", icon: Camera, edit: true },
     { to: "/todo", label: "To sort & finish", icon: ListChecks },
-    { to: "/equipment", label: "Equipment", icon: Tractor },
-    { to: "/care", label: "Maintenance & Repairs", icon: Wrench },
+    { to: "/shopping", label: "Restock & shopping", icon: ShoppingCart },
+    { to: "/care", label: "Equipment & repairs", icon: Tractor },
   ] },
   { title: "Inventory", items: [
     { to: "/items", label: "Items", icon: Package },
     { to: "/containers", label: "Containers", icon: Box },
     { to: "/locations", label: "Locations", icon: MapPin },
     { to: "/kits", label: "Kits", icon: Boxes },
-    { to: "/maps", label: "Visual Maps", icon: MapIcon },
-    { to: "/loans", label: "Loans & Temporary", icon: Handshake },
-    { to: "/put-away", label: "Put-away Route", icon: RouteIcon, edit: true },
-    { to: "/verify", label: "Check Inventory", icon: ClipboardCheck },
+    { to: "/maps", label: "Visual maps", icon: MapIcon },
+    { to: "/verify", label: "Check inventory", icon: ClipboardCheck },
+    { to: "/loans", label: "Loans & borrowed", icon: Handshake },
+    { to: "/put-away", label: "Put-away route", icon: RouteIcon, edit: true },
+    { to: "/labels", label: "Print labels", icon: Printer },
+    { to: "/tags", label: "NFC tags", icon: Nfc, edit: true },
   ] },
   { title: "Reports", items: [
-    { to: "/reports", label: "All reports", icon: FileText },
-    { to: "/report", label: "Inventory Report", icon: ClipboardList },
-    { to: "/shopping", label: "Restock & Shopping", icon: ShoppingCart },
+    { to: "/reports", label: "Reports", icon: FileText },
   ] },
-  { title: "Admin", items: [
-    { to: "/labels", label: "Print Labels", icon: Printer },
-    { to: "/tags", label: "NFC Tags", icon: Nfc, edit: true },
-    { to: "/activity", label: "Activity History", icon: Activity },
+  { title: "Manage", items: [
     { to: "/categories", label: "Categories", icon: Tags },
-    { to: "/voice-history", label: "Voice History", icon: Mic, admin: true },
-    { to: "/duplicates", label: "Possible Duplicates", icon: Copy, edit: true },
-    { to: "/deleted", label: "Recently Deleted", icon: Trash2, edit: true },
+    { to: "/activity", label: "Activity history", icon: Activity },
+    { to: "/duplicates", label: "Possible duplicates", icon: Copy, edit: true },
+    { to: "/deleted", label: "Recently deleted", icon: Trash2, edit: true },
     { to: "/settings", label: "Settings", icon: Settings },
   ] },
+  { title: "Admin", items: [
+    { to: "/voice-history", label: "Voice history", icon: Mic, admin: true },
+  ] },
 ];
+// Every menu destination is a top-level page: no Back arrow there.
+const ROOTS = new Set(["/search", "/equipment", ...NAV_GROUPS.flatMap((g) => g.items.map((n) => n.to))]);
 
-
+// Page titles: the same words as the menu (checked by /walkthrough).
 const TITLES: [RegExp, string][] = [
-  [/^\/$/, "Home Inventory"], [/^\/search/, "Search"], [/^\/add/, "Add item"], [/^\/scan/, "Scan"], [/^\/items\/\d+/, "Item"], [/^\/items/, "Items"],
-  [/^\/containers\/\d+\/checklist/, "Printed checklist"], [/^\/containers\/\d+/, "Container"], [/^\/containers/, "Containers"], [/^\/locations/, "Locations"], [/^\/maps/, "Visual maps"], [/^\/labels/, "Labels"],
-  [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/sort/, "To sort"], [/^\/deleted/, "Recently deleted"], [/^\/report(?!s)/, "Inventory report"], [/^\/duplicates/, "Possible duplicates"], [/^\/maintenance\/reports/, "Maintenance reports"], [/^\/maintenance/, "Maintenance"], [/^\/kits\/\d+/, "Kit"], [/^\/tags/, "NFC tags"], [/^\/shopping/, "Restock & shopping"], [/^\/tag\//, "Tag"], [/^\/kits/, "Kits"], [/^\/customers\/\d+/, "Customer"], [/^\/customers/, "Customers"], [/^\/repairs\/\d+\/print/, "Work order"], [/^\/repairs\/\d+/, "Repair job"], [/^\/repairs/, "Repairs"], [/^\/activity/, "Activity"], [/^\/loans/, "Loans & temporary"], [/^\/settings/, "Settings"], [/^\/todo/, "To sort & finish"], [/^\/categories/, "Categories"], [/^\/voice-history/, "Voice history"], [/^\/care/, "Maintenance & repairs"], [/^\/reports\/maintenance-plan/, "Maintenance plan"], [/^\/reports\/season/, "Season mode"], [/^\/put-away/, "Put-away route"], [/^\/verify/, "Check inventory"], [/^\/attention/, "Needs attention"], [/^\/equipment\/\d+/, "Equipment"], [/^\/equipment/, "Equipment"], [/^\/reports/, "Reports"],
+  [/^\/$/, "Home"], [/^\/search/, "Search"], [/^\/add/, "Add item"], [/^\/scan/, "Scan"], [/^\/items\/\d+/, "Item"], [/^\/items/, "Items"],
+  [/^\/containers\/\d+\/checklist/, "Printed checklist"], [/^\/containers\/\d+/, "Container"], [/^\/containers/, "Containers"], [/^\/locations/, "Locations"], [/^\/maps/, "Visual maps"], [/^\/labels/, "Print labels"],
+  [/^\/capture/, "Quick photos"], [/^\/to-finish/, "To finish"], [/^\/sort/, "To sort"], [/^\/deleted/, "Recently deleted"], [/^\/report(?!s)/, "Inventory report"], [/^\/duplicates/, "Possible duplicates"], [/^\/maintenance\/reports/, "Maintenance reports"], [/^\/maintenance/, "Maintenance"], [/^\/kits\/\d+/, "Kit"], [/^\/tags/, "NFC tags"], [/^\/shopping/, "Restock & shopping"], [/^\/tag\//, "Tag"], [/^\/kits/, "Kits"], [/^\/customers\/\d+/, "Customer"], [/^\/customers/, "Customers"], [/^\/repairs\/\d+\/print/, "Work order"], [/^\/repairs\/\d+/, "Repair job"], [/^\/repairs/, "Repairs"], [/^\/activity/, "Activity history"], [/^\/loans/, "Loans & borrowed"], [/^\/settings/, "Settings"], [/^\/todo/, "To sort & finish"], [/^\/categories/, "Categories"], [/^\/voice-history/, "Voice history"], [/^\/care/, "Equipment & repairs"], [/^\/reports\/maintenance-plan/, "Maintenance plan"], [/^\/reports\/season/, "Season mode"], [/^\/reports\/warranties/, "Warranties & expiry"], [/^\/put-away/, "Put-away route"], [/^\/verify/, "Check inventory"], [/^\/attention/, "Needs attention"], [/^\/equipment\/\d+/, "Equipment"], [/^\/equipment/, "Equipment & repairs"], [/^\/reports/, "Reports"],
 ];
 
 /** QR labels can encode `<base>?c=CODE`; open the container when launched that way. */
@@ -244,9 +245,22 @@ function Shell({ me }: { me: Me }) {
   const loc = useLocation();
   const nav = useNavigate();
   const [more, setMore] = useState(false);
-  useEffect(() => { setMore(false); window.scrollTo(0, 0); }, [loc.pathname]);
+  useEffect(() => { setMore(false); setAdding(false); window.scrollTo(0, 0); }, [loc.pathname]);
   const title = TITLES.find(([re]) => re.test(loc.pathname))?.[1] || "Home Inventory";
-  const isRoot = ["/", "/search", "/scan", "/items", "/capture", "/sort", "/report", "/to-finish", "/maintenance", "/kits", "/tags", "/shopping", "/repairs", "/customers", "/containers", "/locations", "/maps", "/labels", "/activity", "/loans", "/settings", "/todo", "/categories", "/voice-history", "/care", "/reports", "/deleted", "/duplicates"].includes(loc.pathname);
+  const isRoot = ROOTS.has(loc.pathname);
+  // On a phone the top bar already shows the title: mark a page heading that
+  // only repeats it, so CSS can hide it there (pages load lazily, so watch).
+  useEffect(() => {
+    const main = document.querySelector(".main");
+    if (!main) return;
+    const norm = (t: string) => t.trim().toLowerCase().replace(/&/g, "and").replace(/\s+/g, " ");
+    const mark = () => main.querySelectorAll(".page h1").forEach((h) => h.classList.toggle("same-as-title", norm(h.textContent || "") === norm(title)));
+    mark();
+    const obs = new MutationObserver(mark);
+    obs.observe(main, { childList: true, subtree: true });
+    return () => obs.disconnect();
+  }, [title]);
+  const [adding, setAdding] = useState(false);
   const allowed = (n: NavEntry) => (!n.edit || me.can_edit) && (!n.admin || me.is_admin);
   const groups = NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter(allowed) })).filter((g) => g.items.length);
   // Menu sections fold away.  Each heading always opens and closes it; the
@@ -279,13 +293,13 @@ function Shell({ me }: { me: Me }) {
     </button>
   );
   return (
-    <div className="app">
+    <div className={`app${loc.pathname.startsWith("/capture") ? " full-screen" : ""}`}>
       <nav className="sidebar" aria-label="Main">
         <div className="brand"><img src="./favicon.svg" alt="" width={30} height={30} /> Home Inventory</div>
         {groups.map((g) => (
           <Fragment key={g.title || "main"}>
             {heading(g, "nav-group")}
-            {isOpen(g) && g.items.map((n) => (
+            {isOpen(g) && g.items.filter((n) => n.to !== "/search").map((n) => (
               <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => (isActive ? "active" : "")}><n.icon size={20} /> {n.label}</NavLink>
             ))}
           </Fragment>
@@ -319,8 +333,9 @@ function Shell({ me }: { me: Me }) {
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/reports/maintenance-plan" element={<MaintenancePlanPage />} />
           <Route path="/reports/season" element={<SeasonPage />} />
+          <Route path="/reports/warranties" element={<WarrantiesPage />} />
           <Route path="/put-away" element={<PutAwayRoutePage />} />
-          <Route path="/equipment" element={<EquipmentListPage />} />
+          <Route path="/equipment" element={<CarePage />} />
           <Route path="/equipment/:id" element={<EquipmentPage />} />
           <Route path="/maintenance/reports" element={<MaintenanceReportsPage />} />
           <Route path="/verify" element={<VerifyPage />} />
@@ -357,14 +372,27 @@ function Shell({ me }: { me: Me }) {
       <nav className="bottomnav" aria-label="Quick">
         <NavLink to="/" end className={({ isActive }) => (isActive ? "active" : "")}><Home size={22} />Home</NavLink>
         <NavLink to="/search" className={({ isActive }) => (isActive ? "active" : "")}><Search size={22} />Search</NavLink>
-        {me.can_edit ? <NavLink to="/add" aria-label="Add item"><span className="fab"><Plus size={28} /></span></NavLink> : <NavLink to="/items"><Package size={22} />Items</NavLink>}
+        {me.can_edit
+          ? <button type="button" aria-label="Add" aria-haspopup="dialog" className={["/add", "/capture"].includes(loc.pathname) ? "active" : ""} onClick={() => setAdding(true)}><span className="fab"><Plus size={28} /></span></button>
+          : <NavLink to="/items" className={({ isActive }) => (isActive ? "active" : "")}><Package size={22} />Items</NavLink>}
         <NavLink to="/scan" className={({ isActive }) => (isActive ? "active" : "")}><ScanLine size={22} />Scan</NavLink>
         <button onClick={() => setMore(true)}><Menu size={22} />More</button>
       </nav>
+      {adding && (
+        <Sheet title="Add" onClose={() => setAdding(false)}>
+          <div className="quick">
+            <NavLink to="/add"><span className="ico"><Plus size={20} /></span>Add item</NavLink>
+            <NavLink to="/capture"><span className="ico"><Camera size={20} /></span>Quick photos</NavLink>
+            <NavLink to="/containers?new=1"><span className="ico"><Box size={20} /></span>Add container</NavLink>
+          </div>
+        </Sheet>
+      )}
       {more && (
         <Sheet title="Menu" onClose={() => setMore(false)}>
           {groups.map((g) => {
-            const rows = g.items.filter((n) => !["/", "/search", "/add", "/scan"].includes(n.to));
+            // Leave out what the bottom bar already has.
+            const inBar = ["/", "/search", "/scan", ...(me.can_edit ? ["/add"] : ["/items"])];
+            const rows = g.items.filter((n) => !inBar.includes(n.to));
             return rows.length ? (
               <Fragment key={g.title || "main"}>
                 {heading({ ...g, items: rows }, "menu-group")}

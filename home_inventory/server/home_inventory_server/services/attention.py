@@ -96,7 +96,7 @@ def collect(db: Session, can_view_customers: bool, today: date | None = None) ->
                                           household_only())).all()
     groups.append(_group("temporary", "Moved just for now", "info", [
         {"title": it.product.name, "detail": f"usually in {r.describe(it.home_container_id, it.home_location_id)['path']}",
-         "link": f"/items/{it.id}"} for it in moved], "/loans"))
+         "link": f"/items/{it.id}"} for it in moved], "/loans?tab=temporary"))
 
     # Customer repairs
     if can_view_customers:
@@ -144,13 +144,13 @@ def collect(db: Session, can_view_customers: bool, today: date | None = None) ->
                       .order_by(Item.warranty_expires)).all()
     groups.append(_group("warranties", "Warranties ending within a month", "info", [
         {"title": it.product.name, "detail": f"ends {it.warranty_expires.isoformat()}", "link": f"/items/{it.id}"}
-        for it in warr], "/loans"))
+        for it in warr], "/reports/warranties"))
     expiring = db.scalars(select(Item).where(Item.deleted_at.is_(None), Item.quantity > 0, Item.expires_on.is_not(None),
                                              Item.expires_on <= today + timedelta(days=14), household_only())
                           .order_by(Item.expires_on)).all()
     groups.append(_group("expiring", "Use-by dates", "soon", [
         {"title": it.product.name, "detail": ("expired " if it.expires_on < today else "expires ") + it.expires_on.isoformat(),
-         "link": f"/items/{it.id}"} for it in expiring], "/loans"))
+         "link": f"/items/{it.id}"} for it in expiring], "/reports/warranties?tab=expiry"))
     from . import valuation
 
     vj = valuation.job(db)

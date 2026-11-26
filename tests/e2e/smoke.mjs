@@ -18,6 +18,8 @@ page.on("pageerror", (e) => errors.push(e.message));
 page.on("console", (m) => m.type() === "error" && !m.text().includes("favicon") && errors.push(m.text()));
 const api = (path, opts = {}) => page.request.fetch(BASE + "api/v1/" + path, { headers, ...opts }).then((r) => r.json());
 const shot = async (name) => SHOTS && page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: false });
+// The page's title in the top bar (on a phone a heading that only repeats it is hidden).
+const pageTitle = (name) => page.locator(".topbar .title", { hasText: new RegExp(`^${name}$`) }).waitFor();
 
 // Seed through the API
 const prop = await api("locations", { method: "POST", data: { name: "Property" } });
@@ -69,7 +71,7 @@ await page.getByText("+1 in Box").waitFor();
 await page.goto(BASE + "#/locations");
 await page.getByRole("link", { name: "Shed" }).waitFor();
 // A new top-level room from the Locations page
-await page.getByRole("button", { name: "New top-level location" }).click();
+await page.getByRole("button", { name: "New location" }).click();
 await page.getByRole("dialog").getByText("New top-level location").waitFor();
 await page.getByLabel("Name").fill("Utility room");
 await page.getByRole("button", { name: "Save" }).click();
@@ -136,6 +138,8 @@ if (pendingItems.length !== 1) throw new Error(`expected 1 item still to finish,
 
 // Quick photos with no place: two shelves' worth, then say which shelf is which
 await page.goto(BASE);
+// On a phone, Quick photos is under the bottom bar's + button.
+await page.getByRole("button", { name: "Add", exact: true }).click();
 await page.getByRole("link", { name: /Quick photos/ }).first().click();
 await page.getByText("Quick photos · Shelf 1").waitFor();
 const files = page.locator('input[type="file"]');
@@ -150,7 +154,7 @@ await files.setInputFiles([{ name: "e.png", mimeType: "image/png", buffer: png }
 await page.getByText("3 added", { exact: true }).waitFor();
 await shot("07b-quick-photos-unsorted");
 await page.getByRole("link", { name: /Say where they are/ }).click();
-await page.getByRole("heading", { name: "To sort" }).waitFor();
+await pageTitle("To sort");
 const shelf1 = page.locator(".card", { hasText: "Shelf 1" });
 await shelf1.getByText("2 of 2 selected").waitFor();
 await shot("07c-to-sort");
@@ -277,13 +281,13 @@ const ms = await api(`items/${mower.id}/maintenance`);
 const oil = ms.tasks.find((t) => t.title === "Engine oil change");
 if (oil.status === "overdue" || oil.next_due_hours !== 101) throw new Error(`oil change not rescheduled: ${JSON.stringify(oil)}`);
 if (ms.history[0].parts[0].description !== "SAE 30 oil") throw new Error("part not recorded");
-await page.goto(BASE + "#/maintenance");
-await page.getByRole("button", { name: /Recent/ }).click();
+await page.goto(BASE + "#/care?tab=maintenance");
+await page.getByLabel("Show").selectOption("recent");
 await page.getByText(/Lawn mower – Engine oil change/).waitFor();
 
 // Customer repair: customer, job with new equipment, status, work, work order
 await page.goto(BASE + "#/customers");
-await page.getByRole("button", { name: "Customer" }).click();
+await page.getByRole("button", { name: "New customer" }).click();
 await page.getByLabel("Name").fill("Pat Neighbour");
 await page.getByLabel("Phone").fill("555-0100");
 await page.getByRole("button", { name: "Save" }).click();
@@ -345,7 +349,7 @@ await page.keyboard.press("Enter");
 await page.getByRole("button", { name: "Accessory: Air hose 50 ft" }).waitFor();
 await shot("11-search-related");
 await page.goto(BASE + "#/kits");
-await page.getByRole("button", { name: "Kit" }).click();
+await page.getByRole("button", { name: "New kit" }).click();
 await page.getByLabel("Name").fill("Air compressor kit");
 await page.getByRole("button", { name: "Choose a container or location" }).click();
 await page.getByRole("button", { name: /Locations/ }).click();
@@ -449,6 +453,8 @@ await page.getByText("Recorded value").waitFor();
 await page.locator(".report-room").first().waitFor();
 await shot("15-report");
 // Report item names open the item, and Previous/Next step through the report's order.
+// On a phone each room is one line until opened.
+await page.locator(".report-room .room-toggle").first().click();
 const firstLink = page.locator(".report-room .t a").first();
 const firstName = await firstLink.innerText();
 await firstLink.click();
@@ -461,27 +467,27 @@ await shot("15b-item-steps");
 
 // Grouped menu and the hub pages.
 await page.goto(BASE + "#/reports");
-await page.getByRole("heading", { name: "Reports" }).waitFor();
+await pageTitle("Reports");
 await page.getByRole("link", { name: /Maintenance plan/ }).first().click();
 await page.getByRole("heading", { name: /Maintenance plan/ }).waitFor();
 await shot("15c-maintenance-plan");
 await page.goto(BASE + "#/todo");
 await page.getByRole("heading", { name: "To sort" }).waitFor();
 await page.goto(BASE + "#/care");
-await page.getByRole("button", { name: "Repairs", exact: true }).click();
+await page.getByRole("button", { name: /^Repairs( \(\d+\))?$/ }).click();
 await page.getByRole("button", { name: "Customers", exact: true }).click();
 await page.getByRole("button", { name: "Maintenance", exact: true }).click();
-await page.locator(".nav-group", { hasText: "Admin" }).first().waitFor({ state: "attached" });
+await page.locator(".nav-group", { hasText: "Manage" }).first().waitFor({ state: "attached" });
 await shot("15d-care");
 await page.getByRole("button", { name: "More" }).click();
-await page.locator(".menu-group", { hasText: "Reports" }).waitFor();
+await page.locator(".menu-group", { hasText: "Manage" }).waitFor();
 await shot("15e-grouped-menu");
 await page.keyboard.press("Escape");
 
 // Admin → Categories: merge Kitchenware into Kitchen & Dining
 const whisk = (await api("items", { method: "POST", data: { name: "Whisk", category: "Kitchenware", location_id: garage.id } })).items[0];
 await page.goto(BASE + "#/categories");
-await page.getByRole("heading", { name: "Categories" }).waitFor();
+await pageTitle("Categories");
 await page.getByRole("button", { name: "Merge Kitchenware" }).click();
 await page.getByRole("dialog").getByText("Kitchen & Dining", { exact: true }).click();
 await page.getByText("Merged Kitchenware into Kitchen & Dining").first().waitFor();
@@ -552,7 +558,7 @@ await page.getByText(/^Finished /).waitFor();
 if ((await api(`items/${second.id}`)).quantity !== second.quantity + 1) throw new Error("recount not saved");
 // Needs attention lists the overdue equipment work and links to it
 await page.goto(BASE + "#/attention");
-await page.getByRole("heading", { name: "Needs attention" }).waitFor();
+await pageTitle("Needs attention");
 await shot("15k-attention");
 
 // Reserve a part for the repair job: it stays on the shelf until it's used

@@ -119,7 +119,7 @@ export default function ItemDetail() {
   const photos = (it.attachments || []).filter((a) => a.kind === "photo");
   const docs = (it.attachments || []).filter((a) => a.kind !== "photo");
 
-  async function act<T>(fn: () => Promise<T>, msg: string) {
+  async function act<T>(fn: () => Promise<T>, msg?: string) {
     const r = await run(fn, msg);
     if (r !== undefined) refresh();
     return r;
@@ -183,7 +183,11 @@ export default function ItemDetail() {
           {edit && (
             <label className={photos.length ? "btn block" : "btn block photo-empty"} style={{ marginTop: photos.length ? 8 : 0 }}>
               <Camera size={18} /> Add photo
-              <input type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) await act(() => uploadPhoto(f, { item_id: it.id }), "Photo added"); }} />
+              <input type="file" accept="image/*" multiple hidden onChange={async (e) => {
+                const files = Array.from(e.target.files || []);
+                e.target.value = "";
+                for (const [n, f] of files.entries()) await act(() => uploadPhoto(f, { item_id: it.id }), n === files.length - 1 ? (files.length > 1 ? `${files.length} photos added` : "Photo added") : undefined);
+              }} />
             </label>
           )}
           {edit && me.app.ai.enabled && it.photo?.caption === "Cut from photo inventory" && (
@@ -239,7 +243,7 @@ export default function ItemDetail() {
             )}
           </div>
           {edit && (
-            <div className="quick" style={{ marginBottom: 14 }}>
+            <div className="quick item-actions" style={{ marginBottom: 14 }}>
               <button onClick={() => setSheet("move")}><span className="ico"><ArrowRightLeft size={20} /></span>Move</button>
               {it.loan ? (
                 <button onClick={() => act(() => api.post(`loans/${it.loan!.id}/return`, {}), "Marked as returned")}><span className="ico"><Undo2 size={20} /></span>Returned</button>

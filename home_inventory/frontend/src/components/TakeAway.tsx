@@ -274,7 +274,7 @@ export function PutAwayRoutePage() {
   return (
     <div className="page">
       <h1><Route size={22} style={{ verticalAlign: "-3px" }} /> Put-away route</h1>
-      <p className="muted">Everything taken out and not back yet, grouped by where it lives: room by room, then place by place within the room (in name order, not a measured route). Put a stop's things back with one tap, or scan the place's label.</p>
+      <p className="muted">Everything taken out and not back yet, grouped by where it lives: room by room, then place by place within the room (in name order, not a measured route). Put a stop's things back with one tap, or scan the place's label. Things lent to someone else are on <Link to="/loans">Loans &amp; borrowed</Link>.</p>
       <div className="row wrap" style={{ gap: 8, marginBottom: 12 }}>
         <div className="tabs" role="tablist" style={{ margin: 0 }}>
           <button role="tab" aria-selected={!everyone} className={!everyone ? "active" : ""} onClick={() => setEveryone(false)}>Mine</button>

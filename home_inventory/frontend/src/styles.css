@@ -444,3 +444,73 @@ button.linkish { background: none; border: 0; padding: 0; color: var(--primary);
 button.badge.copy { border: 0; cursor: copy; font: inherit; font-size: .78rem; }
 /* A bigger thumbnail to compare by eye (possible duplicates). */
 .thumb.md { width: 120px; height: 90px; }
+
+/* ---- Phones (0.43.0, from the walkthrough) -------------------------------- */
+.bottomnav button.active { color: var(--primary); }
+.bottomnav button.active .fab { box-shadow: 0 0 0 3px var(--primary-soft); }
+.field.inline { display: flex; flex-direction: row; align-items: center; gap: 6px; font-size: .9rem; }
+.field.inline select { width: auto; }
+/* Short tab sets share the row; long ones fade at the edge so you can tell they scroll. */
+.tabs:not(:has(> button:nth-child(4))) > button { flex: 1 1 0; }
+.tabs:has(> button:nth-child(4)) { mask-image: linear-gradient(to right, #000 88%, transparent); -webkit-mask-image: linear-gradient(to right, #000 88%, transparent); padding-right: 24px; }
+@media (max-width: 640px) {
+  /* Everything tappable is at least 44 px. */
+  .btn.small, .tabs button, .steps button, .iconbtn { min-height: 44px; }
+  .iconbtn { min-width: 44px; }
+  .main .s a, .main .muted a, .main .hint a, .card-title a:not(.btn), .crumbs a, .path a {
+    display: inline-block; min-height: 44px; min-width: 44px; line-height: 44px; margin-block: -12px; }
+  .main input[type="checkbox"], .main input[type="radio"] { width: 24px; height: 24px; }
+  label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) { min-height: 44px; display: flex; align-items: center; gap: 8px; }
+  /* The page heading repeats the title in the top bar: hide it there. */
+  h1.same-as-title { display: none; }
+  /* Camera screens use the whole screen. */
+  .app.full-screen .bottomnav { display: none; }
+  .app.full-screen .main { padding-bottom: 0; }
+}
+/* Quick photos: gallery | shutter | next shelf, one sticky row (the bottom bar is hidden here on phones). */
+.capture-controls { position: sticky; bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); z-index: 5; display: grid;
+  grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; margin: 10px 0 12px; padding: 8px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); }
+.capture-controls .btn { min-height: 48px; padding: 0 10px; }
+.capture-controls .shutter.inline { position: static; margin: 0; }
+@media (min-width: 901px) { .capture-controls { bottom: 8px; } }
+.camera.capture { max-height: max(180px, calc(100svh - 300px)); }
+.show-sm, .show-sm-flex { display: none; }
+@media (max-width: 639px) {
+  .show-sm { display: block; } .show-sm-flex { display: inline-flex; }
+  .dash-actions { display: none; }
+  .grid.stats { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .grid.stats .stat { padding: 10px; } .grid.stats .stat .v { font-size: 1.2rem; } .grid.stats .stat .l { font-size: .74rem; }
+  .item-filters { display: none; } .item-filters.open { display: flex; }
+}
+/* Possible duplicates: the two records side by side at every width. */
+.dup-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.dup-pair .dup-side { min-width: 0; }
+.dup-pair .dup-side .btn { width: 100%; }
+/* Small "more" menus and folding sections. */
+.more-menu { position: relative; display: inline-block; }
+.more-menu > summary { list-style: none; cursor: pointer; }
+.more-menu > summary::-webkit-details-marker { display: none; }
+.more-menu-items { position: absolute; right: 0; top: 100%; z-index: 20; display: grid; gap: 6px; padding: 8px; min-width: 200px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+details.fold { margin-top: 12px; }
+details.fold > summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; }
+/* Item page: on a phone the actions are one row of icon buttons, not big tiles. */
+@media (max-width: 639px) {
+  .quick.item-actions { grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); gap: 6px; }
+  .quick.item-actions > * { flex-direction: column; padding: 6px 2px; min-height: 64px; font-size: .78rem; gap: 4px; text-align: center; justify-content: center; }
+  .quick.item-actions .ico { width: 32px; height: 32px; }
+}
+/* Add item: one compact save row above the bottom bar. */
+.savebar { position: sticky; bottom: calc(var(--nav-h) + var(--safe-bottom) + 6px); z-index: 4; gap: 8px; padding: 6px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+.savebar .btn { flex: 1; min-height: 48px; }
+@media (min-width: 900px) { .savebar { bottom: 8px; } }
+.room-toggle { width: 100%; background: none; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.room-toggle:disabled { cursor: default; color: inherit; }
+@media (max-width: 640px) {
+  .chip, button.linkish, details > summary { min-height: 44px; }
+  button.linkish { display: inline-flex; align-items: center; }
+  a.badge { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 10px; }
+  .tree-row a, .page > a, .no-print > a:not(.btn) { display: inline-flex; align-items: center; min-height: 44px; }
+}

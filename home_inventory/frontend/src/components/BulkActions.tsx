@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { ArrowRightLeft, Boxes, CheckSquare, Handshake, Pencil, Square, Trash2, Undo2, X } from "lucide-react";
-import { api, type Item } from "../api";
+import { api, type Container, type Item } from "../api";
 import { PlacementPicker } from "./PlacementPicker";
 import { Lightbox } from "./PhotoViewer";
 import type { Attachment } from "../api";
@@ -288,9 +288,11 @@ function BulkKitSheet({ ids, onClose, onDone }: { ids: number[]; onClose: () => 
   );
 }
 
-/** Recently deleted items: tick and restore several at once. */
+/** Recently deleted items and containers: tick and restore several at once;
+ *  administrators can also delete them for good.  (The only trash page.) */
 export function RecentlyDeleted() {
   const list = useApi(() => api.get<{ items: Item[] }>("deleted-items"), []);
+  const boxes = useApi(() => api.get<{ containers: Container[] }>("trash"), []);
   const me = useMe();
   const [chosen, setChosen] = useState<Set<number>>(new Set());
   const { busy, run } = useAction();
@@ -299,6 +301,19 @@ export function RecentlyDeleted() {
     <div className="page">
       <h1>Recently deleted</h1>
       <p className="muted">The last 200 deleted items. Restoring puts an item back where it was (or leaves it unplaced if that place was deleted too).</p>
+      {!!boxes.data?.containers.length && (
+        <section className="card tight" style={{ marginBottom: 12 }}>
+          <div className="card-title" style={{ padding: "14px 16px 0" }}><h2>Containers</h2></div>
+          <ul className="list">
+            {boxes.data.containers.map((c) => (
+              <li key={c.id}>
+                <div className="grow"><div className="t">{c.name}</div><div className="s">deleted {c.deleted_at ? new Date(c.deleted_at).toLocaleString() : ""}</div></div>
+                {me.can_edit && <button className="btn small" disabled={busy} onClick={() => run(() => api.post(`containers/${c.id}/restore`), "Restored").then(boxes.reload)}>Restore</button>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {list.error && !list.data ? <ErrorBox error={list.error} retry={list.reload} /> : list.loading && !list.data ? <Spinner /> : items.length ? (
         <>
           <ul className="list card tight">
@@ -327,6 +342,14 @@ export function RecentlyDeleted() {
               <button className="btn small primary" disabled={!chosen.size || busy} onClick={async () => {
                 if (await run(() => api.post("items/bulk-restore", { item_ids: [...chosen] }), `Restored ${plural(chosen.size)}`)) { setChosen(new Set()); list.reload(); }
               }}><Undo2 size={16} /> Restore</button>
+              {me.is_admin && (
+                <button className="btn small danger" disabled={!chosen.size || busy} onClick={async () => {
+                  if (!window.confirm(`Delete ${plural(chosen.size)} for good? This cannot be undone.`)) return;
+                  for (const id of chosen) await run(() => api.del(`trash/items/${id}`));
+                  setChosen(new Set());
+                  list.reload();
+                }}>Delete for good</button>
+              )}
             </div>
           )}
         </>
