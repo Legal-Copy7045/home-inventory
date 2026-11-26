@@ -1,0 +1,14 @@
+area: Equipment and maintenance
+features:
+  - name: Equipment hub
+    match: ['test_equipment', 'page:\w+:/equipment', '/api/v1/equipment']
+  - name: Maintenance tasks and plan
+    match: ['test_maintenance', 'test_voice_maintenance', 'page:\w+:/(maintenance|care|reports/maintenance-plan)', 'maintenance-tasks', '/maintenance']
+  - name: Parts, consumables and designations
+    match: ['test_parts', 'test_entities_reservations', '/api/v1/(parts|products)', 'fitments']
+  - name: Manuals
+    match: ['test_documents', '/manuals', 'manual:\S+ ai-manual']
+  - name: Hour meters and sensors
+    match: ['test_meter_', 'readings', 'manual:\S+ hour-meter']
+  - name: Season mode and fuel
+    match: ['page:\w+:/reports/season', 'season', 'fuel']

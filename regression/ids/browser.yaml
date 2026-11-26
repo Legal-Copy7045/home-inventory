@@ -1,0 +1,2135 @@
+# Stable IDs for the browser checks. Written by regression/run.py.
+# Never renumber or reuse an ID; a check that goes away is marked retired.
+prefix: B
+next: 711
+ids:
+  B0001:
+    key: build:frontend
+    added: '2026-11-26'
+  B0002:
+    key: e2e:smoke
+    added: '2026-11-26'
+  B0003:
+    key: page:admin:/
+    added: '2026-11-26'
+  B0004:
+    key: page:member:/
+    added: '2026-11-26'
+  B0005:
+    key: page:admin:/search
+    added: '2026-11-26'
+  B0006:
+    key: page:member:/search
+    added: '2026-11-26'
+  B0007:
+    key: page:read_only:/
+    added: '2026-11-26'
+  B0008:
+    key: page:admin:/add
+    added: '2026-11-26'
+  B0009:
+    key: page:member:/add
+    added: '2026-11-26'
+  B0010:
+    key: page:read_only:/search
+    added: '2026-11-26'
+  B0011:
+    key: page:admin:/scan
+    added: '2026-11-26'
+  B0012:
+    key: page:member:/scan
+    added: '2026-11-26'
+  B0013:
+    key: page:read_only:/add
+    added: '2026-11-26'
+  B0014:
+    key: page:admin:/capture
+    added: '2026-11-26'
+  B0015:
+    key: page:member:/capture
+    added: '2026-11-26'
+  B0016:
+    key: page:read_only:/scan
+    added: '2026-11-26'
+  B0017:
+    key: page:admin:/sort
+    added: '2026-11-26'
+  B0018:
+    key: page:member:/sort
+    added: '2026-11-26'
+  B0019:
+    key: page:read_only:/capture
+    added: '2026-11-26'
+  B0020:
+    key: page:admin:/deleted
+    added: '2026-11-26'
+  B0021:
+    key: page:member:/deleted
+    added: '2026-11-26'
+  B0022:
+    key: page:read_only:/sort
+    added: '2026-11-26'
+  B0023:
+    key: page:admin:/report
+    added: '2026-11-26'
+  B0024:
+    key: page:read_only:/deleted
+    added: '2026-11-26'
+  B0025:
+    key: page:member:/report
+    added: '2026-11-26'
+  B0026:
+    key: page:read_only:/report
+    added: '2026-11-26'
+  B0027:
+    key: page:admin:/duplicates
+    added: '2026-11-26'
+  B0028:
+    key: page:member:/duplicates
+    added: '2026-11-26'
+  B0029:
+    key: page:read_only:/duplicates
+    added: '2026-11-26'
+  B0030:
+    key: page:admin:/to-finish
+    added: '2026-11-26'
+  B0031:
+    key: page:member:/to-finish
+    added: '2026-11-26'
+  B0032:
+    key: page:read_only:/to-finish
+    added: '2026-11-26'
+  B0033:
+    key: page:admin:/todo
+    added: '2026-11-26'
+  B0034:
+    key: page:member:/todo
+    added: '2026-11-26'
+  B0035:
+    key: page:read_only:/todo
+    added: '2026-11-26'
+  B0036:
+    key: page:admin:/categories
+    added: '2026-11-26'
+  B0037:
+    key: page:member:/categories
+    added: '2026-11-26'
+  B0038:
+    key: page:read_only:/categories
+    added: '2026-11-26'
+  B0039:
+    key: page:admin:/voice-history
+    added: '2026-11-26'
+  B0040:
+    key: page:member:/voice-history
+    added: '2026-11-26'
+  B0041:
+    key: page:read_only:/voice-history
+    added: '2026-11-26'
+  B0042:
+    key: page:admin:/care
+    added: '2026-11-26'
+  B0043:
+    key: page:member:/care
+    added: '2026-11-26'
+  B0044:
+    key: page:admin:/reports
+    added: '2026-11-26'
+  B0045:
+    key: page:member:/reports
+    added: '2026-11-26'
+  B0046:
+    key: page:read_only:/care
+    added: '2026-11-26'
+  B0047:
+    key: page:read_only:/reports
+    added: '2026-11-26'
+  B0048:
+    key: page:member:/reports/maintenance-plan
+    added: '2026-11-26'
+  B0049:
+    key: page:admin:/reports/maintenance-plan
+    added: '2026-11-26'
+  B0050:
+    key: page:member:/reports/season
+    added: '2026-11-26'
+  B0051:
+    key: page:admin:/reports/season
+    added: '2026-11-26'
+  B0052:
+    key: page:read_only:/reports/maintenance-plan
+    added: '2026-11-26'
+  B0053:
+    key: page:member:/put-away
+    added: '2026-11-26'
+  B0054:
+    key: page:admin:/put-away
+    added: '2026-11-26'
+  B0055:
+    key: page:read_only:/reports/season
+    added: '2026-11-26'
+  B0056:
+    key: page:admin:/equipment
+    added: '2026-11-26'
+  B0057:
+    key: page:member:/equipment
+    added: '2026-11-26'
+  B0058:
+    key: page:read_only:/put-away
+    added: '2026-11-26'
+  B0059:
+    key: page:admin:/equipment/:id
+    added: '2026-11-26'
+  B0060:
+    key: page:member:/equipment/:id
+    added: '2026-11-26'
+  B0061:
+    key: page:admin:/maintenance/reports
+    added: '2026-11-26'
+  B0062:
+    key: page:member:/maintenance/reports
+    added: '2026-11-26'
+  B0063:
+    key: page:read_only:/equipment
+    added: '2026-11-26'
+  B0064:
+    key: page:member:/verify
+    added: '2026-11-26'
+  B0065:
+    key: page:admin:/verify
+    added: '2026-11-26'
+  B0066:
+    key: page:admin:/verify/:id
+    added: '2026-11-26'
+  B0067:
+    key: page:member:/verify/:id
+    added: '2026-11-26'
+  B0068:
+    key: page:read_only:/equipment/:id
+    added: '2026-11-26'
+  B0069:
+    key: page:admin:/attention
+    added: '2026-11-26'
+  B0070:
+    key: page:member:/attention
+    added: '2026-11-26'
+  B0071:
+    key: page:read_only:/maintenance/reports
+    added: '2026-11-26'
+  B0072:
+    key: page:admin:/maintenance
+    added: '2026-11-26'
+  B0073:
+    key: page:member:/maintenance
+    added: '2026-11-26'
+  B0074:
+    key: page:member:/kits
+    added: '2026-11-26'
+  B0075:
+    key: page:admin:/kits
+    added: '2026-11-26'
+  B0076:
+    key: page:read_only:/verify
+    added: '2026-11-26'
+  B0077:
+    key: page:member:/tags
+    added: '2026-11-26'
+  B0078:
+    key: page:admin:/tags
+    added: '2026-11-26'
+  B0079:
+    key: page:read_only:/verify/:id
+    added: '2026-11-26'
+  B0080:
+    key: page:member:/shopping
+    added: '2026-11-26'
+  B0081:
+    key: page:admin:/shopping
+    added: '2026-11-26'
+  B0082:
+    key: page:member:/tag/:ref
+    added: '2026-11-26'
+  B0083:
+    key: page:read_only:/attention
+    added: '2026-11-26'
+  B0084:
+    key: page:admin:/tag/:ref
+    added: '2026-11-26'
+  B0085:
+    key: page:member:/kits/:id
+    added: '2026-11-26'
+  B0086:
+    key: page:read_only:/maintenance
+    added: '2026-11-26'
+  B0087:
+    key: page:member:/customers
+    added: '2026-11-26'
+  B0088:
+    key: page:admin:/kits/:id
+    added: '2026-11-26'
+  B0089:
+    key: page:read_only:/kits
+    added: '2026-11-26'
+  B0090:
+    key: page:member:/customers/:id
+    added: '2026-11-26'
+  B0091:
+    key: page:admin:/customers
+    added: '2026-11-26'
+  B0092:
+    key: page:read_only:/tags
+    added: '2026-11-26'
+  B0093:
+    key: page:admin:/customers/:id
+    added: '2026-11-26'
+  B0094:
+    key: page:member:/repairs
+    added: '2026-11-26'
+  B0095:
+    key: page:admin:/repairs
+    added: '2026-11-26'
+  B0096:
+    key: page:member:/repairs/:id
+    added: '2026-11-26'
+  B0097:
+    key: page:read_only:/shopping
+    added: '2026-11-26'
+  B0098:
+    key: page:admin:/repairs/:id
+    added: '2026-11-26'
+  B0099:
+    key: page:member:/repairs/:id/print
+    added: '2026-11-26'
+  B0100:
+    key: page:admin:/repairs/:id/print
+    added: '2026-11-26'
+  B0101:
+    key: page:read_only:/tag/:ref
+    added: '2026-11-26'
+  B0102:
+    key: page:member:/items
+    added: '2026-11-26'
+  B0103:
+    key: page:admin:/items
+    added: '2026-11-26'
+  B0104:
+    key: page:read_only:/kits/:id
+    added: '2026-11-26'
+  B0105:
+    key: page:member:/items/:id
+    added: '2026-11-26'
+  B0106:
+    key: page:admin:/items/:id
+    added: '2026-11-26'
+  B0107:
+    key: page:read_only:/customers
+    added: '2026-11-26'
+  B0108:
+    key: page:member:/containers
+    added: '2026-11-26'
+  B0109:
+    key: page:admin:/containers
+    added: '2026-11-26'
+  B0110:
+    key: page:read_only:/customers/:id
+    added: '2026-11-26'
+  B0111:
+    key: page:member:/containers/:id
+    added: '2026-11-26'
+  B0112:
+    key: page:admin:/containers/:id
+    added: '2026-11-26'
+  B0113:
+    key: page:read_only:/repairs
+    added: '2026-11-26'
+  B0114:
+    key: page:member:/containers/:id/checklist
+    added: '2026-11-26'
+  B0115:
+    key: page:admin:/containers/:id/checklist
+    added: '2026-11-26'
+  B0116:
+    key: page:member:/locations
+    added: '2026-11-26'
+  B0117:
+    key: page:read_only:/repairs/:id
+    added: '2026-11-26'
+  B0118:
+    key: page:admin:/locations
+    added: '2026-11-26'
+  B0119:
+    key: page:member:/locations/:id
+    added: '2026-11-26'
+  B0120:
+    key: page:admin:/locations/:id
+    added: '2026-11-26'
+  B0121:
+    key: page:read_only:/repairs/:id/print
+    added: '2026-11-26'
+  B0122:
+    key: page:member:/maps
+    added: '2026-11-26'
+  B0123:
+    key: page:admin:/maps
+    added: '2026-11-26'
+  B0124:
+    key: page:member:/maps/:id
+    added: '2026-11-26'
+  B0125:
+    key: page:read_only:/items
+    added: '2026-11-26'
+  B0126:
+    key: page:admin:/maps/:id
+    added: '2026-11-26'
+  B0127:
+    key: page:member:/labels
+    added: '2026-11-26'
+  B0128:
+    key: page:admin:/labels
+    added: '2026-11-26'
+  B0129:
+    key: page:read_only:/items/:id
+    added: '2026-11-26'
+  B0130:
+    key: page:member:/activity
+    added: '2026-11-26'
+  B0131:
+    key: page:admin:/activity
+    added: '2026-11-26'
+  B0132:
+    key: page:read_only:/containers
+    added: '2026-11-26'
+  B0133:
+    key: page:member:/loans
+    added: '2026-11-26'
+  B0134:
+    key: page:admin:/loans
+    added: '2026-11-26'
+  B0135:
+    key: page:member:/settings
+    added: '2026-11-26'
+  B0136:
+    key: page:read_only:/containers/:id
+    added: '2026-11-26'
+  B0137:
+    key: page:admin:/settings
+    added: '2026-11-26'
+  B0138:
+    key: page:read_only:/containers/:id/checklist
+    added: '2026-11-26'
+  B0139:
+    key: page:read_only:/locations
+    added: '2026-11-26'
+  B0140:
+    key: page:read_only:/locations/:id
+    added: '2026-11-26'
+  B0141:
+    key: page:read_only:/maps
+    added: '2026-11-26'
+  B0142:
+    key: page:read_only:/maps/:id
+    added: '2026-11-26'
+  B0143:
+    key: page:read_only:/labels
+    added: '2026-11-26'
+  B0144:
+    key: page:read_only:/activity
+    added: '2026-11-26'
+  B0145:
+    key: page:read_only:/loans
+    added: '2026-11-26'
+  B0146:
+    key: page:read_only:/settings
+    added: '2026-11-26'
+  B0147:
+    key: api:ingress:admin:GET /api/v1/me
+    added: '2026-11-26'
+  B0148:
+    key: api:ingress:member:GET /api/v1/me
+    added: '2026-11-26'
+  B0149:
+    key: api:ingress:read_only:GET /api/v1/me
+    added: '2026-11-26'
+  B0150:
+    key: api:ingress:anon:GET /api/v1/me
+    added: '2026-11-26'
+  B0151:
+    key: api:ingress:admin:GET /api/v1/dashboard
+    added: '2026-11-26'
+  B0152:
+    key: api:ingress:member:GET /api/v1/dashboard
+    added: '2026-11-26'
+  B0153:
+    key: api:ingress:read_only:GET /api/v1/dashboard
+    added: '2026-11-26'
+  B0154:
+    key: api:ingress:anon:GET /api/v1/dashboard
+    added: '2026-11-26'
+  B0155:
+    key: api:ingress:admin:GET /api/v1/checkups
+    added: '2026-11-26'
+  B0156:
+    key: api:ingress:member:GET /api/v1/checkups
+    added: '2026-11-26'
+  B0157:
+    key: api:ingress:read_only:GET /api/v1/checkups
+    added: '2026-11-26'
+  B0158:
+    key: api:ingress:anon:GET /api/v1/checkups
+    added: '2026-11-26'
+  B0159:
+    key: api:ingress:admin:GET /api/v1/stats
+    added: '2026-11-26'
+  B0160:
+    key: api:ingress:member:GET /api/v1/stats
+    added: '2026-11-26'
+  B0161:
+    key: api:ingress:read_only:GET /api/v1/stats
+    added: '2026-11-26'
+  B0162:
+    key: api:ingress:anon:GET /api/v1/stats
+    added: '2026-11-26'
+  B0163:
+    key: api:ingress:admin:GET /api/v1/locations/tree
+    added: '2026-11-26'
+  B0164:
+    key: api:ingress:member:GET /api/v1/locations/tree
+    added: '2026-11-26'
+  B0165:
+    key: api:ingress:read_only:GET /api/v1/locations/tree
+    added: '2026-11-26'
+  B0166:
+    key: api:ingress:anon:GET /api/v1/locations/tree
+    added: '2026-11-26'
+  B0167:
+    key: api:ingress:admin:GET /api/v1/locations
+    added: '2026-11-26'
+  B0168:
+    key: api:ingress:member:GET /api/v1/locations
+    added: '2026-11-26'
+  B0169:
+    key: api:ingress:read_only:GET /api/v1/locations
+    added: '2026-11-26'
+  B0170:
+    key: api:ingress:anon:GET /api/v1/locations
+    added: '2026-11-26'
+  B0171:
+    key: api:ingress:admin:GET /api/v1/locations/template.xlsx
+    added: '2026-11-26'
+  B0172:
+    key: api:ingress:member:GET /api/v1/locations/template.xlsx
+    added: '2026-11-26'
+  B0173:
+    key: api:ingress:read_only:GET /api/v1/locations/template.xlsx
+    added: '2026-11-26'
+  B0174:
+    key: api:ingress:anon:GET /api/v1/locations/template.xlsx
+    added: '2026-11-26'
+  B0175:
+    key: api:ingress:admin:GET /api/v1/locations/{location_id}
+    added: '2026-11-26'
+  B0176:
+    key: api:ingress:member:GET /api/v1/locations/{location_id}
+    added: '2026-11-26'
+  B0177:
+    key: api:ingress:read_only:GET /api/v1/locations/{location_id}
+    added: '2026-11-26'
+  B0178:
+    key: api:ingress:anon:GET /api/v1/locations/{location_id}
+    added: '2026-11-26'
+  B0179:
+    key: api:ingress:admin:GET /api/v1/containers
+    added: '2026-11-26'
+  B0180:
+    key: api:ingress:member:GET /api/v1/containers
+    added: '2026-11-26'
+  B0181:
+    key: api:ingress:read_only:GET /api/v1/containers
+    added: '2026-11-26'
+  B0182:
+    key: api:ingress:anon:GET /api/v1/containers
+    added: '2026-11-26'
+  B0183:
+    key: api:ingress:admin:GET /api/v1/containers/numbers
+    added: '2026-11-26'
+  B0184:
+    key: api:ingress:member:GET /api/v1/containers/numbers
+    added: '2026-11-26'
+  B0185:
+    key: api:ingress:read_only:GET /api/v1/containers/numbers
+    added: '2026-11-26'
+  B0186:
+    key: api:ingress:anon:GET /api/v1/containers/numbers
+    added: '2026-11-26'
+  B0187:
+    key: api:ingress:admin:GET /api/v1/containers/lookup
+    added: '2026-11-26'
+  B0188:
+    key: api:ingress:member:GET /api/v1/containers/lookup
+    added: '2026-11-26'
+  B0189:
+    key: api:ingress:read_only:GET /api/v1/containers/lookup
+    added: '2026-11-26'
+  B0190:
+    key: api:ingress:anon:GET /api/v1/containers/lookup
+    added: '2026-11-26'
+  B0191:
+    key: api:ingress:admin:GET /api/v1/containers/{container_id}
+    added: '2026-11-26'
+  B0192:
+    key: api:ingress:member:GET /api/v1/containers/{container_id}
+    added: '2026-11-26'
+  B0193:
+    key: api:ingress:read_only:GET /api/v1/containers/{container_id}
+    added: '2026-11-26'
+  B0194:
+    key: api:ingress:anon:GET /api/v1/containers/{container_id}
+    added: '2026-11-26'
+  B0195:
+    key: api:ingress:admin:GET /api/v1/containers/{container_id}/qr.svg
+    added: '2026-11-26'
+  B0196:
+    key: api:ingress:member:GET /api/v1/containers/{container_id}/qr.svg
+    added: '2026-11-26'
+  B0197:
+    key: api:ingress:read_only:GET /api/v1/containers/{container_id}/qr.svg
+    added: '2026-11-26'
+  B0198:
+    key: api:ingress:anon:GET /api/v1/containers/{container_id}/qr.svg
+    added: '2026-11-26'
+  B0199:
+    key: api:ingress:admin:GET /api/v1/locations/{location_id}/qr.svg
+    added: '2026-11-26'
+  B0200:
+    key: api:ingress:member:GET /api/v1/locations/{location_id}/qr.svg
+    added: '2026-11-26'
+  B0201:
+    key: api:ingress:read_only:GET /api/v1/locations/{location_id}/qr.svg
+    added: '2026-11-26'
+  B0202:
+    key: api:ingress:anon:GET /api/v1/locations/{location_id}/qr.svg
+    added: '2026-11-26'
+  B0203:
+    key: api:ingress:admin:GET /api/v1/items
+    added: '2026-11-26'
+  B0204:
+    key: api:ingress:member:GET /api/v1/items
+    added: '2026-11-26'
+  B0205:
+    key: api:ingress:read_only:GET /api/v1/items
+    added: '2026-11-26'
+  B0206:
+    key: api:ingress:anon:GET /api/v1/items
+    added: '2026-11-26'
+  B0207:
+    key: api:ingress:admin:GET /api/v1/reports/inventory
+    added: '2026-11-26'
+  B0208:
+    key: api:ingress:member:GET /api/v1/reports/inventory
+    added: '2026-11-26'
+  B0209:
+    key: api:ingress:read_only:GET /api/v1/reports/inventory
+    added: '2026-11-26'
+  B0210:
+    key: api:ingress:anon:GET /api/v1/reports/inventory
+    added: '2026-11-26'
+  B0211:
+    key: api:ingress:admin:GET /api/v1/reports/inventory.{fmt} [fmt=csv]
+    added: '2026-11-26'
+  B0212:
+    key: api:ingress:admin:GET /api/v1/reports/inventory.{fmt} [fmt=xlsx]
+    added: '2026-11-26'
+  B0213:
+    key: api:ingress:member:GET /api/v1/reports/inventory.{fmt} [fmt=csv]
+    added: '2026-11-26'
+  B0214:
+    key: api:ingress:member:GET /api/v1/reports/inventory.{fmt} [fmt=xlsx]
+    added: '2026-11-26'
+  B0215:
+    key: api:ingress:read_only:GET /api/v1/reports/inventory.{fmt} [fmt=csv]
+    added: '2026-11-26'
+  B0216:
+    key: api:ingress:read_only:GET /api/v1/reports/inventory.{fmt} [fmt=xlsx]
+    added: '2026-11-26'
+  B0217:
+    key: api:ingress:anon:GET /api/v1/reports/inventory.{fmt} [fmt=csv]
+    added: '2026-11-26'
+  B0218:
+    key: api:ingress:anon:GET /api/v1/reports/inventory.{fmt} [fmt=xlsx]
+    added: '2026-11-26'
+  B0219:
+    key: api:ingress:admin:GET /api/v1/items/ids
+    added: '2026-11-26'
+  B0220:
+    key: api:ingress:member:GET /api/v1/items/ids
+    added: '2026-11-26'
+  B0221:
+    key: api:ingress:read_only:GET /api/v1/items/ids
+    added: '2026-11-26'
+  B0222:
+    key: api:ingress:anon:GET /api/v1/items/ids
+    added: '2026-11-26'
+  B0223:
+    key: api:ingress:admin:GET /api/v1/items/{item_id}
+    added: '2026-11-26'
+  B0224:
+    key: api:ingress:member:GET /api/v1/items/{item_id}
+    added: '2026-11-26'
+  B0225:
+    key: api:ingress:read_only:GET /api/v1/items/{item_id}
+    added: '2026-11-26'
+  B0226:
+    key: api:ingress:anon:GET /api/v1/items/{item_id}
+    added: '2026-11-26'
+  B0227:
+    key: api:ingress:admin:GET /api/v1/expiring
+    added: '2026-11-26'
+  B0228:
+    key: api:ingress:member:GET /api/v1/expiring
+    added: '2026-11-26'
+  B0229:
+    key: api:ingress:read_only:GET /api/v1/expiring
+    added: '2026-11-26'
+  B0230:
+    key: api:ingress:anon:GET /api/v1/expiring
+    added: '2026-11-26'
+  B0231:
+    key: api:ingress:admin:GET /api/v1/low-stock
+    added: '2026-11-26'
+  B0232:
+    key: api:ingress:member:GET /api/v1/low-stock
+    added: '2026-11-26'
+  B0233:
+    key: api:ingress:read_only:GET /api/v1/low-stock
+    added: '2026-11-26'
+  B0234:
+    key: api:ingress:anon:GET /api/v1/low-stock
+    added: '2026-11-26'
+  B0235:
+    key: api:ingress:admin:GET /api/v1/capture/unsorted
+    added: '2026-11-26'
+  B0236:
+    key: api:ingress:member:GET /api/v1/capture/unsorted
+    added: '2026-11-26'
+  B0237:
+    key: api:ingress:read_only:GET /api/v1/capture/unsorted
+    added: '2026-11-26'
+  B0238:
+    key: api:ingress:anon:GET /api/v1/capture/unsorted
+    added: '2026-11-26'
+  B0239:
+    key: api:ingress:admin:GET /api/v1/deleted-items
+    added: '2026-11-26'
+  B0240:
+    key: api:ingress:member:GET /api/v1/deleted-items
+    added: '2026-11-26'
+  B0241:
+    key: api:ingress:read_only:GET /api/v1/deleted-items
+    added: '2026-11-26'
+  B0242:
+    key: api:ingress:anon:GET /api/v1/deleted-items
+    added: '2026-11-26'
+  B0243:
+    key: api:ingress:admin:GET /api/v1/products/duplicates
+    added: '2026-11-26'
+  B0244:
+    key: api:ingress:member:GET /api/v1/products/duplicates
+    added: '2026-11-26'
+  B0245:
+    key: api:ingress:read_only:GET /api/v1/products/duplicates
+    added: '2026-11-26'
+  B0246:
+    key: api:ingress:anon:GET /api/v1/products/duplicates
+    added: '2026-11-26'
+  B0247:
+    key: api:ingress:admin:GET /api/v1/products/similar
+    added: '2026-11-26'
+  B0248:
+    key: api:ingress:member:GET /api/v1/products/similar
+    added: '2026-11-26'
+  B0249:
+    key: api:ingress:read_only:GET /api/v1/products/similar
+    added: '2026-11-26'
+  B0250:
+    key: api:ingress:anon:GET /api/v1/products/similar
+    added: '2026-11-26'
+  B0251:
+    key: api:ingress:admin:GET /api/v1/loans
+    added: '2026-11-26'
+  B0252:
+    key: api:ingress:member:GET /api/v1/loans
+    added: '2026-11-26'
+  B0253:
+    key: api:ingress:read_only:GET /api/v1/loans
+    added: '2026-11-26'
+  B0254:
+    key: api:ingress:anon:GET /api/v1/loans
+    added: '2026-11-26'
+  B0255:
+    key: api:ingress:admin:GET /api/v1/temporary
+    added: '2026-11-26'
+  B0256:
+    key: api:ingress:member:GET /api/v1/temporary
+    added: '2026-11-26'
+  B0257:
+    key: api:ingress:read_only:GET /api/v1/temporary
+    added: '2026-11-26'
+  B0258:
+    key: api:ingress:anon:GET /api/v1/temporary
+    added: '2026-11-26'
+  B0259:
+    key: api:ingress:admin:GET /api/v1/warranties
+    added: '2026-11-26'
+  B0260:
+    key: api:ingress:member:GET /api/v1/warranties
+    added: '2026-11-26'
+  B0261:
+    key: api:ingress:read_only:GET /api/v1/warranties
+    added: '2026-11-26'
+  B0262:
+    key: api:ingress:anon:GET /api/v1/warranties
+    added: '2026-11-26'
+  B0263:
+    key: api:ingress:admin:GET /api/v1/categories
+    added: '2026-11-26'
+  B0264:
+    key: api:ingress:member:GET /api/v1/categories
+    added: '2026-11-26'
+  B0265:
+    key: api:ingress:read_only:GET /api/v1/categories
+    added: '2026-11-26'
+  B0266:
+    key: api:ingress:anon:GET /api/v1/categories
+    added: '2026-11-26'
+  B0267:
+    key: api:ingress:admin:GET /api/v1/attachments/{attachment_id}/file
+    added: '2026-11-26'
+  B0268:
+    key: api:ingress:member:GET /api/v1/attachments/{attachment_id}/file
+    added: '2026-11-26'
+  B0269:
+    key: api:ingress:read_only:GET /api/v1/attachments/{attachment_id}/file
+    added: '2026-11-26'
+  B0270:
+    key: api:ingress:anon:GET /api/v1/attachments/{attachment_id}/file
+    added: '2026-11-26'
+  B0271:
+    key: api:ingress:admin:GET /api/v1/attachments/{attachment_id}/thumb
+    added: '2026-11-26'
+  B0272:
+    key: api:ingress:member:GET /api/v1/attachments/{attachment_id}/thumb
+    added: '2026-11-26'
+  B0273:
+    key: api:ingress:read_only:GET /api/v1/attachments/{attachment_id}/thumb
+    added: '2026-11-26'
+  B0274:
+    key: api:ingress:anon:GET /api/v1/attachments/{attachment_id}/thumb
+    added: '2026-11-26'
+  B0275:
+    key: api:ingress:admin:GET /api/v1/items/{item_id}/claim-pack.zip
+    added: '2026-11-26'
+  B0276:
+    key: api:ingress:member:GET /api/v1/items/{item_id}/claim-pack.zip
+    added: '2026-11-26'
+  B0277:
+    key: api:ingress:read_only:GET /api/v1/items/{item_id}/claim-pack.zip
+    added: '2026-11-26'
+  B0278:
+    key: api:ingress:anon:GET /api/v1/items/{item_id}/claim-pack.zip
+    added: '2026-11-26'
+  B0279:
+    key: api:ingress:admin:GET /api/v1/ai/status
+    added: '2026-11-26'
+  B0280:
+    key: api:ingress:member:GET /api/v1/ai/status
+    added: '2026-11-26'
+  B0281:
+    key: api:ingress:read_only:GET /api/v1/ai/status
+    added: '2026-11-26'
+  B0282:
+    key: api:ingress:anon:GET /api/v1/ai/status
+    added: '2026-11-26'
+  B0283:
+    key: api:ingress:admin:GET /api/v1/value-estimates/preview
+    added: '2026-11-26'
+  B0284:
+    key: api:ingress:member:GET /api/v1/value-estimates/preview
+    added: '2026-11-26'
+  B0285:
+    key: api:ingress:read_only:GET /api/v1/value-estimates/preview
+    added: '2026-11-26'
+  B0286:
+    key: api:ingress:anon:GET /api/v1/value-estimates/preview
+    added: '2026-11-26'
+  B0287:
+    key: api:ingress:admin:GET /api/v1/value-estimates
+    added: '2026-11-26'
+  B0288:
+    key: api:ingress:member:GET /api/v1/value-estimates
+    added: '2026-11-26'
+  B0289:
+    key: api:ingress:read_only:GET /api/v1/value-estimates
+    added: '2026-11-26'
+  B0290:
+    key: api:ingress:anon:GET /api/v1/value-estimates
+    added: '2026-11-26'
+  B0291:
+    key: api:ingress:admin:GET /api/v1/containers/{container_id}/scans
+    added: '2026-11-26'
+  B0292:
+    key: api:ingress:member:GET /api/v1/containers/{container_id}/scans
+    added: '2026-11-26'
+  B0293:
+    key: api:ingress:read_only:GET /api/v1/containers/{container_id}/scans
+    added: '2026-11-26'
+  B0294:
+    key: api:ingress:anon:GET /api/v1/containers/{container_id}/scans
+    added: '2026-11-26'
+  B0295:
+    key: api:ingress:admin:GET /api/v1/locations/{location_id}/scans
+    added: '2026-11-26'
+  B0296:
+    key: api:ingress:member:GET /api/v1/locations/{location_id}/scans
+    added: '2026-11-26'
+  B0297:
+    key: api:ingress:read_only:GET /api/v1/locations/{location_id}/scans
+    added: '2026-11-26'
+  B0298:
+    key: api:ingress:anon:GET /api/v1/locations/{location_id}/scans
+    added: '2026-11-26'
+  B0299:
+    key: api:ingress:admin:GET /api/v1/scans/{scan_id}
+    added: '2026-11-26'
+  B0300:
+    key: api:ingress:member:GET /api/v1/scans/{scan_id}
+    added: '2026-11-26'
+  B0301:
+    key: api:ingress:read_only:GET /api/v1/scans/{scan_id}
+    added: '2026-11-26'
+  B0302:
+    key: api:ingress:anon:GET /api/v1/scans/{scan_id}
+    added: '2026-11-26'
+  B0303:
+    key: api:ingress:admin:GET /api/v1/search
+    added: '2026-11-26'
+  B0304:
+    key: api:ingress:member:GET /api/v1/search
+    added: '2026-11-26'
+  B0305:
+    key: api:ingress:read_only:GET /api/v1/search
+    added: '2026-11-26'
+  B0306:
+    key: api:ingress:anon:GET /api/v1/search
+    added: '2026-11-26'
+  B0307:
+    key: api:ingress:admin:GET /api/v1/labels/templates
+    added: '2026-11-26'
+  B0308:
+    key: api:ingress:member:GET /api/v1/labels/templates
+    added: '2026-11-26'
+  B0309:
+    key: api:ingress:read_only:GET /api/v1/labels/templates
+    added: '2026-11-26'
+  B0310:
+    key: api:ingress:anon:GET /api/v1/labels/templates
+    added: '2026-11-26'
+  B0311:
+    key: api:ingress:admin:GET /api/v1/maps
+    added: '2026-11-26'
+  B0312:
+    key: api:ingress:member:GET /api/v1/maps
+    added: '2026-11-26'
+  B0313:
+    key: api:ingress:read_only:GET /api/v1/maps
+    added: '2026-11-26'
+  B0314:
+    key: api:ingress:anon:GET /api/v1/maps
+    added: '2026-11-26'
+  B0315:
+    key: api:ingress:admin:GET /api/v1/maps/{map_id}
+    added: '2026-11-26'
+  B0316:
+    key: api:ingress:member:GET /api/v1/maps/{map_id}
+    added: '2026-11-26'
+  B0317:
+    key: api:ingress:read_only:GET /api/v1/maps/{map_id}
+    added: '2026-11-26'
+  B0318:
+    key: api:ingress:anon:GET /api/v1/maps/{map_id}
+    added: '2026-11-26'
+  B0319:
+    key: api:ingress:admin:GET /api/v1/history
+    added: '2026-11-26'
+  B0320:
+    key: api:ingress:member:GET /api/v1/history
+    added: '2026-11-26'
+  B0321:
+    key: api:ingress:read_only:GET /api/v1/history
+    added: '2026-11-26'
+  B0322:
+    key: api:ingress:anon:GET /api/v1/history
+    added: '2026-11-26'
+  B0323:
+    key: api:ingress:admin:GET /api/v1/trash
+    added: '2026-11-26'
+  B0324:
+    key: api:ingress:member:GET /api/v1/trash
+    added: '2026-11-26'
+  B0325:
+    key: api:ingress:read_only:GET /api/v1/trash
+    added: '2026-11-26'
+  B0326:
+    key: api:ingress:anon:GET /api/v1/trash
+    added: '2026-11-26'
+  B0327:
+    key: api:ingress:admin:GET /api/v1/users
+    added: '2026-11-26'
+  B0328:
+    key: api:ingress:member:GET /api/v1/users
+    added: '2026-11-26'
+  B0329:
+    key: api:ingress:read_only:GET /api/v1/users
+    added: '2026-11-26'
+  B0330:
+    key: api:ingress:anon:GET /api/v1/users
+    added: '2026-11-26'
+  B0331:
+    key: api:ingress:admin:GET /api/v1/settings
+    added: '2026-11-26'
+  B0332:
+    key: api:ingress:member:GET /api/v1/settings
+    added: '2026-11-26'
+  B0333:
+    key: api:ingress:read_only:GET /api/v1/settings
+    added: '2026-11-26'
+  B0334:
+    key: api:ingress:anon:GET /api/v1/settings
+    added: '2026-11-26'
+  B0335:
+    key: api:ingress:admin:GET /api/v1/backup/export
+    added: '2026-11-26'
+  B0336:
+    key: api:ingress:member:GET /api/v1/backup/export
+    added: '2026-11-26'
+  B0337:
+    key: api:ingress:read_only:GET /api/v1/backup/export
+    added: '2026-11-26'
+  B0338:
+    key: api:ingress:anon:GET /api/v1/backup/export
+    added: '2026-11-26'
+  B0339:
+    key: api:ingress:admin:GET /api/v1/events/stream
+    added: '2026-11-26'
+  B0340:
+    key: api:ingress:member:GET /api/v1/events/stream
+    added: '2026-11-26'
+  B0341:
+    key: api:ingress:read_only:GET /api/v1/events/stream
+    added: '2026-11-26'
+  B0342:
+    key: api:ingress:anon:GET /api/v1/events/stream
+    added: '2026-11-26'
+  B0343:
+    key: api:ingress:admin:GET /api/v1/maintenance/presets
+    added: '2026-11-26'
+  B0344:
+    key: api:ingress:member:GET /api/v1/maintenance/presets
+    added: '2026-11-26'
+  B0345:
+    key: api:ingress:read_only:GET /api/v1/maintenance/presets
+    added: '2026-11-26'
+  B0346:
+    key: api:ingress:anon:GET /api/v1/maintenance/presets
+    added: '2026-11-26'
+  B0347:
+    key: api:ingress:admin:GET /api/v1/maintenance/dashboard
+    added: '2026-11-26'
+  B0348:
+    key: api:ingress:member:GET /api/v1/maintenance/dashboard
+    added: '2026-11-26'
+  B0349:
+    key: api:ingress:read_only:GET /api/v1/maintenance/dashboard
+    added: '2026-11-26'
+  B0350:
+    key: api:ingress:anon:GET /api/v1/maintenance/dashboard
+    added: '2026-11-26'
+  B0351:
+    key: api:ingress:admin:GET /api/v1/items/{item_id}/maintenance
+    added: '2026-11-26'
+  B0352:
+    key: api:ingress:member:GET /api/v1/items/{item_id}/maintenance
+    added: '2026-11-26'
+  B0353:
+    key: api:ingress:read_only:GET /api/v1/items/{item_id}/maintenance
+    added: '2026-11-26'
+  B0354:
+    key: api:ingress:anon:GET /api/v1/items/{item_id}/maintenance
+    added: '2026-11-26'
+  B0355:
+    key: api:ingress:admin:GET /api/v1/maintenance/today
+    added: '2026-11-26'
+  B0356:
+    key: api:ingress:member:GET /api/v1/maintenance/today
+    added: '2026-11-26'
+  B0357:
+    key: api:ingress:read_only:GET /api/v1/maintenance/today
+    added: '2026-11-26'
+  B0358:
+    key: api:ingress:anon:GET /api/v1/maintenance/today
+    added: '2026-11-26'
+  B0359:
+    key: api:ingress:admin:GET /api/v1/ha/meter-sensors
+    added: '2026-11-26'
+  B0360:
+    key: api:ingress:member:GET /api/v1/ha/meter-sensors
+    added: '2026-11-26'
+  B0361:
+    key: api:ingress:read_only:GET /api/v1/ha/meter-sensors
+    added: '2026-11-26'
+  B0362:
+    key: api:ingress:anon:GET /api/v1/ha/meter-sensors
+    added: '2026-11-26'
+  B0363:
+    key: api:ingress:admin:GET /api/v1/maintenance/seasonal
+    added: '2026-11-26'
+  B0364:
+    key: api:ingress:member:GET /api/v1/maintenance/seasonal
+    added: '2026-11-26'
+  B0365:
+    key: api:ingress:read_only:GET /api/v1/maintenance/seasonal
+    added: '2026-11-26'
+  B0366:
+    key: api:ingress:anon:GET /api/v1/maintenance/seasonal
+    added: '2026-11-26'
+  B0367:
+    key: api:ingress:admin:GET /api/v1/maintenance/plan
+    added: '2026-11-26'
+  B0368:
+    key: api:ingress:member:GET /api/v1/maintenance/plan
+    added: '2026-11-26'
+  B0369:
+    key: api:ingress:read_only:GET /api/v1/maintenance/plan
+    added: '2026-11-26'
+  B0370:
+    key: api:ingress:anon:GET /api/v1/maintenance/plan
+    added: '2026-11-26'
+  B0371:
+    key: api:ingress:admin:GET /api/v1/products/{product_id}/parts
+    added: '2026-11-26'
+  B0372:
+    key: api:ingress:member:GET /api/v1/products/{product_id}/parts
+    added: '2026-11-26'
+  B0373:
+    key: api:ingress:read_only:GET /api/v1/products/{product_id}/parts
+    added: '2026-11-26'
+  B0374:
+    key: api:ingress:anon:GET /api/v1/products/{product_id}/parts
+    added: '2026-11-26'
+  B0375:
+    key: api:ingress:admin:GET /api/v1/parts/standards
+    added: '2026-11-26'
+  B0376:
+    key: api:ingress:member:GET /api/v1/parts/standards
+    added: '2026-11-26'
+  B0377:
+    key: api:ingress:read_only:GET /api/v1/parts/standards
+    added: '2026-11-26'
+  B0378:
+    key: api:ingress:anon:GET /api/v1/parts/standards
+    added: '2026-11-26'
+  B0379:
+    key: api:ingress:admin:GET /api/v1/parts/search
+    added: '2026-11-26'
+  B0380:
+    key: api:ingress:member:GET /api/v1/parts/search
+    added: '2026-11-26'
+  B0381:
+    key: api:ingress:read_only:GET /api/v1/parts/search
+    added: '2026-11-26'
+  B0382:
+    key: api:ingress:anon:GET /api/v1/parts/search
+    added: '2026-11-26'
+  B0383:
+    key: api:ingress:admin:GET /api/v1/items/{item_id}/parts
+    added: '2026-11-26'
+  B0384:
+    key: api:ingress:member:GET /api/v1/items/{item_id}/parts
+    added: '2026-11-26'
+  B0385:
+    key: api:ingress:read_only:GET /api/v1/items/{item_id}/parts
+    added: '2026-11-26'
+  B0386:
+    key: api:ingress:anon:GET /api/v1/items/{item_id}/parts
+    added: '2026-11-26'
+  B0387:
+    key: api:ingress:admin:GET /api/v1/parts/readiness
+    added: '2026-11-26'
+  B0388:
+    key: api:ingress:member:GET /api/v1/parts/readiness
+    added: '2026-11-26'
+  B0389:
+    key: api:ingress:read_only:GET /api/v1/parts/readiness
+    added: '2026-11-26'
+  B0390:
+    key: api:ingress:anon:GET /api/v1/parts/readiness
+    added: '2026-11-26'
+  B0391:
+    key: api:ingress:admin:GET /api/v1/items/{item_id}/manual-readings
+    added: '2026-11-26'
+  B0392:
+    key: api:ingress:member:GET /api/v1/items/{item_id}/manual-readings
+    added: '2026-11-26'
+  B0393:
+    key: api:ingress:read_only:GET /api/v1/items/{item_id}/manual-readings
+    added: '2026-11-26'
+  B0394:
+    key: api:ingress:anon:GET /api/v1/items/{item_id}/manual-readings
+    added: '2026-11-26'
+  B0395:
+    key: api:ingress:admin:GET /api/v1/manual-readings/{reading_id}
+    added: '2026-11-26'
+  B0396:
+    key: api:ingress:member:GET /api/v1/manual-readings/{reading_id}
+    added: '2026-11-26'
+  B0397:
+    key: api:ingress:read_only:GET /api/v1/manual-readings/{reading_id}
+    added: '2026-11-26'
+  B0398:
+    key: api:ingress:anon:GET /api/v1/manual-readings/{reading_id}
+    added: '2026-11-26'
+  B0399:
+    key: api:ingress:admin:GET /api/v1/items/{item_id}/document-readings
+    added: '2026-11-26'
+  B0400:
+    key: api:ingress:member:GET /api/v1/items/{item_id}/document-readings
+    added: '2026-11-26'
+  B0401:
+    key: api:ingress:read_only:GET /api/v1/items/{item_id}/document-readings
+    added: '2026-11-26'
+  B0402:
+    key: api:ingress:anon:GET /api/v1/items/{item_id}/document-readings
+    added: '2026-11-26'
+  B0403:
+    key: api:ingress:admin:GET /api/v1/document-readings/{reading_id}
+    added: '2026-11-26'
+  B0404:
+    key: api:ingress:member:GET /api/v1/document-readings/{reading_id}
+    added: '2026-11-26'
+  B0405:
+    key: api:ingress:read_only:GET /api/v1/document-readings/{reading_id}
+    added: '2026-11-26'
+  B0406:
+    key: api:ingress:anon:GET /api/v1/document-readings/{reading_id}
+    added: '2026-11-26'
+  B0407:
+    key: api:ingress:admin:GET /api/v1/customers
+    added: '2026-11-26'
+  B0408:
+    key: api:ingress:member:GET /api/v1/customers
+    added: '2026-11-26'
+  B0409:
+    key: api:ingress:read_only:GET /api/v1/customers
+    added: '2026-11-26'
+  B0410:
+    key: api:ingress:anon:GET /api/v1/customers
+    added: '2026-11-26'
+  B0411:
+    key: api:ingress:admin:GET /api/v1/customers/{customer_id}
+    added: '2026-11-26'
+  B0412:
+    key: api:ingress:member:GET /api/v1/customers/{customer_id}
+    added: '2026-11-26'
+  B0413:
+    key: api:ingress:read_only:GET /api/v1/customers/{customer_id}
+    added: '2026-11-26'
+  B0414:
+    key: api:ingress:anon:GET /api/v1/customers/{customer_id}
+    added: '2026-11-26'
+  B0415:
+    key: api:ingress:admin:GET /api/v1/repair-jobs
+    added: '2026-11-26'
+  B0416:
+    key: api:ingress:member:GET /api/v1/repair-jobs
+    added: '2026-11-26'
+  B0417:
+    key: api:ingress:read_only:GET /api/v1/repair-jobs
+    added: '2026-11-26'
+  B0418:
+    key: api:ingress:anon:GET /api/v1/repair-jobs
+    added: '2026-11-26'
+  B0419:
+    key: api:ingress:admin:GET /api/v1/repair-jobs/{job_id}
+    added: '2026-11-26'
+  B0420:
+    key: api:ingress:member:GET /api/v1/repair-jobs/{job_id}
+    added: '2026-11-26'
+  B0421:
+    key: api:ingress:read_only:GET /api/v1/repair-jobs/{job_id}
+    added: '2026-11-26'
+  B0422:
+    key: api:ingress:anon:GET /api/v1/repair-jobs/{job_id}
+    added: '2026-11-26'
+  B0423:
+    key: api:ingress:admin:GET /api/v1/items/{item_id}/repair-jobs
+    added: '2026-11-26'
+  B0424:
+    key: api:ingress:member:GET /api/v1/items/{item_id}/repair-jobs
+    added: '2026-11-26'
+  B0425:
+    key: api:ingress:read_only:GET /api/v1/items/{item_id}/repair-jobs
+    added: '2026-11-26'
+  B0426:
+    key: api:ingress:anon:GET /api/v1/items/{item_id}/repair-jobs
+    added: '2026-11-26'
+  B0427:
+    key: api:ingress:admin:GET /api/v1/repair-jobs/by-number/{number}
+    added: '2026-11-26'
+  B0428:
+    key: api:ingress:member:GET /api/v1/repair-jobs/by-number/{number}
+    added: '2026-11-26'
+  B0429:
+    key: api:ingress:read_only:GET /api/v1/repair-jobs/by-number/{number}
+    added: '2026-11-26'
+  B0430:
+    key: api:ingress:anon:GET /api/v1/repair-jobs/by-number/{number}
+    added: '2026-11-26'
+  B0431:
+    key: api:ingress:admin:GET /api/v1/repair-jobs/{job_id}/ticket.pdf
+    added: '2026-11-26'
+  B0432:
+    key: api:ingress:member:GET /api/v1/repair-jobs/{job_id}/ticket.pdf
+    added: '2026-11-26'
+  B0433:
+    key: api:ingress:read_only:GET /api/v1/repair-jobs/{job_id}/ticket.pdf
+    added: '2026-11-26'
+  B0434:
+    key: api:ingress:anon:GET /api/v1/repair-jobs/{job_id}/ticket.pdf
+    added: '2026-11-26'
+  B0435:
+    key: api:ingress:admin:GET /api/v1/repair-jobs/{job_id}/reservations
+    added: '2026-11-26'
+  B0436:
+    key: api:ingress:member:GET /api/v1/repair-jobs/{job_id}/reservations
+    added: '2026-11-26'
+  B0437:
+    key: api:ingress:read_only:GET /api/v1/repair-jobs/{job_id}/reservations
+    added: '2026-11-26'
+  B0438:
+    key: api:ingress:anon:GET /api/v1/repair-jobs/{job_id}/reservations
+    added: '2026-11-26'
+  B0439:
+    key: api:ingress:admin:GET /api/v1/relation-types
+    added: '2026-11-26'
+  B0440:
+    key: api:ingress:member:GET /api/v1/relation-types
+    added: '2026-11-26'
+  B0441:
+    key: api:ingress:read_only:GET /api/v1/relation-types
+    added: '2026-11-26'
+  B0442:
+    key: api:ingress:anon:GET /api/v1/relation-types
+    added: '2026-11-26'
+  B0443:
+    key: api:ingress:admin:GET /api/v1/items/{item_id}/relations
+    added: '2026-11-26'
+  B0444:
+    key: api:ingress:member:GET /api/v1/items/{item_id}/relations
+    added: '2026-11-26'
+  B0445:
+    key: api:ingress:read_only:GET /api/v1/items/{item_id}/relations
+    added: '2026-11-26'
+  B0446:
+    key: api:ingress:anon:GET /api/v1/items/{item_id}/relations
+    added: '2026-11-26'
+  B0447:
+    key: api:ingress:admin:GET /api/v1/kits
+    added: '2026-11-26'
+  B0448:
+    key: api:ingress:member:GET /api/v1/kits
+    added: '2026-11-26'
+  B0449:
+    key: api:ingress:read_only:GET /api/v1/kits
+    added: '2026-11-26'
+  B0450:
+    key: api:ingress:anon:GET /api/v1/kits
+    added: '2026-11-26'
+  B0451:
+    key: api:ingress:admin:GET /api/v1/kits/{kit_id}
+    added: '2026-11-26'
+  B0452:
+    key: api:ingress:member:GET /api/v1/kits/{kit_id}
+    added: '2026-11-26'
+  B0453:
+    key: api:ingress:read_only:GET /api/v1/kits/{kit_id}
+    added: '2026-11-26'
+  B0454:
+    key: api:ingress:anon:GET /api/v1/kits/{kit_id}
+    added: '2026-11-26'
+  B0455:
+    key: api:ingress:admin:GET /api/v1/tags
+    added: '2026-11-26'
+  B0456:
+    key: api:ingress:member:GET /api/v1/tags
+    added: '2026-11-26'
+  B0457:
+    key: api:ingress:read_only:GET /api/v1/tags
+    added: '2026-11-26'
+  B0458:
+    key: api:ingress:anon:GET /api/v1/tags
+    added: '2026-11-26'
+  B0459:
+    key: api:ingress:admin:GET /api/v1/tags/check
+    added: '2026-11-26'
+  B0460:
+    key: api:ingress:member:GET /api/v1/tags/check
+    added: '2026-11-26'
+  B0461:
+    key: api:ingress:read_only:GET /api/v1/tags/check
+    added: '2026-11-26'
+  B0462:
+    key: api:ingress:anon:GET /api/v1/tags/check
+    added: '2026-11-26'
+  B0463:
+    key: api:ingress:admin:GET /api/v1/tags/{tag_id}/qr.svg
+    added: '2026-11-26'
+  B0464:
+    key: api:ingress:member:GET /api/v1/tags/{tag_id}/qr.svg
+    added: '2026-11-26'
+  B0465:
+    key: api:ingress:read_only:GET /api/v1/tags/{tag_id}/qr.svg
+    added: '2026-11-26'
+  B0466:
+    key: api:ingress:anon:GET /api/v1/tags/{tag_id}/qr.svg
+    added: '2026-11-26'
+  B0467:
+    key: api:ingress:admin:GET /api/v1/retailers
+    added: '2026-11-26'
+  B0468:
+    key: api:ingress:member:GET /api/v1/retailers
+    added: '2026-11-26'
+  B0469:
+    key: api:ingress:read_only:GET /api/v1/retailers
+    added: '2026-11-26'
+  B0470:
+    key: api:ingress:anon:GET /api/v1/retailers
+    added: '2026-11-26'
+  B0471:
+    key: api:ingress:admin:GET /api/v1/replenishment
+    added: '2026-11-26'
+  B0472:
+    key: api:ingress:member:GET /api/v1/replenishment
+    added: '2026-11-26'
+  B0473:
+    key: api:ingress:read_only:GET /api/v1/replenishment
+    added: '2026-11-26'
+  B0474:
+    key: api:ingress:anon:GET /api/v1/replenishment
+    added: '2026-11-26'
+  B0475:
+    key: api:ingress:admin:GET /api/v1/products/{product_id}/restock
+    added: '2026-11-26'
+  B0476:
+    key: api:ingress:member:GET /api/v1/products/{product_id}/restock
+    added: '2026-11-26'
+  B0477:
+    key: api:ingress:read_only:GET /api/v1/products/{product_id}/restock
+    added: '2026-11-26'
+  B0478:
+    key: api:ingress:anon:GET /api/v1/products/{product_id}/restock
+    added: '2026-11-26'
+  B0479:
+    key: api:ingress:admin:GET /api/v1/shopping-list
+    added: '2026-11-26'
+  B0480:
+    key: api:ingress:member:GET /api/v1/shopping-list
+    added: '2026-11-26'
+  B0481:
+    key: api:ingress:read_only:GET /api/v1/shopping-list
+    added: '2026-11-26'
+  B0482:
+    key: api:ingress:anon:GET /api/v1/shopping-list
+    added: '2026-11-26'
+  B0483:
+    key: api:ingress:admin:GET /api/v1/shopping-list/{entry_id}/purchase-options
+    added: '2026-11-26'
+  B0484:
+    key: api:ingress:member:GET /api/v1/shopping-list/{entry_id}/purchase-options
+    added: '2026-11-26'
+  B0485:
+    key: api:ingress:read_only:GET /api/v1/shopping-list/{entry_id}/purchase-options
+    added: '2026-11-26'
+  B0486:
+    key: api:ingress:anon:GET /api/v1/shopping-list/{entry_id}/purchase-options
+    added: '2026-11-26'
+  B0487:
+    key: api:ingress:admin:GET /api/v1/replenishment/demand
+    added: '2026-11-26'
+  B0488:
+    key: api:ingress:member:GET /api/v1/replenishment/demand
+    added: '2026-11-26'
+  B0489:
+    key: api:ingress:read_only:GET /api/v1/replenishment/demand
+    added: '2026-11-26'
+  B0490:
+    key: api:ingress:anon:GET /api/v1/replenishment/demand
+    added: '2026-11-26'
+  B0491:
+    key: api:ingress:admin:GET /api/v1/taken
+    added: '2026-11-26'
+  B0492:
+    key: api:ingress:member:GET /api/v1/taken
+    added: '2026-11-26'
+  B0493:
+    key: api:ingress:read_only:GET /api/v1/taken
+    added: '2026-11-26'
+  B0494:
+    key: api:ingress:anon:GET /api/v1/taken
+    added: '2026-11-26'
+  B0495:
+    key: api:ingress:admin:GET /api/v1/taken/route
+    added: '2026-11-26'
+  B0496:
+    key: api:ingress:member:GET /api/v1/taken/route
+    added: '2026-11-26'
+  B0497:
+    key: api:ingress:read_only:GET /api/v1/taken/route
+    added: '2026-11-26'
+  B0498:
+    key: api:ingress:anon:GET /api/v1/taken/route
+    added: '2026-11-26'
+  B0499:
+    key: api:ingress:admin:GET /api/v1/places/resolve
+    added: '2026-11-26'
+  B0500:
+    key: api:ingress:member:GET /api/v1/places/resolve
+    added: '2026-11-26'
+  B0501:
+    key: api:ingress:read_only:GET /api/v1/places/resolve
+    added: '2026-11-26'
+  B0502:
+    key: api:ingress:anon:GET /api/v1/places/resolve
+    added: '2026-11-26'
+  B0503:
+    key: api:ingress:admin:GET /api/v1/voice/history
+    added: '2026-11-26'
+  B0504:
+    key: api:ingress:member:GET /api/v1/voice/history
+    added: '2026-11-26'
+  B0505:
+    key: api:ingress:read_only:GET /api/v1/voice/history
+    added: '2026-11-26'
+  B0506:
+    key: api:ingress:anon:GET /api/v1/voice/history
+    added: '2026-11-26'
+  B0507:
+    key: api:ingress:admin:GET /api/v1/voice/suggestions
+    added: '2026-11-26'
+  B0508:
+    key: api:ingress:member:GET /api/v1/voice/suggestions
+    added: '2026-11-26'
+  B0509:
+    key: api:ingress:read_only:GET /api/v1/voice/suggestions
+    added: '2026-11-26'
+  B0510:
+    key: api:ingress:anon:GET /api/v1/voice/suggestions
+    added: '2026-11-26'
+  B0511:
+    key: api:ingress:admin:GET /api/v1/verifications
+    added: '2026-11-26'
+  B0512:
+    key: api:ingress:member:GET /api/v1/verifications
+    added: '2026-11-26'
+  B0513:
+    key: api:ingress:read_only:GET /api/v1/verifications
+    added: '2026-11-26'
+  B0514:
+    key: api:ingress:anon:GET /api/v1/verifications
+    added: '2026-11-26'
+  B0515:
+    key: api:ingress:admin:GET /api/v1/verifications/{sid}
+    added: '2026-11-26'
+  B0516:
+    key: api:ingress:member:GET /api/v1/verifications/{sid}
+    added: '2026-11-26'
+  B0517:
+    key: api:ingress:read_only:GET /api/v1/verifications/{sid}
+    added: '2026-11-26'
+  B0518:
+    key: api:ingress:anon:GET /api/v1/verifications/{sid}
+    added: '2026-11-26'
+  B0519:
+    key: api:ingress:admin:GET /api/v1/items/{item_id}/verification
+    added: '2026-11-26'
+  B0520:
+    key: api:ingress:member:GET /api/v1/items/{item_id}/verification
+    added: '2026-11-26'
+  B0521:
+    key: api:ingress:read_only:GET /api/v1/items/{item_id}/verification
+    added: '2026-11-26'
+  B0522:
+    key: api:ingress:anon:GET /api/v1/items/{item_id}/verification
+    added: '2026-11-26'
+  B0523:
+    key: api:ingress:admin:GET /api/v1/attention
+    added: '2026-11-26'
+  B0524:
+    key: api:ingress:member:GET /api/v1/attention
+    added: '2026-11-26'
+  B0525:
+    key: api:ingress:read_only:GET /api/v1/attention
+    added: '2026-11-26'
+  B0526:
+    key: api:ingress:anon:GET /api/v1/attention
+    added: '2026-11-26'
+  B0527:
+    key: api:ingress:admin:GET /api/v1/maintenance/season
+    added: '2026-11-26'
+  B0528:
+    key: api:ingress:member:GET /api/v1/maintenance/season
+    added: '2026-11-26'
+  B0529:
+    key: api:ingress:read_only:GET /api/v1/maintenance/season
+    added: '2026-11-26'
+  B0530:
+    key: api:ingress:anon:GET /api/v1/maintenance/season
+    added: '2026-11-26'
+  B0531:
+    key: api:ingress:admin:GET /api/v1/maintenance/consumables
+    added: '2026-11-26'
+  B0532:
+    key: api:ingress:member:GET /api/v1/maintenance/consumables
+    added: '2026-11-26'
+  B0533:
+    key: api:ingress:read_only:GET /api/v1/maintenance/consumables
+    added: '2026-11-26'
+  B0534:
+    key: api:ingress:anon:GET /api/v1/maintenance/consumables
+    added: '2026-11-26'
+  B0535:
+    key: api:ingress:admin:GET /api/v1/maintenance/readings-due
+    added: '2026-11-26'
+  B0536:
+    key: api:ingress:member:GET /api/v1/maintenance/readings-due
+    added: '2026-11-26'
+  B0537:
+    key: api:ingress:read_only:GET /api/v1/maintenance/readings-due
+    added: '2026-11-26'
+  B0538:
+    key: api:ingress:anon:GET /api/v1/maintenance/readings-due
+    added: '2026-11-26'
+  B0539:
+    key: api:ingress:admin:GET /api/v1/items/{item_id}/service-history.pdf
+    added: '2026-11-26'
+  B0540:
+    key: api:ingress:member:GET /api/v1/items/{item_id}/service-history.pdf
+    added: '2026-11-26'
+  B0541:
+    key: api:ingress:read_only:GET /api/v1/items/{item_id}/service-history.pdf
+    added: '2026-11-26'
+  B0542:
+    key: api:ingress:anon:GET /api/v1/items/{item_id}/service-history.pdf
+    added: '2026-11-26'
+  B0543:
+    key: api:ingress:admin:GET /api/v1/items/{item_id}/worth-fixing
+    added: '2026-11-26'
+  B0544:
+    key: api:ingress:member:GET /api/v1/items/{item_id}/worth-fixing
+    added: '2026-11-26'
+  B0545:
+    key: api:ingress:read_only:GET /api/v1/items/{item_id}/worth-fixing
+    added: '2026-11-26'
+  B0546:
+    key: api:ingress:anon:GET /api/v1/items/{item_id}/worth-fixing
+    added: '2026-11-26'
+  B0547:
+    key: api:ingress:admin:GET /api/v1/equipment
+    added: '2026-11-26'
+  B0548:
+    key: api:ingress:member:GET /api/v1/equipment
+    added: '2026-11-26'
+  B0549:
+    key: api:ingress:read_only:GET /api/v1/equipment
+    added: '2026-11-26'
+  B0550:
+    key: api:ingress:anon:GET /api/v1/equipment
+    added: '2026-11-26'
+  B0551:
+    key: api:ingress:admin:GET /api/v1/equipment/{item_id}
+    added: '2026-11-26'
+  B0552:
+    key: api:ingress:member:GET /api/v1/equipment/{item_id}
+    added: '2026-11-26'
+  B0553:
+    key: api:ingress:read_only:GET /api/v1/equipment/{item_id}
+    added: '2026-11-26'
+  B0554:
+    key: api:ingress:anon:GET /api/v1/equipment/{item_id}
+    added: '2026-11-26'
+  B0555:
+    key: api:ingress:admin:GET /api/v1/equipment/{item_id}/checklist
+    added: '2026-11-26'
+  B0556:
+    key: api:ingress:member:GET /api/v1/equipment/{item_id}/checklist
+    added: '2026-11-26'
+  B0557:
+    key: api:ingress:read_only:GET /api/v1/equipment/{item_id}/checklist
+    added: '2026-11-26'
+  B0558:
+    key: api:ingress:anon:GET /api/v1/equipment/{item_id}/checklist
+    added: '2026-11-26'
+  B0559:
+    key: api:ingress:admin:GET /api/v1/equipment/{item_id}/checklist.pdf
+    added: '2026-11-26'
+  B0560:
+    key: api:ingress:member:GET /api/v1/equipment/{item_id}/checklist.pdf
+    added: '2026-11-26'
+  B0561:
+    key: api:ingress:read_only:GET /api/v1/equipment/{item_id}/checklist.pdf
+    added: '2026-11-26'
+  B0562:
+    key: api:ingress:anon:GET /api/v1/equipment/{item_id}/checklist.pdf
+    added: '2026-11-26'
+  B0563:
+    key: api:ingress:admin:GET /api/v1/maintenance/reports/{kind} [kind=upcoming]
+    added: '2026-11-26'
+  B0564:
+    key: api:ingress:admin:GET /api/v1/maintenance/reports/{kind} [kind=overdue]
+    added: '2026-11-26'
+  B0565:
+    key: api:ingress:admin:GET /api/v1/maintenance/reports/{kind} [kind=history]
+    added: '2026-11-26'
+  B0566:
+    key: api:ingress:admin:GET /api/v1/maintenance/reports/{kind} [kind=consolidated]
+    added: '2026-11-26'
+  B0567:
+    key: api:ingress:member:GET /api/v1/maintenance/reports/{kind} [kind=upcoming]
+    added: '2026-11-26'
+  B0568:
+    key: api:ingress:member:GET /api/v1/maintenance/reports/{kind} [kind=overdue]
+    added: '2026-11-26'
+  B0569:
+    key: api:ingress:member:GET /api/v1/maintenance/reports/{kind} [kind=history]
+    added: '2026-11-26'
+  B0570:
+    key: api:ingress:member:GET /api/v1/maintenance/reports/{kind} [kind=consolidated]
+    added: '2026-11-26'
+  B0571:
+    key: api:ingress:read_only:GET /api/v1/maintenance/reports/{kind} [kind=upcoming]
+    added: '2026-11-26'
+  B0572:
+    key: api:ingress:read_only:GET /api/v1/maintenance/reports/{kind} [kind=overdue]
+    added: '2026-11-26'
+  B0573:
+    key: api:ingress:read_only:GET /api/v1/maintenance/reports/{kind} [kind=history]
+    added: '2026-11-26'
+  B0574:
+    key: api:ingress:read_only:GET /api/v1/maintenance/reports/{kind} [kind=consolidated]
+    added: '2026-11-26'
+  B0575:
+    key: api:ingress:anon:GET /api/v1/maintenance/reports/{kind} [kind=upcoming]
+    added: '2026-11-26'
+  B0576:
+    key: api:ingress:anon:GET /api/v1/maintenance/reports/{kind} [kind=overdue]
+    added: '2026-11-26'
+  B0577:
+    key: api:ingress:anon:GET /api/v1/maintenance/reports/{kind} [kind=history]
+    added: '2026-11-26'
+  B0578:
+    key: api:ingress:anon:GET /api/v1/maintenance/reports/{kind} [kind=consolidated]
+    added: '2026-11-26'
+  B0579:
+    key: api:ingress:admin:GET /api/v1/voice/maintenance
+    added: '2026-11-26'
+  B0580:
+    key: api:ingress:member:GET /api/v1/voice/maintenance
+    added: '2026-11-26'
+  B0581:
+    key: api:ingress:read_only:GET /api/v1/voice/maintenance
+    added: '2026-11-26'
+  B0582:
+    key: api:ingress:anon:GET /api/v1/voice/maintenance
+    added: '2026-11-26'
+  B0583:
+    key: api:ingress:admin:GET /api/v1/equipment/{item_id}/entities
+    added: '2026-11-26'
+  B0584:
+    key: api:ingress:member:GET /api/v1/equipment/{item_id}/entities
+    added: '2026-11-26'
+  B0585:
+    key: api:ingress:read_only:GET /api/v1/equipment/{item_id}/entities
+    added: '2026-11-26'
+  B0586:
+    key: api:ingress:anon:GET /api/v1/equipment/{item_id}/entities
+    added: '2026-11-26'
+  B0587:
+    key: api:ingress:admin:GET /api/v1/containers/{container_id}/checklist
+    added: '2026-11-26'
+  B0588:
+    key: api:ingress:member:GET /api/v1/containers/{container_id}/checklist
+    added: '2026-11-26'
+  B0589:
+    key: api:ingress:read_only:GET /api/v1/containers/{container_id}/checklist
+    added: '2026-11-26'
+  B0590:
+    key: api:ingress:anon:GET /api/v1/containers/{container_id}/checklist
+    added: '2026-11-26'
+  B0591:
+    key: api:ingress:admin:GET /api/v1/containers/{container_id}/checklist.pdf
+    added: '2026-11-26'
+  B0592:
+    key: api:ingress:member:GET /api/v1/containers/{container_id}/checklist.pdf
+    added: '2026-11-26'
+  B0593:
+    key: api:ingress:read_only:GET /api/v1/containers/{container_id}/checklist.pdf
+    added: '2026-11-26'
+  B0594:
+    key: api:ingress:anon:GET /api/v1/containers/{container_id}/checklist.pdf
+    added: '2026-11-26'
+  B0595:
+    key: api:api:anon:GET /api/v1/me
+    added: '2026-11-26'
+  B0596:
+    key: api:api:anon:GET /api/v1/dashboard
+    added: '2026-11-26'
+  B0597:
+    key: api:api:anon:GET /api/v1/checkups
+    added: '2026-11-26'
+  B0598:
+    key: api:api:anon:GET /api/v1/stats
+    added: '2026-11-26'
+  B0599:
+    key: api:api:anon:GET /api/v1/locations/tree
+    added: '2026-11-26'
+  B0600:
+    key: api:api:anon:GET /api/v1/locations
+    added: '2026-11-26'
+  B0601:
+    key: api:api:anon:GET /api/v1/locations/template.xlsx
+    added: '2026-11-26'
+  B0602:
+    key: api:api:anon:GET /api/v1/locations/{location_id}
+    added: '2026-11-26'
+  B0603:
+    key: api:api:anon:GET /api/v1/containers
+    added: '2026-11-26'
+  B0604:
+    key: api:api:anon:GET /api/v1/containers/numbers
+    added: '2026-11-26'
+  B0605:
+    key: api:api:anon:GET /api/v1/containers/lookup
+    added: '2026-11-26'
+  B0606:
+    key: api:api:anon:GET /api/v1/containers/{container_id}
+    added: '2026-11-26'
+  B0607:
+    key: api:api:anon:GET /api/v1/containers/{container_id}/qr.svg
+    added: '2026-11-26'
+  B0608:
+    key: api:api:anon:GET /api/v1/locations/{location_id}/qr.svg
+    added: '2026-11-26'
+  B0609:
+    key: api:api:anon:GET /api/v1/items
+    added: '2026-11-26'
+  B0610:
+    key: api:api:anon:GET /api/v1/reports/inventory
+    added: '2026-11-26'
+  B0611:
+    key: api:api:anon:GET /api/v1/reports/inventory.{fmt} [fmt=csv]
+    added: '2026-11-26'
+  B0612:
+    key: api:api:anon:GET /api/v1/reports/inventory.{fmt} [fmt=xlsx]
+    added: '2026-11-26'
+  B0613:
+    key: api:api:anon:GET /api/v1/items/ids
+    added: '2026-11-26'
+  B0614:
+    key: api:api:anon:GET /api/v1/items/{item_id}
+    added: '2026-11-26'
+  B0615:
+    key: api:api:anon:GET /api/v1/expiring
+    added: '2026-11-26'
+  B0616:
+    key: api:api:anon:GET /api/v1/low-stock
+    added: '2026-11-26'
+  B0617:
+    key: api:api:anon:GET /api/v1/capture/unsorted
+    added: '2026-11-26'
+  B0618:
+    key: api:api:anon:GET /api/v1/deleted-items
+    added: '2026-11-26'
+  B0619:
+    key: api:api:anon:GET /api/v1/products/duplicates
+    added: '2026-11-26'
+  B0620:
+    key: api:api:anon:GET /api/v1/products/similar
+    added: '2026-11-26'
+  B0621:
+    key: api:api:anon:GET /api/v1/loans
+    added: '2026-11-26'
+  B0622:
+    key: api:api:anon:GET /api/v1/temporary
+    added: '2026-11-26'
+  B0623:
+    key: api:api:anon:GET /api/v1/warranties
+    added: '2026-11-26'
+  B0624:
+    key: api:api:anon:GET /api/v1/categories
+    added: '2026-11-26'
+  B0625:
+    key: api:api:anon:GET /api/v1/attachments/{attachment_id}/file
+    added: '2026-11-26'
+  B0626:
+    key: api:api:anon:GET /api/v1/attachments/{attachment_id}/thumb
+    added: '2026-11-26'
+  B0627:
+    key: api:api:anon:GET /api/v1/items/{item_id}/claim-pack.zip
+    added: '2026-11-26'
+  B0628:
+    key: api:api:anon:GET /api/v1/ai/status
+    added: '2026-11-26'
+  B0629:
+    key: api:api:anon:GET /api/v1/value-estimates/preview
+    added: '2026-11-26'
+  B0630:
+    key: api:api:anon:GET /api/v1/value-estimates
+    added: '2026-11-26'
+  B0631:
+    key: api:api:anon:GET /api/v1/containers/{container_id}/scans
+    added: '2026-11-26'
+  B0632:
+    key: api:api:anon:GET /api/v1/locations/{location_id}/scans
+    added: '2026-11-26'
+  B0633:
+    key: api:api:anon:GET /api/v1/scans/{scan_id}
+    added: '2026-11-26'
+  B0634:
+    key: api:api:anon:GET /api/v1/search
+    added: '2026-11-26'
+  B0635:
+    key: api:api:anon:GET /api/v1/labels/templates
+    added: '2026-11-26'
+  B0636:
+    key: api:api:anon:GET /api/v1/maps
+    added: '2026-11-26'
+  B0637:
+    key: api:api:anon:GET /api/v1/maps/{map_id}
+    added: '2026-11-26'
+  B0638:
+    key: api:api:anon:GET /api/v1/history
+    added: '2026-11-26'
+  B0639:
+    key: api:api:anon:GET /api/v1/trash
+    added: '2026-11-26'
+  B0640:
+    key: api:api:anon:GET /api/v1/users
+    added: '2026-11-26'
+  B0641:
+    key: api:api:anon:GET /api/v1/settings
+    added: '2026-11-26'
+  B0642:
+    key: api:api:anon:GET /api/v1/backup/export
+    added: '2026-11-26'
+  B0643:
+    key: api:api:anon:GET /api/v1/events/stream
+    added: '2026-11-26'
+  B0644:
+    key: api:api:anon:GET /api/v1/maintenance/presets
+    added: '2026-11-26'
+  B0645:
+    key: api:api:anon:GET /api/v1/maintenance/dashboard
+    added: '2026-11-26'
+  B0646:
+    key: api:api:anon:GET /api/v1/items/{item_id}/maintenance
+    added: '2026-11-26'
+  B0647:
+    key: api:api:anon:GET /api/v1/maintenance/today
+    added: '2026-11-26'
+  B0648:
+    key: api:api:anon:GET /api/v1/ha/meter-sensors
+    added: '2026-11-26'
+  B0649:
+    key: api:api:anon:GET /api/v1/maintenance/seasonal
+    added: '2026-11-26'
+  B0650:
+    key: api:api:anon:GET /api/v1/maintenance/plan
+    added: '2026-11-26'
+  B0651:
+    key: api:api:anon:GET /api/v1/products/{product_id}/parts
+    added: '2026-11-26'
+  B0652:
+    key: api:api:anon:GET /api/v1/parts/standards
+    added: '2026-11-26'
+  B0653:
+    key: api:api:anon:GET /api/v1/parts/search
+    added: '2026-11-26'
+  B0654:
+    key: api:api:anon:GET /api/v1/items/{item_id}/parts
+    added: '2026-11-26'
+  B0655:
+    key: api:api:anon:GET /api/v1/parts/readiness
+    added: '2026-11-26'
+  B0656:
+    key: api:api:anon:GET /api/v1/items/{item_id}/manual-readings
+    added: '2026-11-26'
+  B0657:
+    key: api:api:anon:GET /api/v1/manual-readings/{reading_id}
+    added: '2026-11-26'
+  B0658:
+    key: api:api:anon:GET /api/v1/items/{item_id}/document-readings
+    added: '2026-11-26'
+  B0659:
+    key: api:api:anon:GET /api/v1/document-readings/{reading_id}
+    added: '2026-11-26'
+  B0660:
+    key: api:api:anon:GET /api/v1/customers
+    added: '2026-11-26'
+  B0661:
+    key: api:api:anon:GET /api/v1/customers/{customer_id}
+    added: '2026-11-26'
+  B0662:
+    key: api:api:anon:GET /api/v1/repair-jobs
+    added: '2026-11-26'
+  B0663:
+    key: api:api:anon:GET /api/v1/repair-jobs/{job_id}
+    added: '2026-11-26'
+  B0664:
+    key: api:api:anon:GET /api/v1/items/{item_id}/repair-jobs
+    added: '2026-11-26'
+  B0665:
+    key: api:api:anon:GET /api/v1/repair-jobs/by-number/{number}
+    added: '2026-11-26'
+  B0666:
+    key: api:api:anon:GET /api/v1/repair-jobs/{job_id}/ticket.pdf
+    added: '2026-11-26'
+  B0667:
+    key: api:api:anon:GET /api/v1/repair-jobs/{job_id}/reservations
+    added: '2026-11-26'
+  B0668:
+    key: api:api:anon:GET /api/v1/relation-types
+    added: '2026-11-26'
+  B0669:
+    key: api:api:anon:GET /api/v1/items/{item_id}/relations
+    added: '2026-11-26'
+  B0670:
+    key: api:api:anon:GET /api/v1/kits
+    added: '2026-11-26'
+  B0671:
+    key: api:api:anon:GET /api/v1/kits/{kit_id}
+    added: '2026-11-26'
+  B0672:
+    key: api:api:anon:GET /api/v1/tags
+    added: '2026-11-26'
+  B0673:
+    key: api:api:anon:GET /api/v1/tags/check
+    added: '2026-11-26'
+  B0674:
+    key: api:api:anon:GET /api/v1/tags/{tag_id}/qr.svg
+    added: '2026-11-26'
+  B0675:
+    key: api:api:anon:GET /api/v1/retailers
+    added: '2026-11-26'
+  B0676:
+    key: api:api:anon:GET /api/v1/replenishment
+    added: '2026-11-26'
+  B0677:
+    key: api:api:anon:GET /api/v1/products/{product_id}/restock
+    added: '2026-11-26'
+  B0678:
+    key: api:api:anon:GET /api/v1/shopping-list
+    added: '2026-11-26'
+  B0679:
+    key: api:api:anon:GET /api/v1/shopping-list/{entry_id}/purchase-options
+    added: '2026-11-26'
+  B0680:
+    key: api:api:anon:GET /api/v1/replenishment/demand
+    added: '2026-11-26'
+  B0681:
+    key: api:api:anon:GET /api/v1/taken
+    added: '2026-11-26'
+  B0682:
+    key: api:api:anon:GET /api/v1/taken/route
+    added: '2026-11-26'
+  B0683:
+    key: api:api:anon:GET /api/v1/places/resolve
+    added: '2026-11-26'
+  B0684:
+    key: api:api:anon:GET /api/v1/voice/history
+    added: '2026-11-26'
+  B0685:
+    key: api:api:anon:GET /api/v1/voice/suggestions
+    added: '2026-11-26'
+  B0686:
+    key: api:api:anon:GET /api/v1/verifications
+    added: '2026-11-26'
+  B0687:
+    key: api:api:anon:GET /api/v1/verifications/{sid}
+    added: '2026-11-26'
+  B0688:
+    key: api:api:anon:GET /api/v1/items/{item_id}/verification
+    added: '2026-11-26'
+  B0689:
+    key: api:api:anon:GET /api/v1/attention
+    added: '2026-11-26'
+  B0690:
+    key: api:api:anon:GET /api/v1/maintenance/season
+    added: '2026-11-26'
+  B0691:
+    key: api:api:anon:GET /api/v1/maintenance/consumables
+    added: '2026-11-26'
+  B0692:
+    key: api:api:anon:GET /api/v1/maintenance/readings-due
+    added: '2026-11-26'
+  B0693:
+    key: api:api:anon:GET /api/v1/items/{item_id}/service-history.pdf
+    added: '2026-11-26'
+  B0694:
+    key: api:api:anon:GET /api/v1/items/{item_id}/worth-fixing
+    added: '2026-11-26'
+  B0695:
+    key: api:api:anon:GET /api/v1/equipment
+    added: '2026-11-26'
+  B0696:
+    key: api:api:anon:GET /api/v1/equipment/{item_id}
+    added: '2026-11-26'
+  B0697:
+    key: api:api:anon:GET /api/v1/equipment/{item_id}/checklist
+    added: '2026-11-26'
+  B0698:
+    key: api:api:anon:GET /api/v1/equipment/{item_id}/checklist.pdf
+    added: '2026-11-26'
+  B0699:
+    key: api:api:anon:GET /api/v1/maintenance/reports/{kind} [kind=upcoming]
+    added: '2026-11-26'
+  B0700:
+    key: api:api:anon:GET /api/v1/maintenance/reports/{kind} [kind=overdue]
+    added: '2026-11-26'
+  B0701:
+    key: api:api:anon:GET /api/v1/maintenance/reports/{kind} [kind=history]
+    added: '2026-11-26'
+  B0702:
+    key: api:api:anon:GET /api/v1/maintenance/reports/{kind} [kind=consolidated]
+    added: '2026-11-26'
+  B0703:
+    key: api:api:anon:GET /api/v1/voice/maintenance
+    added: '2026-11-26'
+  B0704:
+    key: api:api:anon:GET /api/v1/equipment/{item_id}/entities
+    added: '2026-11-26'
+  B0705:
+    key: api:api:anon:GET /api/v1/containers/{container_id}/checklist
+    added: '2026-11-26'
+  B0706:
+    key: api:api:anon:GET /api/v1/containers/{container_id}/checklist.pdf
+    added: '2026-11-26'
+  B0707:
+    key: headers:ingress:content-security-policy
+    added: '2026-11-26'
+  B0708:
+    key: headers:ingress:x-content-type-options
+    added: '2026-11-26'
+  B0709:
+    key: headers:ingress:referrer-policy
+    added: '2026-11-26'
+  B0710:
+    key: headers:ingress:cross-origin-resource-policy
+    added: '2026-11-26'

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.42.0
+
+Security and privacy fixes from the first full regression audit. **Update the App and the integration.** Container/Core users: also update `docker-compose.yaml` (see below).
+
+- **Customer equipment names stay private.** The "maintenance due" event and phone notification, the note on parts added to the shopping list automatically, and history entries about products only customers own no longer name customer equipment to read-only users or on Home Assistant's event bus. They say "Customer equipment" instead.
+- **Barcode lookups**: only product barcodes (EAN/UPC/GTIN) are looked up online; serial numbers, parcel labels and other codes stay in the house. A failed lookup no longer writes the Barcode Lookup API key to the log.
+- **Roles**: `admin_users` and `read_only_users` now match Home Assistant usernames or user ids only. Display names aren't unique, so they no longer grant a role. If you listed someone by display name, the log says so: list their username instead. When the App can ask Home Assistant who is an administrator, that answer now wins over what a request claims.
+- **Integration**: the App address is checked before every request, and a name is pinned to the address that passed the check. Numeric IPv4 spellings (e.g. `http://3232235777:8100`) count as the address they stand for. The notification photo view sends only the user id.
+- **Photos and documents** are no longer kept in the browser cache on shared devices.
+- **Wide-area photo inventories** accept only JPEG, PNG, WebP and GIF photos, as other uploads do.
+- **Link imports** check IPv4 addresses inside IPv6 (NAT64) addresses too.
+- **Container/Core**: the compose file publishes the API port on `127.0.0.1` by default. Set `HINV_BIND_IP` to the host's LAN address if Home Assistant runs elsewhere. The container drops all extra privileges, and the App's data folder is readable by the App only.
+- **Repository**: the privacy guard checks every commit of a new branch, fails on an invalid private-terms rule, and checks photo, PDF and video metadata. GitHub Actions are pinned to exact commits and kept current by Dependabot.
+
 ## 0.41.4
 
 - Fixed: questions with a contraction such as "Where's the drill?" or "What's in box 7?" could miss the thing you asked for. The "'s" was read as a search word, so "Drill bit set" came back but not "Cordless drill". This also affected voice questions through Assist and Alexa.

@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import Actor, system_user
 from ..events import queue_event
-from ..models import MaintenanceTask, Role, Setting, ShoppingListItem
+from ..models import ItemOwner, MaintenanceTask, Role, Setting, ShoppingListItem
 from . import maintenance as mnt
 from . import parts as parts_svc
 from . import replenishment as repl
@@ -67,6 +67,9 @@ def check(db: Session) -> dict[str, int]:
         if task.due_notified_key == key:
             continue
         task.due_notified_key = key
+        # Events, notifications and the shopping list are seen by people who must
+        # never see customer equipment names (docs/security.md).
+        shown_name = "Customer equipment" if db.get(ItemOwner, t["item"]["id"]) is not None else t["item"]["name"]
         lines = parts_svc.task_readiness(db, task)
         missing = [ln["product"]["name"] for ln in lines if ln["status"] in ("missing", "partial")]
         t["_has_parts"] = bool(lines)
@@ -79,7 +82,7 @@ def check(db: Session) -> dict[str, int]:
                     actor = actor or _actor(db)
                     try:
                         repl.add_to_list(db, actor, buy["product_id"], buy["quantity"], None,
-                                         f"For {t['title']} on {t['item']['name']}"[:300])
+                                         f"For {t['title']} on {shown_name.lower() if shown_name == 'Customer equipment' else shown_name}"[:300])
                     except repl.ReplenishmentError as err:
                         _LOGGER.debug("Not added to the shopping list: %s", err)
                         continue
@@ -88,7 +91,7 @@ def check(db: Session) -> dict[str, int]:
                     added += 1
         queue_event(db, "maintenance_due", {
             "item_id": t["item"]["id"],
-            "item_name": t["item"]["name"],
+            "item_name": shown_name,
             "task_id": task.id,
             "title": task.title,
             "status": t["status"],
@@ -99,7 +102,7 @@ def check(db: Session) -> dict[str, int]:
             "parts_ready": bool(lines) and not missing,
             "parts_missing": missing,
             "added_to_shopping_list": to_buy,
-            "message": _message(t["item"]["name"], t, missing),
+            "message": _message(shown_name, t, missing),
         })
         sent += 1
     db.commit()

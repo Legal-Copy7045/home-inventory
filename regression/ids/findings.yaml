@@ -1,0 +1,77 @@
+# Stable IDs for the findings checks. Written by regression/run.py.
+# Never renumber or reuse an ID; a check that goes away is marked retired.
+prefix: F
+next: 25
+ids:
+  F0001:
+    key: sha256:a051833cdfc22fb4399a7e75
+    added: '2026-11-26'
+  F0002:
+    key: sha256:aed7fd84a13445a13100b97d
+    added: '2026-11-26'
+  F0003:
+    key: sha256:ad4df1032ab81b64e58abf0d
+    added: '2026-11-26'
+  F0004:
+    key: sha256:49212b909beffbb8284055d9
+    added: '2026-11-26'
+  F0005:
+    key: sha256:f463c4465cea4f0efa995340
+    added: '2026-11-26'
+  F0006:
+    key: sha256:77ac93a732c57f88790fb946
+    added: '2026-11-26'
+  F0007:
+    key: sha256:ed912ec7c41233c6ac0fedf3
+    added: '2026-11-26'
+  F0008:
+    key: sha256:23fa972c2778a8fd8a702f0f
+    added: '2026-11-26'
+  F0009:
+    key: sha256:e693104a27206d23de43112e
+    added: '2026-11-26'
+  F0010:
+    key: sha256:aadcc2804fd1fa6a081d8777
+    added: '2026-11-26'
+  F0011:
+    key: sha256:40531a67df5ee673547d2205
+    added: '2026-11-26'
+  F0012:
+    key: sha256:f6f2e3429158995879151ac2
+    added: '2026-11-26'
+  F0013:
+    key: sha256:0604b8ed68cc861979388e42
+    added: '2026-11-26'
+  F0014:
+    key: sha256:a04b4a8fa83f6c72caa3f8fd
+    added: '2026-11-26'
+  F0015:
+    key: sha256:ef41e5a6a77e047861b8ec44
+    added: '2026-11-26'
+  F0016:
+    key: sha256:305fd1e17dce25968e29d0b0
+    added: '2026-11-26'
+  F0017:
+    key: sha256:f21ce306b6148481e51a30fb
+    added: '2026-11-26'
+  F0018:
+    key: sha256:77d9f0aff8ba4c634d94cc76
+    added: '2026-11-26'
+  F0019:
+    key: sha256:ef45a8e40ef9cef5466b3aef
+    added: '2026-11-26'
+  F0020:
+    key: sha256:4bb4b1f8abcc8447f6a9447e
+    added: '2026-11-26'
+  F0021:
+    key: sha256:75f8d81a3e957e2e4642a33c
+    added: '2026-11-26'
+  F0022:
+    key: sha256:4f4c0aa8f5480cfebffea7fc
+    added: '2026-11-26'
+  F0023:
+    key: sha256:21f89b414778b10a298c9a57
+    added: '2026-11-26'
+  F0024:
+    key: sha256:c56dd8924c2713d9ce82f183
+    added: '2026-11-26'

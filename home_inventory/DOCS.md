@@ -35,7 +35,7 @@ On an item page, **Previous** and **Next** step through the list you came from (
 | `barcode_open_facts` | `true` | Open Food/Products/Beauty Facts lookups (free, no key). |
 | `barcode_upcitemdb` | `true` | UPCitemdb trial lookups (free, 100/day). |
 | `barcode_lookup_api_key` | | Optional commercial barcodelookup.com key. |
-| `admin_users` | `[]` | Extra administrators (Home Assistant username or display name). Home Assistant administrators are always administrators here. |
+| `admin_users` | `[]` | Extra administrators: Home Assistant usernames (or user ids). Display names are not unique, so they no longer count. Home Assistant administrators are always administrators here. |
 | `read_only_users` | `[]` | People who may only view. |
 | `default_role` | `member` | Role for everyone else (`member` or `read_only`). |
 | `warranty_notice_days` | `30` | When to fire `home_inventory_warranty_expiring`. |

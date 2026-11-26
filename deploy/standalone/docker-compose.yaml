@@ -34,7 +34,14 @@ services:
       - ./data:/data
       # For AI Task image hand-off, share Home Assistant's media folder:
       # - /path/to/homeassistant/media:/media
+    # No extra privileges inside the container.
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     ports:
-      # Only the token-protected API port is published, and only to the
-      # local network interface you choose.  Do not expose it to the internet.
-      - "8100:8100"
+      # Only the token-protected API port is published, and only on one
+      # address.  The default, 127.0.0.1, suits Home Assistant on this same
+      # host (with host networking).  If Home Assistant runs on another
+      # machine, set HINV_BIND_IP in .env to this host's LAN address, e.g.
+      # HINV_BIND_IP=192.168.1.20.  Never 0.0.0.0, and never forward it from
+      # your router: the token is sent unencrypted and gives full access.
+      - "${HINV_BIND_IP:-127.0.0.1}:8100:8100"

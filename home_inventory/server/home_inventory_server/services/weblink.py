@@ -52,6 +52,21 @@ class LinkError(ValueError):
 # ---------------------------------------------------------------------------
 
 
+_NAT64 = (ipaddress.ip_network("64:ff9b::/96"), ipaddress.ip_network("64:ff9b:1::/48"))
+
+
+def _embedded_ipv4(addr: ipaddress.IPv4Address | ipaddress.IPv6Address):
+    """The IPv4 address an IPv6 address carries (mapped, NAT64 or IPv4-compatible),
+    so it is checked as that address; otherwise ``addr`` itself."""
+    if not isinstance(addr, ipaddress.IPv6Address):
+        return addr
+    if addr.ipv4_mapped:
+        return addr.ipv4_mapped
+    if any(addr in net for net in _NAT64) or (int(addr) >> 32 == 0 and int(addr) > 1):
+        return ipaddress.IPv4Address(int(addr) & 0xFFFFFFFF)
+    return addr
+
+
 def _resolve_public(url: str) -> tuple[str, str]:
     """Resolve ``url``'s host once; return (hostname, the IP to connect to).
 
@@ -71,8 +86,7 @@ def _resolve_public(url: str) -> tuple[str, str]:
     addresses = []
     for info in infos:
         addr = ipaddress.ip_address(info[4][0].split("%", 1)[0])
-        if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped:
-            addr = addr.ipv4_mapped
+        addr = _embedded_ipv4(addr)
         if not addr.is_global or addr.is_multicast:
             raise LinkError("Links to local or private network addresses are not allowed")
         addresses.append(addr)

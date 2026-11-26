@@ -150,6 +150,8 @@ class MediaStore:
 
 
 MAX_PANORAMA = 4
+# Non-JPEG photos decode at full size (draft() only shrinks JPEGs): cap them at 40 MP.
+MAX_PANORAMA_PIXELS = 40_000_000
 
 
 def stitch(photos: list[bytes], height: int = 1600, max_width: int = 8000) -> bytes:
@@ -160,10 +162,15 @@ def stitch(photos: list[bytes], height: int = 1600, max_width: int = 8000) -> by
     for data in photos:
         try:
             img = Image.open(io.BytesIO(data))
+            # The same formats as any other upload: refuse the rest before decoding.
+            if img.format not in IMAGE_TYPES:
+                raise MediaError("Unsupported file type; upload JPEG, PNG or WebP photos")
             # JPEGs decode straight at a reduced size, and every photo is
             # shrunk before the next is opened, so four large photos never
             # sit in memory at full resolution together.
             img.draft("RGB", (height * 4, height))
+            if img.format != "JPEG" and img.width * img.height > MAX_PANORAMA_PIXELS:
+                raise MediaError("Photo is too large for a wide-area inventory")
             img.load()
             if img.height > height * 1.5:
                 img.thumbnail((img.width, height), Image.Resampling.LANCZOS)

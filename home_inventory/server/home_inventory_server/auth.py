@@ -264,9 +264,20 @@ def admin_known(db: Session, settings: Settings, directory: HaAdminDirectory | N
     return users is not None
 
 
+_WARNED_DISPLAY_NAME: set[str] = set()
+
+
 def _listed(user: User, names: list[str]) -> bool:
-    ident = {user.ha_user_id, (user.username or "").lower(), (user.display_name or "").lower()}
-    return bool(ident & ({n.lower() for n in names} | set(names)))
+    """Listed by Home Assistant user id or username, both unique in Home Assistant.
+    Display names are not unique, so they never grant a role."""
+    ident = {user.ha_user_id, (user.username or "").lower()} - {""}
+    hit = bool(ident & ({n.lower() for n in names} | set(names)))
+    if (not hit and user.display_name and user.display_name.lower() in {n.lower() for n in names}
+            and user.ha_user_id not in _WARNED_DISPLAY_NAME):
+        _WARNED_DISPLAY_NAME.add(user.ha_user_id)
+        _LOGGER.warning("%s is listed by display name only; list their Home Assistant username instead "
+                        "(display names can be shared, so they don't grant a role)", user.display_name)
+    return hit
 
 
 class AdminBootstrap:
@@ -393,17 +404,19 @@ def resolve_actor(request: Request, db: Session) -> Actor:
             raise HTTPException(status_code=401, detail="Invalid Home Assistant user identity")
         if ha_id:
             admin_hdr = _header(request, "X-Remote-User-Is-Admin")
-            name = _header(request, "X-Remote-User-Name")
-            if admin_hdr is None:
-                # The integration sends only the user id: ask Home Assistant
-                # (through the Supervisor) who that is and whether they're an
-                # administrator.  Unknown: the stored values stay as they are.
-                directory = state.admin_directory
-                is_admin = directory.is_admin(ha_id)
-                name = name or directory.name(ha_id)
-            else:
+            username = _header(request, "X-Remote-User-Name")
+            display = _header(request, "X-Remote-User-Display-Name")
+            # Ask Home Assistant (Supervisor, or HINV_HA_URL/TOKEN) who this is and
+            # whether they're an administrator.  Its answer wins over the header, so
+            # the token alone can't make someone an administrator; the header only
+            # counts when Home Assistant can't be asked.  Unknown: stored values stay.
+            directory = state.admin_directory
+            is_admin = directory.is_admin(ha_id)
+            if is_admin is None and admin_hdr is not None:
                 is_admin = admin_hdr.lower() in ("1", "true", "yes")
-            user = upsert_user(db, ha_id, name, _header(request, "X-Remote-User-Display-Name") or name, is_admin)
+            # The directory knows display names, not usernames: never store one as the other.
+            display = display or directory.name(ha_id)
+            user = upsert_user(db, ha_id, username, display or username, is_admin)
         else:
             user = system_user(db, INTEGRATION_USER_ID, "Home Assistant")
 

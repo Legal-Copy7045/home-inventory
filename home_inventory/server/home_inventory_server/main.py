@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -391,6 +392,9 @@ async def serve(settings: Settings) -> None:
 
 
 def run() -> None:
+    # The database, photos and backups are readable by this App only, also on a
+    # standalone container's bind-mounted folder.
+    os.umask(0o077)
     settings = Settings.load()
     logging.basicConfig(
         level=getattr(logging, settings.log_level.upper(), logging.INFO),

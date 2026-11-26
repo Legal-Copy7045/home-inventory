@@ -40,7 +40,9 @@ CREDENTIALS = re.compile(
     r"|-----BEGIN [A-Z ]*PRIVATE KEY-----"
 )
 SECRET_FILES = re.compile(r"(^|/)(secrets\.yaml|ha_token\.txt|geoapify_key\.txt|\.env|[^/]*\.pem)$", re.I)
-MAX_BYTES = 5_000_000
+CHUNK = 8_000_000
+IMAGE_EXT = (".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff", ".heic")
+INVALID_RULES: list[int] = []
 
 
 def git(*args: str) -> str:
@@ -62,12 +64,17 @@ def denylist() -> list[re.Pattern]:
         try:
             rules.append(re.compile(line, re.I))
         except re.error:
-            error(f"PRIVACY_DENYLIST line {n} isn't a valid regular expression")
-            rules.append(re.compile(r"(?!)"))
+            # Still checked, as plain text; and the run fails so the rule gets fixed.
+            error(f"PRIVACY_DENYLIST line {n} isn't a valid regular expression; checking it as plain text")
+            INVALID_RULES.append(n)
+            rules.append(re.compile(re.escape(line), re.I))
     return rules
 
 
 def commit_range() -> list[str]:
+    """The commits to check.  When the push has no usable base (a new branch, or
+    a force push whose old tip is gone), every commit reachable from the new tip
+    is checked: never just the tip, which would let earlier commits through."""
     base, head = os.environ.get("BASE", ""), os.environ.get("HEAD", "") or "HEAD"
     if base and set(base) != {"0"}:
         try:
@@ -75,7 +82,33 @@ def commit_range() -> list[str]:
             return git("rev-list", f"{base}..{head}").split()
         except subprocess.CalledProcessError:
             pass
-    return [git("rev-parse", head).strip()]
+    return git("rev-list", head).split()
+
+
+def chunks(path: str):
+    """The file in overlapping pieces, so large files are checked too."""
+    with open(path, "rb") as fh:
+        tail = b""
+        while True:
+            block = fh.read(CHUNK)
+            if not block:
+                return
+            yield tail + block
+            tail = block[-400:]
+
+
+def image_location(path: str) -> bool | None:
+    """True if an image carries GPS coordinates; None if it can't be read here."""
+    try:
+        from PIL import Image
+    except ImportError:
+        return None
+    try:
+        with Image.open(path) as im:
+            exif = im.getexif()
+            return bool(exif.get_ifd(0x8825)) or 0x8825 in exif
+    except Exception:  # noqa: BLE001 - not an image Pillow reads
+        return None
 
 
 def main() -> int:
@@ -111,12 +144,28 @@ def main() -> int:
             error("A secrets file is tracked: remove it and add it to .gitignore", path)
             problems += 1
             continue
-        if os.path.getsize(path) > MAX_BYTES:
+        with open(path, "rb") as fh:
+            head = fh.read(8000)
+        if b"\0" in head or os.path.getsize(path) > CHUNK:
+            # Binary or large: photos, PDFs, videos.  Their metadata (EXIF, XMP,
+            # video tags) is text inside the file, so search the raw bytes too.
+            if path.lower().endswith(IMAGE_EXT) and image_location(path):
+                error("The image carries GPS coordinates: strip its metadata (e.g. exiftool -all= FILE)", path)
+                problems += 1
+            hits = set()
+            for block in chunks(path):
+                text = block.decode("latin-1")
+                if path != SELF and CREDENTIALS.search(text):
+                    hits.add("Looks like a credential (inside a binary or large file)")
+                for i, rule in enumerate(rules, 1):
+                    if rule.search(text):
+                        hits.add(f"Matches private term #{i} (inside a binary or large file, e.g. its metadata)")
+            for h in sorted(hits):
+                error(h, path)
+                problems += 1
             continue
         with open(path, "rb") as fh:
             data = fh.read()
-        if b"\0" in data[:8000]:
-            continue  # binary
         for n, line in enumerate(data.decode("utf-8", "replace").splitlines(), 1):
             if path != SELF and CREDENTIALS.search(line):
                 error("Looks like a credential", path, n)
@@ -126,6 +175,7 @@ def main() -> int:
                     error(f"Matches private term #{i}: replace it with a made-up value", path, n)
                     problems += 1
 
+    problems += len(INVALID_RULES)
     print(f"privacy guard: {problems} problem(s)")
     return 1 if problems else 0
 

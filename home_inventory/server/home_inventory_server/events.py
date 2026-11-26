@@ -96,14 +96,27 @@ def _without_customer_names(db: Session, data: dict[str, Any]) -> dict[str, Any]
     """Home Assistant's event bus is visible to every Home Assistant user, so
     events about customer equipment never carry its name."""
     ids = list(data.get("item_ids") or []) + ([data["item_id"]] if data.get("item_id") else [])
-    if not ids or "name" not in data:
+    named = [k for k in NAME_FIELDS if k in data]
+    if not ids or not named:
         return data
     from .models import ItemOwner
 
     db.flush()
-    if any(db.get(ItemOwner, i) is not None for i in ids):
-        return {**data, "name": "Customer equipment", "customer_equipment": True}
-    return data
+    if not any(db.get(ItemOwner, i) is not None for i in ids):
+        return data
+    out = {**data, "customer_equipment": True}
+    real = [str(data[k]) for k in ("name", "item_name") if isinstance(data.get(k), str) and data[k] != "Customer equipment"]
+    for k in ("name", "item_name"):
+        if k in out:
+            out[k] = "Customer equipment"
+    if isinstance(out.get("message"), str):
+        for r in real:
+            out["message"] = out["message"].replace(r, "Customer equipment")
+    return out
+
+
+# Event fields that can carry an item's name.
+NAME_FIELDS = ("name", "item_name", "message")
 
 
 def queue_event(db: Session, event_type: str, data: dict[str, Any]) -> None:

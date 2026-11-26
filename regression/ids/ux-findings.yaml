@@ -1,0 +1,110 @@
+# Stable IDs for the ux-findings checks. Written by regression/run.py.
+# Never renumber or reuse an ID; a check that goes away is marked retired.
+prefix: W
+next: 36
+ids:
+  W0001:
+    key: merge:equipment-and-maintenance-repairs-are-two-menu-entries-for-one-domain
+    added: '2026-11-26'
+  W0002:
+    key: merge:maintenance-reports-live-in-three-places
+    added: '2026-11-26'
+  W0003:
+    key: merge:two-trash-screens-recently-deleted-and-settings-trash
+    added: '2026-11-26'
+  W0004:
+    key: move:loans-temporary-holds-stock-expiry-and-warranty-tabs
+    added: '2026-11-26'
+  W0005:
+    key: move:reports-menu-group-repeats-its-own-hub
+    added: '2026-11-26'
+  W0006:
+    key: rename:menu-labels-do-not-match-page-titles
+    added: '2026-11-26'
+  W0007:
+    key: rename:admin-menu-group-shown-to-members-and-read-only-users
+    added: '2026-11-26'
+  W0008:
+    key: move:labels-and-nfc-tags-belong-with-containers-and-locations
+    added: '2026-11-26'
+  W0009:
+    key: rename:create-buttons-each-use-a-different-word
+    added: '2026-11-26'
+  W0010:
+    key: flow:read-only-users-meet-write-buttons-and-refused-pages
+    added: '2026-11-26'
+  W0011:
+    key: flow:back-arrow-appears-on-top-level-menu-pages
+    added: '2026-11-26'
+  W0012:
+    key: flow:possible-duplicates-is-one-34-000-px-page
+    added: '2026-11-26'
+  W0013:
+    key: remove:desktop-search-menu-entry-duplicates-the-always-visible-search
+    added: '2026-11-26'
+  W0014:
+    key: flow:sidebar-is-too-long-for-a-900-px-screen
+    added: '2026-11-26'
+  W0015:
+    key: flow:places-to-check-is-listed-in-three-places-with-different-entry-points
+    added: '2026-11-26'
+  W0016:
+    key: keep-separate:item-page-and-equipment-page
+    added: '2026-11-26'
+  W0017:
+    key: keep-separate:print-labels-nfc-tags-and-scan
+    added: '2026-11-26'
+  W0018:
+    key: keep-separate:activity-history-and-voice-history
+    added: '2026-11-26'
+  W0019:
+    key: keep-separate:put-away-route-and-loans
+    added: '2026-11-26'
+  W0020:
+    key: mobile:quick-photos-next-shelf-hidden-under-the-bottom-bar
+    added: '2026-11-26'
+  W0021:
+    key: flow:the-button-only-opens-add-item-quick-photos-is-buried
+    added: '2026-11-26'
+  W0022:
+    key: mobile:read-only-items-appears-twice-in-the-phone-menu
+    added: '2026-11-26'
+  W0023:
+    key: mobile:add-item-sticky-save-bar-covers-where-is-it
+    added: '2026-11-26'
+  W0024:
+    key: mobile:chip-tabs-scroll-sideways-with-no-cue-and-cut-off-labels
+    added: '2026-11-26'
+  W0025:
+    key: mobile:small-buttons-and-inline-links-are-below-phone-tap-size
+    added: '2026-11-26'
+  W0026:
+    key: mobile:possible-duplicates-is-58-000-px-tall-on-a-phone
+    added: '2026-11-26'
+  W0027:
+    key: merge:equipment-detail-repeats-its-sections-4-800-px-on-phone
+    added: '2026-11-26'
+  W0028:
+    key: mobile:item-detail-big-action-tiles-push-details-off-the-first-screens
+    added: '2026-11-26'
+  W0029:
+    key: flow:container-checklist-no-way-to-photograph-pages-without-ai
+    added: '2026-11-26'
+  W0030:
+    key: merge:dashboard-tiles-repeat-the-bottom-bar-and-push-needs-attention-down
+    added: '2026-11-26'
+  W0031:
+    key: mobile:each-page-title-shows-twice-and-menu-pages-get-a-back-arrow
+    added: '2026-11-26'
+  W0032:
+    key: mobile:items-list-four-rows-of-filters-before-the-first-item
+    added: '2026-11-26'
+  W0033:
+    key: mobile:inventory-report-and-activity-are-very-long-on-the-phone
+    added: '2026-11-26'
+  W0034:
+    key: rename:the-more-sheet-s-admin-group-holds-everyday-pages-for-non-admins
+    added: '2026-11-26'
+  W0035:
+    key: keep-separate:keep-scan-and-quick-photos-as-separate-camera-screens
+    added: '2026-11-26'

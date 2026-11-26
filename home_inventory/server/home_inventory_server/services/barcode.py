@@ -23,6 +23,7 @@ import logging
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 from sqlalchemy import select
@@ -47,7 +48,7 @@ def _clean(d: dict[str, Any]) -> dict[str, Any]:
 def _open_facts(host: str, source: str) -> Callable[[str, float], dict[str, Any] | None]:
     def lookup(code: str, timeout: float) -> dict[str, Any] | None:
         r = httpx.get(
-            f"https://{host}/api/v2/product/{code}.json",
+            f"https://{host}/api/v2/product/{quote(code, safe='')}.json",
             params={"fields": "product_name,generic_name,brands,categories,image_url,quantity,code"},
             headers={"User-Agent": USER_AGENT},
             timeout=timeout,
@@ -161,7 +162,11 @@ def providers(settings: Settings) -> list[tuple[str, Callable[[str, float], dict
 
 
 def lookup_catalog(db: Session, settings: Settings, bc: gtin_mod.Barcode, provider_list=None) -> dict[str, Any] | None:
-    key = bc.gtin14 or bc.raw
+    if bc.gtin14 is None:
+        # Only product barcodes (GTIN/EAN/UPC) go to outside catalogs: other codes
+        # (serials, tracking numbers, free text) stay in the house.
+        return None
+    key = bc.gtin14
     now = datetime.now(UTC)
     provider_list = provider_list if provider_list is not None else providers(settings)
     for name, fn in provider_list:
@@ -182,7 +187,9 @@ def lookup_catalog(db: Session, settings: Settings, bc: gtin_mod.Barcode, provid
             _LOGGER.info("%s", err)
             continue
         except (httpx.HTTPError, ValueError) as err:
-            _LOGGER.info("Barcode lookup via %s failed: %s", name, err)
+            # Never log the error text: it can hold the request URL with an API key.
+            status = err.response.status_code if isinstance(err, httpx.HTTPStatusError) else None
+            _LOGGER.info("Barcode lookup via %s failed (%s%s)", name, type(err).__name__, f", HTTP {status}" if status else "")
             continue  # transient: don't cache
         if cached is None:
             cached = BarcodeCache(gtin=key, provider=name)

@@ -1,0 +1,62 @@
+# Stable IDs for the manual checks. Written by regression/run.py.
+# Never renumber or reuse an ID; a check that goes away is marked retired.
+prefix: M
+next: 20
+ids:
+  M0001:
+    key: ha-sidebar-panel
+    added: '2026-11-26'
+  M0002:
+    key: phone-camera-photo
+    added: '2026-11-26'
+  M0003:
+    key: phone-offline-queue
+    added: '2026-11-26'
+  M0004:
+    key: barcode-camera-scan
+    added: '2026-11-26'
+  M0005:
+    key: nfc-tag-write-and-tap
+    added: '2026-11-26'
+  M0006:
+    key: printed-label-qr
+    added: '2026-11-26'
+  M0007:
+    key: printed-checklist-roundtrip
+    added: '2026-11-26'
+  M0008:
+    key: ai-photo-identify
+    added: '2026-11-26'
+  M0009:
+    key: ai-manual-read
+    added: '2026-11-26'
+  M0010:
+    key: voice-where-is
+    added: '2026-11-26'
+  M0011:
+    key: push-notification
+    added: '2026-11-26'
+  M0012:
+    key: hour-meter-sensor
+    added: '2026-11-26'
+  M0013:
+    key: integration-entities
+    added: '2026-11-26'
+  M0014:
+    key: integration-local-only
+    added: '2026-11-26'
+  M0015:
+    key: ha-backup-restore
+    added: '2026-11-26'
+  M0016:
+    key: app-update-keeps-data
+    added: '2026-11-26'
+  M0017:
+    key: standalone-container
+    added: '2026-11-26'
+  M0018:
+    key: dark-theme
+    added: '2026-11-26'
+  M0019:
+    key: phone-layout-feel
+    added: '2026-11-26'

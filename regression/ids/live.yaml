@@ -1,0 +1,17 @@
+# Stable IDs for the live checks. Written by regression/run.py.
+# Never renumber or reuse an ID; a check that goes away is marked retired.
+prefix: L
+next: 5
+ids:
+  L0001:
+    key: release:current-version
+    added: '2026-11-26'
+  L0002:
+    key: image:amd64
+    added: '2026-11-26'
+  L0003:
+    key: image:aarch64
+    added: '2026-11-26'
+  L0004:
+    key: app:health
+    added: '2026-11-26'

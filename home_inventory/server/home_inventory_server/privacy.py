@@ -109,6 +109,7 @@ def _criteria():
             ~HistoryEvent.action.like("repair\\_%", escape="\\"),
             ~HistoryEvent.action.like("owner\\_%", escape="\\"),
             or_(HistoryEvent.entity_type != "item", ~_customer_item(HistoryEvent.entity_id)),
+            or_(HistoryEvent.entity_type != "product", ~_customer_only_product(HistoryEvent.entity_id)),
         )),
         with_loader_criteria(Customer, false()),
         with_loader_criteria(CustomerContact, false()),
