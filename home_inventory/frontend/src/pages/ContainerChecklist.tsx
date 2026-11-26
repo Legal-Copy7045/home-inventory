@@ -92,18 +92,20 @@ export function ContainerChecklist() {
     <div className="page">
       <h1>Printed checklist</h1>
       <p className="muted">{box.data ? <>For <Link to={`/containers/${cid}`}>{box.data.number ? `${box.data.number} · ` : ""}{box.data.name}</Link>: </> : null}
-        print a list of everything in the box with photos and boxes to tick (back here, move to, dispose, missing, new count). Take it to the box, fill it in, then photograph or scan every page here. Nothing changes until you've checked each row and tapped <b>Apply</b>.</p>
+        print a list of everything in the box with boxes to tick (back here, move to, dispose, missing, new count) and take it to the box.
+        {me.app.ai.enabled ? <> Then photograph or scan every page here and check what was read.</> : <> Then copy what you ticked here with <b>Fill in by hand</b>.</>}
+        {" "}Nothing changes until you've checked each row and tapped <b>Apply</b>.</p>
       <div className="row wrap" style={{ gap: 8 }}>
-        <a className="btn" href={url(`api/v1/containers/${cid}/checklist.pdf`)} target="_blank" rel="noreferrer"><Printer size={18} /> Print checklist ({rows.length} item{rows.length === 1 ? "" : "s"})</a>
+        {/* Back at the box with the paper, the next step comes first. */}
         {me.can_edit && me.app.ai.enabled && (
           <label className="btn primary" style={{ cursor: "pointer" }}>
             <FileUp size={18} /> {reading ? "Reading…" : pages ? "Read more pages" : "Read completed checklist"}
             <input type="file" accept="image/*,application/pdf" multiple hidden disabled={reading} onChange={(e) => { const f = e.target.files; readFiles(f); e.target.value = ""; }} />
           </label>
         )}
-        {me.can_edit && !decisions && <button className="btn ghost" onClick={() => setDecisions(blank())}>Fill in by hand</button>}
+        {me.can_edit && !decisions && <button className={`btn ${me.app.ai.enabled ? "" : "primary"}`} onClick={() => setDecisions(blank())}>Fill in by hand</button>}
+        <a className="btn" href={url(`api/v1/containers/${cid}/checklist.pdf`)} target="_blank" rel="noreferrer"><Printer size={18} /> Print checklist ({rows.length} item{rows.length === 1 ? "" : "s"})</a>
       </div>
-      {!me.app.ai.enabled && me.can_edit && <p className="muted">AI isn't set up, so completed pages can't be read automatically: use <b>Fill in by hand</b>.</p>}
       <ErrorBox error={error} />
       {reading && <Spinner />}
       {decisions && (

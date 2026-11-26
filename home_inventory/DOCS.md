@@ -5,7 +5,7 @@ A household inventory you open from the Home Assistant sidebar.
 ## First steps
 
 1. **Locations**: create your places, as deep as you like. To set up many at once, use *Locations → Import from Excel*: download the template, write one row per place (`Property | Shed | Rear Right Shelving | Middle Shelf`), upload it and confirm the preview. For example *Property › House › Garage › Upper shelving*. Shelves, drawers, workbenches and tool racks are locations too, so items can sit on them directly ("loose items").
-2. **Containers**: create boxes, totes and bins, give them a number, and place them in a location or inside another container. Print QR labels from **Print Labels**.
+2. **Containers**: create boxes, totes and bins, give them a number, and place them in a location or inside another container. Print QR labels from **Print labels**.
 3. **Items**: tap **+**, take a photo, let AI suggest what it is (optional), check the details, pick where it is, and save.
 4. **Scan mode**: in the storage area, scan a box's label to open it, then scan product barcodes to add (+1) or take out (−1). Tap ⇄ to move something to another box.
 
@@ -14,9 +14,11 @@ A household inventory you open from the Home Assistant sidebar.
 
 The menu is grouped:
 
-- **Top:** Dashboard, Search, Add item, Scan, Quick photos, **To sort & finish** (photos waiting to be put away, and items waiting for details, as two tabs) and **Maintenance & Repairs** (tabs for maintenance, repair jobs and customers).
-- **Inventory:** Items, Containers, Locations, Kits, Visual maps, Loans & temporary.
-- **Reports:** All reports (inventory report, maintenance plan, upcoming maintenance, restock & shopping, the maintenance guide and more), the inventory report, and Restock & Shopping.
+- **Top:** Dashboard, Needs attention, Add item, Scan, Quick photos, **To sort & finish** (photos waiting to be put away, and items waiting for details, as two tabs), **Restock & shopping** and **Equipment & repairs** (tabs for your equipment, maintenance, repair jobs and customers).
+- **Inventory:** Items, Containers, Locations, Kits, Visual maps, Check inventory, Loans & borrowed, Put-away route, Print labels, NFC tags.
+- **Reports:** one page with every report: the inventory report, maintenance reports, season mode, the maintenance plan and guide, and warranties & expiry.
+- **Manage:** Categories, Activity history, Possible duplicates, Recently deleted (the only trash: restore items and containers; administrators can delete for good) and Settings. **Admin** holds Voice history.
+- On a phone, the bottom bar has Home, Search, **+** (Add item, Quick photos or Add container), Scan and More.
 - **Admin:** Print labels, NFC tags, Activity history, Categories, Voice history, Possible duplicates, Recently deleted and Settings.
 
 Tap a section's heading to fold it away or open it, including the section you're in; the menu remembers your choice. Going to a page opens its section again.
@@ -59,7 +61,7 @@ People are identified by their Home Assistant login, and the history records who
 
 ## Categories
 
-Items choose their category from a fixed list; you can't type a new one on an item. Administrators keep the list under **Admin → Categories**:
+Items choose their category from a fixed list; you can't type a new one on an item. Administrators keep the list under **Manage → Categories**:
 
 - **Add** a category, **rename** one, or add **"also known as"** names (used by search and to match suggestions).
 - **Merge** two that mean the same: merging *Kitchenware* into *Kitchen & Dining* moves every Kitchenware item across and keeps "Kitchenware" as an also-known-as name, so later AI or barcode suggestions of "Kitchenware" go into Kitchen & Dining.
@@ -103,7 +105,7 @@ When it's filled in, photograph each page (or scan them to one PDF) and tap **Re
 
 ## Possible duplicates
 
-**Admin → Possible duplicates** suggests pairs of products that are probably the same thing: the same barcode, the same maker and model, similar names, or **photos that look the same** even when the names differ ("Black hard case" and "DeWalt carry box"). Each side shows its photos: tap one to see it full size (swipe or use the arrows for the others). **Merge into this one** (on the one you want to keep) moves everything from the other onto it; **Not the same thing** stops suggesting that pair. When you merge, you're asked what to do where both were kept in the same place: **Add them together** (two boxes of screws, 2 and 3, become one record of 5), **It's the same thing recorded twice** (one record with the larger count), or **Keep the records separate**. Things in different places always stay separate records, and a record that's lent out, in use, managed equipment, tagged, in a kit, linked to other items or a customer's is never combined (the App says which were kept apart).
+**Manage → Possible duplicates** suggests pairs of products that are probably the same thing: the same barcode, the same maker and model, similar names, or **photos that look the same** even when the names differ ("Black hard case" and "DeWalt carry box"). Each side shows its photos: tap one to see it full size (swipe or use the arrows for the others). **Merge into this one** (on the one you want to keep) moves everything from the other onto it; **Not the same thing** stops suggesting that pair. When you merge, you're asked what to do where both were kept in the same place: **Add them together** (two boxes of screws, 2 and 3, become one record of 5), **It's the same thing recorded twice** (one record with the larger count), or **Keep the records separate**. Things in different places always stay separate records, and a record that's lent out, in use, managed equipment, tagged, in a kit, linked to other items or a customer's is never combined (the App says which were kept apart).
 
 ## Quick photos
 
@@ -199,7 +201,7 @@ On **Items**, tap **Select**, tick the items you want (or **Select all**), then 
 
 ## Equipment
 
-**Equipment versus inventory.** A Toro mower is something you *manage*; a bottle of engine oil is something you *store*. Both are ordinary items underneath, with the same search, barcodes, labels, photos and voice answers, but managed equipment also has its own **Equipment** section (in the menu, under *Maintenance & Repairs*) with what managing it takes: its checklist, manual, parts, readings and history. The oil stays ordinary inventory even when the mower uses it.
+**Equipment versus inventory.** A Toro mower is something you *manage*; a bottle of engine oil is something you *store*. Both are ordinary items underneath, with the same search, barcodes, labels, photos and voice answers, but managed equipment also has its own **Equipment** section (in the menu: *Equipment & repairs*) with what managing it takes: its checklist, manual, parts, readings and history. The oil stays ordinary inventory even when the mower uses it.
 
 **Making something equipment.** Open the item and tap **Manage as equipment** (at the foot of *Details*). Any item can be; items in the *Equipment* category get the link first. **Make it an ordinary item** (in the equipment's **Edit** details) turns it back: it leaves the Equipment section and its tasks stop being scheduled, but **nothing is deleted**. Its details, tasks and service history come back if you manage it again.
 
@@ -316,9 +318,9 @@ A **standard** (a part that's "any brand") counts everything with the same desig
 
 ## Restocking
 
-**What to buy** (on *Restock & Shopping*) adds up everything that needs stock, one line per part: parts that maintenance due within a chosen time needs (a spark plug the mower, generator and snowblower all use is one line), products below their minimum, and repair reservations bigger than what's on the shelf. Each line says why, how many are in stock and reserved, and how many to buy (in whole packs from the preferred shop), grouped by shop. **Add** or **Add all** puts them on the shopping list; nothing is bought for you.
+**What to buy** (on *Restock & shopping*) adds up everything that needs stock, one line per part: parts that maintenance due within a chosen time needs (a spark plug the mower, generator and snowblower all use is one line), products below their minimum, and repair reservations bigger than what's on the shelf. Each line says why, how many are in stock and reserved, and how many to buy (in whole packs from the preferred shop), grouped by shop. **Add** or **Add all** puts them on the shopping list; nothing is bought for you.
 
-Set a minimum and a restock level in an item's **Restock** section, and add where to buy it (Amazon, Lowe's, Tractor Supply or any shop). The **Restock & Shopping** page (under **Reports** in the menu) lists what's running low with suggested quantities, and keeps a shopping list grouped by shop.
+Set a minimum and a restock level in an item's **Restock** section, and add where to buy it (Amazon, Lowe's, Tractor Supply or any shop). The **Restock & shopping** page (near the top of the menu) lists what's running low with suggested quantities, and keeps a shopping list grouped by shop.
 
 **Open at <shop>** opens the product pages; for Amazon, it opens Amazon's own add-to-cart confirmation. Nothing is bought or added for you. Tap **It's in my cart** when it is.
 
@@ -346,7 +348,7 @@ Keep accessories as separate items, each with its own place, QR label and search
 
 If you repair equipment for other people:
 
-1. Add them under **Maintenance & Repairs → Customers**, with name, phone and email.
+1. Add them under **Equipment & repairs → Customers**, with name, phone and email.
 2. Open a **repair job**. You can add their equipment at the same time.
 3. Record its condition when received and the reported problem.
 4. Move the job through *received → awaiting diagnosis → awaiting approval → waiting for parts → in progress → ready for pickup → returned*.
@@ -373,9 +375,9 @@ Every container and every location (shelf, cabinet, drawer…) has a permanent 8
 
 Scan a label with your **phone's normal camera**. It opens Home Assistant (log in the first time) and shows that container's contents, or everything stored at that location, including the containers on it.
 
-**Shelf labels.** To label a shelf, rack, cabinet or drawer, open it and tap the QR icon → **Print label**, or choose it under **Print Labels → Locations**. Tick **Print contents list** (on by default from a shelf) and the label also lists what belongs there: the shelves or drawers within it (› Top shelf), the boxes (#7 Christmas lights) and the loose items. That way anyone putting something away can see where it goes. Scanning it shows the up-to-date list.
+**Shelf labels.** To label a shelf, rack, cabinet or drawer, open it and tap the QR icon → **Print label**, or choose it under **Print labels → Locations**. Tick **Print contents list** (on by default from a shelf) and the label also lists what belongs there: the shelves or drawers within it (› Top shelf), the boxes (#7 Christmas lights) and the loose items. That way anyone putting something away can see where it goes. Scanning it shows the up-to-date list.
 
-**Styles.** Under **Print Labels → Style**:
+**Styles.** Under **Print labels → Style**:
 - **Standard:** everything above.
 - **Large print:** a bigger number and name, and the end of the location, with no contents list. It's readable from across a garage.
 - **Small drawer:** a small QR code with the number and name as big as they fit. Use it on parts drawers, for example with the **Avery L7651** sheet (65 per A4).

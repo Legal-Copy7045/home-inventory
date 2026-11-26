@@ -124,7 +124,8 @@ export function KitsPage() {
   const nav = useNavigate();
   return (
     <div className="page">
-      {me.can_edit && <div className="row" style={{ justifyContent: "flex-end", marginBottom: 10 }}><button className="btn primary" onClick={() => setAdding(true)}><Plus size={18} /> Kit</button></div>}
+      <div className="row between"><h1>Kits</h1>{me.can_edit && <button className="btn primary" onClick={() => setAdding(true)}><Plus size={18} /> New kit</button>}</div>
+      <p className="muted">Things you take together (a camping kit, a car-wash bucket): see what's in each kit and where it all is, and lend or move a kit in one go.</p>
       <ErrorBox error={kits.error} />
       {kits.error && !kits.data ? <ErrorBox error={kits.error} retry={kits.reload} /> : kits.loading && !kits.data ? <Spinner /> : kits.data?.length ? (
         <div className="list">

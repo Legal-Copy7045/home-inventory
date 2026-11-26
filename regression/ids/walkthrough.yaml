@@ -1,7 +1,7 @@
 # Stable IDs for the walkthrough checks. Written by regression/run.py.
 # Never renumber or reuse an ID; a check that goes away is marked retired.
 prefix: U
-next: 439
+next: 454
 ids:
   U0001:
     key: console:desktop:/
@@ -45,6 +45,7 @@ ids:
   U0014:
     key: console:desktop:/equipment
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0015:
     key: console:desktop:/equipment/:id
     added: '2026-11-26'
@@ -90,6 +91,7 @@ ids:
   U0029:
     key: console:desktop:/report
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0030:
     key: console:desktop:/reports
     added: '2026-11-26'
@@ -99,6 +101,7 @@ ids:
   U0032:
     key: console:desktop:/search
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0033:
     key: console:desktop:/settings
     added: '2026-11-26'
@@ -132,6 +135,7 @@ ids:
   U0043:
     key: console:phone:/add
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0044:
     key: console:phone:/attention
     added: '2026-11-26'
@@ -165,6 +169,7 @@ ids:
   U0054:
     key: console:phone:/equipment
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0055:
     key: console:phone:/equipment/:id
     added: '2026-11-26'
@@ -210,6 +215,7 @@ ids:
   U0069:
     key: console:phone:/report
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0070:
     key: console:phone:/reports
     added: '2026-11-26'
@@ -252,6 +258,7 @@ ids:
   U0083:
     key: hscroll:phone:/add
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0084:
     key: hscroll:phone:/attention
     added: '2026-11-26'
@@ -285,6 +292,7 @@ ids:
   U0094:
     key: hscroll:phone:/equipment
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0095:
     key: hscroll:phone:/equipment/:id
     added: '2026-11-26'
@@ -330,6 +338,7 @@ ids:
   U0109:
     key: hscroll:phone:/report
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0110:
     key: hscroll:phone:/reports
     added: '2026-11-26'
@@ -414,6 +423,7 @@ ids:
   U0137:
     key: menu-heading:desktop:/equipment
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0138:
     key: menu-heading:desktop:/items
     added: '2026-11-26'
@@ -438,6 +448,7 @@ ids:
   U0145:
     key: menu-heading:desktop:/report
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0146:
     key: menu-heading:desktop:/reports
     added: '2026-11-26'
@@ -447,6 +458,7 @@ ids:
   U0148:
     key: menu-heading:desktop:/search
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0149:
     key: menu-heading:desktop:/settings
     added: '2026-11-26'
@@ -474,6 +486,7 @@ ids:
   U0157:
     key: menu-heading:phone:/add
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0158:
     key: menu-heading:phone:/attention
     added: '2026-11-26'
@@ -498,6 +511,7 @@ ids:
   U0165:
     key: menu-heading:phone:/equipment
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0166:
     key: menu-heading:phone:/items
     added: '2026-11-26'
@@ -522,6 +536,7 @@ ids:
   U0173:
     key: menu-heading:phone:/report
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0174:
     key: menu-heading:phone:/reports
     added: '2026-11-26'
@@ -582,6 +597,7 @@ ids:
   U0193:
     key: menu-redirect:desktop:/equipment
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0194:
     key: menu-redirect:desktop:/items
     added: '2026-11-26'
@@ -606,6 +622,7 @@ ids:
   U0201:
     key: menu-redirect:desktop:/report
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0202:
     key: menu-redirect:desktop:/reports
     added: '2026-11-26'
@@ -615,6 +632,7 @@ ids:
   U0204:
     key: menu-redirect:desktop:/search
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0205:
     key: menu-redirect:desktop:/settings
     added: '2026-11-26'
@@ -642,6 +660,7 @@ ids:
   U0213:
     key: menu-redirect:phone:/add
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0214:
     key: menu-redirect:phone:/attention
     added: '2026-11-26'
@@ -666,6 +685,7 @@ ids:
   U0221:
     key: menu-redirect:phone:/equipment
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0222:
     key: menu-redirect:phone:/items
     added: '2026-11-26'
@@ -690,6 +710,7 @@ ids:
   U0229:
     key: menu-redirect:phone:/report
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0230:
     key: menu-redirect:phone:/reports
     added: '2026-11-26'
@@ -759,6 +780,7 @@ ids:
   U0252:
     key: overflow:desktop:/equipment
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0253:
     key: overflow:desktop:/equipment/:id
     added: '2026-11-26'
@@ -804,6 +826,7 @@ ids:
   U0267:
     key: overflow:desktop:/report
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0268:
     key: overflow:desktop:/reports
     added: '2026-11-26'
@@ -813,6 +836,7 @@ ids:
   U0270:
     key: overflow:desktop:/search
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0271:
     key: overflow:desktop:/settings
     added: '2026-11-26'
@@ -846,6 +870,7 @@ ids:
   U0281:
     key: overflow:phone:/add
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0282:
     key: overflow:phone:/attention
     added: '2026-11-26'
@@ -879,6 +904,7 @@ ids:
   U0292:
     key: overflow:phone:/equipment
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0293:
     key: overflow:phone:/equipment/:id
     added: '2026-11-26'
@@ -924,6 +950,7 @@ ids:
   U0307:
     key: overflow:phone:/report
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0308:
     key: overflow:phone:/reports
     added: '2026-11-26'
@@ -999,6 +1026,7 @@ ids:
   U0332:
     key: refused:desktop:/equipment
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0333:
     key: refused:desktop:/equipment/:id
     added: '2026-11-26'
@@ -1044,6 +1072,7 @@ ids:
   U0347:
     key: refused:desktop:/report
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0348:
     key: refused:desktop:/reports
     added: '2026-11-26'
@@ -1053,6 +1082,7 @@ ids:
   U0350:
     key: refused:desktop:/search
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0351:
     key: refused:desktop:/settings
     added: '2026-11-26'
@@ -1086,6 +1116,7 @@ ids:
   U0361:
     key: refused:phone:/add
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0362:
     key: refused:phone:/attention
     added: '2026-11-26'
@@ -1119,6 +1150,7 @@ ids:
   U0372:
     key: refused:phone:/equipment
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0373:
     key: refused:phone:/equipment/:id
     added: '2026-11-26'
@@ -1164,6 +1196,7 @@ ids:
   U0387:
     key: refused:phone:/report
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0388:
     key: refused:phone:/reports
     added: '2026-11-26'
@@ -1206,6 +1239,7 @@ ids:
   U0401:
     key: tap-targets:phone:/add
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0402:
     key: tap-targets:phone:/attention
     added: '2026-11-26'
@@ -1239,6 +1273,7 @@ ids:
   U0412:
     key: tap-targets:phone:/equipment
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0413:
     key: tap-targets:phone:/equipment/:id
     added: '2026-11-26'
@@ -1284,6 +1319,7 @@ ids:
   U0427:
     key: tap-targets:phone:/report
     added: '2026-11-26'
+    retired: '2026-11-26'
   U0428:
     key: tap-targets:phone:/reports
     added: '2026-11-26'
@@ -1317,3 +1353,63 @@ ids:
   U0438:
     key: tap-targets:phone:/voice-history
     added: '2026-11-26'
+  U0439:
+    key: crawl
+    added: '2026-11-26'
+    retired: '2026-11-26'
+  U0440:
+    key: console:phone:(Add button)
+    added: '2026-11-26'
+    retired: '2026-11-26'
+  U0441:
+    key: console:phone:(More button)
+    added: '2026-11-26'
+    retired: '2026-11-26'
+  U0442:
+    key: hscroll:phone:(Add button)
+    added: '2026-11-26'
+    retired: '2026-11-26'
+  U0443:
+    key: hscroll:phone:(More button)
+    added: '2026-11-26'
+    retired: '2026-11-26'
+  U0444:
+    key: menu-heading:phone:(Add button)
+    added: '2026-11-26'
+    retired: '2026-11-26'
+  U0445:
+    key: menu-heading:phone:(More button)
+    added: '2026-11-26'
+    retired: '2026-11-26'
+  U0446:
+    key: menu-redirect:phone:(Add button)
+    added: '2026-11-26'
+    retired: '2026-11-26'
+  U0447:
+    key: menu-redirect:phone:(More button)
+    added: '2026-11-26'
+    retired: '2026-11-26'
+  U0448:
+    key: overflow:phone:(Add button)
+    added: '2026-11-26'
+    retired: '2026-11-26'
+  U0449:
+    key: overflow:phone:(More button)
+    added: '2026-11-26'
+    retired: '2026-11-26'
+  U0450:
+    key: refused:phone:(Add button)
+    added: '2026-11-26'
+    retired: '2026-11-26'
+  U0451:
+    key: refused:phone:(More button)
+    added: '2026-11-26'
+    retired: '2026-11-26'
+  U0452:
+    key: tap-targets:phone:(Add button)
+    added: '2026-11-26'
+    retired: '2026-11-26'
+  U0453:
+    key: tap-targets:phone:(More button)
+    added: '2026-11-26'
+    retired: '2026-11-26'

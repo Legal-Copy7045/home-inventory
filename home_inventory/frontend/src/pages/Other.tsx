@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { AlertTriangle, Download, Printer, RotateCcw, Upload } from "lucide-react";
-import { api, appBaseUrl, url, type Container, type FlatLocation, type HistoryEvent, type Item, type Loan, type LowStock } from "../api";
+import { Download, Printer, RotateCcw, Upload } from "lucide-react";
+import { api, appBaseUrl, url, type Container, type FlatLocation, type HistoryEvent, type Item, type Loan } from "../api";
 import { ContainerRow, Empty, ErrorBox, ItemRow, Section, Spinner, fmtDate, fmtWhen, useAction, useApi, useMe, useToast } from "../components/ui";
 
 // ---------------------------------------------------------------- labels
@@ -150,7 +150,7 @@ export function ActivityPage() {
   const [filter, setFilter] = useState("");
   async function load(before?: number) {
     setLoading(true);
-    const r = await api.get<{ events: HistoryEvent[]; next_before_id: number | null }>("history", { before_id: before, action: filter, limit: 50 });
+    const r = await api.get<{ events: HistoryEvent[]; next_before_id: number | null }>("history", { before_id: before, action: filter, limit: 20 });
     setEvents((e) => (before ? [...e, ...r.events] : r.events));
     setNext(r.next_before_id);
     setLoading(false);
@@ -185,20 +185,17 @@ export function ActivityPage() {
 
 export function LoansPage() {
   const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") || "loans";
+  const tab = params.get("tab") === "temporary" ? "temporary" : "loans";
   const setTab = (t: string) => setParams({ tab: t }, { replace: true });
   const loans = useApi(() => (tab === "loans" ? api.get<(Loan & { item: Item })[]>("loans") : Promise.resolve([])), [tab]);
   const temp = useApi(() => (tab === "temporary" ? api.get<{ items: Item[]; containers: Container[] }>("temporary") : Promise.resolve(null)), [tab]);
-  const exp = useApi(() => (tab === "expiry" ? api.get<Item[]>("expiring", { days: 60 }) : Promise.resolve([])), [tab]);
-  const stock = useApi(() => (tab === "stock" ? api.get<LowStock[]>("low-stock") : Promise.resolve([])), [tab]);
-  const warr = useApi(() => (tab === "warranty" ? api.get<Item[]>("warranties", { days: 365 }) : Promise.resolve([])), [tab]);
   const { run } = useAction();
   const me = useMe();
   return (
     <div className="page">
-      <h1>Loans &amp; temporary</h1>
+      <h1>Loans &amp; borrowed</h1>
       <div className="tabs">
-        {[["loans", "On loan"], ["temporary", "Moved / in use"], ["expiry", "Expiring"], ["stock", "Stock levels"], ["warranty", "Warranties"]].map(([k, l]) => <button key={k} className={tab === k ? "active" : ""} onClick={() => setTab(k)}>{l}</button>)}
+        {[["loans", "On loan"], ["temporary", "Moved / in use"]].map(([k, l]) => <button key={k} className={tab === k ? "active" : ""} onClick={() => setTab(k)}>{l}</button>)}
       </div>
       {tab === "loans" && (
         <div className="card tight">{loans.error && !loans.data ? <ErrorBox error={loans.error} retry={loans.reload} /> : loans.loading ? <Spinner /> : loans.data?.length ? (
@@ -212,22 +209,28 @@ export function LoansPage() {
       )}
       {tab === "temporary" && (temp.error && !temp.data ? <ErrorBox error={temp.error} retry={temp.reload} /> : temp.loading ? <Spinner /> : (
         <>
+          {me.can_edit && !!temp.data?.items.length && <p className="muted">Ready to put things back? <Link to="/put-away">Open the put-away route</Link> for a room-by-room list.</p>}
           <Section title="Items" tight>{temp.data?.items.length ? <div className="list">{temp.data.items.map((i) => <ItemRow key={i.id} item={i} />)}</div> : <Empty>Everything is in its place.</Empty>}</Section>
           {!!temp.data?.containers.length && <Section title="Containers" tight><div className="list">{temp.data.containers.map((c) => <ContainerRow key={c.id} c={c} />)}</div></Section>}
         </>
       ))}
+    </div>
+  );
+}
+
+/** Report: things to use before they expire, and warranties ending. */
+export function WarrantiesPage() {
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab") === "expiry" ? "expiry" : "warranty";
+  const exp = useApi(() => (tab === "expiry" ? api.get<Item[]>("expiring", { days: 60 }) : Promise.resolve([])), [tab]);
+  const warr = useApi(() => (tab === "warranty" ? api.get<Item[]>("warranties", { days: 365 }) : Promise.resolve([])), [tab]);
+  return (
+    <div className="page">
+      <h1>Warranties &amp; expiry</h1>
+      <div className="tabs">
+        {[["warranty", "Warranties ending"], ["expiry", "Use soon"]].map(([k, l]) => <button key={k} className={tab === k ? "active" : ""} onClick={() => setParams({ tab: k }, { replace: true })}>{l}</button>)}
+      </div>
       {tab === "expiry" && <div className="card tight">{exp.error && !exp.data ? <ErrorBox error={exp.error} retry={exp.reload} /> : exp.loading ? <Spinner /> : exp.data?.length ? <div className="list">{exp.data.map((i) => <ItemRow key={i.id} item={i} right={<div className="s" style={{ textAlign: "right" }}>×{i.quantity}<br />{fmtDate(i.expires_on)}</div>} />)}</div> : <Empty>Nothing expires in the next 60 days.</Empty>}</div>}
-      {tab === "stock" && (
-        <div className="card tight">{stock.error && !stock.data ? <ErrorBox error={stock.error} retry={stock.reload} /> : stock.loading ? <Spinner /> : stock.data?.length ? (
-          <div className="list">{stock.data.map((p) => (
-            <Link key={p.product_id} to={p.item_id ? `/items/${p.item_id}` : "/items"}>
-              {p.quantity < (p.min_quantity || 0) ? <AlertTriangle size={20} color="var(--warn)" /> : <span style={{ width: 20 }} />}
-              <div className="grow"><div className="t">{p.name}</div><div className="s">Alert below {p.min_quantity}</div></div>
-              <div className="qty">{p.quantity}</div>
-            </Link>
-          ))}</div>
-        ) : <Empty>No products have a low-stock alert. Set "Low-stock alert below" on consumables like batteries or light bulbs.</Empty>}</div>
-      )}
       {tab === "warranty" && <div className="card tight">{warr.error && !warr.data ? <ErrorBox error={warr.error} retry={warr.reload} /> : warr.loading ? <Spinner /> : warr.data?.length ? <div className="list">{warr.data.map((i) => <ItemRow key={i.id} item={i} right={<div className="s">{fmtDate(i.warranty_expires)}</div>} />)}</div> : <Empty>No warranties end in the next year.</Empty>}</div>}
     </div>
   );
@@ -242,7 +245,6 @@ export function SettingsPage() {
   const me = useMe();
   const s = useApi(() => api.get<SettingsData>("settings"), []);
   const users = useApi(() => (me.is_admin ? api.get<UserRow[]>("users") : Promise.resolve([])), [me.is_admin]);
-  const trash = useApi(() => api.get<{ items: Item[]; containers: Container[] }>("trash"), []);
   const [currency, setCurrency] = useState("");
   const [qrBase, setQrBase] = useState("");
   const [syn, setSyn] = useState("");
@@ -359,20 +361,6 @@ export function SettingsPage() {
           </div>
         </Section>
       )}
-      <Section title="Trash" tight>
-        {trash.data && (trash.data.items.length || trash.data.containers.length) ? (
-          <div className="list">
-            {trash.data.containers.map((c) => <li key={`c${c.id}`}><div className="grow"><div className="t">{c.name}</div><div className="s">container · deleted {fmtWhen(c.deleted_at!)}</div></div>{me.can_edit && <button className="btn small" onClick={() => run(() => api.post(`containers/${c.id}/restore`), "Restored").then(trash.reload)}>Restore</button>}</li>)}
-            {trash.data.items.map((i) => (
-              <li key={i.id}>
-                <div className="grow"><Link className="t" to={`/items/${i.id}`}>{i.display_name}</Link><div className="s">×{i.quantity} · deleted {fmtWhen(i.deleted_at!)}</div></div>
-                {me.can_edit && <button className="btn small" onClick={() => run(() => api.post(`items/${i.id}/restore`), "Restored").then(trash.reload)}>Restore</button>}
-                {me.is_admin && <button className="btn small danger" onClick={() => window.confirm("Permanently delete? This cannot be undone.") && run(() => api.del(`trash/items/${i.id}`), "Deleted permanently").then(trash.reload)}>Purge</button>}
-              </li>
-            ))}
-          </div>
-        ) : <Empty>Trash is empty.</Empty>}
-      </Section>
       {me.is_admin && (
         <Section title="Backup & restore">
           <p>Your inventory (database, photos and documents) is included automatically in every Home Assistant backup. You can also download a portable archive here.</p>

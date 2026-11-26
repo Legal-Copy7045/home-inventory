@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.43.0
+
+Easier to find your way around, especially on a phone. From the first independent walkthrough of every screen.
+
+- **Menu**: labels now match page titles ("Print labels", "Activity history", "Reports"...). **Equipment & repairs** is one entry with tabs for Equipment, Maintenance, Repairs and Customers. **Reports** is one entry. Print labels and NFC tags moved to Inventory, and the old "Admin" group is now **Manage**, with only Voice history under Admin. Restock & shopping moved to the top group. The desktop menu no longer lists Search, because every page has a search box.
+- **Loans & borrowed** shows only loans and things moved from their place. Use-by dates and warranties are a new **Warranties & expiry** report, and stock levels live in Restock & shopping.
+- **One trash page**: Recently deleted now also restores containers, and administrators can delete things for good there. Settings no longer has its own Trash.
+- **Possible duplicates** shows one pair at a time, with a count, instead of every pair on one very long page.
+- **Equipment page**: due tasks, the Log hours and service history buttons, and the parts list no longer appear twice. "Not for this equipment" moved into a ⋯ menu, away from Done. The full parts list and service history fold away.
+- **Phones**:
+  - Everything you tap is at least 44 px. Short tab rows share the width, and long ones fade at the edge.
+  - The page heading no longer repeats the title bar, and the Back arrow appears only on pages below a menu entry.
+  - The **+** button offers Add item, Quick photos or Add container, and the More menu no longer repeats bottom-bar entries.
+  - Quick photos uses the whole screen, with Gallery, the shutter and Next shelf in one row.
+  - Add item asks where the thing is right after its photos.
+  - The dashboard shows Needs attention first, with compact counts.
+  - Items has its filters behind one button. The item page's actions are one row, and Add photo takes several photos at once.
+  - The inventory report shows one line per room until you open it. Activity loads 20 entries at a time.
+- **Read-only users** no longer see an Add button on Items or a Recently deleted link. Customer names show as plain text, and a page they may not use says so plainly instead of offering Retry.
+- Create buttons all say what they create (New item, New container, New location, New kit, New category). Kits has a heading, and the printed checklist page matches whether AI is set up.
+
 ## 0.42.0
 
 Security and privacy fixes from the first full regression audit. **Update the App and the integration.** Container/Core users: also update `docker-compose.yaml` (see below).

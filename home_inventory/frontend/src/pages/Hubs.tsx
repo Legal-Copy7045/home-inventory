@@ -1,10 +1,11 @@
 import { Link, useSearchParams } from "react-router-dom";
-import { CalendarClock, ClipboardList, FileText, Leaf, Printer, ShieldCheck, ShoppingCart, Wrench } from "lucide-react";
+import { CalendarClock, FileText, Leaf, Printer, ShieldCheck, ShoppingCart, Wrench } from "lucide-react";
 import { api } from "../api";
 import { ErrorBox, Spinner, fmtDate, useAction, useApi, useMe } from "../components/ui";
 import SortPhotos from "./SortPhotos";
 import ToFinish from "./ToFinish";
 import { MaintenancePage } from "./Maintenance";
+import { EquipmentListPage } from "./Equipment";
 import { CustomersPage, RepairsPage } from "./Customers";
 
 /** Tabs above a page that already has its own content. */
@@ -33,18 +34,24 @@ export function TodoPage() {
   );
 }
 
-/** Maintenance and repairs, for your own equipment and other people's. */
-export function CarePage() {
+type CareTab = "equipment" | "maintenance" | "repairs" | "customers";
+
+/** Equipment & repairs: the machines, their maintenance, and (for members) repair jobs and customers. */
+export function CarePage({ initial = "equipment" }: { initial?: CareTab }) {
   const me = useMe();
   const [params] = useSearchParams();
   const want = params.get("tab");
-  const tabs: ["maintenance" | "repairs" | "customers", string][] = [["maintenance", "Maintenance"]];
-  if (me.can_edit) tabs.push(["repairs", "Repairs"], ["customers", "Customers"]);
-  const tab = tabs.some(([k]) => k === want) ? (want as "maintenance" | "repairs" | "customers") : "maintenance";
+  const open = useApi(() => me.can_edit
+    ? api.get<{ repairs_in_progress?: unknown[]; awaiting_pickup?: unknown[] }>("maintenance/dashboard", { within: 0 })
+    : Promise.resolve(null), [me.can_edit]);
+  const jobs = (open.data?.repairs_in_progress?.length || 0) + (open.data?.awaiting_pickup?.length || 0);
+  const tabs: [CareTab, string][] = [["equipment", "Equipment"], ["maintenance", "Maintenance"]];
+  if (me.can_edit) tabs.push(["repairs", jobs ? `Repairs (${jobs})` : "Repairs"], ["customers", "Customers"]);
+  const tab = tabs.some(([k]) => k === want) ? (want as CareTab) : initial;
   return (
     <>
       <HubTabs tabs={tabs} current={tab} />
-      {tab === "maintenance" ? <MaintenancePage /> : tab === "repairs" ? <RepairsPage /> : <CustomersPage />}
+      {tab === "equipment" ? <EquipmentListPage /> : tab === "maintenance" ? <MaintenancePage /> : tab === "repairs" ? <RepairsPage /> : <CustomersPage />}
     </>
   );
 }
@@ -53,12 +60,10 @@ export function CarePage() {
 export function ReportsPage() {
   const reports: { to: string; icon: typeof FileText; title: string; text: string }[] = [
     { to: "/report", icon: FileText, title: "Inventory report", text: "Everything you own by room, with values, serial numbers and paperwork. Print it or download CSV / Excel; estimate values with AI." },
-    { to: "/care?tab=maintenance", icon: CalendarClock, title: "Upcoming maintenance", text: "What's overdue and due soon, this season's jobs, and parts needed." },
+    { to: "/maintenance/reports", icon: CalendarClock, title: "Maintenance reports", text: "Upcoming and overdue jobs, service history and one consolidated report per machine. Printable." },
     { to: "/reports/season", icon: Leaf, title: "Season mode", text: "Spring get-ready or autumn winterising: every machine's jobs, the parts to buy in one go, fuel and oils, and hour meters to photograph." },
     { to: "/reports/maintenance-plan", icon: Wrench, title: "Maintenance plan & guide", text: "Every machine with its jobs, how often, when they're next due, instructions and parts. Printable." },
-    { to: "/shopping", icon: ShoppingCart, title: "Restock & shopping list", text: "What's running low, and the shopping list with where to buy." },
-    { to: "/loans?tab=warranty", icon: ShieldCheck, title: "Warranties & expiry", text: "Warranties ending soon and things to use before they expire." },
-    { to: "/loans", icon: ClipboardList, title: "Loans & temporary", text: "What's lent out, to whom, and what's away from its usual place." },
+    { to: "/reports/warranties", icon: ShieldCheck, title: "Warranties & expiry", text: "Warranties ending soon and things to use before they expire." },
   ];
   return (
     <div className="page">

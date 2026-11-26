@@ -37,10 +37,11 @@ async function readMenu(page, mobile) {
       return groups.filter((g) => g.items.length);
     });
   }
-  const bar = await page.evaluate(() => [...document.querySelectorAll(".bottomnav a")].map((a) => ({
-    label: a.textContent.trim() || a.getAttribute("aria-label") || "", href: new URL(a.href).hash.slice(1) || "/",
+  const bar = await page.evaluate(() => [...document.querySelectorAll(".bottomnav a, .bottomnav button")].map((a) => ({
+    label: a.textContent.trim() || a.getAttribute("aria-label") || "",
+    href: a.href ? new URL(a.href).hash.slice(1) || "/" : `(${(a.getAttribute("aria-label") || a.textContent).trim()} button)`,
   })));
-  await page.locator(".bottomnav button").click();
+  await page.locator(".bottomnav").getByRole("button", { name: "More" }).click();
   await page.locator(".sheet").waitFor();
   for (let i = 0; i < 10; i++) {
     const closed = page.locator('.sheet .menu-group[aria-expanded="false"]');
@@ -83,7 +84,8 @@ const MEASURE = (mobile) => {
     const r = el.getBoundingClientRect();
     if (r.right > vw + 1 || r.left < -1) { overflow.push(`${desc(el)} runs off screen (${Math.round(r.left)}–${Math.round(r.right)}px)`); continue; }
     const p = el.parentElement;
-    if (p && getComputedStyle(el).display !== "inline" && p.clientWidth > 0 && r.width > p.getBoundingClientRect().width + 2)
+    const pos = getComputedStyle(el).position;
+    if (p && pos !== "absolute" && pos !== "fixed" && getComputedStyle(el).display !== "inline" && p.clientWidth > 0 && r.width > p.getBoundingClientRect().width + 2)
       overflow.push(`${desc(el)} is wider than its container (${Math.round(r.width)} > ${Math.round(p.getBoundingClientRect().width)}px)`);
   }
   const small = [];
@@ -109,6 +111,7 @@ const MEASURE = (mobile) => {
     forms: document.querySelectorAll(".main form").length,
     tables: document.querySelectorAll(".main table").length,
     errors: text(".error", 3),
+    refusal_notice: [...document.querySelectorAll(".notice")].some((n) => /member access|Only administrators/.test(n.textContent || "")),
     notFound: document.body.innerText.includes("Page not found."),
     hscroll: sw > window.innerWidth + 1, scroll_width: sw,
     height: document.scrollingElement.scrollHeight,
@@ -125,7 +128,7 @@ async function crawl(role, headers, w) {
   const page = await ctx.newPage();
   const menu = await readMenu(page, w.mobile);
   const targets = new Map();
-  for (const g of menu) for (const it of g.items) targets.set(it.href, { pattern: it.href, path: it.href, from_menu: true });
+  for (const g of menu) for (const it of g.items) if (it.href.startsWith("/")) targets.set(it.href, { pattern: it.href, path: it.href, from_menu: true });
   for (const r of job.routes) if (r.pattern.includes(":") && !targets.has(r.path)) targets.set(r.path, { ...r, from_menu: false });
   const pages = {};
   for (const [href, t] of targets) {

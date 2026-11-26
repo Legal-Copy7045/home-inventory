@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { rememberList } from "../browse";
 import { FileSpreadsheet, FileText, MapPin, Printer, X } from "lucide-react";
 import { api, url } from "../api";
 import { PlacementPicker } from "../components/PlacementPicker";
 import { ValueEstimates } from "../components/ValueEstimates";
-import { ErrorBox, Spinner, Thumb, fmtDate, money, useApi } from "../components/ui";
+import { ErrorBox, Spinner, Thumb, fmtDate, money, useApi, useMe } from "../components/ui";
 
 interface Row {
   item_id: number;
@@ -57,18 +57,24 @@ export default function ReportPage() {
   const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])).toString();
   const file = (fmt: string) => url(`api/v1/reports/inventory.${fmt}${qs ? `?${qs}` : ""}`);
   const r = rep.data;
+  const me = useMe();
+  // On a phone each room is one line (count and value) that opens on tap; printing opens them all.
+  const narrow = useMemo(() => typeof window !== "undefined" && window.matchMedia?.("(max-width: 639px)").matches, []);
+  const [opened, setOpened] = useState<Set<string>>(new Set());
+  const [printing, setPrinting] = useState(false);
+  const shown = (room: string) => !narrow || printing || opened.has(room);
+  const toggle = (room: string) => setOpened((o) => { const n = new Set(o); if (n.has(room)) n.delete(room); else n.add(room); return n; });
+  const print = () => { setPrinting(true); window.setTimeout(() => { window.print(); setPrinting(false); }, 50); };
 
   return (
     <div className="page report">
-      <div className="row between wrap no-print">
-        <h1 style={{ margin: 0 }}>Inventory report</h1>
-        <div className="row wrap" style={{ gap: 6 }}>
-          <button className="btn small" onClick={() => window.print()}><Printer size={16} /> Print / PDF</button>
-          <a className="btn small" href={file("csv")} download><FileText size={16} /> CSV</a>
-          <a className="btn small" href={file("xlsx")} download><FileSpreadsheet size={16} /> Excel</a>
-        </div>
-      </div>
+      <h1 className="no-print">Inventory report</h1>
       <p className="muted no-print">For insurance or a record of what you own. Values are the prices you recorded, times quantity; where there's no price, an AI estimate (≈) is shown if you've made one. Customer equipment is never included.</p>
+      <div className="row wrap no-print" style={{ gap: 6 }}>
+        <button className="btn small" onClick={print}><Printer size={16} /> Print / PDF</button>
+        <a className="btn small" href={file("csv")} download><FileText size={16} /> CSV</a>
+        <a className="btn small" href={file("xlsx")} download><FileSpreadsheet size={16} /> Excel</a>
+      </div>
       <div className="row wrap no-print" style={{ margin: "10px 0" }}>
         <button className="btn small" onClick={() => setPicking(true)}><MapPin size={16} /> {place ? place.label : "Everywhere"}</button>
         {place && <button className="btn small ghost" onClick={() => setPlace(null)} aria-label="Everywhere"><X size={16} /></button>}
@@ -77,7 +83,7 @@ export default function ReportPage() {
           {cats.data?.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
         </select>
       </div>
-      <div className="no-print"><ValueEstimates onFinished={rep.reload} /></div>
+      {me.can_edit && <div className="no-print"><ValueEstimates onFinished={rep.reload} /></div>}
       <ErrorBox error={rep.error} />
       {rep.loading && !r ? <Spinner /> : r && (
         <>
@@ -93,11 +99,12 @@ export default function ReportPage() {
           </div>
           {r.groups.map((g) => (
             <section key={g.room} className="card tight report-room">
-              <div className="card-title" style={{ padding: "14px 16px 0" }}>
+              <button type="button" className="card-title room-toggle" style={{ padding: "14px 16px 0" }} aria-expanded={shown(g.room)}
+                onClick={() => narrow && toggle(g.room)} disabled={!narrow}>
                 <h2>{g.room}</h2>
                 <span className="muted">{g.count} item{g.count === 1 ? "" : "s"} · {money(g.value, r.currency)}</span>
-              </div>
-              <ul className="list">
+              </button>
+              {shown(g.room) && <ul className="list">
                 {g.items.map((it) => (
                   <li key={it.item_id}>
                     <Thumb src={it.thumb_url} />
@@ -110,7 +117,7 @@ export default function ReportPage() {
                     <div style={{ textAlign: "right", fontWeight: 600 }}>{it.value ? money(it.value, it.currency || r.currency) : it.estimated_value ? <span className="muted" title="AI estimate to replace">≈ {money(it.estimated_value, r.currency)}</span> : <span className="muted">—</span>}</div>
                   </li>
                 ))}
-              </ul>
+              </ul>}
             </section>
           ))}
           {!r.count && <div className="card"><div className="empty">Nothing matches.</div></div>}

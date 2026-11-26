@@ -199,9 +199,14 @@ export function EquipmentPage() {
         </div>
       )}
       <div className="row wrap" style={{ gap: 6, margin: "12px 0" }}>
-        <a className="btn small" href={url(`api/v1/equipment/${itemId}/checklist.pdf`)} target="_blank" rel="noreferrer"><Printer size={16} /> Print checklist</a>
-        <a className="btn small ghost" href={url(`api/v1/items/${itemId}/service-history.pdf`)} download>Service history PDF</a>
         <Link className="btn small ghost" to={`/items/${itemId}`}><Package size={16} /> Item record</Link>
+        <details className="more-menu">
+          <summary className="btn small ghost" aria-label="More: print and download">⋯ Print / PDF</summary>
+          <div className="more-menu-items">
+            <a className="btn small" href={url(`api/v1/equipment/${itemId}/checklist.pdf`)} target="_blank" rel="noreferrer"><Printer size={16} /> Print checklist</a>
+            <a className="btn small" href={url(`api/v1/items/${itemId}/service-history.pdf`)} download>Service history PDF</a>
+          </div>
+        </details>
       </div>
 
       {/* What needs attention */}
@@ -215,14 +220,6 @@ export function EquipmentPage() {
             {o.plan.needs_review > 0 && <div className="s" style={{ color: "var(--warn)" }}>{o.plan.needs_review} task{o.plan.needs_review === 1 ? "" : "s"} to review below</div>}
           </div></div>
         </div>
-        {o.upcoming.length > 0 && (
-          <ul className="list" style={{ marginTop: 10 }}>
-            {o.upcoming.map((t) => (
-              <li key={t.id}><div className="grow"><div className="t">{t.title} <TaskBadge t={t} /></div><div className="s">{dueText(t)}</div></div>
-                {edit && <button className="btn small primary" onClick={() => setSheet({ kind: "done", task: t })}><Check size={16} /> Done</button>}</li>
-            ))}
-          </ul>
-        )}
         {edit && (o.plan.state === "no_manual" || o.plan.state === "manual_not_read" || o.plan.state === "generic") && me.app.ai.enabled && (
           <button className="btn small" style={{ marginTop: 10 }} onClick={() => setSheet({ kind: "manual" })}><BookOpen size={16} /> Read the manufacturer's manual</button>
         )}
@@ -263,9 +260,15 @@ export function EquipmentPage() {
                     )}
                   </div>
                   {edit && (
-                    <div className="stack" style={{ gap: 4 }}>
+                    <div className="stack" style={{ gap: 4, alignItems: "flex-end" }}>
                       {!t.not_applicable && <button className="btn small primary" onClick={() => setSheet({ kind: "done", task: t })} aria-label={`Mark ${t.title} done`}><Check size={16} /> Done</button>}
-                      <button className="btn small ghost" disabled={busy} onClick={() => setNA(t, !t.not_applicable)}>{t.not_applicable ? "Enable" : "Disable"}</button>
+                      {/* Not next to Done: switching a task off is rare and easy to hit by mistake. */}
+                      <details className="more-menu">
+                        <summary className="iconbtn" aria-label={`More for ${t.title}`}>⋯</summary>
+                        <div className="more-menu-items">
+                          <button className="btn small" disabled={busy} onClick={() => setNA(t, !t.not_applicable)}>{t.not_applicable ? "Back in the schedule" : "Not for this equipment"}</button>
+                        </div>
+                      </details>
                     </div>
                   )}
                 </li>

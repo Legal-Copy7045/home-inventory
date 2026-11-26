@@ -130,11 +130,12 @@ export function EquipmentSection({ itemId, edit, onChanged, initial, startTracki
   const meter = d.profile?.meter ?? "hours";
   return (
     <Section
-      title={d.profile?.equipment_type ? `Maintenance · ${d.profile.equipment_type}` : "Maintenance"}
+      title={hideTasks ? "Meter and service history" : d.profile?.equipment_type ? `Maintenance · ${d.profile.equipment_type}` : "Maintenance"}
       action={edit && <button className="btn small" onClick={() => setSheet({ kind: "profile" })}>Edit</button>}
     >
+      {/* On the equipment page its header already has these actions. */}
       <div className="row wrap" style={{ gap: 6, marginBottom: 10 }}>
-        <a className="btn small ghost" href={url(`api/v1/items/${itemId}/service-history.pdf`)} download>Service history PDF</a>
+        {!hideTasks && <a className="btn small ghost" href={url(`api/v1/items/${itemId}/service-history.pdf`)} download>Service history PDF</a>}
         <WorthFixingButton itemId={itemId} />
       </div>
       {(meter === "hours" || meter === "both" || meter === "cycles") && (
@@ -147,7 +148,7 @@ export function EquipmentSection({ itemId, edit, onChanged, initial, startTracki
               {(meter === "cycles" || meter === "both") && (d.meters.cycles !== null ? `${d.meters.cycles} uses` : "No uses logged")}
             </b>
           </div>
-          {edit && <button className="btn small" onClick={() => setSheet({ kind: "meter" })}><Clock size={16} /> Log {meter === "cycles" ? "uses" : "hours"}</button>}
+          {edit && !hideTasks && <button className="btn small" onClick={() => setSheet({ kind: "meter" })}><Clock size={16} /> Log {meter === "cycles" ? "uses" : "hours"}</button>}
         </div>
       )}
       {d.usage && meter !== "none" && (
@@ -175,7 +176,7 @@ export function EquipmentSection({ itemId, edit, onChanged, initial, startTracki
           ))}
         </ul>
       )}
-      {edit && (
+      {edit && !hideTasks && (
         <div className="row wrap" style={{ marginTop: 10 }}>
           <button className="btn" onClick={() => setSheet({ kind: "service" })}><Wrench size={18} /> Log service</button>
           <button className="btn" onClick={() => setSheet({ kind: "task" })}><Plus size={18} /> Add task</button>
@@ -183,15 +184,21 @@ export function EquipmentSection({ itemId, edit, onChanged, initial, startTracki
         </div>
       )}
 
-      {d.profile && <ProfileView p={d.profile} />}
-      {parts.data && <ModelParts data={parts.data} edit={edit} onChanged={parts.reload} />}
+      {d.profile && !hideTasks && <ProfileView p={d.profile} />}
+      {parts.data && (hideTasks ? (
+        // The equipment page lists the parts its tasks need; the full fitment list folds away.
+        <details className="fold"><summary>Every part this model takes ({parts.data.fitments.length})</summary>
+          <ModelParts data={parts.data} edit={edit} onChanged={parts.reload} /></details>
+      ) : <ModelParts data={parts.data} edit={edit} onChanged={parts.reload} />)}
 
-      <h3 style={{ margin: "16px 0 6px" }}>Service history</h3>
-      {d.history.length ? (
-        <ul className="list">{d.history.map((e) => <ServiceRow key={e.id} e={e} currency={me.app.currency} />)}</ul>
-      ) : (
-        <p className="muted">No service recorded yet. Use <b>Log service</b> to add past work too.</p>
-      )}
+      <details className="fold" open={!hideTasks}>
+        <summary>Service history ({d.history.length})</summary>
+        {d.history.length ? (
+          <ul className="list">{d.history.map((e) => <ServiceRow key={e.id} e={e} currency={me.app.currency} />)}</ul>
+        ) : (
+          <p className="muted">No service recorded yet. Use <b>{hideTasks ? "Record service" : "Log service"}</b> to add past work too.</p>
+        )}
+      </details>
 
       {sheet?.kind === "setup" && <SetupSheet itemId={itemId} onClose={close} onDone={done} />}
       {sheet?.kind === "profile" && d.profile && <ProfileSheet itemId={itemId} profile={d.profile} onClose={close} onDone={done} />}
@@ -730,47 +737,34 @@ export function MaintenancePage() {
         ))}
       </div>
     ) : <div className="empty">{empty}</div>;
-  const repairs = (x.repairs_in_progress?.length || 0) + (x.awaiting_pickup?.length || 0);
+  const views: [typeof tab, string][] = [["overdue", `Overdue (${x.overdue.length})`], ["due", `Due soon (${x.due.length})`],
+    ["season", "This season"], ["parts", "Parts needed"], ["missing", `No records (${x.no_records.length})`], ["recent", "Recent"]];
   return (
     <div className="page">
-      {me.can_edit && (
-        <div className="steps" style={{ marginBottom: 10 }}>
-          {(["all", "household", "customer"] as const).map((o) => (
-            <button key={o} className={owner === o ? "active" : ""} onClick={() => setOwner(o)}>{o === "all" ? "All equipment" : o === "household" ? "Mine" : "Customers'"}</button>
-          ))}
-        </div>
-      )}
-      {repairs > 0 && (
-        <div className="card">
-          <div className="card-title"><h2>Repairs</h2><Link className="btn small" to="/repairs">All jobs</Link></div>
-          <div className="list">
-            {[...(x.awaiting_pickup || []), ...(x.repairs_in_progress || [])].map((j) => (
-              <Link key={j.id} to={`/repairs/${j.id}`}>
-                <Wrench size={20} />
-                <div className="grow"><div className="t">{j.number} · {j.item.name}</div><div className="s">{j.customer.name}</div></div>
-                <span className={`badge ${j.awaiting_pickup ? "ok" : "blue"}`}>{j.awaiting_pickup ? "Ready for pickup" : j.status_label}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-      <div className="tabs">
-        <button className={tab === "overdue" ? "active" : ""} onClick={() => setTab("overdue")}>Overdue ({x.overdue.length})</button>
-        <button className={tab === "due" ? "active" : ""} onClick={() => setTab("due")}>Due soon ({x.due.length})</button>
-        <button className={tab === "season" ? "active" : ""} onClick={() => setTab("season")}>This season</button>
-        <button className={tab === "parts" ? "active" : ""} onClick={() => setTab("parts")}>Parts needed</button>
-        <button className={tab === "missing" ? "active" : ""} onClick={() => setTab("missing")}>No records ({x.no_records.length})</button>
-        <button className={tab === "recent" ? "active" : ""} onClick={() => setTab("recent")}>Recent</button>
+      {/* One row of filters instead of stacked tab rows (repairs have their own tab). */}
+      <div className="row wrap filters" style={{ gap: 8, marginBottom: 12 }}>
+        <label className="field inline">Show
+          <select value={tab} onChange={(e) => setTab(e.target.value as typeof tab)}>
+            {views.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+        </label>
+        {me.can_edit && (
+          <label className="field inline">Whose
+            <select value={owner} onChange={(e) => setOwner(e.target.value as typeof owner)}>
+              <option value="all">All equipment</option><option value="household">Mine</option><option value="customer">Customers'</option>
+            </select>
+          </label>
+        )}
+        {tab === "due" && (
+          <label className="field inline">Within
+            <select value={within} onChange={(e) => setWithin(Number(e.target.value))}>
+              {[7, 30, 90].map((n) => <option key={n} value={n}>Next {n} days</option>)}
+            </select>
+          </label>
+        )}
       </div>
       {tab === "overdue" && taskList(x.overdue, "Nothing overdue.")}
-      {tab === "due" && (
-        <>
-          <div className="tabs">
-            {[7, 30, 90].map((n) => <button key={n} className={within === n ? "active" : ""} onClick={() => setWithin(n)}>Next {n} days</button>)}
-          </div>
-          {taskList(x.due, `Nothing due in the next ${within} days.`)}
-        </>
-      )}
+      {tab === "due" && taskList(x.due, `Nothing due in the next ${within} days.`)}
       {tab === "season" && <SeasonalPanel onChanged={d.reload} />}
       {tab === "parts" && <ReadinessPanel />}
       {tab === "missing" && (x.no_records.length ? (

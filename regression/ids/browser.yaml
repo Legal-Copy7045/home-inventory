@@ -1,7 +1,7 @@
 # Stable IDs for the browser checks. Written by regression/run.py.
 # Never renumber or reuse an ID; a check that goes away is marked retired.
 prefix: B
-next: 711
+next: 714
 ids:
   B0001:
     key: build:frontend
@@ -2132,4 +2132,13 @@ ids:
     added: '2026-11-26'
   B0710:
     key: headers:ingress:cross-origin-resource-policy
+    added: '2026-11-26'
+  B0711:
+    key: page:admin:/reports/warranties
+    added: '2026-11-26'
+  B0712:
+    key: page:member:/reports/warranties
+    added: '2026-11-26'
+  B0713:
+    key: page:read_only:/reports/warranties
     added: '2026-11-26'

@@ -53,7 +53,7 @@ export function CustomersPage() {
           <Search size={18} />
           <input type="search" placeholder="Search name, phone or email" value={q} onChange={(e) => setQ(e.target.value)} style={{ flex: 1 }} />
         </div>
-        <button className="btn primary" onClick={() => setAdding(true)}><Plus size={18} /> Customer</button>
+        <button className="btn primary" onClick={() => setAdding(true)}><Plus size={18} /> New customer</button>
       </div>
       <ErrorBox error={list.error} />
       {list.error && !list.data ? <ErrorBox error={list.error} retry={list.reload} /> : list.loading && !list.data ? <Spinner /> : list.data?.length ? (
@@ -596,7 +596,7 @@ export function CustomerItemSection({ item, edit, onChanged, startRepair }: { it
     <>
       {item.owner && (
         <div className="owner-banner">
-          <span><User size={18} /> {item.owner.name ? <>Belongs to <Link to={`/customers/${item.owner.customer_id}`}>{item.owner.name}</Link></> : "Customer equipment"}</span>
+          <span><User size={18} /> {item.owner.name ? <>Belongs to {me.can_edit ? <Link to={`/customers/${item.owner.customer_id}`}>{item.owner.name}</Link> : item.owner.name}</> : "Customer equipment"}</span>
           {edit && <span className="row" style={{ gap: 6 }}>
             <button className="btn small" onClick={() => setSheet("job")}><ClipboardList size={16} /> Start repair job</button>
             <button className="btn small" onClick={() => setSheet("owner")}>Change owner</button>

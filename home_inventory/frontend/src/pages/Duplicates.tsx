@@ -16,6 +16,10 @@ export default function DuplicatesPage() {
   const toast = useToast();
   const [ask, setAsk] = useState<{ keep: P; other: P } | null>(null);
   const [view, setView] = useState<{ photos: Attachment[]; index: number } | null>(null);
+  // One pair at a time, with a count: a long list of pairs was tens of thousands of pixels tall.
+  const [at, setAt] = useState(0);
+  const pairs = list.data || [];
+  const cur = Math.min(at, Math.max(0, pairs.length - 1));
   const merge = async (keep: P, other: P, quantities: "separate" | "sum" | "same") => {
     const res = await run(() => api.post<{ combined: { quantity: number }[]; kept_apart: { why: string }[] }>(
       `products/${keep.id}/merge`, { other_id: other.id, quantities }), `Merged into ${keep.name}`);
@@ -32,12 +36,17 @@ export default function DuplicatesPage() {
   return (
     <div className="page">
       <h1>Possible duplicates</h1>
-      <p className="muted">Things recorded twice under slightly different names, the same barcode, or the same maker and model. To merge a pair, tap <b>Merge into this one</b> on the one to keep: the other's holdings, photos, shop links and restock settings move onto it, its missing details are filled in, and you choose whether quantities kept in the same place are added together.</p>
-      <ErrorBox error={list.error} />
-      {list.error && !list.data ? <ErrorBox error={list.error} retry={list.reload} /> : list.loading && !list.data ? <Spinner /> : list.data?.length ? list.data.map((pair) => (
+      <details className="muted" style={{ marginBottom: 12 }}>
+        <summary>How merging works</summary>
+        <p>Things recorded twice under slightly different names, the same barcode, or the same maker and model. Tap <b>Merge into this one</b> on the one to keep: the other's holdings, photos, shop links and restock settings move onto it, its missing details are filled in, and you choose whether quantities kept in the same place are added together.</p>
+      </details>
+      {list.error && !list.data ? <ErrorBox error={list.error} retry={list.reload} /> : list.loading && !list.data ? <Spinner /> : pairs.length ? [pairs[cur]].map((pair) => (
         <div key={pair.key} className="card">
-          <div className="muted" style={{ fontSize: ".85rem", marginBottom: 8 }}>{pair.reason} · {Math.round(pair.score * 100)}% match</div>
-          <div className="grid two">
+          <div className="row between wrap" style={{ marginBottom: 8 }}>
+            <b>Pair {cur + 1} of {pairs.length}</b>
+            <span className="muted" style={{ fontSize: ".85rem" }}>{pair.reason} · {Math.round(pair.score * 100)}% match</span>
+          </div>
+          <div className="dup-pair">
             {pair.products.map((p, i) => (
               <div key={p.id} className="dup-side">
                 <div className="row wrap" style={{ gap: 6, marginBottom: 6 }}>
@@ -59,7 +68,12 @@ export default function DuplicatesPage() {
               </div>
             ))}
           </div>
-          {me.can_edit && <button className="btn small ghost" style={{ marginTop: 8 }} disabled={busy} onClick={() => dismiss(pair)}><X size={16} /> Not the same thing</button>}
+          <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
+            {me.can_edit && <button className="btn small" disabled={busy} onClick={() => dismiss(pair)}><X size={16} /> Not the same thing</button>}
+            <span className="spacer" />
+            <button className="btn small ghost" disabled={cur === 0} onClick={() => setAt(cur - 1)}>Previous</button>
+            <button className="btn small" disabled={cur >= pairs.length - 1} onClick={() => setAt(cur + 1)}>Skip</button>
+          </div>
         </div>
       )) : <div className="card"><div className="empty">No likely duplicates found.</div></div>}
       {view && <Lightbox photos={view.photos} index={view.index} onIndex={(i) => setView({ ...view, index: i })} onClose={() => setView(null)} />}

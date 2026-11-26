@@ -134,43 +134,37 @@ export default function QuickCapture() {
         </div>
         <button className="btn small" onClick={() => nav(back)} aria-label="Done"><Check size={16} /> Done</button>
       </div>
-      {unsorted ? (
+      {!shots.length && (
         <p className="muted" style={{ marginTop: 0 }}>
-          One photo per item. Tap <b>Next shelf</b> when you move on to another shelf, box or drawer. Afterwards, say where each group is on{" "}
-          <b>To sort</b>, and add details from <b>To finish</b>.
+          {unsorted ? <>One photo per item; <b>Next shelf</b> when you move on. Say where later on <b>To sort</b>.</>
+            : <>One photo per item; add details later from <b>To finish</b>.</>}
         </p>
-      ) : (
-        <p className="muted" style={{ marginTop: 0 }}>One photo per item. Add the details later from <b>To finish</b>{" "}— nothing else to do now.</p>
       )}
 
       {cameraAvailable() && !camError ? (
-        <>
-          {/* Sized to leave room for the shutter below it, above the phone's tab bar. */}
-          <div className="camera capture">
-            <video ref={videoRef} muted playsInline />
-            {flash && <div style={{ position: "absolute", inset: 0, background: "#fff", opacity: 0.6 }} />}
-          </div>
-          {live && (
-            <button className="shutter inline" onClick={snap} aria-label="Take photo">
-              <span />
-            </button>
-          )}
-        </>
+        <div className="camera capture">
+          <video ref={videoRef} muted playsInline />
+          {flash && <div style={{ position: "absolute", inset: 0, background: "#fff", opacity: 0.6 }} />}
+        </div>
       ) : (
         <div className="notice">{camError || "Live camera needs Home Assistant opened over https."} Use the button below to take photos with your camera app instead.</div>
       )}
 
-      <div className="row wrap" style={{ margin: "12px 0" }}>
-        {unsorted && (
-          <button className="btn primary" style={{ flex: 1 }} disabled={!inGroup} onClick={() => setGroup((g) => g + 1)}>
-            <Layers size={18} /> Next shelf
-          </button>
-        )}
-        <label className="btn" style={{ flex: 1 }}>
-          <ImagePlus size={18} /> {cameraAvailable() && !camError ? "From gallery" : "Take / choose photos"}
+      {/* One row under the camera, always in reach: gallery, shutter, next shelf. */}
+      <div className="capture-controls">
+        <label className="btn">
+          <ImagePlus size={18} /> {cameraAvailable() && !camError ? "Gallery" : "Take / choose photos"}
           <input type="file" accept="image/*" multiple hidden
             onChange={(e) => { Array.from(e.target.files || []).forEach(add); e.target.value = ""; }} />
         </label>
+        {live && cameraAvailable() && !camError ? (
+          <button className="shutter inline" onClick={snap} aria-label="Take photo"><span /></button>
+        ) : <span />}
+        {unsorted ? (
+          <button className="btn primary" disabled={!inGroup} onClick={() => setGroup((g) => g + 1)}>
+            <Layers size={18} /> Next shelf
+          </button>
+        ) : <span />}
       </div>
 
       <div className="row between">

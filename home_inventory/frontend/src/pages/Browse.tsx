@@ -69,37 +69,38 @@ export function DashboardPage() {
   return (
     <div className="page">
       <SearchBox hero />
-      <div className="quick" style={{ margin: "14px 0" }}>
+      {/* On a phone these are in the bottom bar and its + button, so only on wider screens. */}
+      <div className="quick dash-actions" style={{ margin: "14px 0" }}>
         {me.can_edit && <Link to="/add"><span className="ico"><Plus size={20} /></span>Add item</Link>}
-        <Link to="/scan"><span className="ico"><ScanBarcode size={20} /></span>Scan barcode</Link>
-        <Link to="/scan"><span className="ico"><QrCode size={20} /></span>Scan container</Link>
+        <Link to="/scan"><span className="ico"><ScanBarcode size={20} /></span>Scan a barcode or label</Link>
         {me.can_edit && <Link to="/containers?new=1"><span className="ico"><Box size={20} /></span>Add container</Link>}
-        {me.can_edit && <Link to="/capture" style={{ gridColumn: "1 / -1" }}><span className="ico"><Camera size={20} /></span>Quick photos — snap now, sort onto shelves later</Link>}
+        {me.can_edit && <Link to="/capture"><span className="ico"><Camera size={20} /></span>Quick photos</Link>}
       </div>
+      <div style={{ height: 14 }} className="show-sm" />
       <ErrorBox error={d.error} />
       {!s ? <Spinner /> : (
         <>
+          <AttentionCard />
+          {me.can_edit && <CheckupCard />}
           <div className="grid stats" style={{ marginBottom: 14 }}>
             <Link className="stat" to="/items"><div className="v">{s.total_items}</div><div className="l">Items</div></Link>
             <Link className="stat" to="/containers"><div className="v">{s.containers}</div><div className="l">Containers</div></Link>
             <Link className={`stat ${s.loans_overdue ? "alert" : ""}`} to="/loans"><div className="v">{s.on_loan}</div><div className="l">On loan{s.loans_overdue ? ` · ${s.loans_overdue} overdue` : ""}</div></Link>
-            <Link className={`stat ${s.expired ? "alert" : ""}`} to="/loans?tab=expiry"><div className="v">{s.expiring_soon + s.expired}</div><div className="l">Expiring / expired</div></Link>
+            <Link className={`stat ${s.expired ? "alert" : ""}`} to="/reports/warranties?tab=expiry"><div className="v">{s.expiring_soon + s.expired}</div><div className="l">Expiring / expired</div></Link>
             {(s.repairs_awaiting_pickup ?? 0) > 0 && <Link className="stat" to="/repairs"><div className="v" style={{ color: "var(--ok)" }}>{s.repairs_awaiting_pickup}</div><div className="l">Repairs ready for pickup</div></Link>}
             {(s.maintenance_overdue ?? 0) > 0 && <Link className="stat alert" to="/maintenance"><div className="v">{s.maintenance_overdue}</div><div className="l">Maintenance overdue</div></Link>}
             {(s.unsorted_photos ?? 0) > 0 && <Link className="stat" to="/sort"><div className="v" style={{ color: "var(--primary)" }}>{s.unsorted_photos}</div><div className="l">To sort (no place yet)</div></Link>}
             {s.needs_details > 0 && <Link className="stat" to="/to-finish"><div className="v" style={{ color: "var(--primary)" }}>{s.needs_details}</div><div className="l">To finish (quick photos)</div></Link>}
-            {s.low_stock > 0 && <Link className="stat alert" to="/loans?tab=stock"><div className="v">{s.low_stock}</div><div className="l">Running low</div></Link>}
+            {s.low_stock > 0 && <Link className="stat alert" to="/shopping"><div className="v">{s.low_stock}</div><div className="l">Running low</div></Link>}
             {s.total_value > 0 && <div className="stat"><div className="v" style={{ fontSize: "1.2rem" }}>{money(s.total_value, s.currency)}</div><div className="l">Recorded value</div></div>}
           </div>
-          <AttentionCard />
-          {me.can_edit && <CheckupCard />}
           {d.data!.loans.length > 0 && (
             <Section title="Out on loan" action={<Link to="/loans">All</Link>} tight>
               <div className="list">{d.data!.loans.map((l) => <ItemRow key={l.id} item={l.item} right={<div className="s" style={{ textAlign: "right" }}>{l.borrower}<br />{l.expected_return ? `due ${fmtDate(l.expected_return)}` : ""}</div>} />)}</div>
             </Section>
           )}
           {(d.data!.expiring.length > 0 || d.data!.low_stock.length > 0) && (
-            <Section title="Use soon & restock" action={<Link to="/loans?tab=expiry">All</Link>} tight>
+            <Section title="Use soon & restock" action={<Link to="/reports/warranties?tab=expiry">All</Link>} tight>
               <div className="list">
                 {d.data!.expiring.map((i) => <ItemRow key={i.id} item={i} right={<div className="s" style={{ textAlign: "right" }}>{i.expired ? "expired" : "expires"}<br />{fmtDate(i.expires_on)}</div>} />)}
                 {d.data!.low_stock.map((p) => (
@@ -112,7 +113,7 @@ export function DashboardPage() {
             </Section>
           )}
           {d.data!.warranties.length > 0 && (
-            <Section title="Warranties ending soon" action={<Link to="/loans?tab=warranty">All</Link>} tight>
+            <Section title="Warranties ending soon" action={<Link to="/reports/warranties">All</Link>} tight>
               <div className="list">{d.data!.warranties.map((i) => <ItemRow key={i.id} item={i} right={<div className="s">{fmtDate(i.warranty_expires)}</div>} />)}</div>
             </Section>
           )}
@@ -176,11 +177,18 @@ export function ItemsPage() {
     setMore((m) => [...m, ...r.items]);
   };
   const set = (k: string, v: string) => { const p = new URLSearchParams(params); if (v) p.set(k, v); else p.delete(k); setParams(p, { replace: true }); };
+  const [showFilters, setShowFilters] = useState(false);
+  const activeFilters = [category, status, sort !== "name" ? sort : "", loose ? "1" : ""].filter(Boolean).length;
   return (
     <div className="page">
-      <div className="row between"><h1>Items</h1><Link className="btn primary" to="/add"><Plus size={18} /> Add</Link></div>
-      <input placeholder="Filter by name, maker, model, serial…" value={q} onChange={(e) => setQ(e.target.value)} />
-      <div className="row wrap" style={{ margin: "10px 0" }}>
+      <div className="row between"><h1>Items</h1>{me.can_edit && <Link className="btn primary" to="/add"><Plus size={18} /> New item</Link>}</div>
+      <div className="row" style={{ gap: 8 }}>
+        <input className="grow" placeholder="Filter by name, maker, model, serial…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <button type="button" className="btn show-sm-flex" aria-expanded={showFilters} onClick={() => setShowFilters((v) => !v)}>
+          Filters{activeFilters ? ` (${activeFilters})` : ""}
+        </button>
+      </div>
+      <div className={`row wrap item-filters ${showFilters ? "open" : ""}`} style={{ margin: "10px 0" }}>
         <select value={category} onChange={(e) => set("category", e.target.value)} style={{ width: "auto", flex: 1 }}>
           <option value="">All categories</option>
           {cats.data?.map((c) => <option key={c.id} value={c.name}>{c.name} ({c.item_count})</option>)}
@@ -210,7 +218,7 @@ export function ItemsPage() {
           <span>{list.data.total} record{list.data.total === 1 ? "" : "s"}</span>
           <span className="row" style={{ gap: 12 }}>
             {me.can_edit && <Link to="/duplicates">Possible duplicates</Link>}
-            <Link to="/deleted">Recently deleted</Link>
+            {me.can_edit && <Link to="/deleted">Recently deleted</Link>}
           </span>
         </p>
       )}
@@ -245,7 +253,7 @@ export function LocationsPage() {
         {me.can_edit && (
           <div className="row wrap">
             <button className="btn" onClick={() => setImporting(true)}><FileSpreadsheet size={18} /> Import from Excel</button>
-            <button className="btn primary" onClick={() => setAdding(true)}><Plus size={18} /> New top-level location</button>
+            <button className="btn primary" onClick={() => setAdding(true)}><Plus size={18} /> New location</button>
           </div>
         )}
       </div>

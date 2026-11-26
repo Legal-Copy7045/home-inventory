@@ -195,8 +195,8 @@ export default function ScanPage() {
 
       {me.can_edit && (
         <div className="tabs" role="tablist" aria-label="When a barcode is scanned">
-          <button role="tab" aria-selected={!useMode && !collectMode} className={!useMode && !collectMode ? "active" : ""} onClick={() => setMode("")}>Look up / add</button>
-          <button role="tab" aria-selected={useMode} className={useMode ? "active" : ""} onClick={() => setMode("use")}><Minus size={14} /> Take one out</button>
+          <button role="tab" aria-selected={!useMode && !collectMode} className={!useMode && !collectMode ? "active" : ""} onClick={() => setMode("")}>Look up</button>
+          <button role="tab" aria-selected={useMode} className={useMode ? "active" : ""} onClick={() => setMode("use")}><Minus size={14} /> Take out</button>
           <button role="tab" aria-selected={collectMode} className={collectMode ? "active" : ""} onClick={() => setMode("collect")}><Route size={14} /> Collect</button>
         </div>
       )}

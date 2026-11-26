@@ -616,8 +616,8 @@ def ux_checks(inv: dict) -> list[Check]:
             for g in data["menu"]:
                 for it in g["items"]:
                     page = data["pages"].get(it["href"])
-                    if not page:
-                        continue
+                    if not page or not it["href"].startswith("/"):
+                        continue  # a button in the bar (+, More), not a page
                     t = page.get("title", "")
                     note(f"menu-heading:{width}:{it['href']}", role,
                          None if _norm_label(t) == _norm_label(it["label"]) else f"menu says “{it['label']}”, page says “{t}”")
@@ -627,7 +627,9 @@ def ux_checks(inv: dict) -> list[Check]:
             for route, page in data["pages"].items():
                 pat = page.get("pattern", route)
                 where = "" if page.get("from_menu", True) else " (detail screen, not in this role's menu)"
-                note(f"refused:{width}:{pat}", role, page["refused"] + where if page.get("refused") else None)
+                # A detail screen this role can't use, saying so plainly, is designed; a menu entry that refuses is not.
+                designed = not page.get("from_menu", True) and page.get("refusal_notice") and not page.get("errors")
+                note(f"refused:{width}:{pat}", role, page["refused"] + where if page.get("refused") and not designed else None)
                 errs = page.get("console", [])
                 note(f"console:{width}:{pat}", role, "; ".join(errs[:3]) if errs else None)
                 o = page.get("overflow", [])
