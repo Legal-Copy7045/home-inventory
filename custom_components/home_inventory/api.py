@@ -12,9 +12,11 @@ import asyncio
 import ipaddress
 import json
 import logging
+import re
+import socket
 from collections.abc import AsyncIterator
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 import aiohttp
 from homeassistant.auth.models import User
@@ -99,6 +101,16 @@ def _local_ip(text: str) -> bool:
     return any(ip in net for net in LOCAL_NETWORKS)
 
 
+def _numeric_ipv4(host: str) -> str | None:
+    """The address a numeric IPv4 spelling stands for (``inet_aton`` forms), else None."""
+    if not re.fullmatch(r"(0x[0-9a-f]+|[0-9]+)(\.(0x[0-9a-f]+|[0-9]+)){0,3}", host):
+        return None
+    try:
+        return socket.inet_ntoa(socket.inet_aton(host))
+    except OSError:
+        return "0.0.0.0"  # malformed: never local
+
+
 def local_host_kind(url: str) -> str:
     """"local" (certainly on your network), "resolve" (a name to look up) or
     "refuse" (a public address, or not an http(s) URL)."""
@@ -116,26 +128,32 @@ def local_host_kind(url: str) -> str:
         return "refuse"  # a public IP address
     except ValueError:
         pass
+    numeric = _numeric_ipv4(host)
+    if numeric is not None:
+        # 134744072, 0x08080808, 010.0.0.1...: old IPv4 spellings the resolver accepts.
+        return "local" if _local_ip(numeric) else "refuse"
     if host == "localhost" or "." not in host or host.endswith(LOCAL_SUFFIXES):
         return "local"
     return "resolve"
 
 
-async def ensure_local_url(url: str) -> None:
+async def ensure_local_url(url: str) -> str | None:
     """Refuse an App address that isn't on this machine or your own network.
     A name like ``nas.example.com`` is accepted only if every address it
-    resolves to is private."""
+    resolves to is private; then the checked address is returned, so the
+    caller connects to exactly that address (no second lookup to rebind)."""
     kind = local_host_kind(url)
     if kind == "local":
-        return
+        return None
     if kind == "resolve":
         host = urlsplit(url).hostname or ""
         try:
-            infos = await asyncio.get_running_loop().getaddrinfo(host, None)
+            infos = await asyncio.get_running_loop().getaddrinfo(host, None, type=socket.SOCK_STREAM)
         except OSError as err:
             raise InventoryConnectionError(f"Cannot find {host}: {err}") from err
-        if infos and all(_local_ip(str(i[4][0])) for i in infos):
-            return
+        addrs = [str(i[4][0]) for i in infos]
+        if addrs and all(_local_ip(a) for a in addrs):
+            return addrs[0]
     raise InventoryNotLocalError(
         "The Home Inventory App address must be on this machine or your own network "
         "(for example http://homeinventory:8100 or http://192.168.1.20:8100)")
@@ -146,13 +164,20 @@ class InventoryClient:
         self._session = session
         self.base_url = base_url.rstrip("/")
         self._token = token
-        self._checked = local_host_kind(self.base_url) == "local"
 
-    async def _ensure_local(self) -> None:
-        """Checked once, before the first request (a name may need a lookup)."""
-        if not self._checked:
-            await ensure_local_url(self.base_url)
-            self._checked = True
+    async def _target(self) -> tuple[str, dict[str, str], dict[str, Any]]:
+        """Where to send a request: checked before every request.  A name that
+        needs a lookup is resolved and checked here, and the request goes to that
+        checked address (with the name in Host, and for https in the TLS check)."""
+        addr = await ensure_local_url(self.base_url)
+        if addr is None:
+            return self.base_url, {}, {}
+        parts = urlsplit(self.base_url)
+        host_ip = f"[{addr}]" if ":" in addr else addr
+        netloc = host_ip + (f":{parts.port}" if parts.port else "")
+        base = urlunsplit((parts.scheme, netloc, parts.path, "", "")).rstrip("/")
+        extra = {"server_hostname": parts.hostname} if parts.scheme == "https" else {}
+        return base, {"Host": parts.netloc.rsplit("@", 1)[-1]}, extra
 
     def _headers(self, user: User | str | None = None) -> dict[str, str]:
         return {"Authorization": f"Bearer {self._token}", **user_headers(user)}
@@ -168,8 +193,8 @@ class InventoryClient:
         timeout: float = 30,
         purpose: str | None = None,
     ) -> Any:
-        await self._ensure_local()
-        url = f"{self.base_url}/api/v1/{path.lstrip('/')}"
+        base, host_hdr, extra = await self._target()
+        url = f"{base}/api/v1/{path.lstrip('/')}"
         clean = {k: v for k, v in (params or {}).items() if v is not None}
         try:
             async with self._session.request(
@@ -179,8 +204,9 @@ class InventoryClient:
                 params=clean,
                 # A request with no user can't see customer data, except for
                 # a declared purpose the App allows (the repair-ready message).
-                headers={**self._headers(user), **({"X-Home-Inventory-Purpose": purpose} if purpose else {})},
+                headers={**self._headers(user), **host_hdr, **({"X-Home-Inventory-Purpose": purpose} if purpose else {})},
                 timeout=aiohttp.ClientTimeout(total=timeout),
+                **extra,
             ) as resp:
                 if resp.status == 401:
                     raise InventoryAuthError("The Home Inventory App rejected the API token")
@@ -199,10 +225,11 @@ class InventoryClient:
 
     async def fetch_bytes(self, path: str, user: User | str | None = None, timeout: float = 20) -> tuple[bytes, str]:
         """A file from the App (a photo), with its content type."""
-        await self._ensure_local()
-        url = f"{self.base_url}/api/v1/{path.lstrip('/')}"
+        base, host_hdr, extra = await self._target()
+        url = f"{base}/api/v1/{path.lstrip('/')}"
         try:
-            async with self._session.get(url, headers=self._headers(user), timeout=aiohttp.ClientTimeout(total=timeout)) as resp:
+            async with self._session.get(url, headers={**self._headers(user), **host_hdr},
+                                         timeout=aiohttp.ClientTimeout(total=timeout), **extra) as resp:
                 if resp.status >= 400:
                     raise InventoryApiError(resp.status, "Not available")
                 return await resp.read(), resp.headers.get("Content-Type", "application/octet-stream")
@@ -210,9 +237,10 @@ class InventoryClient:
             raise InventoryConnectionError(str(err)) from err
 
     async def health(self) -> dict[str, Any]:
-        await self._ensure_local()
+        base, host_hdr, extra = await self._target()
         try:
-            async with self._session.get(f"{self.base_url}/api/health", timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            async with self._session.get(f"{base}/api/health", headers=host_hdr,
+                                         timeout=aiohttp.ClientTimeout(total=10), **extra) as resp:
                 resp.raise_for_status()
                 return await resp.json()
         except (aiohttp.ClientError, asyncio.TimeoutError) as err:
@@ -223,13 +251,14 @@ class InventoryClient:
 
     async def events(self) -> AsyncIterator[dict[str, Any]]:
         """Yield events from the App's server-sent event stream."""
-        await self._ensure_local()
-        url = f"{self.base_url}/api/v1/events/stream"
+        base, host_hdr, extra = await self._target()
+        url = f"{base}/api/v1/events/stream"
         try:
             async with self._session.get(
                 url,
-                headers={**self._headers(), "Accept": "text/event-stream"},
+                headers={**self._headers(), **host_hdr, "Accept": "text/event-stream"},
                 timeout=aiohttp.ClientTimeout(total=None, sock_connect=10, sock_read=90),
+                **extra,
             ) as resp:
                 if resp.status == 401:
                     raise InventoryAuthError("The Home Inventory App rejected the API token")
@@ -253,12 +282,13 @@ class InventoryClient:
         self, method: str, path_and_query: str, headers: dict[str, str], body: bytes | None
     ) -> aiohttp.ClientResponse:
         """Used by the sidebar proxy; caller must release the response."""
-        await self._ensure_local()
+        base, host_hdr, extra = await self._target()
         return await self._session.request(
             method,
-            f"{self.base_url}/{path_and_query.lstrip('/')}",
-            headers={**headers, "Authorization": f"Bearer {self._token}"},
+            f"{base}/{path_and_query.lstrip('/')}",
+            headers={**headers, **host_hdr, "Authorization": f"Bearer {self._token}"},
             data=body,
             allow_redirects=False,
             timeout=aiohttp.ClientTimeout(total=300),
+            **extra,
         )

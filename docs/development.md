@@ -56,8 +56,8 @@ pytest -q            # from the repository root; starts a real App process
 ## Browser smoke test
 
 ```bash
-HINV_DATA_DIR=/tmp/e2e HINV_TRUSTED_PROXIES=127.0.0.1 HINV_INGRESS_PORT=18099 HINV_API_PORT=18100 \
-  HINV_AI_PROVIDER=none python -m home_inventory_server &
+HINV_DATA_DIR=/tmp/e2e HINV_TRUSTED_PROXIES=127.0.0.1 HINV_ADMIN_USERS=e2e-user HINV_INGRESS_PORT=18099 HINV_API_PORT=18100 \
+  HINV_BARCODE_OPEN_FACTS=false HINV_BARCODE_UPCITEMDB=false HINV_AI_PROVIDER=none python -m home_inventory_server &
 node tests/e2e/smoke.mjs /tmp/screenshots
 ```
 

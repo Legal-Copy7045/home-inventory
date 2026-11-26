@@ -32,13 +32,19 @@ class PhotoView(HomeAssistantView):
             return web.Response(status=503)
         client = next(iter(entries.values())).client
         try:
-            data, ctype = await client.fetch_bytes(f"attachments/{int(attachment_id)}/file", user=request.get("hass_user"))
+            data, ctype = await client.fetch_bytes(f"attachments/{int(attachment_id)}/file", user=_user_id(request))
         except InventoryError:
             return web.Response(status=404)
         if not ctype.startswith("image/"):
             return web.Response(status=404)
         return web.Response(body=data, content_type=ctype.split(";")[0],
-                            headers={"Cache-Control": "private, max-age=3600", "X-Content-Type-Options": "nosniff"})
+                            headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+
+
+def _user_id(request: web.Request) -> str | None:
+    """Only the Home Assistant user id travels to the App (docs/security.md)."""
+    user = request.get("hass_user")
+    return user.id if user is not None else None
 
 
 def async_register_photo_view(hass: HomeAssistant) -> None:

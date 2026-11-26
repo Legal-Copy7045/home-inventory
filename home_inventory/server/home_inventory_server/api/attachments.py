@@ -121,7 +121,8 @@ def _attachment_file(request: Request, att: Attachment, thumb: bool) -> FileResp
     if not path.exists():
         raise HTTPException(404, "File missing")
     mime = "image/jpeg" if thumb and att.thumb_path else att.mime_type
-    headers = {"Cache-Control": "private, max-age=86400", "X-Content-Type-Options": "nosniff"}
+    # no-store: photos and receipts aren't kept by browsers on shared devices (docs/security.md).
+    headers = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
     disposition = "inline"
     if att.mime_type == "application/pdf":
         headers["Content-Security-Policy"] = "sandbox"

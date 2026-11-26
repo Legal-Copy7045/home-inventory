@@ -45,7 +45,7 @@ from ..models import (
     ProductLink,
     TaskPart,
 )
-from .customers import household_only
+from .customers import household_only, product_audit_name
 
 
 class PartsError(ValueError):
@@ -325,7 +325,7 @@ def set_link(db: Session, actor: Actor, product: Product, target: Product, kind:
         link.note = note[:300] or None
     db.flush()
     what = {"meets": "meets", "replaced_by": "is replaced by"}[kind]
-    audit.record(db, actor, "product_link_" + status, "product", product.id, f"{product.name} {what} {target.name}: {status}")
+    audit.record(db, actor, "product_link_" + status, "product", product.id, f"{product.name} {what} {product_audit_name(db, target)}: {status}")
     return link
 
 
@@ -447,7 +447,7 @@ def edit_fitment(db: Session, actor: Actor, f: PartFitment, data: dict[str, Any]
     db.flush()
     part = db.get(Product, f.part_product_id)
     audit.record(db, actor, "fitment_changed", "product", equipment.id,
-                 f"{equipment.name}: {'removed' if f.status == 'rejected' else 'takes'} {f.role or 'part'}: {part.name}")
+                 f"{equipment.name}: {'removed' if f.status == 'rejected' else 'takes'} {f.role or 'part'}: {product_audit_name(db, part)}")
     return f
 
 

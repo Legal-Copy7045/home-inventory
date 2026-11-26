@@ -1,5 +1,9 @@
 """Seed a fictional household into a fresh Home Inventory for the demo video."""
-import io, json, os, sys, random
+import io
+import json
+import os
+import sys
+
 import httpx
 from PIL import Image, ImageDraw, ImageFont
 from reportlab.pdfgen import canvas
@@ -27,7 +31,6 @@ except OSError:
 PALETTE = [(231, 76, 60), (52, 152, 219), (46, 204, 113), (241, 196, 15), (155, 89, 182), (230, 126, 34), (26, 188, 156), (52, 73, 94)]
 
 def photo(label, seed):
-    rnd = random.Random(seed)
     base = PALETTE[seed % len(PALETTE)]
     img = Image.new("RGB", (800, 600), (238, 240, 243))
     d = ImageDraw.Draw(img)
@@ -43,7 +46,9 @@ def photo(label, seed):
     d.rounded_rectangle((60, 460, 740, 560), 20, fill=(255, 255, 255))
     w = d.textlength(label, font=SMALL)
     d.text(((800 - w) / 2, 492), label, fill=(40, 40, 40), font=SMALL)
-    buf = io.BytesIO(); img.save(buf, "JPEG", quality=88); return buf.getvalue()
+    buf = io.BytesIO()
+    img.save(buf, "JPEG", quality=88)
+    return buf.getvalue()
 
 def upload(data, filename, **form):
     mime = "application/pdf" if filename.endswith(".pdf") else "image/jpeg"
@@ -69,13 +74,15 @@ kitchen = post("locations", json={"name": "Kitchen", "parent_id": house["id"]})
 utility = post("locations", json={"name": "Utility room", "parent_id": house["id"]})
 g_shelf = post("locations", json={"name": "Workbench shelf", "parent_id": garage["id"]})
 g_rack = post("locations", json={"name": "Metal racking", "parent_id": garage["id"]})
-L = lambda loc: {"location_id": loc["id"]}
+def L(loc):  # noqa: N802 - short helper for the seed table below
+    return {"location_id": loc["id"]}
 
 tote7 = post("containers", json={"name": "Blue tote", "number": "7", "container_type": "Tote", "location_id": g_rack["id"], "description": "Power tools and accessories"})
 tote8 = post("containers", json={"name": "Clear tote", "number": "8", "container_type": "Tote", "location_id": g_rack["id"], "description": "Electrical and lighting"})
 box12 = post("containers", json={"name": "Camping box", "number": "12", "container_type": "Box", "location_id": loft["id"]})
 drawer = post("containers", json={"name": "Screw organiser", "number": "3", "container_type": "Drawer unit", "location_id": g_shelf["id"]})
-C = lambda box: {"container_id": box["id"]}
+def C(box):  # noqa: N802
+    return {"container_id": box["id"]}
 
 drill = item("Cordless drill DCD777", C(tote7), manufacturer="DeWalt", model_number="DCD777", category="Tools", serial_number="DW-2231-889", purchase_price="99.00", purchase_date="2024-03-02", retailer="Lowe's")
 item("Impact driver DCF787", C(tote7), manufacturer="DeWalt", model_number="DCF787", category="Tools")
@@ -155,9 +162,15 @@ task(gen, "Clean spark arrester", interval_hours=100)
 
 # Two manuals, ranked (engine manual wins engine jobs)
 def pdf(lines):
-    buf = io.BytesIO(); cv = canvas.Canvas(buf); y = 800
-    for ln in lines: cv.drawString(60, y, ln); y -= 20
-    cv.showPage(); cv.save(); return buf.getvalue()
+    buf = io.BytesIO()
+    cv = canvas.Canvas(buf)
+    y = 800
+    for ln in lines:
+        cv.drawString(60, y, ln)
+        y -= 20
+    cv.showPage()
+    cv.save()
+    return buf.getvalue()
 op = upload(pdf(["Toro Z-Master Operator's Manual", "Maintenance schedule"]), "Toro Z-Master operator manual.pdf", kind="manual", item_id=mower["id"], recognise="false")
 eng = upload(pdf(["Kawasaki FR691V Owner's Manual"]), "Kawasaki FR691V engine manual.pdf", kind="manual", item_id=mower["id"], recognise="false")
 put(f"equipment/{mower['id']}/manuals", json={"order": [{"attachment_id": op["id"], "role": "operator"}, {"attachment_id": eng["id"], "role": "engine"}]})

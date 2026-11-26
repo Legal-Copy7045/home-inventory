@@ -30,6 +30,7 @@ from ..models import (
     CustomerContact,
     Item,
     ItemOwner,
+    Product,
     RepairJob,
     RepairJobEvent,
     ServiceEvent,
@@ -87,6 +88,17 @@ def audit_name(db: Session, item: Item | None) -> str:
     if item is None:
         return "an item"
     return "customer equipment" if db.get(ItemOwner, item.id) is not None else item.product.name
+
+
+def product_audit_name(db: Session, product: Product | None) -> str:
+    """Product name for history summaries recorded against *other* records:
+    "customer equipment" when only customers have it (see audit_name)."""
+    if product is None:
+        return "a product"
+    holdings = list(db.scalars(select(Item.id).where(Item.product_id == product.id)))
+    if holdings and all(db.get(ItemOwner, i) is not None for i in holdings):
+        return "customer equipment"
+    return product.name
 
 
 def copy_owner(db: Session, source: Item, clone: Item) -> None:

@@ -15,7 +15,9 @@ docker compose up -d --build
 docker compose exec home-inventory cat /data/integration_token
 ```
 
-Only the token-protected API port 8100 is published. Bind it to your LAN interface (`"192.168.1.10:8100:8100"`) and never forward it from the internet.
+Only the token-protected API port 8100 is published, and by default only on `127.0.0.1` (Home Assistant on the same host). If Home Assistant runs on another machine, put this host's LAN address in a `.env` file next to the compose file, `HINV_BIND_IP=192.168.1.10`, and run `docker compose up -d` again. Never use `0.0.0.0` and never forward the port from the internet: the API token is sent unencrypted on your network and gives full access to the inventory, so treat it like a password and keep the port off networks you don't trust.
+
+The container runs without extra Linux capabilities, and the App writes its data folder readable by itself only.
 
 ## 2. Install the integration
 
