@@ -13,7 +13,7 @@ Build, test and lint commands are in `docs/development.md`, and CI runs them in 
 - **Browser smoke test:** `tests/e2e/smoke.mjs`, for user-facing flows.
 - **Versions:** every merge to `main` bumps `VERSION` (and the places in `.github/versions.yaml`), with a `## [x.y.z] - date` section in `CHANGELOG.md` (the release notes) and a `## x.y.z` entry in `home_inventory/CHANGELOG.md` (what Home Assistant shows). `python3 .github/scripts/check_versions.py` checks them. Merging publishes release `v<version>` and the images (see `docs/publishing.md`).
 - **Pull requests:** open them as drafts and mark them ready once the checks above pass, so CI runs once. `ci-result` is the only required check (see "CI and its cost" in `docs/development.md`).
-- **Quality commands:** `/regression`, `/walkthrough` and `/full-check` (the owner's global skills; this project's profile is `regression/profile.yaml`, details in `regression/README.md`). They report and never fix product code.
+- **Quality commands:** `/regression`, `/walkthrough` and `/full-check` (the owner's global skills; this project's profile is `regression/profile.yaml`, details in `regression/README.md`). A run itself only reports; afterwards every finding with a clear fix goes into the next release without asking. Ask the owner only when the fix is uncertain, weakens a security setting, changes a legal or governance rule, or merges or removes pages (keep-separate items stay). The summary says which findings will be fixed and which need the owner.
 - **Database changes:** follow "Database changes" in `docs/development.md`. A migration bumps at least the minor version.
 
 ## CodeRabbit (when available)

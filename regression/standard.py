@@ -38,7 +38,7 @@ try:
 except ImportError:  # pragma: no cover
     sys.exit("PyYAML is needed: pip install pyyaml")
 
-KIT_VERSION = "1.0.0"
+KIT_VERSION = "1.2.0"
 HERE = Path(__file__).resolve().parent          # regression/
 ROOT = HERE.parent
 OUT = HERE / "out"
@@ -330,6 +330,9 @@ def last_commit(path: Path, header: str) -> str:
 def add_row(path: Path, header: str, title: str, row: list[str]) -> None:
     text = path.read_text(encoding="utf-8") if path.is_file() else f"# {title}\n"
     line = "| " + " | ".join(row) + " |"
+    if any(r[1] == row[1] and r[0][:10] == row[0][:10] for r in runs_rows(path, header)):
+        print(f"{path.name} already has a row for {row[1]} today; not adding another")
+        return
     if header in text:
         lines = text.splitlines()
         i = lines.index(header) + 2

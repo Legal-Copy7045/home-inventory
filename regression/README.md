@@ -9,7 +9,9 @@ the standard; the version is in `.github/standard.yaml`). The commands are the o
 | `/walkthrough` | Crawls every screen for each role at desktop and phone width, runs automated UX checks, and has two independent reviewers (desktop, phone) propose how to streamline it. |
 | `/full-check` | Both at once, with one summary. |
 
-None of them changes product code. Each publishes a private HTML report (the same link every run, kept in
+A run is an independent, read-only check: it changes no product code. Afterwards, every finding with a clear fix goes
+into the next release without asking; the owner is asked only when the fix is uncertain, weakens a security setting,
+changes a legal or governance rule, or merges or removes pages (keep-separate items stay). Each run publishes a private HTML report (the same link every run, kept in
 `published.yaml`) and adds a row to [`RUNS.md`](RUNS.md) or [`WALKTHROUGHS.md`](WALKTHROUGHS.md). The skills read
 this project's specifics from [`profile.yaml`](profile.yaml): stages, roles, live variables and where each reviewer
 should look.
@@ -83,6 +85,7 @@ IDs are short (`T0042`); keys say what was checked:
 
 ## Rules
 
+- The summary says which findings will be fixed in the next release and which need the owner's decision.
 - The repository is public: committed files carry finding IDs and counts only, never titles or details.
 - Ports: the regression track uses 18199–18202, the walkthrough 18299–18302, reviewers 18501–18522 (see
   `profile.yaml`).

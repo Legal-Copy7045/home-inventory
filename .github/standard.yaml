@@ -1,5 +1,5 @@
 # The project standard this repository follows (github.com/Legal-Copy7045/project-standards).
-standard: 1.1.0
+standard: 1.2.0
 profile: public            # public | private (only CodeQL upload and nothing else differs)
 weekly_slot: "Sun 02:17"   # STANDARD.md 1.6; CodeQL Sun 04:17
 beyond:                    # more advanced than the baseline, kept on purpose

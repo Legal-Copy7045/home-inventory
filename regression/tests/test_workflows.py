@@ -154,6 +154,6 @@ def test_dependabot_weekly_on_sunday_and_grouped():
 def test_versions_and_standard_files():
     assert subprocess.run(["python3", ".github/scripts/check_versions.py"], cwd=ROOT, capture_output=True).returncode == 0
     std = yaml.safe_load((ROOT / ".github/standard.yaml").read_text())
-    assert std["standard"] == "1.1.0" and std["weekly_slot"] == "Sun 02:17"
+    assert std["standard"] == "1.2.0" and std["weekly_slot"] == "Sun 02:17"
     assert all(b["concept"] and b["what"] for b in std["beyond"])
     assert all(e["rule"] and e["reason"] for e in std["exceptions"])
