@@ -61,11 +61,12 @@ jobs:
         with: {persist-credentials: false}
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: {python-version: "3.13"}
+      - name: Tools
+        run: python3 -m pip install --quiet ruff==0.16.9 pytest pyyaml pillow
       - name: Versions agree with VERSION and both changelogs have this version
         run: python3 .github/scripts/check_versions.py
       - name: Lint (integration, tests, tools, regression runner; the App backend)
         run: |
-          python3 -m pip install --quiet ruff==0.16.9 pytest pyyaml pillow
           ruff check .
           (cd home_inventory/server && ruff check home_inventory_server tests)
       - name: Regression runner tests
