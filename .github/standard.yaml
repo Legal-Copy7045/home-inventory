@@ -48,3 +48,8 @@ exceptions:                # done differently, each with its reason
     reason: >-
       The App's backend tests (about 700, several minutes) run in their own backend job when home_inventory/server
       changes; quick runs lint, versions, the App manifest linter and the regression runner's tests.
+  - rule: "1.3 the image scan fails on fixable HIGH/CRITICAL"
+    reason: >-
+      It does, except CVE-2025-47273 (setuptools 70.3.0), accepted by the owner in .trivyignore: Trivy reports it from
+      the Home Assistant base image's Python build with no file in the image, the installed setuptools is 84.2.1, and
+      the App never runs setuptools.

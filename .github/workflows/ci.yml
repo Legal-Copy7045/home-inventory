@@ -256,11 +256,13 @@ jobs:
           docker stop hinv
           docker logs hinv | tail -5
       # Trivy runs from its pinned container image (no third-party action, no secrets; the job token is read-only).
-      - name: Image vulnerability scan (Trivy; fixable HIGH or CRITICAL fails)
+      - name: Image vulnerability scan (Trivy; fixable HIGH or CRITICAL fails, except those accepted in .trivyignore)
         run: |
           mkdir -p "$RUNNER_TEMP/trivy"
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$RUNNER_TEMP/trivy:/out" aquasec/trivy:0.62.1 \
-            image --quiet --ignore-unfixed --severity HIGH,CRITICAL --format json --output /out/report.json home-inventory:ci
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$RUNNER_TEMP/trivy:/out" \
+            -v "$PWD/.trivyignore:/.trivyignore:ro" aquasec/trivy:0.62.1 \
+            image --quiet --ignore-unfixed --severity HIGH,CRITICAL --ignorefile /.trivyignore \
+            --format json --output /out/report.json home-inventory:ci
           # One line per finding, with the file it was found in, so the fix is clear.
           python3 - "$RUNNER_TEMP/trivy/report.json" <<'PY'
           import json, sys

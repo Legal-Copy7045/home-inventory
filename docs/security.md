@@ -119,7 +119,7 @@ Restore is administrator-only and treats the archive as untrusted:
 | Ruff `S` (bandit) rules | Any finding | S104 (bind all interfaces: required inside the container; Ingress peer is checked) and S110 (deliberate parser fallbacks) are excluded; tests may use asserts and dummy credentials. |
 | Privacy guard | No-reply commit addresses, credentials, private terms, photo metadata | Loaded from `main`, so a pull request can't weaken it. The private terms live in the `privacy` environment and are checked on `main` only. |
 | Gitleaks | Any secret | The pull request's commits on every PR, the whole history weekly. Test fixtures are allow-listed in `.gitleaks.toml`. |
-| Trivy (built image) | High or critical with a fix available | Unfixed issues are reported, not failed: they can only be fixed by the Home Assistant base image's next release. Trivy runs from its pinned container image rather than a third-party action. |
+| Trivy (built image) | High or critical with a fix available | Unfixed issues are reported, not failed: they can only be fixed by the Home Assistant base image's next release. Findings accepted on purpose are listed one by one in `.trivyignore` with the reason. Trivy runs from its pinned container image rather than a third-party action. |
 | CodeQL | Alerts in GitHub code scanning | Weekly and on demand. |
 | Route authorization tests | Any route without the right role check | Covers new endpoints automatically. |
 

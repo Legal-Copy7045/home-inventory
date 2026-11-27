@@ -25,6 +25,8 @@ project standard 1.1.0 (`.github/standard.yaml`).
 ### Security
 - The App image upgrades the base image's setuptools (CVE-2025-47273) and leaves out its unused `tempio` tool,
   which was built with a Go version that has known HIGH vulnerabilities.
+- One finding the base image's Python build reports (CVE-2025-47273, setuptools 70.3.0, not used by the App) is
+  accepted in `.trivyignore`.
 - The privacy guard is the standard's (history lines, photo metadata without Pillow) plus this repository's scan of
   binary and large files; the private terms are checked on `main`, from the `privacy` environment.
 - Regression runner: answers the standard's commands (`check`, `brief`, `report`, `log`, `summary`, `manual`, `schema`,

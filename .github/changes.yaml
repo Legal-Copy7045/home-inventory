@@ -9,7 +9,7 @@ groups:
   app: ['^home_inventory/(server|frontend)/', '^custom_components/', '^tests/', '^deploy/', '^pytest\.ini$',
         '^tools/demo/']                                                    # integration: HA tests + browser smoke test
   integration: ['^custom_components/', '^hacs\.json$']                     # hassfest, hacs
-  image: ['^home_inventory/', '^deploy/standalone/',
+  image: ['^home_inventory/', '^deploy/standalone/', '^\.trivyignore$',
           '^\.github/workflows/images\.yml$']                              # app-build (Trivy), standalone-build
   lockfiles: ['package-lock\.json$', 'pyproject\.toml$']                   # dependency audits in quick
   regression: ['^regression/', '^\.github/scripts/', '^ruff\.toml$', '^\.gitleaks\.toml$']  # quick only
