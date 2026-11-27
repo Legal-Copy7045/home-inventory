@@ -63,16 +63,30 @@ node tests/e2e/smoke.mjs /tmp/screenshots
 
 ## CI and its cost
 
-GitHub Actions minutes are limited, so CI (`.github/workflows/ci.yaml`) runs once per pull request:
+This repository follows the owner's project standard (`.github/standard.yaml` names the version and lists what is done
+better or differently). GitHub Actions minutes are limited, so CI (`.github/workflows/ci.yml`) runs once per change:
 
-- **Open pull requests as drafts.** Drafts get no CI. Run the checks above locally, then mark the PR ready: CI runs once, and again only for new pushes. Merging to `main` doesn't run it again.
-- **Only what a PR touches.** A small `changes` job reads `git diff` against the base. The App's unit tests, the Home Assistant tests with the browser smoke test, and the two image builds run only when the PR changes what they test. Lint, the frontend build, the security job, hassfest, HACS and the version check always run. A skipped job counts as passed for required checks.
-- **Weekly full run.** `main` gets every job on Mondays, and on demand (Actions → CI → Run workflow).
-- **CodeQL** (`codeql.yml`) runs weekly and on demand, not on pull requests. GitHub's "default setup" for code scanning must stay switched off (Settings → Code security), or both run.
-- **Dependabot** opens one grouped pull request a month per ecosystem (Actions, pip, npm).
-- **Still on every push:** the privacy guard (a few seconds), because this repository is public. **On version changes:** the release workflow, which publishes the images.
+- **Open pull requests as drafts.** Drafts run nothing. Run `python3 regression/run.py check` (lint, versions, scans and
+  every test suite) and the checks above that your change touches, then mark the PR ready: CI runs once, and again only
+  for new pushes.
+- **Only what a PR touches.** The `changes` job (`.github/scripts/changes.py`, groups in `.github/changes.yaml`) starts
+  each slow job only when the PR changes what it tests: `backend` (App tests), `frontend`, `integration` (Home Assistant
+  tests and the browser smoke test), `hassfest`/`hacs`, and the two image builds (`app-build` scans the image with
+  Trivy). `quick` (lint, versions, the App linter, the runner's tests; dependency audits when a lockfile changes), the
+  privacy guard and gitleaks over the PR's commits always run.
+- **`ci-result` is the only required check.** It fails when any job failed, so jobs can be reshaped without touching
+  branch protection.
+- **Merging to `main`** re-tests nothing: it checks the private terms (`PRIVACY_DENYLIST`, in the `privacy`
+  environment, main only) and, when `VERSION` has no tag yet, releases (see [publishing.md](publishing.md)).
+- **Weekly full run** on Sunday 02:17 UTC, and on demand (Actions → CI → Run workflow): every job, the whole history's
+  secret scan and the dependency audits. **CodeQL** runs Sunday 04:17 UTC and on demand; GitHub's "default setup" for
+  code scanning must stay switched off (Settings → Code security), or both run.
+- **Dependabot** opens grouped minor/patch pull requests weekly on Sunday; they merge themselves once `ci-result` passes
+  (`dependabot-automerge.yml`). Major updates wait for review. Versions Dependabot can't track (base images, toolchains)
+  are listed in `.github/upstreams.yaml`.
 
-Security trade-off: a problem CodeQL would find, or an image vulnerability the image scan would find, can take up to a week to show up instead of appearing on the pull request. The dependency audit and the secret scan still run on every pull request.
+Security trade-off: a problem CodeQL would find can take up to a week to show up instead of appearing on the pull
+request. The secret scan runs on every pull request, the dependency audits whenever a lockfile changes.
 
 ## Releasing
 

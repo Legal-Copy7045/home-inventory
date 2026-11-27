@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import re
 
 import pytest
 import yaml
@@ -140,14 +139,15 @@ def test_label_normalising():
 
 
 def test_catalogue_coverage(tmp_path):
-    (tmp_path / "a.yaml").write_text("area: A\nfeatures:\n  - name: Items\n    match: ['test_items', 'page:\\w+:/items']\n"
-                                     "  - name: Nothing\n    match: ['no-such-check']\n")
+    (tmp_path / "a.yaml").write_text("- feature: Items\n  match: ['test_items', '^page:page:\\w+:/items']\n  manual: [cam]\n"
+                                     "- feature: Nothing\n  match: ['no-such-check']\n")
     feats = cat.load(tmp_path)
     checks = [Check("unit", "server:tests/test_items.py::t", "pass", id="T0001"),
               Check("page", "page:admin:/items", "fail", id="B0001"),
-              Check("unit", "server:tests/test_other.py::t", "pass", id="T0002")]
+              Check("unit", "server:tests/test_other.py::t", "pass", id="T0002"),
+              Check("manual", "cam", "pending", id="M0001")]
     rows = {r["name"]: r for r in cat.coverage(feats, checks)}
-    assert rows["Items"]["total"] == 2 and rows["Items"]["failing"] == ["B0001"]
+    assert rows["Items"]["total"] == 3 and rows["Items"]["failing"] == ["B0001"]
     assert rows["Nothing"]["total"] == 0
     assert [c.id for c in cat.uncovered(feats, checks)] == ["T0002"]
 
@@ -184,18 +184,18 @@ def test_walkthrough_report_html(tmp_path):
     shots = tmp_path / "screens"
     shots.mkdir()
     Image.new("RGB", (390, 900), (200, 210, 220)).save(shots / "member-phone-items.png")
-    inv = {"roles": {"member": {"phone": {"menu": [{"group": "Main", "items": [{"label": "Items", "href": "/items"}]}],
+    roles = {"member": {"phone": {"menu": [{"group": "Main", "items": [{"label": "Items", "href": "/items"}]}],
                                           "pages": {"/items": {"pattern": "/items", "title": "Items", "shot": "member-phone-items.png",
-                                                               "headings": ["Items"], "primary": ["Add"], "height": 900}}}}}}
+                                                               "headings": ["Items"], "primary": ["Add"], "height": 900}}}}}
     ux = StageResult("walkthrough", [Check("walkthrough", "hscroll:phone:/items", "fail", "member: 520px", id="U0001")])
-    findings = [{"id": "W0001", "group": "merge", "title": "Merge A and B", "now": "two pages", "proposal": "one",
-                 "affects": ["member"], "effort": "S", "risk": "low", "evidence": ["member-phone-items.png"], "reviewer": "desktop"}]
+    findings = [{"id": "W0001", "group": "duplicate", "title": "Merge A and B", "detail": "two pages", "proposal": "one",
+                 "roles": ["member"], "value": "high", "screenshots": ["member-phone-items.png"], "reviewer": "desktop"}]
     reviewers = [{"name": "desktop", "scope": "", "status": "completed",
                   "proposed_menus": {"member": [{"group": "Main", "items": ["Items"]}]}}]
-    html = render.walkthrough_report(inv, ux, {"version": "1.0"}, findings, reviewers, shots)
+    html = render.walkthrough_report(roles, ux, {"version": "1.0"}, findings, reviewers, shots)
     assert "Merge A and B" in html and "W0001" in html and "U0001" in html
     assert "data:image/jpeg;base64," in html
-    assert "Proposed menus" in html and "Menus today" in html
+    assert "Proposed menus" in html and "Menus today" in html and "Duplicates (1)" in html
 
 
 def test_security_finding_keys_are_hashed(tmp_path):
@@ -214,43 +214,64 @@ def test_finding_ids_are_stable(tmp_path):
 # ----------------------------------------------------------------------------- logs and manual results
 
 
-def test_log_and_summary(tmp_path, monkeypatch):
-    qc_dir = tmp_path / "qc"
-    qc_dir.mkdir()
-    (qc_dir / "RUNS.md").write_text("| h |\n|---|\n")
-    (qc_dir / "WALKTHROUGHS.md").write_text("| h |\n|---|\n")
-    monkeypatch.setattr(runner, "QC_DIR", qc_dir)
-    monkeypatch.setattr(runner, "PUBLISHED", qc_dir / "published.yaml")
-    (qc_dir / "published.yaml").write_text("regression: https://example.invalid/r\n")
-    run = tmp_path / "run"
+def _out(tmp_path, monkeypatch):
+    """A regression/out folder in the standard's layout, with the runner pointed at it."""
+    out = tmp_path / "out"
+    monkeypatch.setattr(runner, "OUT", out)
+    monkeypatch.setattr(runner, "IDS", tmp_path / "ids")
     for s in _stages():
-        save_stage(s, run / "regression/results")
-    (run / "meta.json").write_text(json.dumps({"date": "2026-11-26T10:00:00Z", "commit": "abc1234", "version": "1.0"}))
-    (run / "regression/findings.json").write_text(json.dumps([{"id": "F0001", "severity": "high"}]))
-    save_stage(StageResult("walkthrough", [Check("walkthrough", "k", "fail", id="U0003")]), run / "walkthrough/results")
-    (run / "walkthrough/inventory.json").write_text(json.dumps({"roles": {"admin": {"phone": {"pages": {"/": {}}}}}}))
-    assert runner.log_run(run) == ["RUNS.md", "WALKTHROUGHS.md"]
-    line = (qc_dir / "RUNS.md").read_text().splitlines()[-1]
-    assert "`abc1234`" in line and "Q0002" in line and "1 high" in line and "F0001" not in line and "https://example.invalid/r" in line
-    wline = (qc_dir / "WALKTHROUGHS.md").read_text().splitlines()[-1]
-    assert "U0003" in wline and "not published" in wline
-    text = runner.summary(run)
-    assert "FAIL Q0002" in text and "security findings: high 1" in text
-    assert runner.previous_commit.__name__  # reads RUNS.md of the real repo; smoke only
+        save_stage(s, out)
+    (out / "meta.json").write_text(json.dumps({"date": "2026-11-26T10:00:00Z", "commit": "abc1234", "version": "1.0"}))
+    (out / "brief.json").write_text(json.dumps({"audit": "full", "why": "first run"}))
+    (out / "findings").mkdir()
+    (out / "findings/bugs.json").write_text(json.dumps({"reviewer": "bugs", "status": "done", "findings": [
+        {"id": "BUG-001", "severity": "high", "title": "Bad", "description": "x", "verified": True}]}))
+    (out / "findings/claims.json").write_text(json.dumps({"reviewer": "claims", "status": "done", "findings": [],
+                                                          "claims": [{"id": "CLM-001", "held": False}]}))
+    return out
 
 
-def test_previous_commit_reads_last_line(tmp_path, monkeypatch):
-    monkeypatch.setattr(runner, "QC_DIR", tmp_path)
-    (tmp_path / "RUNS.md").write_text("| Date | Commit |\n|---|---|\n| d | `aaa1111` |\n| d | `bbb2222` |\n")
-    assert runner.previous_commit() == "bbb2222"
+def test_stage_files_are_in_the_standard_format(tmp_path, monkeypatch):
+    out = _out(tmp_path, monkeypatch)
+    d = json.loads((out / "manual.json").read_text())
+    assert {"stage", "prefix", "started", "finished", "results"} <= set(d)
+    assert d["prefix"] == "M" and d["results"][0]["status"] == "manual"  # pending is the standard's "manual"
+    assert set(d["results"][0]) >= {"id", "key", "status", "detail", "evidence"}
+    save_stage(StageResult("walkthrough", [Check("walkthrough", "k", "fail", id="U0003")]), out)
+    assert (out / "walkthrough-checks.json").exists() and not (out / "walkthrough.json").exists()
+    assert [s.stage for s in runner.load_run(out)] == ["manual", "quality"]  # never the walkthrough's files
+
+
+def test_report_reads_standard_findings(tmp_path, monkeypatch):
+    out = _out(tmp_path, monkeypatch)
+    html = runner.render_regression().read_text()
+    assert "Bad" in html and "BUG-001" in html and "F0001" in html  # reviewer's id kept beside the stable one
+    assert "not held: <b>1</b>" in html and "CLM-001" in html
+    assert "exposure</b>: missing" in html  # a reviewer without a file is shown, not ignored
+    assert "Audit <b>full</b>" in html
+    assert out / "report.html" == runner.render_regression()
+
+
+def test_standard_commands_are_delegated(monkeypatch):
+    seen = []
+    monkeypatch.setattr(runner.standard, "main", lambda argv: seen.append(argv) or 0)
+    for cmd in ("brief", "log", "summary", "schema", "walkthrough-due"):
+        assert runner.main([cmd]) == 0
+    assert runner.main(["manual", "cam", "pass", "--note", "ok"]) == 0
+    assert [a[0] for a in seen] == ["brief", "log", "summary", "schema", "walkthrough-due", "manual"]
+
+
+def test_crashed_stage_is_prefix_run(tmp_path):
+    res = StageResult("unit", [Check("unit", "RUN", "fail", "boom")], complete=False)
+    assign(res, tmp_path)
+    assert res.checks[0].id == "T-RUN" and not (tmp_path / "unit.yaml").exists() or "RUN" not in (tmp_path / "unit.yaml").read_text()
 
 
 def test_manual_results(tmp_path, monkeypatch):
     monkeypatch.setattr(stages, "QC_DIR", tmp_path)
-    (tmp_path / "manual.yaml").write_text("checks:\n  - key: cam\n    check: Take a photo\n  - key: nfc\n    check: Tap\n")
-    stages.record_manual("cam", "pass", "fine", version="1.0")
-    with pytest.raises(KeyError):
-        stages.record_manual("nope", "pass")
+    (tmp_path / "manual.yaml").write_text("- key: cam\n  area: phone\n  steps: [Take a photo]\n"
+                                          "- key: nfc\n  area: phone\n  steps: [Tap]\n")
+    (tmp_path / "manual-log.yaml").write_text("cam: {result: pass, version: '1.0', date: '2026-11-27', note: fine}\n")
     monkeypatch.setattr(stages, "app_version", lambda: "1.0")
     got = {c.key: c.status for c in stages.run_manual(stages.Ctx(tmp_path)).checks}
     assert got == {"cam": "pass", "nfc": "pending"}
@@ -258,12 +279,21 @@ def test_manual_results(tmp_path, monkeypatch):
     assert {c.key: c.status for c in stages.run_manual(stages.Ctx(tmp_path)).checks}["cam"] == "pending"
 
 
+def test_repository_manual_and_claims_files():
+    items = yaml.safe_load((runner.QC_DIR / "manual.yaml").read_text())
+    assert items and all({"key", "area", "steps"} <= set(i) for i in items)
+    claims = yaml.safe_load((runner.QC_DIR / "claims.yaml").read_text())
+    assert len({c["id"] for c in claims}) == len(claims) and all(c["where"] and c["code"] for c in claims)
+    prof = yaml.safe_load((runner.QC_DIR / "profile.yaml").read_text())
+    assert set(prof["stages"]) >= {"ci", "unit", "page", "live", "manual", "walkthrough"}
+
+
 def test_stage_result_roundtrip(tmp_path):
     res = StageResult("tests", [Check("tests", "k", "pass", id="T0001", data={"n": 1})], scopes=["server:"])
     p = save_stage(res, tmp_path)
     back = load_stage(p)
     assert back.checks[0].data == {"n": 1} and back.scopes == ["server:"]
-    assert re.fullmatch(r"tests:T0001 k", back.checks[0].full)
+    assert back.checks[0].full == "tests:k"  # what catalogue patterns match: "<stage>:<key>"
 
 
 def test_json_in_ignores_trailing_text():

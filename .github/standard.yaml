@@ -1,0 +1,50 @@
+# The project standard this repository follows (github.com/Legal-Copy7045/project-standards).
+standard: 1.1.0
+profile: public            # public | private (only CodeQL upload and nothing else differs)
+weekly_slot: "Sun 02:17"   # STANDARD.md 1.6; CodeQL Sun 04:17
+beyond:                    # more advanced than the baseline, kept on purpose
+  - concept: Regression runner and reports
+    what: >-
+      Its own stage code (regression/qc/) with a page stage that visits every page for each role and sweeps every API
+      route per role, unauthenticated and on the token port against regression/access.yaml; scanner results accepted
+      by rule (accepted.yaml); IDs that record when a check appeared and was retired; richer HTML reports (feature
+      coverage, the manual checklist, claims held, screenshot thumbnails, proposed menus). It answers the standard's
+      commands and files and uses standard.py for brief, log, summary, manual, schema and walkthrough-due.
+  - concept: Walkthrough UX checks
+    what: >-
+      Beyond the standard's WALK checks: elements running off screen or wider than their container, CSP violations,
+      pages that answer "refused", one detail screen per route pattern, a fake camera so camera pages behave as on a
+      phone.
+  - concept: Privacy guard
+    what: >-
+      The standard's guard plus: binary and large files (PDFs, videos, photos over the size limit) are searched in
+      overlapping chunks for credentials and private terms instead of skipped.
+  - concept: Change detection
+    what: >-
+      Seven groups instead of one (server, frontend, app, integration, image, lockfiles, regression), so a pull request
+      starts only the jobs its files can break.
+  - concept: Release images
+    what: >-
+      The release path also builds and pushes the App images for both architectures from the release tag, checks the
+      tag's versions, and smoke-tests the published amd64 image (images.yml, re-runnable by hand).
+exceptions:                # done differently, each with its reason
+  - rule: "3.1 IDs are PREFIX-0001: \"key\" (standard prefixes CI/UNIT/PAGE/LIVE/MAN/WALK)"
+    reason: >-
+      Existing IDs are Q0001/T0001/B0001/L0001/M0001/U0001 in a registry that also records added and retired dates;
+      the standard forbids renumbering, so the prefixes and format stay. A crashed stage still reports <PREFIX>-RUN.
+  - rule: "3.4 walkthrough findings are written by the reviewers with the standard schema"
+    reason: >-
+      The report gives each finding a stable project ID (F0001 security, W0001 walkthrough; security keys hashed,
+      since the repository is public) beside the reviewer's own BUG-/SEC-/EXP-/WD-/WP- id.
+  - rule: "2.1 one CHANGELOG.md"
+    reason: >-
+      home_inventory/CHANGELOG.md stays as well: Home Assistant shows it in the App's update dialog, so it is written
+      for people using the App. CHANGELOG.md (Keep a Changelog) is the release notes. check_versions.py checks both.
+  - rule: "2.2 release tag v<VERSION>; image tags"
+    reason: >-
+      Releases up to 0.43.1 were tagged without the v. The App images keep plain <VERSION> tags because the Home
+      Assistant Supervisor pulls <arch>-home-inventory:<version> from config.yaml.
+  - rule: "1.3 quick runs the fast unit tests"
+    reason: >-
+      The App's backend tests (about 700, several minutes) run in their own backend job when home_inventory/server
+      changes; quick runs lint, versions, the App manifest linter and the regression runner's tests.

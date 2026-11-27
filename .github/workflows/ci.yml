@@ -1,0 +1,296 @@
+# CI per the project standard (github.com/Legal-Copy7045/project-standards, STANDARD.md section 1).
+#  - pull request: nothing while a draft; then the quick checks, and each slow group only when its files changed
+#    (.github/changes.yaml);
+#  - push to main: the private-terms check, and the release path when VERSION has no v<VERSION> tag yet: the GitHub
+#    release, then the App images for every architecture (nothing is re-tested);
+#  - weekly and by hand: everything, full-history secret scan, dependency audits; publishes nothing
+#    (workflow_dispatch with release: true on main retries a release).
+# ci-result is the only required check. Release-day image rebuilds: run "App images" (images.yml) by hand.
+name: CI
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 2 * * 0"        # Sunday 02:17 UTC: home-inventory's slot (STANDARD.md 1.6)
+  workflow_dispatch:
+    inputs:
+      release: {type: boolean, default: false, description: "Release VERSION if it has no tag yet (main only)"}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  changes:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      release: ${{ steps.c.outputs.release }}
+      full: ${{ steps.c.outputs.full }}
+      server: ${{ steps.c.outputs.server }}
+      frontend: ${{ steps.c.outputs.frontend }}
+      app: ${{ steps.c.outputs.app }}
+      integration: ${{ steps.c.outputs.integration }}
+      image: ${{ steps.c.outputs.image }}
+      lockfiles: ${{ steps.c.outputs.lockfiles }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {fetch-depth: 0, persist-credentials: false}
+      - id: c
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          RELEASE_INPUT: ${{ inputs.release }}
+        run: python3 .github/scripts/changes.py
+
+  # Lint, versions, the App manifest, the regression runner's own tests; audits when a lockfile changed (or weekly).
+  quick:
+    needs: changes
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: {python-version: "3.13"}
+      - name: Versions agree with VERSION and both changelogs have this version
+        run: python3 .github/scripts/check_versions.py
+      - name: Lint (integration, tests, tools, regression runner; the App backend)
+        run: |
+          python3 -m pip install --quiet ruff==0.16.9 pytest pyyaml pillow
+          ruff check .
+          (cd home_inventory/server && ruff check home_inventory_server tests)
+      - name: Regression runner tests
+        run: python3 -m pytest -q -p no:cacheprovider -c regression/tests/pytest.ini regression/tests
+      - name: App manifest (Home Assistant App linter)
+        uses: frenck/action-addon-linter@479f4f053b96ed00a83ce2c7d8f858e22475aa98  # v2
+        with:
+          path: ./home_inventory
+      - name: Python dependencies (pip-audit)
+        if: needs.changes.outputs.lockfiles == 'true' || needs.changes.outputs.full == 'true'
+        run: |
+          python -m venv /tmp/audit
+          /tmp/audit/bin/pip install -q pip-audit ./home_inventory/server
+          /tmp/audit/bin/pip-audit --skip-editable --progress-spinner off
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        if: needs.changes.outputs.lockfiles == 'true' || needs.changes.outputs.full == 'true'
+        with:
+          node-version: "24"
+      - name: JavaScript dependencies (npm audit, shipped code, high and critical)
+        if: needs.changes.outputs.lockfiles == 'true' || needs.changes.outputs.full == 'true'
+        working-directory: home_inventory/frontend
+        run: npm audit --omit=dev --audit-level=high
+
+  privacy:
+    needs: changes
+    if: github.event_name != 'push'
+    uses: Legal-Copy7045/project-standards/.github/workflows/privacy.yml@1f5964bc45844dc0cefda0374af8f8128daa1b40 # v1.1.0
+
+  privacy-denylist:
+    needs: changes
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref_name == 'main')
+    uses: Legal-Copy7045/project-standards/.github/workflows/privacy.yml@1f5964bc45844dc0cefda0374af8f8128daa1b40 # v1.1.0
+    with: {denylist: true}
+    secrets: inherit
+
+  secrets:
+    needs: changes
+    if: github.event_name != 'push'
+    uses: Legal-Copy7045/project-standards/.github/workflows/gitleaks.yml@1f5964bc45844dc0cefda0374af8f8128daa1b40 # v1.1.0
+    with: {full-history: "${{ needs.changes.outputs.full == 'true' }}"}
+
+  # ---- slow groups: each only when its files changed (or weekly) ----
+
+  backend:
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: home_inventory/server
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: home_inventory/server/pyproject.toml
+      - run: pip install -e '.[test]'
+      - run: pytest -q
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: home_inventory/frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: home_inventory/frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  integration:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "24"
+      - name: Build UI (served by the App under test)
+        run: cd home_inventory/frontend && npm ci && npm run build
+      - name: Install Home Assistant test harness and the App backend
+        run: |
+          pip install pytest-homeassistant-custom-component
+          pip install "$(grep -o 'home-assistant-frontend==[0-9.]*' $(python -c 'import homeassistant,os;print(os.path.dirname(homeassistant.__file__))')/components/frontend/manifest.json)"
+          pip install -e home_inventory/server
+          # Assist's sentence matcher, at the version Home Assistant uses (checks deploy/assist sentences).
+          pip install "$(python -c 'import homeassistant,os,json;print(next(r for r in json.load(open(os.path.dirname(homeassistant.__file__)+"/components/conversation/manifest.json"))["requirements"] if r.startswith("hassil")))')"
+      - run: pytest -q -p no:logging
+      - name: Browser end-to-end smoke test
+        run: |
+          npx --yes playwright@1 install --with-deps chromium
+          npm init -y >/dev/null && npm install playwright@1 >/dev/null
+          mkdir -p /tmp/e2e
+          (cd home_inventory/server && HINV_DATA_DIR=/tmp/e2e HINV_TRUSTED_PROXIES=127.0.0.1 HINV_AI_PROVIDER=none HINV_ADMIN_USERS=e2e-user \
+             HINV_INGRESS_PORT=18099 HINV_API_PORT=18100 HINV_BARCODE_OPEN_FACTS=false HINV_BARCODE_UPCITEMDB=false \
+             python -m home_inventory_server &)
+          sleep 5
+          node tests/e2e/smoke.mjs
+
+  hassfest:
+    needs: changes
+    if: needs.changes.outputs.integration == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: home-assistant/actions/hassfest@9e9565e68f5a70d874202871f4c4064d23814235  # master
+
+  hacs:
+    needs: changes
+    if: needs.changes.outputs.integration == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: hacs/action@1ebf01c408f29afcb6406bd431bc98fd8cbb15aa  # main
+        with:
+          category: integration
+          # Remove once the repository topics are set and the brands PR is
+          # merged (needed for the default HACS store, see docs/publishing.md).
+          ignore: brands topics
+
+  standalone-build:
+    # Home Assistant Container/Core installs: the companion container is built
+    # from deploy/standalone/docker-compose.yaml on plain python:alpine, with
+    # no Supervisor. Build it exactly as the install guide says and check the
+    # API answers on 8100 and the integration token is written.
+    needs: changes
+    if: needs.changes.outputs.image == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - name: Build and start the companion container
+        working-directory: deploy/standalone
+        run: docker compose up -d --build
+      - name: Health and integration token
+        working-directory: deploy/standalone
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf localhost:8100/api/health; then ok=1; break; fi
+            sleep 1
+          done
+          docker compose logs --tail 20
+          test "${ok:-}" = 1
+          docker compose exec -T home-inventory test -s /data/integration_token
+      - name: Stop
+        if: always()
+        working-directory: deploy/standalone
+        run: docker compose down
+
+  app-build:
+    # The App image (amd64), built once: build, smoke-test and scan in the same job.
+    needs: changes
+    if: needs.changes.outputs.image == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - name: Build the App image (amd64)
+        run: docker build --build-arg BUILD_FROM="$(awk '/^  amd64:/ {print $2}' home_inventory/build.yaml)" -t home-inventory:ci home_inventory
+      - name: Start, check health, stop
+        run: |
+          docker run -d --name hinv -p 8099:8099 home-inventory:ci
+          for i in $(seq 1 30); do curl -sf localhost:8099/api/health && break; sleep 1; done
+          curl -sf localhost:8099/api/health
+          docker stop hinv
+          docker logs hinv | tail -5
+      # Trivy runs from its pinned container image (no third-party action, no secrets; the job token is read-only).
+      - name: Image vulnerability scan (Trivy; fixable HIGH or CRITICAL fails)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.62.1 \
+            image --quiet --ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 home-inventory:ci
+
+  # ---- release path: push to main whose VERSION has no v<VERSION> tag ----
+
+  release:
+    needs: [changes, privacy-denylist]
+    if: needs.changes.outputs.release == 'true'
+    permissions:
+      contents: write
+    uses: Legal-Copy7045/project-standards/.github/workflows/release.yml@1f5964bc45844dc0cefda0374af8f8128daa1b40 # v1.1.0
+    with:
+      title: "Home Inventory"
+
+  images:
+    # A release created with the job token starts no other workflow, so the images are built here.
+    needs: [changes, release]
+    if: needs.release.outputs.created == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/images.yml
+    with:
+      version: ${{ needs.release.outputs.version }}
+
+  ci-result:
+    if: always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    needs: [changes, quick, privacy, privacy-denylist, secrets, backend, frontend, integration, hassfest, hacs,
+            standalone-build, app-build, release, images]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "$RESULTS"
+          if echo "$RESULTS" | grep -qE '"(failure|cancelled)"'; then echo "A needed job failed or was cancelled."; exit 1; fi

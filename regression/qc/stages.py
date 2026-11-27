@@ -42,13 +42,14 @@ ALL_STAGES = REGRESSION_STAGES + ("walkthrough",)
 
 @dataclass
 class Ctx:
-    out: Path               # this run's folder
+    out: Path               # regression/out/: stage results go here (the standard's flat layout)
     ports: tuple[int, int, int, int] = (18199, 18200, 18201, 18202)  # seeded ingress/api, smoke ingress/api
     log: callable = print
+    name: str = "regression"  # scratch space: out/work/<name>/ (separate for the walkthrough track)
 
     @property
     def work(self) -> Path:
-        p = self.out / "work"
+        p = self.out / "work" / self.name
         p.mkdir(parents=True, exist_ok=True)
         return p
 
@@ -487,7 +488,7 @@ def run_browser(ctx: Ctx, built: tuple[bool, str] | None = None) -> StageResult:
 # --------------------------------------------------------------------------- live
 
 def app_version() -> str:
-    return yaml.safe_load((ROOT / "home_inventory/config.yaml").read_text())["version"]
+    return (ROOT / "VERSION").read_text().strip()
 
 
 def _https_json(url: str, headers: dict | None = None):
@@ -502,7 +503,12 @@ def run_live(ctx: Ctx) -> StageResult:
     v = app_version()
     repo = "Legal-Copy7045/home-inventory"
     try:
-        rel = _https_json(f"https://api.github.com/repos/{repo}/releases/tags/{v}")
+        try:  # v<version> from 0.44.0 on (the project standard); plain <version> before
+            rel = _https_json(f"https://api.github.com/repos/{repo}/releases/tags/v{v}")
+        except urllib.error.HTTPError as e:
+            if e.code != 404:
+                raise
+            rel = _https_json(f"https://api.github.com/repos/{repo}/releases/tags/{v}")
         res.checks.append(Check("live", "release:current-version", "pass" if not rel.get("draft") else "fail",
                                 f"GitHub release {rel.get('tag_name')} published {rel.get('published_at')}"))
     except urllib.error.HTTPError as e:
@@ -546,29 +552,14 @@ def run_live(ctx: Ctx) -> StageResult:
 # --------------------------------------------------------------------------- manual
 
 def manual_items() -> list[dict]:
-    return yaml.safe_load((QC_DIR / "manual.yaml").read_text())["checks"]
+    """regression/manual.yaml: a list of {key, area, steps} (the project standard's format)."""
+    return yaml.safe_load((QC_DIR / "manual.yaml").read_text()) or []
 
 
 def manual_log() -> dict[str, dict]:
+    """regression/manual-log.yaml: {key: {result, version, date, note}}, written by `run.py manual`."""
     p = QC_DIR / "manual-log.yaml"
-    rows = (yaml.safe_load(p.read_text()) or []) if p.exists() else []
-    latest: dict[str, dict] = {}
-    for r in rows:
-        latest[r["key"]] = r
-    return latest
-
-
-def record_manual(key: str, status: str, note: str = "", version: str | None = None) -> None:
-    if status not in ("pass", "fail"):
-        raise ValueError("status must be pass or fail")
-    if key not in {m["key"] for m in manual_items()}:
-        raise KeyError(f"no manual check {key!r} in regression/manual.yaml")
-    p = QC_DIR / "manual-log.yaml"
-    rows = (yaml.safe_load(p.read_text()) or []) if p.exists() else []
-    rows.append({"key": key, "status": status, "date": dt.date.today().isoformat(),
-                 "version": version or app_version(), "note": note})
-    p.write_text("# Results of the manual checks (regression/manual.yaml), newest last.\n"
-                 + yaml.safe_dump(rows, sort_keys=False, allow_unicode=True))
+    return (yaml.safe_load(p.read_text()) or {}) if p.exists() else {}
 
 
 def run_manual(ctx: Ctx) -> StageResult:
@@ -576,15 +567,16 @@ def run_manual(ctx: Ctx) -> StageResult:
     done = manual_log()
     v = app_version()
     for m in manual_items():
+        steps = "\n".join(f"- {x}" for x in m.get("steps", []))
         r = done.get(m["key"])
         if not r:
-            res.checks.append(Check("manual", m["key"], "pending", m["check"]))
-        else:
-            stale = r.get("version") != v
-            status = "pending" if stale else r["status"]
-            res.checks.append(Check("manual", m["key"], status,
-                                    f"{m['check']}\nLast: {r['status']} on {r['date']} (version {r.get('version')})"
-                                    + (" - not yet checked on this version" if stale else "") + (f": {r['note']}" if r.get("note") else "")))
+            res.checks.append(Check("manual", m["key"], "pending", steps))
+            continue
+        stale = r.get("version") != v
+        res.checks.append(Check("manual", m["key"], "pending" if stale else r["result"],
+                                f"{steps}\nLast: {r['result']} on {r.get('date')} (version {r.get('version')})"
+                                + (" - not yet checked on this version" if stale else "")
+                                + (f": {r['note']}" if r.get("note") else "")))
     res.finished = now()
     return res
 
@@ -652,18 +644,20 @@ def run_walkthrough(ctx: Ctx, built: tuple[bool, str] | None = None) -> StageRes
         res.complete = False
         return res
     ing, api = ctx.ports[0], ctx.ports[1]
-    shots = ctx.out / "screens"
+    shots = ctx.out / "walkthrough"  # the standard's screenshot folder
     shots.mkdir(parents=True, exist_ok=True)
     (ctx.work / "app").mkdir(exist_ok=True)
     with AppServer(ctx.work / "app", ing, api) as s:
         ids = s.seed()
         routes = [r for r in concrete_routes(ids) if r["path"]]
         payload = {"base": s.base, "roles": ROLES, "widths": WIDTHS, "routes": routes,
-                   "out": str(ctx.out / "inventory.json"), "shots": str(shots)}
+                   "out": str(ctx.work / "inventory.json"), "shots": str(shots)}
         ctx.log("walkthrough: crawling (3 roles x desktop and phone)")
         rc, out = run_node(QC_DIR / "walkthrough/crawl.mjs", payload, timeout=5400)
     try:
-        inv = json.loads((ctx.out / "inventory.json").read_text())
+        inv = json.loads((ctx.work / "inventory.json").read_text())
+        # The standard's inventory: role -> desktop|phone -> {menu, pages}.
+        (ctx.out / "walkthrough.json").write_text(json.dumps(inv.get("roles", {}), indent=1, ensure_ascii=False))
     except (OSError, ValueError):
         res.checks.append(Check("walkthrough", "crawl", "fail", tail(out)))
         res.complete = False

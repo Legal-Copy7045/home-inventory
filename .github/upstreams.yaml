@@ -1,0 +1,11 @@
+# Versions Dependabot doesn't track (STANDARD.md 5): the weekly maintenance session checks each for a newer release.
+# source: pypi:<name> | npm:<name> | github:<owner>/<repo> (release tags) | docker:<image>
+- {name: Home Assistant App base image, current: "3.13-alpine3.22", source: "docker:ghcr.io/home-assistant/amd64-base-python",
+   where: "home_inventory/build.yaml (both architectures), home_inventory/Dockerfile (BUILD_FROM default)"}
+- {name: Python (standalone container), current: "3.13-alpine", source: "docker:python", where: "deploy/standalone/docker-compose.yaml (BUILD_FROM)"}
+- {name: Node.js (frontend build), current: "24", source: "docker:node", where: "home_inventory/Dockerfile (node:24-alpine), .github/workflows/ci.yml (node-version)"}
+- {name: Python (CI), current: "3.13", source: "docker:python", where: ".github/workflows/ci.yml (python-version)"}
+- {name: Trivy, current: "0.62.1", source: "github:aquasecurity/trivy", where: ".github/workflows/ci.yml (app-build)"}
+- {name: ruff, current: "0.16.9", source: "pypi:ruff", where: ".github/workflows/ci.yml (quick)"}
+- {name: Home Assistant (integration tests), current: "latest", source: "pypi:pytest-homeassistant-custom-component",
+   where: ".github/workflows/ci.yml (integration, unpinned: always the newest)"}

@@ -1,4 +1,5 @@
 extend = "../ruff.toml"
 
+extend-exclude = ["standard.py"]  # vendored from the project standard, never edited here
 [lint.isort]
 known-first-party = ["qc", "run"]

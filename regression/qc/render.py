@@ -15,9 +15,13 @@ from pathlib import Path
 from .results import Check, StageResult
 
 SEVERITIES = ("critical", "high", "medium", "low", "info")
-GROUPS = ("merge", "rename", "move", "remove", "flow", "mobile", "keep-separate")
-GROUP_TITLES = {"merge": "Merge", "rename": "Rename", "move": "Move", "remove": "Remove", "flow": "Flow",
-                "mobile": "Phone", "keep-separate": "Keep separate"}
+# The standard's walkthrough groups (regression/standard.py schema walkthrough).
+GROUPS = ("duplicate", "naming", "placement", "dead-end", "long-flow", "layout", "keep-separate", "other")
+GROUP_TITLES = {"duplicate": "Duplicates", "naming": "Names", "placement": "Placement", "dead-end": "Dead ends",
+                "long-flow": "Long flows", "layout": "Layout", "keep-separate": "Keep separate", "other": "Other"}
+# Findings files in regression/out/findings/ (the standard's reviewer names).
+SECURITY_REVIEWERS = ("bugs", "claims", "exposure")
+WALK_REVIEWERS = ("walkthrough-desktop", "walkthrough-phone")
 
 CSS = """
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -131,16 +135,23 @@ def _checks_table(checks: list[Check], with_detail=True) -> str:
 
 # --------------------------------------------------------------------------- findings
 
-def load_findings(fdir: Path, prefix: str) -> tuple[list[dict], list[dict]]:
-    """All ``<prefix>-*.json`` files: (findings, reviewers)."""
+def load_findings(fdir: Path, names: tuple[str, ...]) -> tuple[list[dict], list[dict]]:
+    """The reviewers' JSON files ``<name>.json``: (findings, reviewers). A missing or unreadable file is a reviewer
+    without a result, so the report says so."""
     findings, reviewers = [], []
-    for p in sorted(fdir.glob(f"{prefix}-*.json")):
-        d = json.loads(p.read_text())
-        name = d.get("reviewer") or p.stem.removeprefix(prefix + "-")
-        reviewers.append({"name": name, "scope": d.get("scope", ""), "status": d.get("status", "completed"),
-                          "proposed_menus": d.get("proposed_menus") or {}})
+    for n in names:
+        p = fdir / f"{n}.json"
+        try:
+            d = json.loads(p.read_text())
+        except FileNotFoundError:
+            d = {"reviewer": n.removeprefix("walkthrough-"), "status": "missing", "scope": "no findings file", "findings": []}
+        except ValueError:
+            d = {"reviewer": n.removeprefix("walkthrough-"), "status": "failed", "scope": "unreadable JSON", "findings": []}
+        name = d.get("reviewer") or n
+        reviewers.append({"name": name, "scope": d.get("scope", ""), "status": d.get("status", "done"),
+                          "proposed_menus": d.get("proposed_menus") or {}, "claims": d.get("claims") or []})
         for f in d.get("findings", []):
-            findings.append({**f, "reviewer": f.get("reviewer") or name})
+            findings.append({**f, "ref": f.get("id", ""), "reviewer": f.get("reviewer") or name})
     return findings, reviewers
 
 
@@ -151,7 +162,7 @@ def finding_key(f: dict, kind: str) -> str:
         import hashlib
         raw = f"{f.get('file') or '-'}:{slug(f.get('title', ''))}"
         return "sha256:" + hashlib.sha256(raw.encode()).hexdigest()[:24]
-    return f"{f.get('group', 'flow')}:{slug(f.get('title', ''))}"
+    return f"{f.get('group', 'other')}:{slug(f.get('title', ''))}"
 
 
 def assign_finding_ids(findings: list[dict], ids_dir: Path, kind: str) -> None:
@@ -179,7 +190,9 @@ def regression_report(stages: list[StageResult], meta: dict, coverage: list[dict
            f'<span>Version <b>{escape(meta.get("version", "?"))}</b></span>'
            f'<span>Commit <b><code>{escape(meta.get("commit", "?"))}</code></b></span>'
            f'<span>Run <b>{escape(meta.get("date", "?"))}</b></span>'
-           f'<span>Stages <b>{escape(", ".join(s.stage for s in stages))}</b></span></div></header>']
+           f'<span>Stages <b>{escape(", ".join(s.stage for s in stages))}</b></span>'
+           + (f'<span>Audit <b>{escape(meta["audit"])}</b> ({escape(meta.get("audit_why", ""))})</span>' if meta.get("audit") else "")
+           + '</div></header>']
     by_sev = {s: sum((f.get("severity") or "").lower() == s for f in findings) for s in SEVERITIES}
     tiles = [("Checks", sum(tot.values()), ""), ("Passed", tot["pass"], "good"), ("Failed", tot["fail"], "bad" if tot["fail"] else "good"),
              ("Skipped", tot["skip"], ""), ("Manual to do", tot["pending"], ""),
@@ -203,6 +216,12 @@ def regression_report(stages: list[StageResult], meta: dict, coverage: list[dict
     if reviewers:
         sec.append('<p class="note">' + "; ".join(f'<b>{escape(r["name"])}</b>: {escape(r["status"])}'
                                                   + (f' ({escape(r["scope"])})' if r["scope"] else "") for r in reviewers) + "</p>")
+    claims = [c for r in reviewers for c in r.get("claims", [])]
+    if claims:
+        broken = [c for c in claims if not c.get("held", True)]
+        sec.append(f'<p class="note">Claims checked: <b>{len(claims)}</b>; not held: <b>{len(broken)}</b>'
+                   + (" (" + ", ".join(f'<span class="id">{escape(str(c.get("id", "")))}</span>' for c in broken) + ")" if broken else "")
+                   + ". The claims are listed in <code>regression/claims.yaml</code>.</p>")
     if findings:
         cards = []
         for f in sorted(findings, key=lambda x: (sev_rank(x), x.get("id", ""))):
@@ -216,6 +235,8 @@ def regression_report(stages: list[StageResult], meta: dict, coverage: list[dict
                 f'{escape(f.get("title", ""))}</summary><dl class="kv">'
                 f'<dt>Where</dt><dd><code>{escape(where)}</code></dd><dt>Reviewer</dt><dd>{escape(f.get("reviewer", ""))}</dd>'
                 f'<dt>What</dt><dd>{escape(f.get("description", ""))}</dd>'
+                + (f'<dt>Scenario</dt><dd>{escape(f["scenario"])}</dd>' if f.get("scenario") else "")
+                + (f'<dt>Reviewer’s id</dt><dd>{escape(f["ref"])}</dd>' if f.get("ref") else "")
                 + (f'<dt>Evidence</dt><dd><pre>{escape(f["evidence"])}</pre></dd>' if f.get("evidence") else "")
                 + (f'<dt>Suggested fix</dt><dd>{escape(f["recommendation"])}</dd>' if f.get("recommendation") else "")
                 + "</dl></details>")
@@ -274,9 +295,9 @@ def thumbnail(png: Path, width: int = 180) -> str | None:
         return None
 
 
-def walkthrough_report(inv: dict, ux: StageResult | None, meta: dict, findings: list[dict], reviewers: list[dict],
+def walkthrough_report(roles: dict, ux: StageResult | None, meta: dict, findings: list[dict], reviewers: list[dict],
                        shots: Path, max_thumbs: int = 60) -> str:
-    roles = inv.get("roles", {})
+    """roles: the standard's out/walkthrough.json (role -> desktop|phone -> {menu, pages})."""
     screens = sum(len(w["pages"]) for r in roles.values() for w in r.values())
     checks = ux.checks if ux else []
     fails = [c for c in checks if c.status == "fail"]
@@ -305,7 +326,7 @@ def walkthrough_report(inv: dict, ux: StageResult | None, meta: dict, findings: 
            f'<span>Commit <b><code>{escape(meta.get("commit", "?"))}</code></b></span>'
            f'<span>Run <b>{escape(meta.get("date", "?"))}</b></span>'
            f'<span>Roles <b>{escape(", ".join(roles))}</b></span><span>Widths <b>desktop 1280×900, phone 390×844</b></span></div></header>']
-    by_group = {g: [f for f in findings if f.get("group") == g] for g in GROUPS}
+    by_group = {g: [f for f in findings if (f.get("group") if f.get("group") in GROUPS else "other") == g] for g in GROUPS}
     tiles = [("Screens recorded", screens, ""), ("UX checks", len(checks), ""),
              ("UX failing", len(fails), "bad" if fails else "good"), ("Reviewer findings", len(findings), "")]
     out.append('<section class="tiles">' + "".join(
@@ -323,15 +344,18 @@ def walkthrough_report(inv: dict, ux: StageResult | None, meta: dict, findings: 
             continue
         cards = []
         for f in sorted(items, key=lambda x: x.get("id", "")):
+            roles_ = f.get("roles") or f.get("affects") or []
+            value = str(f.get("value") or "")
             cards.append(
                 f'<div class="card"><div class="head"><span class="id">{escape(f.get("id", ""))}</span>'
-                f'<b>{escape(f.get("title", ""))}</b><span class="pill skip">effort {escape(str(f.get("effort", "?")))}</span>'
-                f'<span class="pill {"high" if str(f.get("risk", "")).lower().startswith("h") else "medium" if str(f.get("risk", "")).lower().startswith("m") else "low"}">risk {escape(str(f.get("risk", "?")))}</span>'
-                f'<span class="note">{escape(f.get("reviewer", ""))}</span></div><dl class="kv">'
-                f'<dt>Now</dt><dd>{escape(f.get("now", ""))}</dd><dt>Proposal</dt><dd>{escape(f.get("proposal", ""))}</dd>'
-                f'<dt>Affects</dt><dd>{escape(", ".join(f.get("affects", [])) if isinstance(f.get("affects"), list) else str(f.get("affects", "")))}</dd>'
+                f'<b>{escape(f.get("title", ""))}</b>'
+                + (f'<span class="pill {"high" if value == "high" else "medium" if value == "medium" else "low"}">value {escape(value)}</span>' if value else "")
+                + f'<span class="note">{escape(f.get("reviewer", ""))}</span></div><dl class="kv">'
+                f'<dt>Now</dt><dd>{escape(f.get("detail") or f.get("now", ""))}</dd><dt>Proposal</dt><dd>{escape(f.get("proposal", ""))}</dd>'
+                f'<dt>Roles</dt><dd>{escape(", ".join(roles_) if isinstance(roles_, list) else str(roles_))}</dd>'
+                + (f'<dt>Pages</dt><dd>{escape(", ".join(f["pages"]))}</dd>' if f.get("pages") else "")
                 + (f'<dt>Why separate</dt><dd>{escape(f["why"])}</dd>' if f.get("why") else "")
-                + "</dl>" + thumbs(f.get("evidence", [])) + "</div>")
+                + "</dl>" + thumbs(f.get("screenshots") or f.get("evidence") or []) + "</div>")
         fsec.append(f'<h3>{GROUP_TITLES[g]} ({len(items)})</h3><div class="cards">{"".join(cards)}</div>')
     out.append("".join(fsec) + "</section>")
 

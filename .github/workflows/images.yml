@@ -1,0 +1,84 @@
+# The App images for every architecture, pushed to ghcr.io (the Home Assistant Supervisor pulls
+# <arch>-home-inventory:<version>). Called by ci.yml's release path right after the GitHub release v<version>
+# is created; run it by hand to rebuild a released version's images (e.g. after a failed push).
+name: App images
+on:
+  workflow_call:
+    inputs:
+      version: {type: string, required: true}
+  workflow_dispatch:
+    inputs:
+      version: {type: string, required: true, description: "Released version to build, e.g. 0.44.0 (tag v0.44.0 must exist)"}
+
+permissions:
+  contents: read
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: aarch64
+            platform: linux/arm64
+          - arch: amd64
+            platform: linux/amd64
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: v${{ inputs.version }}
+          persist-credentials: false
+      - name: The tag's VERSION is the version asked for
+        env:
+          WANT: ${{ inputs.version }}
+        run: |
+          test "$(tr -d '[:space:]' < VERSION)" = "$WANT" || { echo "::error::VERSION at v$WANT is not $WANT"; exit 1; }
+          python3 .github/scripts/check_versions.py "v$WANT"
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1  # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069  # v4.4.1
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550  # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Base image for this architecture
+        id: base
+        run: echo "from=$(grep '^  ${{ matrix.arch }}:' home_inventory/build.yaml | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7.4.0
+        with:
+          context: home_inventory
+          platforms: ${{ matrix.platform }}
+          push: true
+          provenance: false
+          build-args: |
+            BUILD_FROM=${{ steps.base.outputs.from }}
+            BUILD_ARCH=${{ matrix.arch }}
+            BUILD_VERSION=${{ inputs.version }}
+          labels: |
+            io.hass.name=Home Inventory
+            io.hass.type=addon
+            io.hass.arch=${{ matrix.arch }}
+            io.hass.version=${{ inputs.version }}
+            org.opencontainers.image.title=Home Assistant App: Home Inventory
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ inputs.version }}
+            org.opencontainers.image.licenses=MIT
+          tags: |
+            ghcr.io/legal-copy7045/${{ matrix.arch }}-home-inventory:${{ inputs.version }}
+            ghcr.io/legal-copy7045/${{ matrix.arch }}-home-inventory:latest
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+      - name: Smoke-test the published image
+        if: matrix.arch == 'amd64'
+        env:
+          IMAGE: ghcr.io/legal-copy7045/amd64-home-inventory:${{ inputs.version }}
+        run: |
+          docker run -d --name hinv -p 8099:8099 "$IMAGE"
+          for i in $(seq 1 30); do curl -sf localhost:8099/api/health && break; sleep 1; done
+          curl -sf localhost:8099/api/health
+          docker stop hinv

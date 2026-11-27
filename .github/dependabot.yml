@@ -1,25 +1,23 @@
-# Dependency updates: monthly, one grouped pull request per ecosystem (GitHub
-# Actions minutes are limited, so each group is tested by CI once).
+# Weekly on Sunday, one grouped PR per ecosystem for minor and patch updates (they merge themselves when ci-result
+# passes); each major update on its own PR for the weekly maintenance session to judge. Security updates arrive as
+# soon as an advisory is published. Versions Dependabot can't track are in .github/upstreams.yaml.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
-    schedule:
-      interval: monthly
+    schedule: {interval: weekly, day: sunday, time: "00:30"}
+    open-pull-requests-limit: 3
     groups:
-      github-actions:
-        patterns: ["*"]
+      actions: {patterns: ["*"], update-types: [minor, patch]}
   - package-ecosystem: pip
     directory: /home_inventory/server
-    schedule:
-      interval: monthly
+    schedule: {interval: weekly, day: sunday, time: "00:30"}
+    open-pull-requests-limit: 3
     groups:
-      python:
-        patterns: ["*"]
+      python: {patterns: ["*"], update-types: [minor, patch]}
   - package-ecosystem: npm
     directory: /home_inventory/frontend
-    schedule:
-      interval: monthly
+    schedule: {interval: weekly, day: sunday, time: "00:30"}
+    open-pull-requests-limit: 3
     groups:
-      npm:
-        patterns: ["*"]
+      npm: {patterns: ["*"], update-types: [minor, patch]}
