@@ -258,8 +258,19 @@ jobs:
       # Trivy runs from its pinned container image (no third-party action, no secrets; the job token is read-only).
       - name: Image vulnerability scan (Trivy; fixable HIGH or CRITICAL fails)
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.62.1 \
-            image --quiet --ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 home-inventory:ci
+          mkdir -p "$RUNNER_TEMP/trivy"
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$RUNNER_TEMP/trivy:/out" aquasec/trivy:0.62.1 \
+            image --quiet --ignore-unfixed --severity HIGH,CRITICAL --format json --output /out/report.json home-inventory:ci
+          # One line per finding, with the file it was found in, so the fix is clear.
+          python3 - "$RUNNER_TEMP/trivy/report.json" <<'PY'
+          import json, sys
+          found = [(r["Target"], v) for r in json.load(open(sys.argv[1])).get("Results", []) for v in r.get("Vulnerabilities") or []]
+          for target, v in found:
+              print(f"::error::{v['Severity']} {v['VulnerabilityID']} {v['PkgName']} {v['InstalledVersion']} "
+                    f"(fixed in {v.get('FixedVersion', '?')}) in {v.get('PkgPath') or target}")
+          print(f"{len(found)} fixable HIGH/CRITICAL finding(s)")
+          sys.exit(1 if found else 0)
+          PY
 
   # ---- release path: push to main whose VERSION has no v<VERSION> tag ----
 
