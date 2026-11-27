@@ -37,5 +37,5 @@ def coverage(features: list[dict], checks: list[Check]) -> list[dict]:
 
 def uncovered(features: list[dict], checks: list[Check]) -> list[Check]:
     """Checks no feature claims; shown so the catalogue can be kept up to date."""
-    return [c for c in checks if c.stage in ("tests", "browser")
+    return [c for c in checks if c.stage in ("unit", "page")
             and not any(m.search(c.full) for f in features for m in f["match"])]

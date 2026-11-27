@@ -34,7 +34,9 @@ GITLEAKS_VERSION = "8.24.3"  # same as CI
 GITLEAKS_TGZ_SHA256 = "9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c"
 GITLEAKS_BIN_SHA256 = "e18325d568268b6efb6cd0cc721f8bea5667f4cd1c8d03618ab61987f41269ad"
 BANDIT = "bandit[toml]==1.9.4"
-REGRESSION_STAGES = ("quality", "tests", "browser", "live", "manual")
+REGRESSION_STAGES = ("ci", "unit", "page", "live", "manual")
+# Names used before 0.43.1, still accepted by --stage.
+STAGE_ALIASES = {"quality": "ci", "tests": "unit", "browser": "page"}
 ALL_STAGES = REGRESSION_STAGES + ("walkthrough",)
 
 
@@ -142,12 +144,12 @@ def _sha256(data: bytes) -> str:
 
 
 def run_quality(ctx: Ctx) -> StageResult:
-    res = StageResult("quality", [], started=now())
+    res = StageResult("ci", [], started=now())
     add = res.checks.append
 
     def cmd_check(key, cmd, cwd=ROOT, timeout=900, ok_codes=(0,)):
         rc, out = sh(cmd, cwd, timeout)
-        add(Check("quality", key, "pass" if rc in ok_codes else "fail", tail(out)))
+        add(Check("ci", key, "pass" if rc in ok_codes else "fail", tail(out)))
         return rc, out
 
     ctx.log("quality: ruff")
@@ -166,20 +168,20 @@ def run_quality(ctx: Ctx) -> StageResult:
     venv = _tool_venv()
     for key, target in (("bandit:server", SERVER / "home_inventory_server"), ("bandit:integration", ROOT / "custom_components")):
         if not venv:
-            add(Check("quality", key, "skip", "could not install bandit (no package index?)"))
+            add(Check("ci", key, "skip", "could not install bandit (no package index?)"))
             continue
         # medium or high severity, medium or high confidence
         rc, out = sh([str(venv / "bin/bandit"), "-r", str(target), "-f", "json", "-q", "-ll", "-ii"], timeout=600)
         try:
             found = _json_in(out)["results"]
         except (ValueError, KeyError):
-            add(Check("quality", key, "fail", "bandit output unreadable:\n" + tail(out)))
+            add(Check("ci", key, "fail", "bandit output unreadable:\n" + tail(out)))
             continue
         line = lambda r: (f"{r['issue_severity']}/{r['issue_confidence']} {r['test_id']} "  # noqa: E731
                           f"{Path(r['filename']).relative_to(ROOT)}:{r['line_number']} {r['issue_text']}")
         bad = [line(r) for r in found if not _bandit_accepted(r)]
         ok = [line(r) + " (accepted: regression/accepted.yaml)" for r in found if _bandit_accepted(r)]
-        add(Check("quality", key, "fail" if bad else "pass", "\n".join((bad + ok)[:30]) or "no medium/high findings",
+        add(Check("ci", key, "fail" if bad else "pass", "\n".join((bad + ok)[:30]) or "no medium/high findings",
                   data={"findings": len(bad), "accepted": len(ok)}))
 
     ctx.log("quality: dependency audit")
@@ -187,27 +189,27 @@ def run_quality(ctx: Ctx) -> StageResult:
     try:
         deps = _json_in(out)["dependencies"]
         vulns = [f"{d['name']} {d['version']}: " + ", ".join(v["id"] for v in d["vulns"]) for d in deps if d.get("vulns")]
-        add(Check("quality", "audit:python", "fail" if vulns else "pass", "\n".join(vulns) or f"{len(deps)} packages, no known vulnerabilities"))
+        add(Check("ci", "audit:python", "fail" if vulns else "pass", "\n".join(vulns) or f"{len(deps)} packages, no known vulnerabilities"))
     except (ValueError, KeyError):
-        add(Check("quality", "audit:python", "skip" if rc in (124, 127) else "fail", "pip-audit did not finish:\n" + tail(out)))
+        add(Check("ci", "audit:python", "skip" if rc in (124, 127) else "fail", "pip-audit did not finish:\n" + tail(out)))
     rc, out = sh(["npm", "audit", "--omit=dev", "--audit-level=high", "--json"], FRONTEND, 600)
     try:
         meta = _json_in(out)["metadata"]["vulnerabilities"]
         bad = meta.get("high", 0) + meta.get("critical", 0)
-        add(Check("quality", "audit:javascript", "fail" if bad else "pass", json.dumps(meta)))
+        add(Check("ci", "audit:javascript", "fail" if bad else "pass", json.dumps(meta)))
     except (ValueError, KeyError):
-        add(Check("quality", "audit:javascript", "skip", "npm audit did not finish:\n" + tail(out)))
+        add(Check("ci", "audit:javascript", "skip", "npm audit did not finish:\n" + tail(out)))
 
     ctx.log("quality: secrets")
     rc, out = sh([sys.executable, ".github/scripts/privacy_guard.py"], timeout=600)
     note = "" if os.environ.get("PRIVACY_DENYLIST") else " (private-terms list not set here: credentials and identities checked, names not)"
-    add(Check("quality", "secrets:privacy-guard", "pass" if rc == 0 else "fail", tail(out) + note))
+    add(Check("ci", "secrets:privacy-guard", "pass" if rc == 0 else "fail", tail(out) + note))
     gl = _gitleaks()
     if gl:
         rc, out = sh([str(gl), "git", str(ROOT), "--redact", "--no-banner", "-c", str(ROOT / ".gitleaks.toml")], timeout=900)
-        add(Check("quality", "secrets:gitleaks-history", "pass" if rc == 0 else "fail", tail(out)))
+        add(Check("ci", "secrets:gitleaks-history", "pass" if rc == 0 else "fail", tail(out)))
     else:
-        add(Check("quality", "secrets:gitleaks-history", "skip", "gitleaks not available, or the download failed its checksum"))
+        add(Check("ci", "secrets:gitleaks-history", "skip", "gitleaks not available, or the download failed its checksum"))
     res.finished = now()
     return res
 
@@ -252,15 +254,15 @@ def ha_python() -> str | None:
 
 
 def run_tests(ctx: Ctx) -> StageResult:
-    res = StageResult("tests", [], started=now(), scopes=[])
+    res = StageResult("unit", [], started=now(), scopes=[])
     w = ctx.work
 
     def suite(prefix, cmd, cwd, xml, file_of=_py_file, timeout=3600, env=None):
         ctx.log(f"tests: {prefix}")
         rc, out = sh(cmd, cwd, timeout, env)
-        found = parse_junit(xml, "tests", prefix, file_of)
+        found = parse_junit(xml, "unit", prefix, file_of)
         if not found:
-            res.checks.append(Check("tests", f"{prefix}:(suite)", "fail", "no results:\n" + tail(out)))
+            res.checks.append(Check("unit", f"{prefix}:(suite)", "fail", "no results:\n" + tail(out)))
         else:
             res.checks.extend(found)
             res.scopes.append(prefix + ":")
@@ -277,7 +279,7 @@ def run_tests(ctx: Ctx) -> StageResult:
         suite("integration", [py, "-m", "pytest", "-q", "-p", "no:logging", "-p", "no:cacheprovider",
                               f"--junitxml={w / 'integration.xml'}"], ROOT, w / "integration.xml")
     else:
-        res.checks.append(Check("tests", "integration:(suite)", "skip",
+        res.checks.append(Check("unit", "integration:(suite)", "skip",
                                 "Home Assistant test packages not installed here; set HINV_HA_PYTHON (see docs/development.md)"))
     res.finished = now()
     return res
@@ -405,7 +407,7 @@ def api_sweep(server: AppServer, ids: dict) -> list[Check]:
             roles = ("admin", "member", "read_only", "anon") if channel == "ingress" else ("anon",)
             for role in roles:
                 if combos is None:
-                    checks.append(Check("browser", f"api:{channel}:{role}:GET {path}", "skip",
+                    checks.append(Check("page", f"api:{channel}:{role}:GET {path}", "skip",
                                         f"no {', '.join(missing)} in the demo data"))
                     continue
                 for label, url_path in combos:
@@ -426,12 +428,12 @@ def api_sweep(server: AppServer, ids: dict) -> list[Check]:
                             status, detail = "skip", "needs a real Home Assistant: " + body[:200].decode(errors="replace")
                         elif st >= 500 or st == 0:
                             status, detail = "fail", detail + f"\n{body[:300]!r}"
-                    checks.append(Check("browser", key, status, detail, data={"status": st}))
+                    checks.append(Check("page", key, status, detail, data={"status": st}))
     # security headers on the page itself
     st, hdrs, _ = _get(server.base, ROLES["member"])
     hl = {k.lower(): v for k, v in hdrs.items()}
     for name in ("content-security-policy", "x-content-type-options", "referrer-policy", "cross-origin-resource-policy"):
-        checks.append(Check("browser", f"headers:ingress:{name}", "pass" if name in hl else "fail", hl.get(name, "missing")))
+        checks.append(Check("page", f"headers:ingress:{name}", "pass" if name in hl else "fail", hl.get(name, "missing")))
     return checks
 
 
@@ -441,9 +443,9 @@ def run_node(script: Path, payload: dict, timeout=3600) -> tuple[int, str]:
 
 
 def run_browser(ctx: Ctx, built: tuple[bool, str] | None = None) -> StageResult:
-    res = StageResult("browser", [], started=now())
+    res = StageResult("page", [], started=now())
     ok, out = built or build_frontend(ctx.log)
-    res.checks.append(Check("browser", "build:frontend", "pass" if ok else "fail", out))
+    res.checks.append(Check("page", "build:frontend", "pass" if ok else "fail", out))
     if not ok:
         res.complete = False
         res.note = "frontend did not build; browser checks not run"
@@ -455,7 +457,7 @@ def run_browser(ctx: Ctx, built: tuple[bool, str] | None = None) -> StageResult:
     (ctx.work / "smoke-app").mkdir(exist_ok=True)
     with AppServer(ctx.work / "smoke-app", sing, sapi) as s:
         rc, out = sh(["node", "tests/e2e/smoke.mjs", str(shots)], ROOT, 900, env={"HINV_URL": s.base})
-    res.checks.append(Check("browser", "e2e:smoke", "pass" if rc == 0 else "fail", tail(out)))
+    res.checks.append(Check("page", "e2e:smoke", "pass" if rc == 0 else "fail", tail(out)))
 
     ctx.log("browser: every page, every role, on a seeded App")
     (ctx.work / "app").mkdir(exist_ok=True)
@@ -465,16 +467,16 @@ def run_browser(ctx: Ctx, built: tuple[bool, str] | None = None) -> StageResult:
         for r in routes:
             if r["path"] is None:
                 for role in ("admin", "member", "read_only"):
-                    res.checks.append(Check("browser", f"page:{role}:{r['pattern']}", "skip", "no seeded record for this page"))
+                    res.checks.append(Check("page", f"page:{role}:{r['pattern']}", "skip", "no seeded record for this page"))
         payload = {"base": s.base, "roles": ROLES, "routes": [r for r in routes if r["path"]],
                    "out": str(ctx.work / "pages.json")}
         rc, out = run_node(QC_DIR / "browser/pages.mjs", payload)
         try:
             pages = json.loads((ctx.work / "pages.json").read_text())
             for p in pages:
-                res.checks.append(Check("browser", f"page:{p['role']}:{p['pattern']}", p["status"], p["detail"]))
+                res.checks.append(Check("page", f"page:{p['role']}:{p['pattern']}", p["status"], p["detail"]))
         except (OSError, ValueError):
-            res.checks.append(Check("browser", "page:(crawl)", "fail", tail(out)))
+            res.checks.append(Check("page", "page:(crawl)", "fail", tail(out)))
             res.complete = False
         ctx.log("browser: API sweep")
         res.checks.extend(api_sweep(s, ids))
@@ -671,5 +673,5 @@ def run_walkthrough(ctx: Ctx, built: tuple[bool, str] | None = None) -> StageRes
     return res
 
 
-STAGE_FUNCS = {"quality": run_quality, "tests": run_tests, "browser": run_browser, "live": run_live,
+STAGE_FUNCS = {"ci": run_quality, "unit": run_tests, "page": run_browser, "live": run_live,
                "manual": run_manual, "walkthrough": run_walkthrough}

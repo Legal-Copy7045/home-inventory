@@ -68,8 +68,9 @@ def test_bad_status_rejected():
     (None, False, (list(stages.REGRESSION_STAGES), False)),
     (["walkthrough"], False, ([], True)),
     (None, True, (list(stages.REGRESSION_STAGES), True)),
-    (["tests"], True, (["tests"], True)),
-    (["live", "quality", "live"], False, (["quality", "live"], False)),
+    (["unit"], True, (["unit"], True)),
+    (["live", "ci", "live"], False, (["ci", "live"], False)),
+    (["quality", "tests", "browser"], False, (["ci", "unit", "page"], False)),  # old names still work
 ])
 def test_select_stages(stages_arg, walk_flag, want):
     assert runner.select_stages(stages_arg, walk_flag) == want
@@ -142,9 +143,9 @@ def test_catalogue_coverage(tmp_path):
     (tmp_path / "a.yaml").write_text("area: A\nfeatures:\n  - name: Items\n    match: ['test_items', 'page:\\w+:/items']\n"
                                      "  - name: Nothing\n    match: ['no-such-check']\n")
     feats = cat.load(tmp_path)
-    checks = [Check("tests", "server:tests/test_items.py::t", "pass", id="T0001"),
-              Check("browser", "page:admin:/items", "fail", id="B0001"),
-              Check("tests", "server:tests/test_other.py::t", "pass", id="T0002")]
+    checks = [Check("unit", "server:tests/test_items.py::t", "pass", id="T0001"),
+              Check("page", "page:admin:/items", "fail", id="B0001"),
+              Check("unit", "server:tests/test_other.py::t", "pass", id="T0002")]
     rows = {r["name"]: r for r in cat.coverage(feats, checks)}
     assert rows["Items"]["total"] == 2 and rows["Items"]["failing"] == ["B0001"]
     assert rows["Nothing"]["total"] == 0

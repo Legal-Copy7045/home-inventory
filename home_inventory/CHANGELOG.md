@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.43.1
+
+No change to the App or the integration: the images are rebuilt with the updated build tools.
+
+- **CI uses fewer GitHub Actions minutes.** It runs once per pull request, when the draft is marked ready, and not again on merge. The slow jobs (Home Assistant tests with the browser smoke test, both image builds) run only when a pull request touches what they test. `main` gets a full run every week and on demand.
+- **CodeQL** runs weekly and on demand instead of on every pull request. **Dependabot** opens one grouped pull request a month per ecosystem (Actions, pip, npm). All Actions are pinned to commits, including build-push-action 7.4.0, login 4.8.0, qemu 4.4.0 and buildx 4.4.1.
+- **Quality commands**: the regression stages are now `ci`, `unit`, `page`, `live` and `manual` (the old names still work with `--stage`), with `regression/report.py` to render and log a run. `/regression` now starts by adding new features to the catalogue.
+
 ## 0.43.0
 
 Easier to find your way around, especially on a phone. From the first independent walkthrough of every screen.

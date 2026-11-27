@@ -11,6 +11,7 @@ Build, test and lint commands are in `docs/development.md`, and CI runs them in 
 - **Integration tests:** `pytest -q` from the repo root, with the HA test packages.
 - **Browser smoke test:** `tests/e2e/smoke.mjs`, for user-facing flows.
 - **Versions:** `python3 .github/scripts/check_versions.py` when versions change. A version bump needs a `CHANGELOG.md` entry and `docs/release-notes/v<version>.md`. Merging it to `main` publishes the GitHub release and the images automatically (see `docs/publishing.md`).
+- **Pull requests:** open them as drafts and mark them ready once the checks above pass, so CI runs once (see "CI and its cost" in `docs/development.md`).
 - **Quality commands:** `/regression`, `/walkthrough` and `/full-check` (skills in `.claude/skills/`, runner and records in `regression/`; see `regression/README.md`). They report and never fix product code.
 - **Database changes:** follow "Database changes" in `docs/development.md`. A migration bumps at least the minor version.
 

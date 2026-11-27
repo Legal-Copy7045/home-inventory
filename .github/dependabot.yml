@@ -1,7 +1,25 @@
-# Keeps the pinned GitHub Actions (full commit SHAs) up to date.
+# Dependency updates: monthly, one grouped pull request per ecosystem (GitHub
+# Actions minutes are limited, so each group is tested by CI once).
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    groups:
+      github-actions:
+        patterns: ["*"]
+  - package-ecosystem: pip
+    directory: /home_inventory/server
+    schedule:
+      interval: monthly
+    groups:
+      python:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /home_inventory/frontend
+    schedule:
+      interval: monthly
+    groups:
+      npm:
+        patterns: ["*"]
