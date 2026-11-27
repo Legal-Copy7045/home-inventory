@@ -1,7 +1,7 @@
 # Stable IDs for the unit checks. Written by regression/run.py.
 # Never renumber or reuse an ID; a check that goes away is marked retired.
 prefix: T
-next: 670
+next: 721
 ids:
   T0001:
     key: server:tests/test_ai.py::test_identify_item_returns_suggestion_for_review
@@ -1539,9 +1539,11 @@ ids:
   T0512:
     key: qc:regression/tests/test_qc.py::test_log_and_summary
     added: '2026-11-26'
+    retired: '2026-11-27'
   T0513:
     key: qc:regression/tests/test_qc.py::test_previous_commit_reads_last_line
     added: '2026-11-26'
+    retired: '2026-11-27'
   T0514:
     key: qc:regression/tests/test_qc.py::test_manual_results
     added: '2026-11-26'
@@ -2010,3 +2012,156 @@ ids:
   T0669:
     key: integration:tests/integration/test_names.py::test_ordinals_in_names_are_not_positions
     added: '2026-11-26'
+  T0670:
+    key: server:tests/test_security_042.py::test_maintenance_due_event_never_names_customer_equipment
+    added: '2026-11-27'
+  T0671:
+    key: server:tests/test_security_042.py::test_household_equipment_keeps_its_name_in_events
+    added: '2026-11-27'
+  T0672:
+    key: server:tests/test_security_042.py::test_event_bus_redacts_every_name_field
+    added: '2026-11-27'
+  T0673:
+    key: server:tests/test_security_042.py::test_auto_shopping_note_never_names_customer_equipment
+    added: '2026-11-27'
+  T0674:
+    key: server:tests/test_security_042.py::test_read_only_history_hides_customer_only_products
+    added: '2026-11-27'
+  T0675:
+    key: server:tests/test_security_042.py::test_failed_barcode_lookup_never_logs_the_api_key
+    added: '2026-11-27'
+  T0676:
+    key: server:tests/test_security_042.py::test_non_product_barcodes_stay_in_the_house
+    added: '2026-11-27'
+  T0677:
+    key: server:tests/test_security_042.py::test_open_facts_url_encodes_the_code
+    added: '2026-11-27'
+  T0678:
+    key: server:tests/test_security_042.py::test_panorama_refuses_formats_outside_the_allow_list[TIFF]
+    added: '2026-11-27'
+  T0679:
+    key: server:tests/test_security_042.py::test_panorama_refuses_formats_outside_the_allow_list[BMP]
+    added: '2026-11-27'
+  T0680:
+    key: server:tests/test_security_042.py::test_panorama_refuses_formats_outside_the_allow_list[PPM]
+    added: '2026-11-27'
+  T0681:
+    key: server:tests/test_security_042.py::test_panorama_still_takes_jpeg_and_png
+    added: '2026-11-27'
+  T0682:
+    key: server:tests/test_security_042.py::test_attachments_are_not_cached[file]
+    added: '2026-11-27'
+  T0683:
+    key: server:tests/test_security_042.py::test_attachments_are_not_cached[thumb]
+    added: '2026-11-27'
+  T0684:
+    key: server:tests/test_security_042.py::test_display_name_never_grants_admin
+    added: '2026-11-27'
+  T0685:
+    key: server:tests/test_security_042.py::test_home_assistant_answer_beats_forwarded_admin_flag
+    added: '2026-11-27'
+  T0686:
+    key: server:tests/test_security_042.py::test_link_import_checks_ipv4_inside_ipv6[64:ff9b::a00:1-False]
+    added: '2026-11-27'
+  T0687:
+    key: server:tests/test_security_042.py::test_link_import_checks_ipv4_inside_ipv6[64:ff9b::7f00:1-False]
+    added: '2026-11-27'
+  T0688:
+    key: server:tests/test_security_042.py::test_link_import_checks_ipv4_inside_ipv6[64:ff9b:1::a00:1-False]
+    added: '2026-11-27'
+  T0689:
+    key: server:tests/test_security_042.py::test_link_import_checks_ipv4_inside_ipv6[::a00:1-False]
+    added: '2026-11-27'
+  T0690:
+    key: server:tests/test_security_042.py::test_link_import_checks_ipv4_inside_ipv6[64:ff9b::808:808-True]
+    added: '2026-11-27'
+  T0691:
+    key: server:tests/test_security_042.py::test_link_import_checks_ipv4_inside_ipv6[2001:4860:4860::8888-True]
+    added: '2026-11-27'
+  T0692:
+    key: qc:regression/tests/test_qc.py::test_select_stages[stages_arg5-False-want5]
+    added: '2026-11-27'
+  T0693:
+    key: qc:regression/tests/test_qc.py::test_stage_files_are_in_the_standard_format
+    added: '2026-11-27'
+  T0694:
+    key: qc:regression/tests/test_qc.py::test_report_reads_standard_findings
+    added: '2026-11-27'
+  T0695:
+    key: qc:regression/tests/test_qc.py::test_standard_commands_are_delegated
+    added: '2026-11-27'
+  T0696:
+    key: qc:regression/tests/test_qc.py::test_crashed_stage_is_prefix_run
+    added: '2026-11-27'
+  T0697:
+    key: qc:regression/tests/test_qc.py::test_repository_manual_and_claims_files
+    added: '2026-11-27'
+  T0698:
+    key: qc:regression/tests/test_qc.py::test_json_in_ignores_trailing_text
+    added: '2026-11-27'
+  T0699:
+    key: qc:regression/tests/test_qc.py::test_repository_access_rules
+    added: '2026-11-27'
+  T0700:
+    key: qc:regression/tests/test_workflows.py::test_actions_pinned_by_commit_with_version_comment[ci.yml]
+    added: '2026-11-27'
+  T0701:
+    key: qc:regression/tests/test_workflows.py::test_actions_pinned_by_commit_with_version_comment[codeql.yml]
+    added: '2026-11-27'
+  T0702:
+    key: qc:regression/tests/test_workflows.py::test_actions_pinned_by_commit_with_version_comment[dependabot-automerge.yml]
+    added: '2026-11-27'
+  T0703:
+    key: qc:regression/tests/test_workflows.py::test_actions_pinned_by_commit_with_version_comment[images.yml]
+    added: '2026-11-27'
+  T0704:
+    key: qc:regression/tests/test_workflows.py::test_reusable_workflows_from_one_standards_tag
+    added: '2026-11-27'
+  T0705:
+    key: qc:regression/tests/test_workflows.py::test_least_permissions_and_timeouts[ci.yml]
+    added: '2026-11-27'
+  T0706:
+    key: qc:regression/tests/test_workflows.py::test_least_permissions_and_timeouts[codeql.yml]
+    added: '2026-11-27'
+  T0707:
+    key: qc:regression/tests/test_workflows.py::test_least_permissions_and_timeouts[dependabot-automerge.yml]
+    added: '2026-11-27'
+  T0708:
+    key: qc:regression/tests/test_workflows.py::test_least_permissions_and_timeouts[images.yml]
+    added: '2026-11-27'
+  T0709:
+    key: qc:regression/tests/test_workflows.py::test_ci_triggers_and_concurrency
+    added: '2026-11-27'
+  T0710:
+    key: qc:regression/tests/test_workflows.py::test_drafts_run_nothing_and_everything_hangs_off_changes
+    added: '2026-11-27'
+  T0711:
+    key: qc:regression/tests/test_workflows.py::test_ci_result_gates_every_job
+    added: '2026-11-27'
+  T0712:
+    key: qc:regression/tests/test_workflows.py::test_push_to_main_runs_only_privacy_and_the_release
+    added: '2026-11-27'
+  T0713:
+    key: qc:regression/tests/test_workflows.py::test_slow_jobs_are_gated_on_their_group
+    added: '2026-11-27'
+  T0714:
+    key: qc:regression/tests/test_workflows.py::test_changes_groups
+    added: '2026-11-27'
+  T0715:
+    key: qc:regression/tests/test_workflows.py::test_images_build_from_the_release_tag
+    added: '2026-11-27'
+  T0716:
+    key: qc:regression/tests/test_workflows.py::test_codeql_weekly_and_on_demand_only
+    added: '2026-11-27'
+  T0717:
+    key: qc:regression/tests/test_workflows.py::test_no_other_workflow_runs_on_push_or_pull_request
+    added: '2026-11-27'
+  T0718:
+    key: qc:regression/tests/test_workflows.py::test_dependabot_weekly_on_sunday_and_grouped
+    added: '2026-11-27'
+  T0719:
+    key: qc:regression/tests/test_workflows.py::test_versions_and_standard_files
+    added: '2026-11-27'
+  T0720:
+    key: integration:(suite)
+    added: '2026-11-27'
