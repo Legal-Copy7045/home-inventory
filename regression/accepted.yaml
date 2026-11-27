@@ -8,3 +8,9 @@ bandit:
       Ingress proxy (and, for the API port, the integration) connect over the
       container network; the ingress port trusts identity headers only from the
       configured proxy address and the API port needs the token.
+  - test: B104
+    file: custom_components/home_inventory/api.py
+    reason: >-
+      Not a bind: a malformed numeric IPv4 spelling is mapped to the string
+      "0.0.0.0" as a "never local" marker, so the address check refuses it.
+      Accepted by the owner (0.44.0).

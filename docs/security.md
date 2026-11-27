@@ -114,12 +114,13 @@ Restore is administrator-only and treats the archive as untrusted:
 
 | Check | Fails the build on | Why this threshold |
 |---|---|---|
-| `pip-audit` (backend and its dependencies) | Any known vulnerability | Few dependencies; findings are actionable. |
-| `npm audit --omit=dev` | High or critical, shipped code only | Dev-only tooling never reaches users. |
+| `pip-audit` (backend and its dependencies) | Any known vulnerability | Few dependencies; findings are actionable. Runs when a lockfile changes and weekly. |
+| `npm audit --omit=dev` | High or critical, shipped code only | Dev-only tooling never reaches users. Runs when a lockfile changes and weekly. |
 | Ruff `S` (bandit) rules | Any finding | S104 (bind all interfaces: required inside the container; Ingress peer is checked) and S110 (deliberate parser fallbacks) are excluded; tests may use asserts and dummy credentials. |
-| Gitleaks (whole history) | Any secret | Test fixtures are allow-listed in `.gitleaks.toml`. |
-| Trivy (built image) | Critical with a fix available | HIGH and unfixed issues are reported, not failed: most come from the Home Assistant base image and can only be fixed by its next release. Trivy runs from its pinned container image rather than a third-party action. |
-| CodeQL | Alerts in GitHub code scanning | GitHub default setup. |
+| Privacy guard | No-reply commit addresses, credentials, private terms, photo metadata | Loaded from `main`, so a pull request can't weaken it. The private terms live in the `privacy` environment and are checked on `main` only. |
+| Gitleaks | Any secret | The pull request's commits on every PR, the whole history weekly. Test fixtures are allow-listed in `.gitleaks.toml`. |
+| Trivy (built image) | High or critical with a fix available | Unfixed issues are reported, not failed: they can only be fixed by the Home Assistant base image's next release. Findings accepted on purpose are listed one by one in `.trivyignore` with the reason. Trivy runs from its pinned container image rather than a third-party action. |
+| CodeQL | Alerts in GitHub code scanning | Weekly and on demand. |
 | Route authorization tests | Any route without the right role check | Covers new endpoints automatically. |
 
 ## Residual risks and recommendations

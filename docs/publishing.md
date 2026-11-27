@@ -4,7 +4,7 @@ Anyone can already install from the public repository URL. These steps make inst
 
 ## 1. Prebuilt App images (once, then every release)
 
-`.github/workflows/release.yaml` runs when a GitHub release is **published**. It checks that every version number matches the release tag, builds `aarch64` and `amd64` images, tests that the amd64 image starts, and pushes:
+`.github/workflows/images.yml` runs right after the release path creates a GitHub release (below). It checks out the release tag, checks that every version number matches it, builds `aarch64` and `amd64` images, tests that the published amd64 image starts, and pushes:
 
 ```
 ghcr.io/legal-copy7045/aarch64-home-inventory:<version>
@@ -13,7 +13,7 @@ ghcr.io/legal-copy7045/amd64-home-inventory:<version>
 
 **Done (0.13.1):** both packages are public and `config.yaml` has the `image:` line. These were the first-time steps:
 
-1. Publish the release (see *Releasing* below) and wait for the **Release** workflow to go green.
+1. Publish the release (see *Releasing* below) and wait for the **CI** run on `main` to go green.
 2. On GitHub, open your profile → **Packages**. For *each* of the two `…-home-inventory` packages, open **Package settings** and set **Change visibility → Public**. Home Assistant can't download private images. Then, under *Manage Actions access*, check that this repository is listed with **Write**.
 3. Add this line to `home_inventory/config.yaml` (next to `version:`), release a patch version, and publish that release too:
 
@@ -21,27 +21,35 @@ ghcr.io/legal-copy7045/amd64-home-inventory:<version>
    image: "ghcr.io/legal-copy7045/{arch}-home-inventory"
    ```
 
-   From then on, Home Assistant downloads the image for the version in `config.yaml`. **Every version must have a published release.** If the image for a version is missing, installs and updates of that version fail. Releases publish themselves when a version bump is merged (below). The images take about three minutes to build, so an update tried in the first few minutes after a merge can fail; it works once the **Release** workflow is green.
+   From then on, Home Assistant downloads the image for the version in `config.yaml`. **Every version must have a published release.** If the image for a version is missing, installs and updates of that version fail. Releases publish themselves when a version bump is merged (below). The images take about three minutes to build, so an update tried in the first few minutes after a merge can fail; it works once the **CI** run on `main` (its `images` jobs) is green.
 
 Don't add the `image:` line before step 2 works: users would get "image not found" instead of a local build.
 
 ## 2. Releasing
 
-Releases publish themselves.
+Releases publish themselves when a version bump is merged.
 
 1. In the pull request:
-   - bump the version in all five places (`home_inventory/config.yaml`, `home_inventory/server/pyproject.toml`, `home_inventory/server/home_inventory_server/__init__.py`, `home_inventory/frontend/package.json`, `custom_components/home_inventory/manifest.json`);
-   - add a `## <version>` entry to `home_inventory/CHANGELOG.md`;
-   - write the release text in `docs/release-notes/v<version>.md`.
+   - set the new version in `VERSION` and in every place `.github/versions.yaml` lists (`home_inventory/config.yaml`,
+     `custom_components/home_inventory/manifest.json`, `home_inventory/frontend/package.json` and `package-lock.json`,
+     `home_inventory/server/pyproject.toml`, `home_inventory/server/home_inventory_server/__init__.py`);
+   - add a `## [<version>] - <date>` section to `CHANGELOG.md` (Keep a Changelog: `### Added / Changed / Fixed /
+     Security / Removed`). It becomes the release notes;
+   - add a `## <version>` entry to `home_inventory/CHANGELOG.md`, written for people using the App: Home Assistant
+     shows it in the update dialog.
 
    CI fails if any of these is missing or the versions disagree (`.github/scripts/check_versions.py`).
-2. Merge to `main`. The **Release** workflow notices the new version in `config.yaml` and then:
-   - creates the GitHub release, with tag and title `<version>` (e.g. `0.10.3`) and the notes file as its text;
-   - builds and pushes the App images.
+2. Merge to `main`. CI notices that `VERSION` has no `v<version>` tag yet and then:
+   - checks the private terms, then creates tag `v<version>` and the GitHub release **Home Inventory <version>** with
+     the `CHANGELOG.md` section as its text (the standard's reusable `release.yml`);
+   - builds and pushes the App images from that tag (`images.yml`).
 
-   If a release for that version already exists, it does nothing.
+   If the release already exists, nothing is published.
 
-To publish by hand instead (for example, to re-release), create the release on GitHub with tag `<version>` on `main`. That also builds the images. **Actions → Release → Run workflow** publishes the release for the version on `main` if it's missing, and rebuilds the images.
+To retry a failed release: **Actions → CI → Run workflow** on `main` with *release* ticked. To rebuild the images of
+a released version: **Actions → App images → Run workflow** with the version (e.g. `0.44.0`).
+
+Releases up to 0.43.1 are tagged without the `v`; their text is in `docs/release-notes/`.
 
 HACS shows the integration update from the release. Home Assistant shows the App update from `config.yaml` on `main`.
 
@@ -58,7 +66,7 @@ Until this is done, people add the repository to HACS as a *custom repository*, 
    2. Copy the folder `docs/brand/home-assistant-brands/custom_integrations/home_inventory/` from this repository to `custom_integrations/home_inventory/` in your fork. It contains `icon.png` 256×256, `icon@2x.png` 512×512, `logo.png` / `logo@2x.png` and dark variants, all transparent and trimmed to the brands repository's rules.
    3. Open a pull request using their template.
 3. **A published release**: HACS requires at least one full GitHub release (not just a tag), as in section 2.
-4. **Validation passes without exemptions**: once topics and brands are in place, remove the `ignore: brands topics` line from the `hacs` job in `.github/workflows/ci.yaml` and check that the job is green. `hassfest` must also be green.
+4. **Validation passes without exemptions**: once topics and brands are in place, remove the `ignore: brands topics` line from the `hacs` job in `.github/workflows/ci.yml` and check that the job is green. `hassfest` must also be green.
 5. **Submit to HACS**:
    1. Fork [hacs/default](https://github.com/hacs/default) and create a branch (not `master`).
    2. Add `Legal-Copy7045/home-inventory` to the file `integration`, keeping alphabetical order.

@@ -1,8 +1,12 @@
-"""Feature catalogue: which checks cover which feature.
+"""Feature catalogue: which checks cover which feature (the project standard's format).
 
-``regression/catalogue/*.yaml`` lists features by area, each with regular
-expressions matched (``re.search``, case-insensitive) against every check's
-``stage:ID key`` string, e.g. ``tests:T0042 server:tests/test_items.py::test_move``.
+``regression/catalogue/<area>.yaml`` is a list of features::
+
+    - feature: Roles and access control
+      match: ['^unit:server:tests/test_auth\\.py', '^page:api:']   # regexes over "<stage>:<check key>"
+      manual: [ha-sidebar-panel]                                    # optional: manual checks for this feature
+
+Patterns are matched with ``re.search``, case-insensitive.
 """
 from __future__ import annotations
 
@@ -17,10 +21,10 @@ from .results import Check
 def load(cat_dir: Path) -> list[dict]:
     feats = []
     for p in sorted(cat_dir.glob("*.yaml")):
-        d = yaml.safe_load(p.read_text()) or {}
-        for f in d.get("features", []):
-            feats.append({"area": d.get("area", p.stem), "name": f["name"], "description": f.get("description", ""),
-                          "match": [re.compile(m, re.I) for m in f.get("match", [])]})
+        for f in yaml.safe_load(p.read_text()) or []:
+            pats = list(f.get("match", [])) + [f"^manual:{re.escape(k)}$" for k in f.get("manual", [])]
+            feats.append({"area": p.stem.replace("-", " ").capitalize(), "name": f["feature"],
+                          "description": f.get("description", ""), "match": [re.compile(m, re.I) for m in pats]})
     return feats
 
 

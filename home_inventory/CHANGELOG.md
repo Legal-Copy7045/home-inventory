@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.44.0
+
+No change to how the App or the integration works. The App image drops an unused tool from the Home Assistant base image and updates another, both flagged by the vulnerability scan. Releases are now tagged `v0.44.0` (with a `v`), and the project's checks and release steps follow a shared standard. Nothing to update unless you want to stay on the latest version.
+
 ## 0.43.1
 
 No change to the App or the integration: the images are rebuilt with the updated build tools.

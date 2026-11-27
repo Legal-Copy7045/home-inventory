@@ -75,7 +75,8 @@ def assign(res, ids_dir: Path, today: str | None = None) -> list[str]:
     """Fill in ``Check.id`` for every check of a StageResult; returns retired IDs."""
     reg = Registry(ids_dir / f"{res.stage}.yaml", res.stage)
     for c in res.checks:
-        c.id = reg.id_for(c.key, today)
+        # A stage that broke: the standard's <PREFIX>-RUN, never a registry entry.
+        c.id = f"{reg.prefix}-RUN" if c.key == "RUN" else reg.id_for(c.key, today)
     retired = reg.retire_missing({c.key for c in res.checks}, today, res.scopes) if res.complete and res.checks else []
     reg.save()
     return retired

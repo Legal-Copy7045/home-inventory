@@ -1,14 +1,14 @@
-area: Equipment and maintenance
-features:
-  - name: Equipment hub
-    match: ['test_equipment', 'page:\w+:/equipment', '/api/v1/equipment']
-  - name: Maintenance tasks and plan
-    match: ['test_maintenance', 'test_voice_maintenance', 'page:\w+:/(maintenance|care|reports/maintenance-plan)', 'maintenance-tasks', '/maintenance']
-  - name: Parts, consumables and designations
-    match: ['test_parts', 'test_entities_reservations', '/api/v1/(parts|products)', 'fitments']
-  - name: Manuals
-    match: ['test_documents', '/manuals', 'manual:\S+ ai-manual']
-  - name: Hour meters and sensors
-    match: ['test_meter_', 'readings', 'manual:\S+ hour-meter']
-  - name: Season mode and fuel
-    match: ['page:\w+:/reports/season', 'season', 'fuel']
+# Equipment and maintenance: feature -> the checks that cover it (project standard 3.1).
+# match: regexes (re.search, case-insensitive) over "<stage>:<check key>"; manual checks are "manual:<key>".
+- feature: Equipment hub
+  match: ['test_equipment', 'page:\w+:/equipment', '/api/v1/equipment']
+- feature: Maintenance tasks and plan
+  match: ['test_maintenance', 'test_voice_maintenance', 'page:\w+:/(maintenance|care|reports/maintenance-plan)', 'maintenance-tasks', '/maintenance']
+- feature: Parts, consumables and designations
+  match: ['test_parts', 'test_entities_reservations', '/api/v1/(parts|products)', 'fitments']
+- feature: Manuals
+  match: ['test_documents', '/manuals', 'manual:ai-manual']
+- feature: Hour meters and sensors
+  match: ['test_meter_', 'readings', 'manual:hour-meter']
+- feature: Season mode and fuel
+  match: ['page:\w+:/reports/season', 'season', 'fuel']

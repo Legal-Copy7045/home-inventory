@@ -1,0 +1,5 @@
+# Image scan findings accepted on purpose, one by one, each with the owner's reason (app-build in ci.yml).
+# CVE-2025-47273 (setuptools PackageIndex path traversal): Trivy reports setuptools 70.3.0 from the Home Assistant
+# base image's Python build with no file in the image (the installed setuptools is 84.2.1, see the Dockerfile). The
+# App never runs setuptools. Accepted by the owner in 0.44.0; remove when the base image no longer reports it.
+CVE-2025-47273

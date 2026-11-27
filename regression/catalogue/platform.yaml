@@ -1,18 +1,18 @@
-area: Platform, security and release
-features:
-  - name: Roles and access control
-    match: ['test_auth\.py', 'test_authz_routes', 'api:\w+:anon:', 'test_identity']
-  - name: Privacy and data exposure
-    match: ['test_privacy', 'test_error_exposure', 'headers:', 'secrets:', 'manual:\S+ voice-where-is']
-  - name: Uploads and backups
-    match: ['test_backup_security', 'test_upgrades', 'manual:\S+ (ha-backup|app-update)']
-  - name: Home Assistant integration
-    match: ['^unit:\S+ integration:', 'test_local_only', 'manual:\S+ (integration-|ha-sidebar|push-)', 'test_alexa_lambda']
-  - name: Settings and admin
-    match: ['page:\w+:/settings', '/api/v1/(admin|settings|users|me)', 'test_misc']
-  - name: Web app shell (menus, offline, PWA)
-    match: ['api\.test', 'e2e:smoke', 'build:frontend', 'typecheck:', 'manual:\S+ (dark-theme|phone-layout)']
-  - name: Code quality and supply chain
-    match: ['^ci:']
-  - name: Published release and images
-    match: ['^live:', 'versions:', 'manual:\S+ standalone-container']
+# Platform, security and release: feature -> the checks that cover it (project standard 3.1).
+# match: regexes (re.search, case-insensitive) over "<stage>:<check key>"; manual checks are "manual:<key>".
+- feature: Roles and access control
+  match: ['test_auth\.py', 'test_authz_routes', 'api:\w+:anon:', 'test_identity']
+- feature: Privacy and data exposure
+  match: ['test_privacy', 'test_error_exposure', 'headers:', 'secrets:', 'manual:voice-where-is']
+- feature: Uploads and backups
+  match: ['test_backup_security', 'test_upgrades', 'manual:(ha-backup|app-update)']
+- feature: Home Assistant integration
+  match: ['^unit:integration:', 'test_local_only', 'manual:(integration-|ha-sidebar|push-)', 'test_alexa_lambda']
+- feature: Settings and admin
+  match: ['page:\w+:/settings', '/api/v1/(admin|settings|users|me)', 'test_misc']
+- feature: Web app shell (menus, offline, PWA)
+  match: ['api\.test', 'e2e:smoke', 'build:frontend', 'typecheck:', 'manual:(dark-theme|phone-layout)']
+- feature: Code quality and supply chain
+  match: ['^ci:']
+- feature: Published release and images
+  match: ['^live:', 'versions:', 'manual:standalone-container']

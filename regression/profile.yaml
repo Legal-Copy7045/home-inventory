@@ -1,0 +1,47 @@
+# Home Inventory's regression profile (project standard 3.1). The global /regression, /walkthrough and /full-check
+# skills read this file and regression/README.md; nothing project-specific lives in the skills.
+name: Home Inventory
+type: ha-app                # Home Assistant App (FastAPI + SQLite, React) with a HACS companion integration
+ui: true
+report_tz: Europe/London
+version_file: VERSION
+changelog: CHANGELOG.md
+security_tools: >-
+  bandit -ll -ii -r home_inventory/server/home_inventory_server custom_components,
+  pip-audit ./home_inventory/server, npm audit --omit=dev --audit-level=high (in home_inventory/frontend)
+roles: [admin, member, read_only]
+
+# This project runs its own stage code (regression/qc/stages.py), so the stages have no commands here. Prefixes are
+# the ones its IDs were created with (never renumbered): see exceptions in .github/standard.yaml.
+stages:
+  ci: {prefix: Q, what: "ruff (App, integration, tools), TypeScript type-check, versions, bandit, pip-audit, npm audit, privacy guard, gitleaks over the whole history"}
+  unit: {prefix: T, what: "App pytest, frontend vitest, the runner's own tests, integration tests (when the Home Assistant test packages are installed; HINV_HA_PYTHON points at them)"}
+  page: {prefix: B, what: "frontend build; smoke test on an empty App; every page for each role and every GET endpoint for each role, unauthenticated and on the token API port, on a seeded App (ports 18199-18202)"}
+  live: {prefix: L, what: "read-only: the GitHub release v<VERSION> and both ghcr images; the running App only when HINV_LIVE_URL is set"}
+  manual: {prefix: M}
+  walkthrough: {prefix: U, what: "3 roles x desktop 1280x900 and phone 390x844 on a seeded App (ports 18299-18302)"}
+
+live:
+  env: [HINV_LIVE_URL]      # local-only App address; usually unreachable from a cloud session, so those checks skip
+
+walkthrough:
+  ui_paths: ['^home_inventory/frontend/']
+
+reviewers:                  # where this project's risk lives (one or two lines each)
+  bugs: >-
+    Risky paths: home_inventory_server/auth.py (identity, roles, trusted proxies, setup code), authorization on every
+    route in api/, privacy.py (read-only users never see customer data), uploads (services/media*), backup and restore,
+    services/search*, and custom_components/home_inventory/api.py (local-only address checks). A throwaway App:
+    HINV_DATA_DIR=$(mktemp -d) HINV_TRUSTED_PROXIES=127.0.0.1 HINV_ADMIN_USERS=morgan HINV_INGRESS_PORT=18501
+    HINV_API_PORT=18502 HINV_AI_PROVIDER=none python3 -m home_inventory_server (from home_inventory/server); identity
+    in the X-Remote-User-Id and X-Remote-User-Name headers; stop it afterwards.
+  claims: >-
+    Claims are in SECURITY.md, docs/security.md, README.md, home_inventory/DOCS.md, docs/home-assistant.md,
+    docs/voice.md, docs/storage-and-backup.md, docs/install-container-core.md (listed in claims.yaml). Who must be
+    refused which routes is in regression/access.yaml. Use ports 18511/18512 for a throwaway App.
+  exposure: >-
+    home_inventory/Dockerfile, build.yaml, config.yaml (ports, ingress, privileges, AppArmor), deploy/standalone (what
+    is exposed), .github/workflows (ci.yml release path, images.yml), the API port and its token, outbound lookups
+    (barcode, product links, AI) for SSRF. Use ports 18521/18522 for a throwaway App.
+  desktop: "Reviewers see every role; customer data must stay hidden from read_only. Proposals only, no code changes."
+  phone: "Most use is on a phone in a shed or garage: one hand, big targets, the camera. Proposals only."

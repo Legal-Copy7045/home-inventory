@@ -1,0 +1,16 @@
+# Which slow CI groups a pull request starts (STANDARD.md 1.2). Regexes over changed paths.
+# Finer than the template on purpose (one group per job family), see .github/standard.yaml (beyond).
+ignore: ['^docs/', '\.md$', '^\.claude/', '^LICENSE$', '^VERSION$', '^\.github/(versions|upstreams|standard)\.yaml$',
+         '^\.github/dependabot\.yml$', '^\.github/workflows/(codeql|dependabot-automerge)\.yml$', '^tools/demo/.*\.(mp4|png|jpg)$']
+shared: ['^\.github/workflows/ci\.yml$', '^\.github/changes\.yaml$', '^\.github/scripts/changes\.py$']
+groups:
+  server: ['^home_inventory/server/']                                      # backend: ruff + App tests
+  frontend: ['^home_inventory/frontend/']                                  # frontend: vitest + build
+  app: ['^home_inventory/(server|frontend)/', '^custom_components/', '^tests/', '^deploy/', '^pytest\.ini$',
+        '^tools/demo/']                                                    # integration: HA tests + browser smoke test
+  integration: ['^custom_components/', '^hacs\.json$']                     # hassfest, hacs
+  image: ['^home_inventory/', '^deploy/standalone/', '^\.trivyignore$',
+          '^\.github/workflows/images\.yml$']                              # app-build (Trivy), standalone-build
+  lockfiles: ['package-lock\.json$', 'pyproject\.toml$']                   # dependency audits in quick
+  regression: ['^regression/', '^\.github/scripts/', '^ruff\.toml$', '^\.gitleaks\.toml$']  # quick only
+# A changed file that matches nothing above starts every group (safe default).

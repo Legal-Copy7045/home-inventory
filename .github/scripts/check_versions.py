@@ -1,43 +1,45 @@
-"""Check that every place a version is written agrees (and matches a release tag).
+#!/usr/bin/env python3
+"""VERSION is SemVer, every place in .github/versions.yaml carries it, and CHANGELOG.md has its section
+(project standard, STANDARD.md 2.1). With a tag argument (v1.2.3), also checks the tag matches.
 
-Usage: python .github/scripts/check_versions.py [TAG]
-Prints the version; exits non-zero on any mismatch.
-"""
-
+This project also keeps home_inventory/CHANGELOG.md, the changelog Home Assistant shows for the App: it needs a
+"## <version>" entry too."""
 import json
 import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+import yaml
 
-
-def grab(path: str, pattern: str) -> str:
-    m = re.search(pattern, (ROOT / path).read_text(), re.M)
-    if not m:
-        sys.exit(f"No version found in {path}")
-    return m.group(1)
-
-
-found = {
-    "home_inventory/config.yaml": grab("home_inventory/config.yaml", r'^version:\s*"?([^"\s]+)"?'),
-    "home_inventory/server/pyproject.toml": grab("home_inventory/server/pyproject.toml", r'^version\s*=\s*"([^"]+)"'),
-    "home_inventory/server/home_inventory_server/__init__.py": grab(
-        "home_inventory/server/home_inventory_server/__init__.py", r'^__version__\s*=\s*"([^"]+)"'
-    ),
-    "home_inventory/frontend/package.json": json.loads((ROOT / "home_inventory/frontend/package.json").read_text())["version"],
-    "custom_components/home_inventory/manifest.json": json.loads(
-        (ROOT / "custom_components/home_inventory/manifest.json").read_text()
-    )["version"],
-}
-version = found["home_inventory/config.yaml"]
-bad = {k: v for k, v in found.items() if v != version}
-if bad:
-    sys.exit(f"Version mismatch (config.yaml says {version}): {bad}")
-if f"## {version}" not in (ROOT / "home_inventory/CHANGELOG.md").read_text():
-    sys.exit(f"home_inventory/CHANGELOG.md has no '## {version}' entry")
-if not (ROOT / f"docs/release-notes/v{version}.md").exists():
-    sys.exit(f"docs/release-notes/v{version}.md is missing (it becomes the GitHub release text)")
-if len(sys.argv) > 1 and sys.argv[1] and sys.argv[1].removeprefix("v") != version:
-    sys.exit(f"Release tag {sys.argv[1]} does not match version {version} (expected v{version})")
-print(version)
+v = Path("VERSION").read_text().strip()
+errors = []
+if not re.fullmatch(r"\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?", v):
+    errors.append(f"VERSION {v!r} is not MAJOR.MINOR.PATCH")
+places = yaml.safe_load(Path(".github/versions.yaml").read_text()) if Path(".github/versions.yaml").is_file() else []
+for p in places or []:
+    text = Path(p["file"]).read_text()
+    if "json" in p:
+        got = json.loads(text)
+        for k in p["json"].split("."):
+            got = got[k]
+    elif "yaml" in p:
+        got = yaml.safe_load(text)
+        for k in p["yaml"].split("."):
+            got = got[k]
+    else:
+        m = re.search(p["regex"], text)
+        got = m.group(1) if m else None
+    if str(got) != v:
+        errors.append(f"{p['file']}: {got} (VERSION is {v})")
+log = Path("CHANGELOG.md").read_text() if Path("CHANGELOG.md").is_file() else ""
+if not re.search(rf"^## \[?{re.escape(v)}\]?", log, re.M):
+    errors.append(f"CHANGELOG.md has no '## [{v}] - YYYY-MM-DD' section")
+app_log = Path("home_inventory/CHANGELOG.md").read_text()
+if not re.search(rf"^## {re.escape(v)}\s*$", app_log, re.M):
+    errors.append(f"home_inventory/CHANGELOG.md (shown in Home Assistant) has no '## {v}' entry")
+if len(sys.argv) > 1 and sys.argv[1] and sys.argv[1] != f"v{v}":
+    errors.append(f"tag {sys.argv[1]} doesn't match VERSION {v}")
+for e in errors:
+    print(f"::error::{e}")
+print(v if not errors else "")
+sys.exit(1 if errors else 0)

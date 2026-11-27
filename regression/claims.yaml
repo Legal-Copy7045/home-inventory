@@ -1,0 +1,82 @@
+# Every security and privacy claim Home Inventory makes (project standard 3.4). The claims reviewer checks each one
+# against the code; a delta audit re-checks those whose code changed. code: globs of the files that keep it.
+- id: CLM-001
+  claim: The App publishes no host ports; the UI is reachable only through Home Assistant Ingress.
+  where: [SECURITY.md, docs/security.md]
+  code: [home_inventory/config.yaml, home_inventory/Dockerfile, home_inventory/server/home_inventory_server/main.py]
+- id: CLM-002
+  claim: The integration API port answers only with the App-generated bearer token (constant-time comparison).
+  where: [docs/security.md]
+  code: [home_inventory/server/home_inventory_server/auth.py, home_inventory/server/home_inventory_server/main.py]
+- id: CLM-003
+  claim: Identity headers are accepted only from the Ingress proxy peer; other peers get 403, no identity gets 401.
+  where: [docs/security.md]
+  code: [home_inventory/server/home_inventory_server/auth.py, home_inventory/server/home_inventory_server/config.py]
+- id: CLM-004
+  claim: Nobody is made administrator automatically; the one-time setup code is single-use, in memory, rotated after 5 wrong tries and on restart, refused for read-only users, and claims are serialised.
+  where: [docs/security.md]
+  code: [home_inventory/server/home_inventory_server/auth.py, home_inventory/server/home_inventory_server/api/admin.py]
+- id: CLM-005
+  claim: Home Assistant's answer about who is an administrator wins over a forwarded admin flag; admin_users and read_only_users match user ids and usernames only, never display names; forwarded ids are validated and may not name the App's own identities.
+  where: [docs/security.md]
+  code: [home_inventory/server/home_inventory_server/auth.py, home_inventory/server/home_inventory_server/ha_api.py]
+- id: CLM-006
+  claim: Requests without a user act as a restricted Home Assistant identity that never sees customer data and is never an administrator (one exception - GET of a single repair job with the customer-message purpose).
+  where: [docs/security.md]
+  code: [home_inventory/server/home_inventory_server/auth.py, home_inventory/server/home_inventory_server/privacy.py, home_inventory/server/home_inventory_server/api/customers.py]
+- id: CLM-007
+  claim: Roles admin > member > read_only are enforced server-side on every endpoint; writes need member; users, settings, backup/restore and permanent deletion need admin; an administrator cannot remove their own admin role.
+  where: [docs/security.md, README.md]
+  code: [home_inventory/server/home_inventory_server/api/*.py, home_inventory/server/home_inventory_server/auth.py]
+- id: CLM-008
+  claim: Read-only users never see customers, customer equipment (any of its details), repair jobs or history about them; hidden records answer like missing ones.
+  where: [docs/security.md]
+  code: [home_inventory/server/home_inventory_server/privacy.py, home_inventory/server/home_inventory_server/api/*.py, home_inventory/server/home_inventory_server/services/*.py]
+- id: CLM-009
+  claim: Home Assistant events and notifications never carry customer details or customer equipment names.
+  where: [docs/security.md, docs/home-assistant.md]
+  code: [home_inventory/server/home_inventory_server/events.py, home_inventory/server/home_inventory_server/services/*.py, custom_components/home_inventory/*.py]
+- id: CLM-010
+  claim: The Container/Core sidebar proxy uses a single-use 60-second link, an HttpOnly SameSite=Strict cookie scoped to the proxy path, re-checks the user on every request, refuses cross-site writes and forwards only allow-listed headers.
+  where: [docs/security.md, docs/install-container-core.md]
+  code: [custom_components/home_inventory/panel.py]
+- id: CLM-011
+  claim: AI and barcode keys are never written to the repository or logs; the integration token is random (256 bits), mode 600 and redacted in diagnostics; the default AI provider holds no key.
+  where: [docs/security.md, home_inventory/DOCS.md]
+  code: [home_inventory/server/home_inventory_server/config.py, home_inventory/server/home_inventory_server/ai/*.py, home_inventory/server/home_inventory_server/services/*.py, custom_components/home_inventory/diagnostics.py]
+- id: CLM-012
+  claim: Uploads are typed by content, only JPEG/PNG/WebP/GIF and PDF; images are re-encoded (EXIF and GPS stripped) with pixel limits; storage names are random; size limits apply before the multipart parser spools to disk.
+  where: [docs/security.md]
+  code: [home_inventory/server/home_inventory_server/services/*.py, home_inventory/server/home_inventory_server/limits.py, home_inventory/server/home_inventory_server/api/attachments.py]
+- id: CLM-013
+  claim: Backup restore is admin-only and treats the archive as untrusted (entry allow-list, no traversal or symlinks, zip-bomb limits, SQLite integrity and schema checks, staged upgrade, rollback).
+  where: [docs/security.md, docs/storage-and-backup.md]
+  code: [home_inventory/server/home_inventory_server/services/*.py, home_inventory/server/home_inventory_server/api/admin.py]
+- id: CLM-014
+  claim: Strict CSP, Referrer-Policy, Permissions-Policy (camera only), no-store caching, CORP same-origin, no Server header; request bodies reject unknown fields; OpenAPI docs never on Ingress.
+  where: [docs/security.md]
+  code: [home_inventory/server/home_inventory_server/main.py, home_inventory/server/home_inventory_server/schemas.py]
+- id: CLM-015
+  claim: Product web-link imports resolve each hop once, allow only public addresses, connect to the checked IP (no DNS rebinding) and are size- and time-limited.
+  where: [docs/security.md]
+  code: [home_inventory/server/home_inventory_server/services/*.py, home_inventory/server/home_inventory_server/api/lookup.py]
+- id: CLM-016
+  claim: The companion integration talks to the App only on the local network, checked before every request and pinned to the checked address, and sends only the user id.
+  where: [SECURITY.md, docs/security.md, docs/home-assistant.md]
+  code: [custom_components/home_inventory/api.py, custom_components/home_inventory/config_flow.py, custom_components/home_inventory/*.py]
+- id: CLM-017
+  claim: Only product barcodes (GTIN/EAN/UPC) are looked up online; failed lookups never log the request URL or key.
+  where: [docs/security.md, home_inventory/DOCS.md]
+  code: [home_inventory/server/home_inventory_server/services/*.py, home_inventory/server/home_inventory_server/api/lookup.py]
+- id: CLM-018
+  claim: AI photo hand-off mounts no Home Assistant folders; temporary media is removed as soon as the call returns.
+  where: [docs/security.md, docs/voice.md]
+  code: [home_inventory/server/home_inventory_server/ai/*.py, home_inventory/server/home_inventory_server/ha_api.py, home_inventory/config.yaml]
+- id: CLM-019
+  claim: Per-user rate limits on AI calls, web-link imports and online barcode lookups (429 with Retry-After).
+  where: [docs/security.md]
+  code: [home_inventory/server/home_inventory_server/limits.py, home_inventory/server/home_inventory_server/api/*.py]
+- id: CLM-020
+  claim: No credentials or secrets are stored in the repository, and nothing identifies the owner (privacy guard, gitleaks).
+  where: [SECURITY.md, CLAUDE.md]
+  code: [.github/scripts/privacy_guard.py, .gitleaks.toml, .github/workflows/*.yml]

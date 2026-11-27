@@ -1,0 +1,7 @@
+# Every other place the version lives; check_versions.py checks each equals VERSION (STANDARD.md 2.1).
+- {file: home_inventory/config.yaml, yaml: version}
+- {file: custom_components/home_inventory/manifest.json, json: version}
+- {file: home_inventory/frontend/package.json, json: version}
+- {file: home_inventory/frontend/package-lock.json, json: version}
+- {file: home_inventory/server/pyproject.toml, regex: '(?m)^version\s*=\s*"([^"]+)"'}
+- {file: home_inventory/server/home_inventory_server/__init__.py, regex: '(?m)^__version__\s*=\s*"([^"]+)"'}

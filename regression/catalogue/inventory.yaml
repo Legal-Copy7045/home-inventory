@@ -1,31 +1,30 @@
-# Feature -> regular expressions over each check's "stage:ID key" (re.search, case-insensitive).
-area: Inventory
-features:
-  - name: Items
-    match: ['test_items\.py', 'test_use_one', 'test_identity_and_taking', 'page:\w+:/items', 'GET /api/v1/items(/|$)', 'page:\w+:/add$', 'items/']
-  - name: Locations and containers
-    match: ['test_location_import', 'test_placement', 'page:\w+:/(locations|containers)', 'GET /api/v1/(locations|containers)', 'manual:\S+ printed-label']
-  - name: Search and voice "where is"
-    match: ['test_search', 'test_textmatch', 'match\.test', 'page:\w+:/search', 'GET /api/v1/search', 'test_custom_sentences', 'test_names', 'manual:\S+ voice-']
-  - name: Barcodes, QR and labels
-    match: ['test_barcode_labels', 'test_weblink', 'page:\w+:/(scan|labels)', '/api/v1/(barcode|labels|qr|lookup)', 'manual:\S+ (barcode|printed-label)']
-  - name: Photos and AI capture
-    match: ['test_capture', 'test_ai\.py', 'test_ai_ratelimit', 'test_documents', 'page:\w+:/(capture|sort|to-finish|todo)', 'manual:\S+ (phone-camera|phone-offline|ai-photo)', 'test_ha_media_contract']
-  - name: Bulk actions and undo
-    match: ['test_bulk', 'page:\w+:/deleted', 'deleted-items', 'trash']
-  - name: Possible duplicates
-    match: ['test_duplicates', 'page:\w+:/duplicates', '/duplicates']
-  - name: Kits and relations
-    match: ['test_relations', 'page:\w+:/kits', '/api/v1/(kits|relation)']
-  - name: Loans and taken away
-    match: ['test_takeaway', 'page:\w+:/loans', '/api/v1/(loans|taken|temporary)']
-  - name: Categories
-    match: ['test_categories', 'page:\w+:/categories', '/api/v1/categories']
-  - name: NFC tags
-    match: ['test_tags', 'page:\w+:/(tags|tag/)', '/api/v1/tags', 'manual:\S+ nfc-']
-  - name: Visual maps
-    match: ['page:\w+:/maps', '/api/v1/maps', 'test_misc']
-  - name: Check inventory (verification) and shelf check-ups
-    match: ['test_verification', 'test_checkups', 'page:\w+:/verify', '/api/v1/(verifications|checkups|attention)', 'page:\w+:/put-away']
-  - name: Printable container checklist
-    match: ['test_container_checklist', 'page:\w+:/containers/:id/checklist', '/checklist', 'manual:\S+ printed-checklist']
+# Inventory: feature -> the checks that cover it (project standard 3.1).
+# match: regexes (re.search, case-insensitive) over "<stage>:<check key>"; manual checks are "manual:<key>".
+- feature: Items
+  match: ['test_items\.py', 'test_use_one', 'test_identity_and_taking', 'page:\w+:/items', 'GET /api/v1/items(/|$)', 'page:\w+:/add$', 'items/']
+- feature: Locations and containers
+  match: ['test_location_import', 'test_placement', 'page:\w+:/(locations|containers)', 'GET /api/v1/(locations|containers)', 'manual:printed-label']
+- feature: Search and voice "where is"
+  match: ['test_search', 'test_textmatch', 'match\.test', 'page:\w+:/search', 'GET /api/v1/search', 'test_custom_sentences', 'test_names', 'manual:voice-']
+- feature: Barcodes, QR and labels
+  match: ['test_barcode_labels', 'test_weblink', 'page:\w+:/(scan|labels)', '/api/v1/(barcode|labels|qr|lookup)', 'manual:(barcode|printed-label)']
+- feature: Photos and AI capture
+  match: ['test_capture', 'test_ai\.py', 'test_ai_ratelimit', 'test_documents', 'page:\w+:/(capture|sort|to-finish|todo)', 'manual:(phone-camera|phone-offline|ai-photo)', 'test_ha_media_contract']
+- feature: Bulk actions and undo
+  match: ['test_bulk', 'page:\w+:/deleted', 'deleted-items', 'trash']
+- feature: Possible duplicates
+  match: ['test_duplicates', 'page:\w+:/duplicates', '/duplicates']
+- feature: Kits and relations
+  match: ['test_relations', 'page:\w+:/kits', '/api/v1/(kits|relation)']
+- feature: Loans and taken away
+  match: ['test_takeaway', 'page:\w+:/loans', '/api/v1/(loans|taken|temporary)']
+- feature: Categories
+  match: ['test_categories', 'page:\w+:/categories', '/api/v1/categories']
+- feature: NFC tags
+  match: ['test_tags', 'page:\w+:/(tags|tag/)', '/api/v1/tags', 'manual:nfc-']
+- feature: Visual maps
+  match: ['page:\w+:/maps', '/api/v1/maps', 'test_misc']
+- feature: Check inventory (verification) and shelf check-ups
+  match: ['test_verification', 'test_checkups', 'page:\w+:/verify', '/api/v1/(verifications|checkups|attention)', 'page:\w+:/put-away']
+- feature: Printable container checklist
+  match: ['test_container_checklist', 'page:\w+:/containers/:id/checklist', '/checklist', 'manual:printed-checklist']

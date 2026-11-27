@@ -1,6 +1,6 @@
-area: Customers and repairs
-features:
-  - name: Customers
-    match: ['test_customers', 'page:\w+:/customers', '/api/v1/customers']
-  - name: Repair jobs, work orders and invoices
-    match: ['test_customers', 'page:\w+:/repairs', '/api/v1/repair-jobs', 'reservations']
+# Customers and repairs: feature -> the checks that cover it (project standard 3.1).
+# match: regexes (re.search, case-insensitive) over "<stage>:<check key>"; manual checks are "manual:<key>".
+- feature: Customers
+  match: ['test_customers', 'page:\w+:/customers', '/api/v1/customers']
+- feature: Repair jobs, work orders and invoices
+  match: ['test_customers', 'page:\w+:/repairs', '/api/v1/repair-jobs', 'reservations']
