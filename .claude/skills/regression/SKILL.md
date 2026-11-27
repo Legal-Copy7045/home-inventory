@@ -13,6 +13,13 @@ Everything lives in `regression/` (see `regression/README.md`). The runner is
 
 ## Steps
 
+0. **Bring the suite up to date** first: for features added since the last run
+   (`git log` since the commit in the last `regression/RUNS.md` line), add a
+   feature to `regression/catalogue/*.yaml` with patterns for its checks, and a
+   line to `regression/manual.yaml` for anything only a person can check. If a
+   new feature has no automated test at all, say so in the report (writing
+   product tests is a separate change the owner decides on).
+
 1. **Start the stages in the background** from the repository root:
 
    ```bash
@@ -24,13 +31,13 @@ Everything lives in `regression/` (see `regression/README.md`). The runner is
 
    | Stage | What it does |
    |---|---|
-   | `quality` | ruff (App, integration, tools), TypeScript type-check, version consistency, bandit (medium+), pip-audit, npm audit (high+), privacy guard, gitleaks over the whole history |
-   | `tests` | App pytest, frontend vitest, this runner's own tests, integration tests (when the Home Assistant test packages are installed; `HINV_HA_PYTHON` points at them) |
-   | `browser` | builds the frontend; the existing smoke test on an empty App; then a seeded App (`tools/demo/seed.py` + `regression/qc/seed_extra.py`): every page for admin, member and read-only, and every GET endpoint for each role, without a signed-in person, and on the token-protected API port |
+   | `ci` | ruff (App, integration, tools), TypeScript type-check, version consistency, bandit (medium+), pip-audit, npm audit (high+), privacy guard, gitleaks over the whole history |
+   | `unit` | App pytest, frontend vitest, this runner's own tests, integration tests (when the Home Assistant test packages are installed; `HINV_HA_PYTHON` points at them) |
+   | `page` | builds the frontend; the existing smoke test on an empty App; then a seeded App (`tools/demo/seed.py` + `regression/qc/seed_extra.py`): every page for admin, member and read-only, and every GET endpoint for each role, without a signed-in person, and on the token-protected API port |
    | `live` | read-only: the GitHub release and both ghcr images for the current version; the running App only if `HINV_LIVE_URL` is set (it is local-only, so usually not reachable from a cloud session) |
    | `manual` | `regression/manual.yaml`, with the latest results from `regression/manual-log.yaml` (a result only counts for the version it was recorded on) |
 
-   One stage: `--stage tests` (repeatable). Ports used: 18199–18202.
+   One stage: `--stage unit` (repeatable). Ports used: 18199–18202.
 
 2. **At the same time, launch the security audit**: three fresh reviewers,
    in parallel, with the Agent tool (`general-purpose`, `run_in_background:
@@ -93,6 +100,9 @@ Everything lives in `regression/` (see `regression/README.md`). The runner is
    ```bash
    python3 regression/run.py report RUN
    ```
+
+   (`python3 regression/report.py RUN` renders and logs in one go, once the
+   link is in `regression/published.yaml`.)
 
 5. **Publish** `RUN/regression/report.html` as a private artifact (Artifact
    tool, icon `checklist`). If `regression/published.yaml` has a

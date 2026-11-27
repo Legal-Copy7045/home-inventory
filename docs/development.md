@@ -61,6 +61,19 @@ HINV_DATA_DIR=/tmp/e2e HINV_TRUSTED_PROXIES=127.0.0.1 HINV_ADMIN_USERS=e2e-user 
 node tests/e2e/smoke.mjs /tmp/screenshots
 ```
 
+## CI and its cost
+
+GitHub Actions minutes are limited, so CI (`.github/workflows/ci.yaml`) runs once per pull request:
+
+- **Open pull requests as drafts.** Drafts get no CI. Run the checks above locally, then mark the PR ready: CI runs once, and again only for new pushes. Merging to `main` doesn't run it again.
+- **Only what a PR touches.** A small `changes` job reads `git diff` against the base. The App's unit tests, the Home Assistant tests with the browser smoke test, and the two image builds run only when the PR changes what they test. Lint, the frontend build, the security job, hassfest, HACS and the version check always run. A skipped job counts as passed for required checks.
+- **Weekly full run.** `main` gets every job on Mondays, and on demand (Actions → CI → Run workflow).
+- **CodeQL** (`codeql.yml`) runs weekly and on demand, not on pull requests. GitHub's "default setup" for code scanning must stay switched off (Settings → Code security), or both run.
+- **Dependabot** opens one grouped pull request a month per ecosystem (Actions, pip, npm).
+- **Still on every push:** the privacy guard (a few seconds), because this repository is public. **On version changes:** the release workflow, which publishes the images.
+
+Security trade-off: a problem CodeQL would find, or an image vulnerability the image scan would find, can take up to a week to show up instead of appearing on the pull request. The dependency audit and the secret scan still run on every pull request.
+
 ## Releasing
 
 See [publishing.md](publishing.md) for version bumps, GitHub releases, prebuilt images and the HACS listing.

@@ -1,15 +1,56 @@
 name: CI
 
+# GitHub Actions minutes are limited (see docs/development.md, "CI and its cost"):
+# - pull requests only, never drafts: open a PR as a draft and mark it ready once
+#   local checks pass, so CI runs once; no second run when it merges to main;
+# - main gets one full run a week, and any time on demand;
+# - the slow jobs (Home Assistant tests with the browser smoke test, the two image
+#   builds) and the App's unit tests run only when the PR touches what they test.
+# Job names are unchanged: skipped jobs count as passed for required checks.
 on:
-  push:
-    branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    - cron: "37 5 * * 1"  # Mondays 05:37 UTC, everything
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # What the pull request touches, so slow jobs run only when they test it.
+  changes:
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    outputs:
+      server: ${{ steps.diff.outputs.server }}
+      app: ${{ steps.diff.outputs.app }}
+      image: ${{ steps.diff.outputs.image }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          files="$(git diff --name-only "$BASE"...HEAD)"
+          echo "$files"
+          has() { if grep -qE "$1" <<<"$files"; then echo true; else echo false; fi; }
+          ci='^\.github/workflows/ci\.yaml$'
+          echo "server=$(has "^home_inventory/server/|^regression/|$ci")" >> "$GITHUB_OUTPUT"
+          echo "app=$(has "^home_inventory/(server|frontend)/|^custom_components/|^tests/|^deploy/|^pytest\.ini$|$ci")" >> "$GITHUB_OUTPUT"
+          echo "image=$(has "^home_inventory/(Dockerfile|build\.yaml|config\.yaml|server/|frontend/)|^deploy/standalone/|$ci")" >> "$GITHUB_OUTPUT"
+
   backend:
+    needs: changes
+    # Weekly and on demand: always. On a PR: when it touches what this tests.
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.changes.outputs.server == 'true')) }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -24,6 +65,7 @@ jobs:
       - run: pytest -q
 
   frontend:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -40,6 +82,9 @@ jobs:
       - run: npm run build
 
   integration:
+    needs: changes
+    # Weekly and on demand: always. On a PR: when it touches what this tests.
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.changes.outputs.app == 'true')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
@@ -73,6 +118,7 @@ jobs:
   # Security checks.  Thresholds are chosen to fail on actionable problems
   # only; see docs/security.md ("Automated checks") for the reasoning.
   security:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -99,12 +145,14 @@ jobs:
           docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.24.3 git /repo --redact --no-banner -c /repo/.gitleaks.toml
 
   hassfest:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
       - uses: home-assistant/actions/hassfest@9e9565e68f5a70d874202871f4c4064d23814235  # master
 
   hacs:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     steps:
       - uses: hacs/action@1ebf01c408f29afcb6406bd431bc98fd8cbb15aa  # main
@@ -115,6 +163,7 @@ jobs:
           ignore: brands topics
 
   app-lint:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
@@ -125,6 +174,9 @@ jobs:
         run: python3 .github/scripts/check_versions.py
 
   standalone-build:
+    needs: changes
+    # Weekly and on demand: always. On a PR: when it touches what this tests.
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.changes.outputs.image == 'true')) }}
     # Home Assistant Container/Core installs: the companion container is built
     # from deploy/standalone/docker-compose.yaml on plain python:alpine, with
     # no Supervisor. Build it exactly as the install guide says and check the
@@ -151,6 +203,9 @@ jobs:
         run: docker compose down
 
   app-build:
+    needs: changes
+    # Weekly and on demand: always. On a PR: when it touches what this tests.
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.changes.outputs.image == 'true')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4

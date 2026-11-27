@@ -1,0 +1,38 @@
+# CodeQL code scanning, weekly and on demand (not on every pull request: GitHub
+# Actions minutes are limited). Trade-off: a newly introduced issue can take up
+# to a week to show up in Security > Code scanning. See docs/development.md.
+# Replaces GitHub's "default setup", which must be switched off in
+# Settings > Code security > Code scanning so the two don't both run.
+name: CodeQL
+
+on:
+  schedule:
+    - cron: "13 6 * * 3"  # Wednesdays 06:13 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, javascript-typescript, actions]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@915412ff23e8b7659517e607487dbeae018f2934  # v4.39.5
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+      - uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934  # v4.39.5
+        with:
+          category: "/language:${{ matrix.language }}"

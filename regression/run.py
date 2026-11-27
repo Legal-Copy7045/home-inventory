@@ -41,6 +41,7 @@ from qc.results import load_run, load_stage, save_stage  # noqa: E402
 from qc.stages import (  # noqa: E402
     ALL_STAGES,
     REGRESSION_STAGES,
+    STAGE_ALIASES,
     STAGE_FUNCS,
     Ctx,
     app_version,
@@ -59,7 +60,7 @@ def git(*args: str) -> str:
 
 def select_stages(stages: list[str] | None, with_walkthrough: bool) -> tuple[list[str], bool]:
     """Which regression stages run, and whether the walkthrough runs."""
-    chosen = list(dict.fromkeys(stages or []))
+    chosen = list(dict.fromkeys(STAGE_ALIASES.get(s, s) for s in (stages or [])))
     for s in chosen:
         if s not in ALL_STAGES:
             raise SystemExit(f"unknown stage {s!r}; choose from {', '.join(ALL_STAGES)}")
@@ -196,7 +197,7 @@ def run_track(name: str, stages: list[str], ctx: Ctx, built, ids_today: str) -> 
         ctx.log(f"== {st}")
         fn = STAGE_FUNCS[st]
         try:
-            res = fn(ctx, built) if st in ("browser", "walkthrough") else fn(ctx)
+            res = fn(ctx, built) if st in ("page", "walkthrough") else fn(ctx)
         except Exception as e:  # noqa: BLE001 - one broken stage must not lose the others' results
             from qc.results import Check, StageResult
             res = StageResult(st, [Check(st, f"{st}:(stage)", "fail", f"stage crashed: {e!r}")], complete=False)
@@ -255,7 +256,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"[{prefix}] {msg}", flush=True)
         return log
 
-    built = build_frontend(logger("prepare")) if ({"browser"} & set(reg) or walk) else None
+    built = build_frontend(logger("prepare")) if ({"page"} & set(reg) or walk) else None
     today = dt.date.today().isoformat()
     threads = []
     if reg:

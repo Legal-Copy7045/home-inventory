@@ -7,12 +7,12 @@ features:
   - name: Uploads and backups
     match: ['test_backup_security', 'test_upgrades', 'manual:\S+ (ha-backup|app-update)']
   - name: Home Assistant integration
-    match: ['^tests:\S+ integration:', 'test_local_only', 'manual:\S+ (integration-|ha-sidebar|push-)', 'test_alexa_lambda']
+    match: ['^unit:\S+ integration:', 'test_local_only', 'manual:\S+ (integration-|ha-sidebar|push-)', 'test_alexa_lambda']
   - name: Settings and admin
     match: ['page:\w+:/settings', '/api/v1/(admin|settings|users|me)', 'test_misc']
   - name: Web app shell (menus, offline, PWA)
     match: ['api\.test', 'e2e:smoke', 'build:frontend', 'typecheck:', 'manual:\S+ (dark-theme|phone-layout)']
   - name: Code quality and supply chain
-    match: ['^quality:']
+    match: ['^ci:']
   - name: Published release and images
     match: ['^live:', 'versions:', 'manual:\S+ standalone-container']

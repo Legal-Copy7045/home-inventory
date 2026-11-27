@@ -13,7 +13,7 @@ from pathlib import Path
 
 import yaml
 
-PREFIX = {"quality": "Q", "tests": "T", "browser": "B", "live": "L", "manual": "M", "walkthrough": "U",
+PREFIX = {"ci": "Q", "unit": "T", "page": "B", "live": "L", "manual": "M", "walkthrough": "U",
           "findings": "F", "ux-findings": "W"}
 
 

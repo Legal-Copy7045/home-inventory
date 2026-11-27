@@ -1,4 +1,4 @@
-# Stable IDs for the tests checks. Written by regression/run.py.
+# Stable IDs for the unit checks. Written by regression/run.py.
 # Never renumber or reuse an ID; a check that goes away is marked retired.
 prefix: T
 next: 670

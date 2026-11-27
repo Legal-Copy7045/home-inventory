@@ -19,8 +19,8 @@ From the repository root, with the App's Python dependencies, Node, and
 Playwright with Chromium installed:
 
 ```bash
-python3 regression/run.py                       # quality, tests, browser, live, manual
-python3 regression/run.py --stage browser       # one stage (repeat --stage for more)
+python3 regression/run.py                       # ci, unit, page, live, manual
+python3 regression/run.py --stage page          # one stage (repeat --stage for more)
 python3 regression/run.py --stage walkthrough   # the walkthrough crawl only
 python3 regression/run.py --with-walkthrough    # both, in parallel
 python3 regression/run.py summary               # summary of the latest run
@@ -42,7 +42,8 @@ JSON, reports, screenshots, and the throwaway Apps' data and logs.
 | Path | What it is |
 |---|---|
 | `run.py` | The runner. |
-| `qc/stages.py` | The stages: `quality`, `tests`, `browser`, `live`, `manual`, `walkthrough`. |
+| `qc/stages.py` | The stages: `ci` (lint, security scans, dependency audit), `unit` (every test suite), `page` (every page and API endpoint per role), `live` (read-only), `manual`, and `walkthrough`. The names before 0.43.1 (`quality`, `tests`, `browser`) still work with `--stage`. |
+| `report.py` | Renders a run's reports with the reviewers' findings and logs it (`run.py report` + `run.py log`). |
 | `qc/server.py`, `qc/seed_extra.py` | A throwaway App on its own ports and data folder, with the demo household. |
 | `browser/pages.mjs` | Regression page pass (Playwright). |
 | `walkthrough/crawl.mjs` | Walkthrough crawl (Playwright). |
@@ -59,9 +60,9 @@ JSON, reports, screenshots, and the throwaway Apps' data and logs.
 
 IDs are short (`T0042`); keys say what was checked:
 
-- `quality`: `ruff:server`, `bandit:server`, `audit:python`, `secrets:gitleaks-history`...
-- `tests`: `server:tests/test_items.py::test_move`, `frontend:src/match.test.ts::...`, `integration:...`, `qc:...`
-- `browser`: `page:<role>:<route>`, `api:<ingress|api>:<role|anon>:GET <path>`, `headers:ingress:<header>`, `e2e:smoke`
+- `ci`: `ruff:server`, `bandit:server`, `audit:python`, `secrets:gitleaks-history`...
+- `unit`: `server:tests/test_items.py::test_move`, `frontend:src/match.test.ts::...`, `integration:...`, `qc:...`
+- `page`: `page:<role>:<route>`, `api:<ingress|api>:<role|anon>:GET <path>`, `headers:ingress:<header>`, `e2e:smoke`
 - `live`: `release:current-version`, `image:<arch>`, `app:health`
 - `manual`: the key in `manual.yaml`
 - `walkthrough`: `<check>:<desktop|phone>:<route>`
