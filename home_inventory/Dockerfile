@@ -25,7 +25,9 @@ ENV S6_KEEP_ENV=1 \
 WORKDIR /app
 COPY server/pyproject.toml server/README.md /app/server/
 COPY server/home_inventory_server /app/server/home_inventory_server
-RUN pip install /app/server && rm -rf /root/.cache
+# The base image's setuptools is old (CVE-2025-47273) and its tempio template tool is built with an old Go; the App
+# uses neither (it starts python3 directly), so setuptools is upgraded and tempio removed for the image scan.
+RUN pip install /app/server "setuptools>=78.1.1" && rm -rf /root/.cache && rm -f /usr/bin/tempio
 COPY --from=frontend /out /app/static
 
 # Used by Docker and the Supervisor watchdog.

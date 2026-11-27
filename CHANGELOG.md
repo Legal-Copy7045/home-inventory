@@ -7,7 +7,7 @@ Each section is the text of its GitHub release. Versions up to 0.43.1 are descri
 
 ## [0.44.0] - 2026-11-27
 
-No change to the App or the integration: how the project is built, checked and released now follows the owner's
+No change to how the App or the integration works: how the project is built, checked and released now follows the owner's
 project standard 1.1.0 (`.github/standard.yaml`).
 
 ### Changed
@@ -21,6 +21,10 @@ project standard 1.1.0 (`.github/standard.yaml`).
   changelog.
 - Dependabot weekly on Sunday, grouped minor and patch updates that merge themselves once CI passes; majors wait.
 - The Trivy image scan now fails on fixable HIGH vulnerabilities as well as CRITICAL ones.
+
+### Security
+- The App image upgrades the base image's setuptools (CVE-2025-47273) and leaves out its unused `tempio` tool,
+  which was built with a Go version that has known HIGH vulnerabilities.
 - The privacy guard is the standard's (history lines, photo metadata without Pillow) plus this repository's scan of
   binary and large files; the private terms are checked on `main`, from the `privacy` environment.
 - Regression runner: answers the standard's commands (`check`, `brief`, `report`, `log`, `summary`, `manual`, `schema`,
